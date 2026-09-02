@@ -1,0 +1,13 @@
+import * as THREE from 'three';
+const canvas = document.getElementById('game-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(innerWidth, innerHeight, false);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x6ec6ff);
+const cam = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, .1, 100);
+cam.position.set(0,2,5); cam.lookAt(0,0,0);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 2));
+const cube = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshStandardMaterial({color:0xffcc44}));
+scene.add(cube);
+renderer.setAnimationLoop((t)=>{ cube.rotation.y = t/1000; renderer.render(scene,cam); });
+window.__DQ = { ready:true, state:()=>({scene:'smoke-test'}) };

@@ -1,0 +1,30 @@
+{
+  "scenario": "default",
+  "url": "http://localhost:8177/",
+  "viewport": {
+    "w": 1280,
+    "h": 720
+  },
+  "shots": [
+    "01-01-boot.png",
+    "02-02-after-enter.png",
+    "03-03-walk.png",
+    "04-04-idle.png"
+  ],
+  "notes": [],
+  "assertions": [],
+  "consoleErrors": [],
+  "consoleWarnings": [],
+  "pageErrors": [],
+  "failedRequests": [],
+  "perf": {
+    "avgFps": 119.9,
+    "longFrames": 0,
+    "seconds": 5.2
+  },
+  "finalState": {
+    "scene": "smoke-test"
+  },
+  "ok": true,
+  "fatal": null
+}

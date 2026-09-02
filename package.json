@@ -1,0 +1,14 @@
+{
+  "name": "dragon-quest-v-browser",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "node tools/server.mjs",
+    "shoot": "node tools/shoot.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.62.1",
+    "three": "^0.180.0"
+  }
+}

@@ -1,0 +1,15 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>DEMO — piece</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}
+#game-canvas{display:block;width:100vw;height:100vh}#ui-root{position:fixed;inset:0;pointer-events:none}</style>
+</head><body>
+<canvas id="game-canvas"></canvas><div id="ui-root"></div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// Import ONLY your own module(s) + shared foundation. Show the piece at its best.
+// Must set window.__DQ = { ready:true, state:()=>({...}) } once the first frame has drawn,
+// and should expose demo controls on __DQ so a critic can drive it.
+</script></body></html>

@@ -1,0 +1,446 @@
+{
+  "updated": "2026-09-02T16:47:47.515Z",
+  "wave": 0,
+  "waveTitle": "Foundation",
+  "pieces": {
+    "F1": {
+      "id": "F1",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Engine core — loop, scenes, events, debug API"
+    },
+    "F2": {
+      "id": "F2",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Input — keyboard, gamepad, touch"
+    },
+    "F3": {
+      "id": "F3",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Art foundation — palette, toon shading, textures"
+    },
+    "F4": {
+      "id": "F4",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "UI shell — the DQ command window & text engine"
+    },
+    "F5": {
+      "id": "F5",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Save / load / slots"
+    },
+    "P01": {
+      "id": "P01",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Title screen & intro"
+    },
+    "P02": {
+      "id": "P02",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Sky, sun, clouds, day-night, weather"
+    },
+    "P03": {
+      "id": "P03",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Terrain — hills, grass, paths, water"
+    },
+    "P04": {
+      "id": "P04",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Props & set dressing"
+    },
+    "P05": {
+      "id": "P05",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Buildings — houses, inn, church, castle"
+    },
+    "P06": {
+      "id": "P06",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Interiors & furniture"
+    },
+    "P07": {
+      "id": "P07",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Character models"
+    },
+    "P08": {
+      "id": "P08",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Character animation"
+    },
+    "P09": {
+      "id": "P09",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Camera"
+    },
+    "P10": {
+      "id": "P10",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Player movement & collision feel"
+    },
+    "P11": {
+      "id": "P11",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "NPC life"
+    },
+    "P12": {
+      "id": "P12",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Dialogue & the writing voice"
+    },
+    "P13": {
+      "id": "P13",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Menus"
+    },
+    "P14": {
+      "id": "P14",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Battle core"
+    },
+    "P15": {
+      "id": "P15",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Battle presentation"
+    },
+    "P16": {
+      "id": "P16",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Monsters — roster & models"
+    },
+    "P17": {
+      "id": "P17",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Monster recruitment (the DQV signature)"
+    },
+    "P18": {
+      "id": "P18",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Party & wagon"
+    },
+    "P19": {
+      "id": "P19",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Stats, growth, level-up ceremony"
+    },
+    "P20": {
+      "id": "P20",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Spells & spell VFX"
+    },
+    "P21": {
+      "id": "P21",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Items & equipment"
+    },
+    "P22": {
+      "id": "P22",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Shops, inns, churches, economy"
+    },
+    "P23": {
+      "id": "P23",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "World maps"
+    },
+    "P24": {
+      "id": "P24",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Story ch.1 — childhood"
+    },
+    "P25": {
+      "id": "P25",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Story ch.2-3 — the bride & fatherhood"
+    },
+    "P26": {
+      "id": "P26",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Cutscenes, flags, quests"
+    },
+    "P27": {
+      "id": "P27",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Music — the symphonic score"
+    },
+    "P28": {
+      "id": "P28",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Sound effects & mixer"
+    },
+    "P29": {
+      "id": "P29",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Transitions & screen FX"
+    },
+    "P30": {
+      "id": "P30",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Discovery — chests, secrets, treasure"
+    },
+    "P31": {
+      "id": "P31",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Encounters"
+    },
+    "P32": {
+      "id": "P32",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Field HUD & wayfinding"
+    },
+    "P33": {
+      "id": "P33",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Accessibility & kid-mode"
+    },
+    "P34": {
+      "id": "P34",
+      "status": "todo",
+      "score": 0,
+      "best": 0,
+      "rounds": 0,
+      "gap": "",
+      "note": "",
+      "history": [],
+      "name": "Performance"
+    }
+  },
+  "events": [
+    {
+      "at": "2026-09-02T16:47:47.411Z",
+      "t": "— Wave 0: Foundation —"
+    },
+    {
+      "at": "2026-09-02T16:47:47.515Z",
+      "t": "Harness online: real WebGL headless Chromium, 120fps, screenshots + console capture."
+    }
+  ]
+}
