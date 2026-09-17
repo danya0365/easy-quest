@@ -196,7 +196,12 @@ function envelope(p, T, o, peak) {
   p.linearRampToValueAtTime(peak, T + a);
   let t = T + a;
   if (h > 0) { t += h; p.setValueAtTime(peak, t); }
-  if (o.s) {
+  if (o.pts) {
+    // a drawn decay: [seconds after the peak, level relative to it] points joined by exponential ramps, then gone
+    const t0 = t;
+    for (const [dt, lv] of o.pts) { t = Math.max(t + 0.001, t0 + dt); p.exponentialRampToValueAtTime(Math.max(1e-4, peak * lv), t); }
+    t += Math.max(0.006, o.r ?? 0.03); p.exponentialRampToValueAtTime(peak * 5e-4, t);
+  } else if (o.s) {
     const sl = Math.max(1e-4, peak * o.s);
     t += d; p.exponentialRampToValueAtTime(sl, t);
     t += Math.max(0, o.sd ?? 0.1); p.setValueAtTime(sl, t);
@@ -723,21 +728,51 @@ function bodyBus(E, drive, inGain, outGain, lpHz = 8000) {
   return inG;
 }
 
-/** The sword's body into `bus` (swish, thwack, a faint ring of the blade), plus the air it drags behind it. */
-function blade(E, t, bus, k = 1, dir = 1, lo = 1) {
+/** The sword's body into `bus` (swish, thwack, a faint ring of the blade), plus the air it drags behind it.
+ *  `tail` > 0: the plain hit's long "shaaa" at that level (the air hangs on ~300 ms instead of ~120); `sw` scales the swish. */
+function blade(E, t, bus, k = 1, dir = 1, lo = 1, tail = 0, sw = 1) {
   // every swing a little different: brightness, how long the swish and the air hang on
   const br = E.rr(0.93, 1.08) * lo, a = BODY_A, sd = E.rr(0.15, 0.19), air = E.rr(0.8, 1.1);
-  noise(E, { to: bus, t, a, d: sd, g: 0.42 * k, filters: [{ type: 'bandpass', f: 3000 * br, fp: [[0.03, 2100 * br], [0.15, 1300 * br]], Q: 2 }],
+  noise(E, { to: bus, t, a, d: sd, g: 0.42 * k * sw, filters: [{ type: 'bandpass', f: 3000 * br, fp: [[0.03, 2100 * br], [0.15, 1300 * br]], Q: 2 }],
     drive: 2.2, driveIn: 5, os: 'none', post: [{ type: 'lowpass', f: 5000, nojit: true }], panSweep: [-0.25 * dir, 0.25 * dir, 0.12] });
   tone(E, { to: bus, t, type: 'triangle', f: 720 * lo, f1: 290 * lo, ft: 0.05, a, d: sd * 0.78, g: 0.17 * k });
   bell(E, { to: bus, t, f: 2350 * br, g: 0.05 * k, d: 0.16, a, partials: [[1, 1, 1], [1.53, 0.5, 0.7], [2.21, 0.3, 0.5]] });
-  noise(E, { t: t + 0.0265, color: 'pink', a: 0.015, d: 0.5 * air, g: 0.26 * k * air, filters: [{ type: 'bandpass', f: 2600 * br, f1: 1000, ft: 0.25, Q: 1.6 }], panSweep: [0.2 * dir, 0.5 * dir, 0.25] });
+  if (!tail) {
+    noise(E, { t: t + 0.0265, color: 'pink', a: 0.015, d: 0.5 * air, g: 0.26 * k * air, filters: [{ type: 'bandpass', f: 2600 * br, f1: 1000, ft: 0.25, Q: 1.6 }], panSweep: [0.2 * dir, 0.5 * dir, 0.25] });
+    return;
+  }
+  // the long air: two broad bands of white noise, one each side and one a little higher (dense, so it thins away smoothly
+  // rather than in grains), falling as it trails off across the field: ~-3 dB by 150 ms, ~-4 dB by 250 ms, gone by ~420 ms
+  const pts = [[0.05, 0.8], [0.14, 0.7], [0.24, 0.68], [0.3, 0.4], [0.37, 0.08]];
+  for (const side of [-1, 1]) {
+    const hi = side > 0 ? 1.2 : 1;
+    noise(E, { t: t + 0.008, a: 0.012, pts, r: 0.06, g: 0.5 * tail * (0.6 + air * 0.4),
+      filters: [{ type: 'bandpass', f: 2400 * br * hi, fp: [[0.1, 1600 * br * hi], [0.32, 900 * br * hi]], Q: 0.6 }, { type: 'lowpass', f: 5000, nojit: true }], panSweep: [0.15 * dir + 0.45 * side, 0.45 * dir + 0.35 * side, 0.3] });
+  }
 }
 
-S('sword_hit', { ...IMPACT, gain: 0.81, pj: 0.5, poly: 4, desc: 'zush! a sharp snap, a bright swish and a thwack' }, (E) => {
+/**
+ * DOSH — the weight under a hit, from the moment its snap ends: a sine sliding down an octave (`f` -> f/2 by `slide`),
+ * softly driven so its 3rd and 5th harmonics still say "dosh" on a small speaker, and a short knock in the low mids.
+ * Envelope: swells in over BODY_A, holds `h`, then falls away over `d` (~-10 dB every 0.15 d); or eases to `s` by `d`,
+ * holds `hold` and lets go over `rel`.
+ */
+function dosh(E, t, o = {}) {
+  const a = BODY_A, f = o.f ?? 120;
+  tone(E, { t, type: 'sine', f, fp: [[(o.slide ?? 0.09) * 0.3, f * 0.72], [o.slide ?? 0.09, f * 0.5]], a, h: o.h ?? 0, d: o.d ?? 0.2, s: o.s, sd: o.hold, r: o.rel,
+    g: o.g ?? 0.2, drive: o.drive ?? 1.8, driveIn: 1, os: 'none', post: [{ type: 'lowpass', f: o.lp ?? 800, nojit: true }] });
+  if (o.kg) {
+    const k = o.k ?? 360;
+    tone(E, { t, type: o.kType ?? 'sine', f: k, f1: k * 0.68, ft: 0.035, a, h: o.kh ?? 0.004, d: o.kd ?? 0.07, g: o.kg });
+  }
+}
+
+S('sword_hit', { ...IMPACT, gain: 0.62, pulse: [0.5, 0.003, 0.018, 0.09], pj: 0.5, poly: 4, desc: 'zubash! a sharp snap, a thick "dosh" body, a bright swish that trails away' }, (E) => {
   const dir = E.r() < 0.5 ? -1 : 1, len = 0.0035;
-  snap(E, 0, { g: 0.75, len, f: 1800 * E.rr(0.94, 1.06), hp: 1500, nlp: 7000, lp: 12000 });
-  blade(E, len, bodyBus(E, 2.5, 1.8, 0.28, 6000), 1, dir);
+  snap(E, 0, { g: 1.03, len, f: 1800 * E.rr(0.94, 1.06), hp: 1500, nlp: 7000, lp: 12000 });
+  blade(E, len, bodyBus(E, 2.5, 1.8, 0.28, 6000), 1, dir, 1, 1, 0.52);
+  const w = E.rr(0.94, 1.07);
+  dosh(E, len, { f: 122 * w, slide: 0.09, g: 0.21, h: 0.012, d: 0.22, k: 380 * w, kg: 0.19, kd: 0.08 });
 });
 
 S('sword_crit', { ...IMPACT, send: 0.07, pj: 0.35, poly: 3, pulse: [0.3, 0.003, 0.12, 0.25],
@@ -777,18 +812,22 @@ S('player_hurt', { ...IMPACT, gain: 0.82, pj: 0.9, poly: 3, desc: 'DOSH — the 
   tone(E, { t: 0.05, type: 'triangle', f: 150, f1: 110, ft: 0.25, a: 0.03, h: rh, d: 0.12, g: 0.12, am: { ...am } });
 });
 
-S('monster_hurt', { ...IMPACT, gain: 0.81, send: 0.015, pj: 0.9, vj: 0.06, fj: 0.1, poly: 4, desc: 'bshk! a snap, a rubbery bop and a little "pyu"' }, (E) => {
+S('monster_hurt', { ...IMPACT, gain: 0.68, pulse: [0.5, 0.003, 0.018, 0.09], send: 0.015, pj: 0.9, vj: 0.06, fj: 0.1, poly: 4, desc: 'bshk-BOF! a snap, a rubbery bop with weight under it, and a little "pyu"' }, (E) => {
   const len = 0.0045, a = BODY_A, bus = bodyBus(E, 2, 2.2, 0.36);
-  snap(E, 0, { g: 1.08, len, f: 2000 * E.rr(0.94, 1.06), hp: 1000, nlp: 6500, lp: 10000 });
+  snap(E, 0, { g: 1.25, len, f: 2000 * E.rr(0.94, 1.06), hp: 1000, nlp: 6500, lp: 10000 });
   // the bop: a rubbery pulse, quick to fall
   const bop = E.rr(0.9, 1.12);
   tone(E, { to: bus, t: len, type: 'pulse25', f: 600 * bop, fp: [[0.06, 210 * bop]], a, d: E.rr(0.085, 0.115), g: 0.42, drive: 1.8, driveIn: 2.5, os: 'none', post: [{ type: 'lowpass', f: 6000, f1: 2700, ft: 0.08 }] });
   // the smack of hide
   noise(E, { to: bus, t: len, a, d: 0.1, g: 0.3, filters: [{ type: 'bandpass', f: 1600, f1: 800, ft: 0.05, Q: 1.1 }], drive: 2, driveIn: 4, os: 'none', post: [{ type: 'lowpass', f: 3500, nojit: true }] });
-  // and once the bop has gone, the monster's little "pyu" (up and down again), kept in the mids for any speaker
-  const y = E.rr(0.92, 1.1), yt = E.rr(0.068, 0.085), yd = E.rr(0.095, 0.125), yfp = [[0.03, 1300 * y], [0.14, 620 * y]];
-  tone(E, { t: yt, type: 'triangle', f: 950 * y, fp: yfp, a: 0.025, d: yd, g: 0.35 });
-  tone(E, { t: yt, type: 'pulse25', f: 950 * y, fp: yfp, a: 0.025, d: yd * 0.68, g: 0.1, filter: { type: 'lowpass', f: 2600 } });
+  // BOF: a round, bouncy weight under the bop (higher and quicker than the sword's)
+  dosh(E, len, { f: 150 * bop, slide: 0.06, g: 0.25, h: 0.02, d: 0.16, k: 300 * bop, kType: 'triangle', kg: 0.14, kh: 0.02, kd: 0.12 });
+  // as the bop goes, the monster's little "pyu-u-u": up and down again with a jiggle (a Gloop wobbling back into shape),
+  // kept in the mids for any speaker
+  const y = E.rr(0.92, 1.1), yt = E.rr(0.046, 0.052), yfp = [[0.03, 1300 * y], [0.22, 580 * y]], jr = E.rr(13, 16);
+  const pyu = [[0.04, 0.85], [0.1, 0.55], [0.16, 0.3], [0.2, 0.12]];
+  tone(E, { t: yt, type: 'triangle', f: 950 * y, fp: yfp, a: 0.02, pts: pyu, r: 0.05, g: 0.26, vib: { rate: jr, depth: 40 }, am: { rate: jr, depth: 0.45 } });
+  tone(E, { t: yt, type: 'pulse25', f: 950 * y, fp: yfp, a: 0.02, pts: pyu.slice(0, 2), r: 0.04, g: 0.07, filter: { type: 'lowpass', f: 2600 } });
 });
 
 S('monster_defeat', { pulse: [0.5, 0.004, 0.25, 0.3], group: 'Battle', gain: 1.72, send: 0.14, pj: 0.4, desc: 'the poof: pop, a vanishing swoosh, three falling notes' }, (E) => {

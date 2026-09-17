@@ -20,11 +20,16 @@
 //   node tests/battle/journey.mjs --json shots/P14-sim/journey.json
 //   node tests/battle/journey.mjs --levels 0 --retry 0  # the playthroughs only
 //
+// Tactics (DQV, balance pass r4): only Bram takes commands; everybody else fights by their Tactics, "Fight Wisely" unless
+// the child switches something else on. So "presses Attack" means Bram presses Attack and his family fight wisely round
+// him — the way Dragon Quest V is played. A child who switches everyone to "Follow Orders" is its own kind (mashall).
+//
 // Kinds of child:
-//   normal    — presses "Fight!" (SYSTEMS §7.3 auto-battle) for everything, heals on the road.  THE design child.
-//   smart     — the careful twelve-year-old: heals early, Bolsters on a wind-up, uses items.
-//   masher    — a six-year-old who only ever presses Attack, never heals, never uses an item.
-//   neverheal — Fight! but never casts a heal or opens the bag, in battle or out of it.
+//   normal    — presses "Fight!" (SYSTEMS §7.3 auto-battle) for Bram, the others Fight Wisely; heals on the road.  THE design child.
+//   smart     — the careful twelve-year-old: everyone on Follow Orders; heals early, Bolsters on a wind-up, uses items.
+//   masher    — a six-year-old who only ever presses Attack for Bram, never heals, never uses an item, never rests.
+//   mashall   — the same six-year-old after switching every friend to Follow Orders: Attack for everyone (reported).
+//   neverheal — Fight! for Bram but never casts a heal or opens the bag, in battle or out of it; never rests.
 //   skipper   — runs from 60% of fights (the child who wants to see the world), Fight! for the rest.
 //   fleer     — runs from every normal fight, Fight! for bosses; after a boss wipe it walks back fighting (a child
 //               learns). Contracted: it must NOT beat bosses it arrives far under-levelled for on the first try, and
@@ -41,7 +46,7 @@ import { cell, retry, bossSpecs } from './bosses.mjs';
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 ? argv[i + 1] : d; };
-const KIDS = arg('kids', 'normal,smart,masher,neverheal,skipper,fleer,grinder').split(',');
+const KIDS = arg('kids', 'normal,smart,masher,mashall,neverheal,skipper,fleer,grinder').split(',');
 const TRIALS = Number(arg('trials', 40));
 const SEED = Number(arg('seed', 20040));
 const VERBOSE = argv.includes('--verbose');
@@ -52,12 +57,13 @@ const MAX_TRIES = 10;
 
 const KID = {
   normal:    { fight: 'auto',    boss: 'auto',    rest: true,  fightFrac: 1,   contract: 'design' },
-  smart:     { fight: 'smart',   boss: 'smart',   rest: true,  fightFrac: 1,   contract: 'kind' },
+  smart:     { fight: 'smart',   boss: 'smart',   rest: true,  fightFrac: 1,   contract: 'kind', tactics: 'orders' },
   masher:    { fight: 'mash',    boss: 'mash',    rest: false, fightFrac: 1,   contract: 'kind', noHeal: true },
+  mashall:   { fight: 'mash',    boss: 'mash',    rest: false, fightFrac: 1,   contract: null, noHeal: true, tactics: 'orders' },
   neverheal: { fight: 'noheal',  boss: 'noheal',  rest: false, fightFrac: 1,   contract: 'kind', noHeal: true },
   skipper:   { fight: 'auto',    boss: 'auto',    rest: true,  fightFrac: 0.4, contract: 'kind' },
   fleer:     { fight: 'auto',    boss: 'auto',    rest: true,  fightFrac: 0,   learns: true, contract: 'fleer' },
-  grinder:   { fight: 'smart',   boss: 'smart',   rest: true,  fightFrac: 1,   grind: 3, inn: true, contract: null },
+  grinder:   { fight: 'smart',   boss: 'smart',   rest: true,  fightFrac: 1,   grind: 3, inn: true, contract: null, tactics: 'orders' },
 };
 
 /** SYSTEMS §6 + the critic's targets, as numbers. */
@@ -70,6 +76,10 @@ export const CONTRACT = {
     win: 0.97,
     bossRounds: [6, 10], bossHpLeft: [0.35, 0.50], bossFirst: 0.70,
   },
+  // the first hour (areas.js `firstHour`: the Long Lane and Saltmarrow Coast, with Papa) opens the way DQV does: one or
+  // two rounds, the boy's swing pops the slime, a scrape now and then — a quick free fight is part of that rhythm
+  // (tests/battle/first-hour.mjs holds who lands the killing blows)
+  firstHour: { rounds: [1.4, 3.0], oneRound: 0.50, zeroDmg: 0.45, cost: [0.04, 0.20] },
   // no kind of child is walled: a boss is beaten in a couple of tries. A child who never heals at all (Attack only,
   // or Fight! with every heal refused) and never rests between fights meets the Act III bosses bruised, loses, and
   // wins once the §6.1.6 helper has patched them up at the third door — three tries on average (the critic's bar:
@@ -120,7 +130,7 @@ function runKid(kind, trials, seed) {
       remember(build().filter((m) => m.kind !== 'guest' && !lv[m.id]));
       const walkN = walkLength(area);
       const opts = (extra = {}) => ({ gold, assist: { s: S }, areaLevel: area.areaLevel, wagonReachable: area.wagonReachable ?? true,
-        recruit: area.act >= 2 && area.recruit !== false ? { ...rec } : null, ...extra });
+        recruit: area.act >= 2 && area.recruit !== false ? { ...rec } : null, tactics: cfg.tactics, ...extra });
       const after = (res) => {
         S = res.assist.after; gold = res.goldAfter;
         if (res.recruit) {
@@ -177,7 +187,7 @@ function runKid(kind, trials, seed) {
         if (under) R.underFirst++;
         if (under3) R.under3First++;
         if (cfg.inn) members = members.map((m) => ({ ...m, hp: undefined, mp: undefined }));
-        let attempts = 0, won = false;
+        let attempts = 0, won = false, helper = null;
         while (!won && attempts < MAX_TRIES) {
           attempts++;
           if (attempts > 1) {
@@ -194,20 +204,21 @@ function runKid(kind, trials, seed) {
               members = cfg.rest ? fieldRest(res.party.concat(res.wagon), bag) : res.party.concat(res.wagon);
             }
           }
-          if (attempts >= 3) {
-            // §6.1.6: two wipes in a row by this boss — a plain, unhurried helper at the door: full heal, 3 Strong Herbs
+          if (helper) {
+            // §6.1.6: two wipes in a row by this boss (the engine says so: result.advice.helper) — a plain, unhurried
+            // helper at the door: full heal, 3 Strong Herbs
             members = members.map((m) => ({ ...m, hp: undefined, mp: undefined }));
-            bag.strong_herb = (bag.strong_herb || 0) + 3;
+            for (const [k, n] of Object.entries(helper.items || {})) bag[k] = (bag[k] || 0) + n;
           }
           const { res, low, left } = fight(rng, members, spec.enemies,
-            opts({ bag, ambush: 'none', recruit: null, wagonReachable: spec.wagonReachable ?? false }), cfg.boss);
+            opts({ bag, ambush: 'none', recruit: null, wagonReachable: spec.wagonReachable ?? false, bossWipes: attempts - 1 }), cfg.boss);
           R.fights++;
           if (!res) { if (VERBOSE) trail.push(`${id} timed out`); continue; }
           bag = { ...res.bag };
           if (res.stats.koCount) R.ko++;
           after(res);
           if (VERBOSE) trail.push(`${area.id} ${id}: ${res.outcome} in ${res.rounds} rounds (went in with ${members.slice(0, 4).map((m) => `${m.id} ${m.lvl}`).join(', ')}, S${res.assist.before}; now Lv${heroLvl}, S${S})`);
-          if (res.outcome !== 'victory') { learned[area.id] = true; continue; }
+          if (res.outcome !== 'victory') { learned[area.id] = true; helper = res.advice && res.advice.helper; continue; }
           won = true; R.wins++;
           if (attempts === 1) { R.firstWin++; if (under) R.underFirstWins++; if (under3) R.under3FirstWins++; }
           R.rounds.push(res.rounds); R.low.push(low); R.hpLeft.push(left);
@@ -254,7 +265,7 @@ if (isMain) {
       if (!A) continue;
       const flags = [];
       if (cfg.contract === 'design') {
-        const c = CONTRACT.design;
+        const c = area.firstHour ? { ...CONTRACT.design, ...CONTRACT.firstHour } : CONTRACT.design;
         const rr = mean(A.rounds), cost = mean(A.cost);
         if (A.fights && A.wins / Math.max(1, A.fights - A.fled) < c.win) flags.push('WIN');
         if (!area.soft && (rr < c.rounds[0] || rr > c.rounds[1])) flags.push('ROUNDS');

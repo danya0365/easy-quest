@@ -106,6 +106,8 @@ export const TEXT = {
   'recruit.ask': 'Shall %PRONOUN% come along?',
   'wipe': 'You are dreaming of somewhere warm. Somebody is carrying you.',
   'wipe.church': 'You wake on a church bench. Your purse is lighter. You are not.',
+  'advice.grow': '"%TARGET% is an awful lot of monster for someone your size," says the priest kindly. "Win a few fights out on the road first. You\'ll grow."',
+  'advice.try': '"Nearly," says the priest. "Heal when things go red, or ask your friends to Watch My Back, and have another go."',
   'nothing': '%ACTOR% does nothing at all.',
   'lookaround': '%ACTOR% looks around for someone to bother.',
   'telegraph.default': '%ACTOR% is gathering itself for something big!',

@@ -162,11 +162,16 @@ export function ambushRoll(rng, { S = 0, protectedMap = false, boss = false } = 
   return null;
 }
 
-// §1.9 fleeing
+// §1.9 fleeing — balance pass r4 (critic a2r1: "fleeing is nearly free: at least 64% on the first try and certain after
+// two failures", so a child could run from the whole of Act I and reach the first boss at Lv 1). SYSTEMS §1.9 had
+// 0.55 + 0.40·share, +0.25 a failure, sure on the third try. Now running is a real coin toss on the first try (a
+// party as quick as the monsters gets away half the time, a quick one 60%), each failure makes the next try likelier
+// (+0.20), and the fourth try always works — you still can never be trapped in a normal fight.
+export const FLEE = { base: 0.30, agi: 0.40, perFail: 0.20, sureAfter: 3 };
 export function fleeChance(partyAvgAgi, enemyAvgAgi, fails = 0) {
-  if (fails >= 2) return 1;
-  const p = 0.55 + 0.40 * (partyAvgAgi / Math.max(1e-6, partyAvgAgi + enemyAvgAgi)) + 0.25 * fails;
-  return Math.min(1, p);
+  if (fails >= FLEE.sureAfter) return 1;
+  const share = partyAvgAgi / Math.max(1e-6, partyAvgAgi + enemyAvgAgi);
+  return Math.min(1, FLEE.base + FLEE.agi * share + FLEE.perFail * fails);
 }
 export const FAILED_FLEE_DAMAGE = 0.75;
 

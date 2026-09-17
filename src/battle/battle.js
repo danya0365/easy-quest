@@ -3,8 +3,10 @@
 //   const battle = createBattle({party, wagon, enemies, rng, data, emit, options})
 //   battle.opening                      -> events for the encounter start (appear, ambush, enemy free round)
 //   battle.phase                        -> 'command' | 'resolving' | 'victory' | 'defeat' | 'fled' | 'scripted'
-//   battle.needsCommand()               -> actor summary | null
+//   battle.needsCommand()               -> actor summary | null  (only members on "Follow Orders": Bram, by default)
 //   battle.command(actorId, {type:'attack'|'spell'|'item'|'defend'|'flee'|'swap', target, id, out}) -> {ok, reason?, text?}
+//   battle.setTactic(memberId, tactic)  -> {ok, text}  DQV Tactics: 'no_mercy'|'wisely'|'watch_back'|'no_magic'|'orders'
+//   battle.tactics()                    -> [{id, name, tactic, label, leader, guest, canChange}] for the Tactics menu
 //   battle.undoCommand()                -> {ok, actor}
 //   battle.resolveRound()               -> ordered event log for the round (see docs/DATA-SHAPES.md §6)
 //   battle.snapshot()                   -> serialisable state
@@ -15,7 +17,10 @@
 
 import * as F from './formulas.js';
 import * as X from './actions.js';
-import { chooseEnemyAction, afterEnemyMove, chooseAllyAction, chooseMentorAction } from './ai.js';
+import {
+  chooseEnemyAction, afterEnemyMove, chooseAllyAction, chooseMentorAction,
+  TACTICS, TACTIC_BY_ID, DEFAULT_TACTIC, normalizeTactic, policyForTactic,
+} from './ai.js';
 import {
   statsFor, spellsKnownAt, mpOverrides, naturalGear, spellsLearnedAt, capFor, EXP_TABLE, LEVEL_CAP,
   personalityAt, GAIN_ORDER, GUESTS,
@@ -34,6 +39,8 @@ function parseRate(r) {
   const m = String(r).match(/^\s*(\d+)\s*\/\s*(\d+)\s*$/);
   return m ? Number(m[1]) / Number(m[2]) : Number(r) || 0;
 }
+
+export { TACTICS, TACTIC_BY_ID, DEFAULT_TACTIC };
 
 // ---------------------------------------------------------------------------------------------------------
 // Data normalisation — tolerant of reasonable spellings so P16/P20/P21 data just works.
@@ -120,7 +127,7 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
       spareAtZero: !!m.spareAtZero, spareText: m.spareText || null, phases: m.phases || null,
       scriptedEnd: m.scriptedEnd || null, untouchable: !!m.untouchable, neverTargets: m.neverTargets || [],
       fleeRefusal: m.fleeRefusal || null, partyLevel: m.partyLevel || null, expectedMaxHP: m.expectedMaxHP || null,
-      minHpPct: m.minHpPct || 0, partnerGivesUp: !!m.partnerGivesUp,
+      minHpPct: m.minHpPct || 0, partnerGivesUp: !!m.partnerGivesUp, advice: m.advice || null,
     };
   };
   const specLevels = [], specAreaLevels = [];
@@ -132,13 +139,14 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
     let src = raw;
     if (typeof spec === 'object') {
       // {id, partyLevel}: met at that party level (encounter-table `lvl`) — carry the block there; then overrides
-      const { id: _i, partyLevel: want, at, hpMult, areaLevel, ...over } = spec;
+      const { id: _i, partyLevel: want, at, hpMult, expMult, areaLevel, ...over } = spec;
       const lvlWanted = want ?? at;
       if (lvlWanted != null) specLevels.push(Number(lvlWanted));
       if (areaLevel != null) specAreaLevels.push(Number(areaLevel));
       if (lvlWanted != null && raw.partyLevel && !raw.boss) src = F.scaleMonster(normalizeMonster(raw), lvlWanted);
       else if (lvlWanted != null && !raw.boss) src = { ...raw, partyLevel: lvlWanted };
       if (hpMult) src = { ...src, hp: Math.max(1, F.round((src.hp ?? 10) * hpMult)) };   // a sturdier one of these
+      if (expMult) src = { ...src, exp: Math.max(0, F.round((src.exp ?? 0) * expMult)) }; // …or one that pays a bit more
       src = { ...src, ...over };
     }
     const base = B.makeEnemyStats(src);
@@ -188,7 +196,7 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
       mpCost: mpOverrides(member),
       status: member.status && member.status.poison ? { poison: member.status.poison } : {},
       buffs: {}, flags: {}, member,
-      control: kind === 'guest' ? (options.guestControl || 'ai') : (member.control || 'player'),
+      control: 'ai', tactic: null,   // set by assignTactics() once the whole roster is known
     };
     c.hp = F.clamp(member.hp ?? c.maxHp, 0, c.maxHp);
     c.mp = F.clamp(member.mp ?? c.maxMp, 0, c.maxMp);
@@ -223,6 +231,7 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
   for (const m of party.slice(0, 4)) B.party.push(makeAlly(m));
   for (const m of party.slice(4)) B.wagon.push(makeAlly(m));
   for (const m of wagon) B.wagon.push(makeAlly(m));
+  assignTactics();
   for (const spec of enemies) B.addEnemy(spec);
   if (!B.party.length) throw new Error('createBattle: party is empty');
   if (!B.enemies.length) throw new Error('createBattle: no enemies');
@@ -234,6 +243,76 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
     ?? (B.isBoss ? Math.max(0, ...B.enemies.filter((e) => e.boss).map((e) => e.partyLevel || 0)) || null : null);
   B.normalCap = options.normalHitCap !== undefined ? options.normalHitCap : (B.isBoss || B.scripted ? null : F.NORMAL_HIT_CAP);
   if (B.scripted) for (const e of B.enemies) if (B.scripted.untouchable !== false) e.untouchable = true;
+
+  // ---- tactics (DQV) ---------------------------------------------------------------------------------------
+  /**
+   * Dragon Quest V: the hero takes commands; everyone else fights by the Tactics the child has set, "Fight Wisely"
+   * until told otherwise, and "Follow Orders" is switched on per member. The leader is Bram (char id `hero`), or the
+   * first family member or companion when Bram is not in the roster (Linnet at the Stone Garden); the leader always
+   * follows orders. Guests are never commanded (options.guestControl: 'player' puts them on orders for tests).
+   * Precedence: options.tactics[id] > options.tactics (one tactic for everyone) > member.tactic > member.control
+   * ('player' = orders, 'ai' = Fight Wisely; old saves and tests) > Fight Wisely.
+   */
+  function assignTactics() {
+    const roster = B.party.concat(B.wagon);
+    const own = roster.filter((c) => !c.guest);
+    B.leader = own.find((c) => c.baseId === 'hero') || own[0] || null;
+    const opt = options.tactics;
+    for (const c of roster) {
+      let t;
+      if (c.guest) t = options.guestControl === 'player' ? 'orders' : null;
+      else if (c === B.leader) t = 'orders';
+      else {
+        t = (opt && typeof opt === 'object' ? normalizeTactic(opt[c.id]) : null)
+          || (typeof opt === 'string' ? normalizeTactic(opt) : null)
+          || normalizeTactic(c.member.tactic) || normalizeTactic(c.member.control) || DEFAULT_TACTIC;
+      }
+      setTacticOf(c, t);
+    }
+  }
+  function setTacticOf(c, t) {
+    c.tactic = t;
+    c.control = t === 'orders' ? 'player' : 'ai';
+  }
+  const tacticName = (t) => (TACTIC_BY_ID[t] ? TACTIC_BY_ID[t].name : t);
+
+  function tacticsList() {
+    return B.party.concat(B.wagon).map((c) => ({
+      id: c.id, name: c.name, front: B.party.includes(c), guest: c.guest, leader: c === B.leader,
+      tactic: c.tactic, label: c.guest ? 'Does as he pleases' : tacticName(c.tactic),
+      canChange: !c.guest && c !== B.leader,
+    }));
+  }
+
+  /** Change one member's Tactics (id 'all' = everybody but the leader). Free: it never costs a turn. */
+  function setTactic(memberId, tactic) {
+    if (B.ended) return fail('phase', 'The fight is over.');
+    const t = normalizeTactic(tactic);
+    if (!t) return fail('tactic', `"${tactic}" isn't one of the Tactics.`);
+    if (memberId === 'all' || memberId == null) {
+      const changed = B.party.concat(B.wagon).filter((c) => !c.guest && c !== B.leader);
+      for (const c of changed) applyTactic(c, t);
+      return { ok: true, tactic: t, text: changed.length ? `Everybody will ${tacticName(t)}.` : 'There is nobody else to tell.' };
+    }
+    const c = B.party.concat(B.wagon).find((x) => x.id === memberId);
+    if (!c) return fail('actor', `${memberId} isn't with you.`);
+    if (c.guest) return fail('guest', `${c.name} nods politely and carries on exactly as before.`);
+    if (c === B.leader) return fail('leader', t === 'orders' ? `${c.name} always does what you say.` : `${c.name} always does what you say. Somebody has to.`);
+    applyTactic(c, t);
+    return { ok: true, tactic: t, text: t === 'orders' ? `${c.name} will Follow Orders.` : `${c.name} will ${tacticName(t)}.` };
+  }
+  function applyTactic(c, t) {
+    const was = c.tactic;
+    setTacticOf(c, t);
+    c.member.tactic = t;
+    if (was === 'orders' && t !== 'orders' && B.commands.has(c.id)) {
+      // a command already given is dropped: from now on they choose for themselves
+      const cmd = B.commands.get(c.id);
+      B.commands.delete(c.id);
+      B.cmdOrder = B.cmdOrder.filter((id) => id !== c.id);
+      if (cmd && cmd.type === 'flee' && B.fleeCmd === c.id) B.fleeCmd = null;
+    }
+  }
 
   // ---- queries ---------------------------------------------------------------------------------------------
   function controllable(a) {
@@ -257,7 +336,7 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
       id: a.id, name: a.name, kind: a.kind, guest: a.guest, lvl: a.lvl, hp: a.hp, maxHp: X.effMaxHp(a),
       mp: a.mp, maxMp: a.maxMp, atk: X.effAtk(a), def: X.effDef(a), agi: Math.round(X.effSpd(a)),
       status: Object.keys(a.status), buffs: buffSummary(a), alive: isUp(a), spells: spellList(a),
-      front: B.party.includes(a), canSwap: swapAvailability(),
+      front: B.party.includes(a), canSwap: swapAvailability(), tactic: a.tactic, leader: a === B.leader,
     };
   }
   function swapAvailability() {
@@ -279,9 +358,15 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
 
   function command(actorId, cmd0 = {}) {
     if (B.phase !== 'command') return fail('phase', 'Not now.');
+    // "Run!" is for the whole party: when nobody up front is on orders (Bram is worn out), anyone can call it
+    if (actorId == null && cmd0.type === 'flee') actorId = (B.party.find(controllable) || B.party.find(isUp) || {}).id;
     const a = B.party.find((c) => c.id === actorId);
     if (!a) return fail('actor', `${actorId} is not in the front line.`);
-    if (!controllable(a)) return fail('actor', `${a.name} can't do anything this round.`);
+    const partyFlee = cmd0.type === 'flee' && isUp(a) && !B.party.some(controllable);
+    if (!controllable(a) && !partyFlee) {
+      if (isUp(a) && a.control !== 'player') return fail('tactics', `${a.name} is fighting by Tactics (${tacticName(a.tactic)}). Switch on Follow Orders to tell them what to do.`);
+      return fail('actor', `${a.name} can't do anything this round.`);
+    }
     if (B.fleeCmd) return fail('fleeing', 'Everybody is already running.');
     const cmd = { ...cmd0 };
     switch (cmd.type) {
@@ -344,6 +429,7 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
         const outId = cmd.out || a.id;
         const out = B.party.find((c) => c.id === outId);
         if (!out) return fail('target', 'Choose someone from the front line to climb up.');
+        if (out === B.leader) return fail('leader', `${out.name} stays at the front. Somebody has to.`);
         if (reserved((c) => c.type === 'swap' && (c.out || '') === outId)) return fail('target', `${out.name} is already climbing up.`);
         cmd.out = outId;
         break;
@@ -547,7 +633,10 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
         return;
       }
       cmd = m;
-    } else if (a.control !== 'player' || !cmd) cmd = chooseAllyAction(B, a, a.guest ? 'auto' : (options.autoPolicy || 'auto'));
+    } else if (a.control !== 'player' || !cmd) {
+      // Tactics: the member decides now, on their own turn, with the fight as it stands (DQV)
+      cmd = chooseAllyAction(B, a, a.guest ? 'auto' : a.control === 'player' ? (options.autoPolicy || 'auto') : policyForTactic(a.tactic));
+    }
     switch (cmd.type) {
       case 'spell': return X.doSpell(B, a, cmd.id, cmd.target);
       case 'item': return X.doItem(B, a, cmd.id, cmd.target);
@@ -679,13 +768,40 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
     const goldAfter = F.defeatGold(goldBefore);
     B.gold = goldAfter;
     const lines = [say(B, 'wipe'), say(B, 'wipe.church')];
-    push(B, { t: 'wipe', goldBefore, goldAfter, wakeAt: 'church', text: lines[0], lines });
+    B.advice = bossAdvice();
+    if (B.advice) lines.push(B.advice.text);
+    push(B, { t: 'wipe', goldBefore, goldAfter, wakeAt: 'church', text: lines[0], lines, advice: B.advice });
     // "You keep ... every point of EXP earned in the battle you just lost" (SYSTEMS §6.2)
     const exp = Math.round(beatenEnemies().reduce((s, e) => s + e.expTotal, 0) * keel());
     B.earned = { exp, gold: 0, drops: [] };
     if (exp > 0) awardExp(exp);
     B.result = buildResult('defeat');
     push(B, { t: 'end', outcome: 'defeat' });
+  }
+
+  /**
+   * After a boss wipe, one sentence a child can act on (SYSTEMS §6.1.6's "one line of actual tactical advice", and
+   * CANON §10 rule 4: every "why can't I?" gets one sentence). Far under the boss's level (3+), the advice is to grow:
+   * the critic's child who ran from every fight met Mumbleroot at Lv 1 and lost fifteen times with nothing telling it
+   * why. Otherwise the boss's own `advice` line (what its wind-up means), else a general one that names Tactics.
+   * options.bossWipes = wipes in a row by this boss before this fight; from the second, `helper` asks the field for the
+   * §6.1.6 helper at the door (a full heal and three Strong Herbs).
+   */
+  function bossAdvice() {
+    if (!B.isBoss || B.scripted) return null;
+    const bosses = B.enemies.filter((e) => e.boss);
+    const boss = bosses.find((e) => e.advice) || bosses[0];
+    const lead = B.leader || B.party[0];
+    const design = Math.max(0, ...bosses.map((e) => e.partyLevel || 0));
+    const short = design && lead ? design - lead.lvl : 0;
+    const wipes = Number(options.bossWipes || 0) + 1;
+    const vars = { TARGET: capFirst(nameOf(boss)) };
+    let kind, text;
+    if (short >= 3) { kind = 'grow'; text = say(B, 'advice.grow', vars); }
+    else if (boss.advice) { kind = 'boss'; text = sentence(boss.advice, vars); }
+    else { kind = 'try'; text = say(B, 'advice.try', vars); }
+    return { kind, text, levelsShort: Math.max(0, short), boss: boss.species, wipesInARow: wipes,
+      helper: wipes >= 2 ? { heal: 'full', items: { strong_herb: 3 }, text } : null };
   }
 
   function rollRecruit(beaten) {
@@ -768,6 +884,7 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
   function buildResult(outcome) {
     const memberOut = (c) => {
       const m = { ...c.member, lvl: c.lvl, exp: c.exp, hp: c.hp, mp: c.mp };
+      if (!c.guest && c !== B.leader) m.tactic = c.tactic; else delete m.tactic;
       if (c.status.poison) m.status = { poison: c.status.poison }; else delete m.status;
       if (c.member.spells) m.spells = [...c.spells];
       return m;
@@ -792,6 +909,7 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
       boss: bossIds.length ? bossIds : null,
       bossDefeated: outcome === 'victory' && bossIds.length ? bossIds : null,
       bossWipe: outcome === 'defeat' && bossIds.length ? bossIds : null,
+      advice: outcome === 'defeat' ? B.advice || null : null,
       stats: { ...B.stats, koIds: [...B.stats.koIds] },
     };
   }
@@ -802,12 +920,14 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
       id: c.id, name: c.name, kind: c.kind, guest: c.guest, lvl: c.lvl, exp: c.exp, hp: c.hp, maxHp: X.effMaxHp(c),
       mp: c.mp, maxMp: c.maxMp, atk: X.effAtk(c), def: X.effDef(c), agi: Math.round(X.effSpd(c)), alive: isUp(c),
       status: Object.keys(c.status), buffs: buffSummary(c), spells: [...c.spells],
+      tactic: c.guest ? null : c.tactic, leader: c === B.leader,
     };
   }
   function snapshot() {
     const needs = needsCommand();
     return clone({
       v: 1, round: B.round, phase: B.phase, boss: B.isBoss, scripted: !!B.scripted, ambush: B.ambush,
+      leader: B.leader ? B.leader.id : null,
       wagonReachable: B.wagonReachable,
       party: B.party.map(allySnap), wagon: B.wagon.map(allySnap), enemies: B.enemies.map(B.enemySummary),
       commands: B.cmdOrder.map((id) => ({ actor: id, ...B.commands.get(id) })), needs: needs ? needs.id : null,
@@ -846,7 +966,10 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
     get errors() { return B.errors; },
     get over() { return B.ended; },
     opening,
-    needsCommand, command, undoCommand, resolveRound, snapshot, autoCommands,
+    needsCommand, command, undoCommand, resolveRound, snapshot, autoCommands, setTactic,
+    tactics: tacticsList,
+    /** true when the round can be resolved with no more input (everyone commanded, or nobody on orders can act) */
+    ready: () => B.phase === 'command' && !needsCommand(),
     /** Fill every missing command with the AI policy, then resolve. */
     autoRound(policy) { autoCommands(policy); return resolveRound(); },
     /** Release a held 'resolving' phase (only with options.holdResolving). */

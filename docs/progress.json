@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-17T16:20:10.694Z",
+  "updated": "2026-09-17T17:41:50.150Z",
   "wave": 1,
   "waveTitle": "Smooth + Wave B (camera, sky/terrain, props, buildings+Puddlewick, dialogue+NPCs, battle scene, menus+HUD, title)",
   "pieces": {
@@ -149,16 +149,21 @@
     "P07": {
       "id": "P07",
       "status": "iterating",
-      "score": 62,
-      "best": 62,
-      "rounds": 1,
-      "gap": "Adults have no Toriyama faces: dot eyes, no brows, faceted small heads; Halvard a blue box, not a shaggy bear - rebuild adult head/face kit starting with Halvard",
+      "score": 67,
+      "best": 67,
+      "rounds": 2,
+      "gap": "Adults are the kid doll scaled up: Halvard is a box with stick arms + gas-mask beard; rebuild him as a broad V-chested giant with thick arms and heavy-browed adult eyes",
       "note": "first build done",
       "history": [
         {
           "at": "2026-09-17T16:15:26.799Z",
           "score": 62,
           "gap": "Adults have no Toriyama faces: dot eyes, no brows, faceted small heads; Halvard a blue box, not a shaggy bear - rebuild adult head/face kit starting with Halvard"
+        },
+        {
+          "at": "2026-09-17T17:35:14.815Z",
+          "score": 67,
+          "gap": "Adults are the kid doll scaled up: Halvard is a box with stick arms + gas-mask beard; rebuild him as a broad V-chested giant with thick arms and heavy-browed adult eyes"
         }
       ],
       "name": "Character models"
@@ -166,16 +171,21 @@
     "P08": {
       "id": "P08",
       "status": "iterating",
-      "score": 65,
+      "score": 64,
       "best": 65,
-      "rounds": 1,
-      "gap": "Talk is near-static (mouth rarely opens, no brows, no beat gestures); wave reads as face-rub; props glued and clipping",
+      "rounds": 2,
+      "gap": "One procedural gait for every body: give Halvard a slow heavy shoulder-rolling walk where the greatsword plants like a walking stick each stride (granny's cane too)",
       "note": "first build done",
       "history": [
         {
           "at": "2026-09-17T16:15:26.843Z",
           "score": 65,
           "gap": "Talk is near-static (mouth rarely opens, no brows, no beat gestures); wave reads as face-rub; props glued and clipping"
+        },
+        {
+          "at": "2026-09-17T17:35:14.858Z",
+          "score": 64,
+          "gap": "One procedural gait for every body: give Halvard a slow heavy shoulder-rolling walk where the greatsword plants like a walking stick each stride (granny's cane too)"
         }
       ],
       "name": "Character animation"
@@ -238,10 +248,10 @@
     "P14": {
       "id": "P14",
       "status": "iterating",
-      "score": 66,
+      "score": 65,
       "best": 66,
-      "rounds": 2,
-      "gap": "Attack-only kid walls in Act III: bosses at design Lv from full HP win 46-63%; bruised, with no retry help, mean 3-9 tries (max 18 Hush+Hark). The 6.1.6 door helper exists only in journey.mjs - build it into src (2nd boss wipe: full heal + herbs)",
+      "rounds": 3,
+      "gap": "Mashing Enter commands every member, so healers swing sticks (Elowen 12 dmg vs Mortmain): Attack-only child loses Hoarfax 59% first try, retries to 14. Only Bram takes commands; companions default to DQV Tactics (auto policy)",
       "note": "first build done",
       "history": [
         {
@@ -253,6 +263,11 @@
           "at": "2026-09-17T16:19:04.342Z",
           "score": 66,
           "gap": "Attack-only kid walls in Act III: bosses at design Lv from full HP win 46-63%; bruised, with no retry help, mean 3-9 tries (max 18 Hush+Hark). The 6.1.6 door helper exists only in journey.mjs - build "
+        },
+        {
+          "at": "2026-09-17T17:41:50.103Z",
+          "score": 65,
+          "gap": "Mashing Enter commands every member, so healers swing sticks (Elowen 12 dmg vs Mortmain): Attack-only child loses Hoarfax 59% first try, retries to 14. Only Bram takes commands; companions default to "
         }
       ],
       "name": "Battle core"
@@ -271,16 +286,21 @@
     "P16": {
       "id": "P16",
       "status": "iterating",
-      "score": 72,
+      "score": 67,
       "best": 72,
-      "rounds": 1,
-      "gap": "Only 20 bodies exist: build the missing Act I creatures (Crabbit, Hoot Couture, Batterfly, Twiglet, Quietling, Mumbleroot) to the Gloop standard",
+      "rounds": 2,
+      "gap": "Faces are one sticker kit: same bug-eyed delighted grin on 15 species, no mischief/state expressions, so enemies already look like friends and the join has no arc; add lids/brows/mouth states (sly enemy -> beaming on join), seat eyes into body",
       "note": "first build done: 20 rigged monsters (tier one, Gloop family, bat, ghost, mimic, knights, golem, Sunmane+Pip, Bogwallop, Cactuddle), 8 death styles, join hop, <=8 draw calls each",
       "history": [
         {
           "at": "2026-09-17T15:58:53.893Z",
           "score": 72,
           "gap": "Only 20 bodies exist: build the missing Act I creatures (Crabbit, Hoot Couture, Batterfly, Twiglet, Quietling, Mumbleroot) to the Gloop standard"
+        },
+        {
+          "at": "2026-09-17T17:34:17.171Z",
+          "score": 67,
+          "gap": "Faces are one sticker kit: same bug-eyed delighted grin on 15 species, no mischief/state expressions, so enemies already look like friends and the join has no arc; add lids/brows/mouth states (sly ene"
         }
       ],
       "name": "Monsters — roster & models"
@@ -310,10 +330,10 @@
     "P19": {
       "id": "P19",
       "status": "iterating",
-      "score": 56,
-      "best": 56,
-      "rounds": 2,
-      "gap": "Grind valve shut: x0.2 EXP over curve + Lv30 cap. 3x fights = +1 Lv; no-heal masher caps ~29.5 by the Abbey, then 9 tries (max 18) at Hush+Hark, hard wall on a 2x Highfeather walk at Lv30. Floor keel at 0.6, cap 40",
+      "score": 62,
+      "best": 62,
+      "rounds": 3,
+      "gap": "Growth has little bite: never-buy-gear child never walled at Lv28 in a Wooden Sword; kit tuned at 31k G vs ~18k earned; keel makes grinding 8x fights; Lv1 Bram 5 dmg vs 30-HP Gloop (6% of kills). Fix first: companion Tactics so levels/gear show",
       "note": "first build done: growth.js (six personalities + Lantern, templates, guests, learnsets) and formulas.js; 51 tests; sim over every area",
       "history": [
         {
@@ -325,6 +345,11 @@
           "at": "2026-09-17T16:19:04.377Z",
           "score": 56,
           "gap": "Grind valve shut: x0.2 EXP over curve + Lv30 cap. 3x fights = +1 Lv; no-heal masher caps ~29.5 by the Abbey, then 9 tries (max 18) at Hush+Hark, hard wall on a 2x Highfeather walk at Lv30. Floor keel "
+        },
+        {
+          "at": "2026-09-17T17:41:50.150Z",
+          "score": 62,
+          "gap": "Growth has little bite: never-buy-gear child never walled at Lv28 in a Wooden Sword; kit tuned at 31k G vs ~18k earned; keel makes grinding 8x fights; Lv1 Bram 5 dmg vs 30-HP Gloop (6% of kills). Fix "
         }
       ],
       "name": "Stats, growth, level-up ceremony"
@@ -409,10 +434,10 @@
     "P27": {
       "id": "P27",
       "status": "iterating",
-      "score": 56,
-      "best": 56,
-      "rounds": 2,
-      "gap": "Accompaniment is generated, not composed: melody doubled in octaves over block pads + one arpeggio/root-fifth pattern for whole pieces, no countermelodies (village: 32 bars of the same harp figure, empty phrase-end bars). Hand-write answering counter-lines. Also: village loop drops its first bar every repeat.",
+      "score": 63,
+      "best": 63,
+      "rounds": 3,
+      "gap": "Accompaniment is all generated pads/arpeggios/root-fifth bass under a tune doubled in 3-4 octaves: hand-write real counter-melodies + moving bass lines (village, overworld, battle)",
       "note": "first build done — score now played by real recorded multisamples (VSCO 2 CE, VCSL CC0; Iowa MIS horn), 26 instruments, 24.8 MB, all 27 cues peak -1.6..-2.4 dBFS, no clipping/dropouts",
       "history": [
         {
@@ -424,6 +449,11 @@
           "at": "2026-09-17T16:20:10.694Z",
           "score": 56,
           "gap": "Accompaniment is generated, not composed: melody doubled in octaves over block pads + one arpeggio/root-fifth pattern for whole pieces, no countermelodies (village: 32 bars of the same harp figure, em"
+        },
+        {
+          "at": "2026-09-17T17:35:58.374Z",
+          "score": 63,
+          "gap": "Accompaniment is all generated pads/arpeggios/root-fifth bass under a tune doubled in 3-4 octaves: hand-write real counter-melodies + moving bass lines (village, overworld, battle)"
         }
       ],
       "name": "Music — the symphonic score"
@@ -431,10 +461,10 @@
     "P28": {
       "id": "P28",
       "status": "iterating",
-      "score": 67,
-      "best": 67,
-      "rounds": 3,
-      "gap": "Menu blips + glyph ticks sit 8-13 LU under default music (0 LU lift over town/battle): re-level ui/voice so each blip lifts the theme >=3 LU, still >=5 LU under hits",
+      "score": 71,
+      "best": 71,
+      "rounds": 4,
+      "gap": "Plain sword_hit/monster_hurt have no low body: at contact they cut 60-250 Hz by 3-4 dB in the battle mix (crit adds +9.6). Add a ~100 ms 60-180 Hz thump + 250 ms swish tail",
       "note": "Impacts rebuilt (200-900 Hz crack + 2-5 kHz slash, ~250 ms) + sample-accurate -6 dB music dips: hits now +7 dB over battle theme with lows cut; real music on the mixer in demo; beds never repeat",
       "history": [
         {
@@ -451,6 +481,11 @@
           "at": "2026-09-17T15:57:16.639Z",
           "score": 67,
           "gap": "Menu blips + glyph ticks sit 8-13 LU under default music (0 LU lift over town/battle): re-level ui/voice so each blip lifts the theme >=3 LU, still >=5 LU under hits"
+        },
+        {
+          "at": "2026-09-17T17:34:06.189Z",
+          "score": 71,
+          "gap": "Plain sword_hit/monster_hurt have no low body: at contact they cut 60-250 Hz by 3-4 dB in the battle mix (crit adds +9.6). Add a ~100 ms 60-180 Hz thump + 250 ms swish tail"
         }
       ],
       "name": "Sound effects & mixer"
@@ -590,6 +625,10 @@
     {
       "at": "2026-09-17T16:05:27.716Z",
       "t": "Foundation wave complete: slice forge r1 avg 62 → r2 avg 73 (look 74, feel 72). 13 agents."
+    },
+    {
+      "at": "2026-09-17T17:20:44.582Z",
+      "t": "Session limit hit 23:20 (resets 00:20). Watcher woke every 15 min. 00:20: game verified booting, WIP committed, resuming Wave A2 + smoother/Wave B."
     }
   ]
 }

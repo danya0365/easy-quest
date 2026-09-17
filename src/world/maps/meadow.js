@@ -11,6 +11,7 @@
  *
  * The map is DATA first (layout(): paths, water, buildings, trees, colliders, interactables, exits — computed once,
  * deterministically) and ART second (view(): meshes built from that layout with the scenery kit, F3 materials only).
+ * Its WORDS and PEOPLE are the layer src/world/maps/meadow.npcs.js; its treasure is src/world/maps/meadow.chests.js.
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -30,20 +31,7 @@ const WOOD_ROWS = [
   { kind: 'card', e: 59.2, spacing: 4.6, jitter: 1.7, size: [9.4, 11.6], haze: 0.33 },
 ];
 
-// ── the words (VOICE-BIBLE: three lines, 34 characters, the joke on the strong word) ─────────────────────────
-const SIGN_TEXT = [
-  '{gold}Puddlewick{/gold} — over the bridge,\nround the bend. Wipe your boots.',
-  '{gold}Saltmarrow{/gold} — along the Beck,\na morning\'s walk. A whole day,\nif you stop for every frog.',
-  'Somebody has carved a very small\ndragon into the post.\nIt is smiling.',
-];
-const DOOR_TEXT = 'Somebody inside is singing to\na kettle. The kettle is winning.';
-const BARREL_TEXT = 'Barrel of rainwater. And one boot.\nJust the one.';
-const SHEEP_TEXT = 'Baa.\n(She has had a very long morning.)';
-const DUCK_TEXT = 'Quack.\n(This is his pond. You may look.)';
-const LANE_SHEEP_TEXT = ['The lane is full of sheep.\nThey are not in a hurry.', 'Nobody in Puddlewick has ever\nhurried a sheep. Not twice.'];
-const EAST_TEXT = ['The lane follows the Beck\nall the way down to the sea.', 'That is a grown-up sort of walk.\nPapa would want to come.'];
-const SOUTH_TEXT = ['The Long Lane goes on for ever.', 'Best not start on for ever\nwithout telling somebody.'];
-
+// ── the words live in the people layer: src/world/maps/meadow.npcs.js (P11) — base entities name a `line` ──────
 // ── shape constants ────────────────────────────────────────────────────────────────────────────────────────
 const HALF = 40, MASK_SPAN = 96;
 const BOUND = 33.5;                         // playable superellipse radius
@@ -215,23 +203,24 @@ function layout() {
   // ── interactables ──
   const door = (() => { const o = L.cottage, c = Math.cos(o.rot), s = Math.sin(o.rot), lx = o.doorX, lz = o.D / 2 + 0.2; return { x: o.x + lx * c + lz * s, z: o.z - lx * s + lz * c }; })();
   L.props = [
-    { type: 'sign', name: 'signpost', x: L.sign.x, z: L.sign.z, text: SIGN_TEXT, reach: 2.2, height: 2.55 },
-    { type: 'door', name: 'cottage door', x: door.x, z: door.z, text: DOOR_TEXT, reach: 2.2, height: 2.7 },
-    { type: 'barrel', name: 'rain barrel', x: L.barrels[0].x, z: L.barrels[0].z, text: BARREL_TEXT, reach: 1.6, height: 1.55 },
-    ...L.sheep.map((s, i) => ({ type: 'sheep', name: 'sheep ' + (i + 1), x: s.x, z: s.z, text: SHEEP_TEXT, reach: 4.6, height: 1.75, animal: i })),
-    ...L.ducks.map((d, i) => ({ type: 'duck', name: 'duck ' + (i + 1), x: PONDS[d.pond].x, z: PONDS[d.pond].z, text: DUCK_TEXT, reach: 3.4, height: 1.0, animal: i })),
+    { type: 'sign', name: 'signpost', x: L.sign.x, z: L.sign.z, line: 'signpost', reach: 2.2, height: 2.55 },
+    { type: 'door', name: 'cottage door', x: door.x, z: door.z, line: 'cottage-door', reach: 2.2, height: 2.7 },
+    { type: 'barrel', name: 'rain barrel', x: L.barrels[0].x, z: L.barrels[0].z, line: 'rain-barrel', reach: 1.6, height: 1.55 },
+    ...L.sheep.map((s, i) => ({ type: 'sheep', name: 'sheep ' + (i + 1), x: s.x, z: s.z, line: 'sheep', reach: 4.6, height: 1.75, animal: i })),
+    ...L.ducks.map((d, i) => ({ type: 'duck', name: 'duck ' + (i + 1), x: PONDS[d.pond].x, z: PONDS[d.pond].z, line: 'duck', reach: 3.4, height: 1.0, animal: i })),
   ];
 
-  // ── exits: the lanes run on to places that are not built yet; each ends with somebody (or some sheep) saying so ──
-  const exitOn = (pts, text, name) => {
+  // ── exits: the lanes run on to places that are not built yet; each ends with somebody (or some sheep) saying so
+  //    (the words are lines 'lane-sheep' / 'lane-east' / 'lane-south' in meadow.npcs.js) ──
+  const exitOn = (pts, line, name) => {
     let k = pts.length - 1;
     while (k > 0 && superR(pts[k][0], pts[k][1]) > BOUND - 1.6) k--;
     const kb = Math.max(0, k - 8);
     const back = pts[k] && pts[kb] ? { x: pts[kb][0], z: pts[kb][1] } : null;
-    return { x: pts[k][0], z: pts[k][1], w: 4.2, h: 4.2, to: null, text, name, back, kind: 'edge' };
+    return { x: pts[k][0], z: pts[k][1], w: 4.2, h: 4.2, to: null, line, name, back, kind: 'edge' };
   };
-  L.exits = [exitOn(L.lane, LANE_SHEEP_TEXT, 'the lane into Puddlewick'), exitOn(L.east, EAST_TEXT, 'the lane to Saltmarrow'),
-    exitOn([...L.lane].reverse(), SOUTH_TEXT, 'the Long Lane')];
+  L.exits = [exitOn(L.lane, 'lane-sheep', 'the lane into Puddlewick'), exitOn(L.east, 'lane-east', 'the lane to Saltmarrow'),
+    exitOn([...L.lane].reverse(), 'lane-south', 'the Long Lane')];
 
   LAYOUT = L;
   return L;

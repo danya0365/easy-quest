@@ -74,11 +74,14 @@ test('§1.8 turn order: +10% player thumb, ties go to the player', () => {
   assert.deepEqual(order.map((o) => o.side), ['enemy', 'party', 'enemy']);
 });
 
-test('§1.9 fleeing: worked example 0.85 (party Agi 26 vs two Grumbleglops), third try always works', () => {
-  assert.ok(Math.abs(F.fleeChance(26, 9, 0) - (0.55 + 0.4 * 26 / 35)) < 1e-9);
-  assert.ok(Math.abs(F.fleeChance(26, 9, 0) - 0.847) < 0.001);
-  assert.equal(F.fleeChance(26, 9, 1), 1);
-  assert.equal(F.fleeChance(1, 1000, 2), 1);
+test('§1.9 fleeing (balance pass r4): a coin toss on the first try, likelier each time, the fourth try always works', () => {
+  // party Agi 26 vs two Grumbleglops (Agi 9): 0.30 + 0.40 * 26/35 = 0.597 (SYSTEMS §1.9 had 0.85, and sure on the 2nd)
+  assert.ok(Math.abs(F.fleeChance(26, 9, 0) - (0.30 + 0.4 * 26 / 35)) < 1e-9);
+  assert.ok(Math.abs(F.fleeChance(26, 9, 0) - 0.597) < 0.001);
+  assert.ok(Math.abs(F.fleeChance(10, 10, 0) - 0.5) < 1e-9, 'as quick as the monsters: half the time');
+  assert.ok(F.fleeChance(26, 9, 1) < 1 && F.fleeChance(26, 9, 1) > F.fleeChance(26, 9, 0));
+  assert.ok(F.fleeChance(1, 1000, 0) >= 0.3, 'even a very slow party gets away three times in ten');
+  assert.equal(F.fleeChance(1, 1000, 3), 1, 'the fourth try always works: never trapped');
 });
 
 test('§1.8 ambush: 6% party, 4% enemy; enemy ambush never at S>=25, on protected maps, or for bosses', () => {

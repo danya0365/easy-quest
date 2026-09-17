@@ -22,11 +22,13 @@ html,body{margin:0;height:100%;background:var(--pal-sky-page, black);overflow:hi
   --dq-num-font: var(--dq-font);
 
   /* Every colour below is DERIVED from the palette (src/art/palette.js PAL.ui and friends), which window.js publishes
-     as --pal-* custom properties via applyCssVars(). This file contains no colour literals of its own. */
+     as --pal-* custom properties via applyCssVars(). This file contains no colour literals of its own.
+     PAL.ui.winMid / titleInk / label / purple / grey / orange are read directly (the colour-mix after each is only the
+     fallback for a page that has not published the palette yet). */
 
   /* the window: deep blue, lighter at the top */
   --dq-win-top: color-mix(in srgb, var(--pal-ui-win-top) 80%, var(--pal-ui-mp));
-  --dq-win-mid: color-mix(in srgb, var(--pal-ui-win-top) 55%, var(--pal-ui-win-bottom));
+  --dq-win-mid: var(--pal-ui-win-mid, color-mix(in srgb, var(--pal-ui-win-top) 55%, var(--pal-ui-win-bottom)));
   --dq-win-bot: color-mix(in srgb, var(--pal-ui-win-bottom) 78%, var(--pal-ui-shadow));
   --dq-win-sheen: color-mix(in srgb, var(--pal-ui-text) 11%, transparent);
   --dq-edge: var(--pal-ui-border);                                                         /* thick pale border */
@@ -39,8 +41,8 @@ html,body{margin:0;height:100%;background:var(--pal-sky-page, black);overflow:hi
   --dq-ink: var(--pal-ui-text);
   --dq-ink-shadow: color-mix(in srgb, var(--pal-ui-shadow) 88%, transparent);
   --dq-dim: color-mix(in srgb, var(--pal-ui-text-dim) 60%, var(--pal-ui-win-top));          /* disabled entries */
-  --dq-label: var(--pal-ui-text-dim);                                                        /* small labels (H / M / Lv / G) */
-  --dq-title-ink: color-mix(in srgb, var(--pal-cloth-cream) 80%, var(--pal-ui-gold));        /* title tabs, speaker names */
+  --dq-label: var(--pal-ui-label, var(--pal-ui-text-dim));                                   /* small labels (H / M / Lv / G) */
+  --dq-title-ink: var(--pal-ui-title-ink, color-mix(in srgb, var(--pal-cloth-cream) 80%, var(--pal-ui-gold)));  /* title tabs, speaker names */
 
   /* inline text colours ({gold} {red} ...) */
   --dq-gold: var(--pal-ui-gold);
@@ -48,9 +50,9 @@ html,body{margin:0;height:100%;background:var(--pal-sky-page, black);overflow:hi
   --dq-green: var(--pal-ui-hp);
   --dq-blue: var(--pal-ui-mp);
   --dq-pink: var(--pal-flower-pink);
-  --dq-purple: color-mix(in srgb, var(--pal-cloth-purple) 55%, var(--pal-ui-text));
-  --dq-grey: color-mix(in srgb, var(--pal-ui-text-dim) 82%, var(--pal-ui-win-top));
-  --dq-orange: var(--pal-flower-center);
+  --dq-purple: var(--pal-ui-purple, color-mix(in srgb, var(--pal-cloth-purple) 55%, var(--pal-ui-text)));
+  --dq-grey: var(--pal-ui-grey, color-mix(in srgb, var(--pal-ui-text-dim) 82%, var(--pal-ui-win-top)));
+  --dq-orange: var(--pal-ui-orange, var(--pal-flower-center));
 
   /* names F2's touch skin (src/engine/input.js) looks for, so the on-screen buttons match these windows */
   --dq-win-edge: var(--dq-edge);

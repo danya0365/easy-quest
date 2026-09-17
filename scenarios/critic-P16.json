@@ -1,2145 +1,9779 @@
 {
- "name": "critic P16 a2r1 \u2014 every monster, every clip",
- "steps": [
-  {
-   "waitFor": "window.__DQ && __DQ.ready",
-   "timeout": 30000
-  },
-  {
-   "wait": 1200
-  },
-  {
-   "eval": "__DQ.show(['gloop','flapjack','gloop','flapjack','gloop'])"
-  },
-  {
-   "wait": 900
-  },
-  {
-   "shot": "F-slimes-drackies-ui"
-  },
-  {
-   "burst": {
-    "name": "F-slimes-drackies-idle",
-    "count": 8,
-    "interval": 110
-   }
-  },
-  {
-   "eval": "__DQ.play('*','attack')"
-  },
-  {
-   "burst": {
-    "name": "F-sd-attack",
-    "count": 8,
-    "interval": 70
-   }
-  },
-  {
-   "wait": 900
-  },
-  {
-   "eval": "__DQ.play(2,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "F-sd-hurt",
-    "count": 4,
-    "interval": 50
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(2,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "F-sd-defeat",
-    "count": 10,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "eval": "__DQ.play(1,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "F-sd-defeat2",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "F-sd-join",
-    "count": 10,
-    "interval": 90
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.ui(false)"
-  },
-  {
-   "eval": "__DQ.show(['gloop','bobble','bloop','grumbleglop','glimmergloop','peckish','grumpleroot','toadstooligan'])"
-  },
-  {
-   "wait": 900
-  },
-  {
-   "shot": "L1-lineup"
-  },
-  {
-   "eval": "__DQ.show(['flapjack','bumbleblunder','boohoo','chestnut','cactuddle','pip','sir_gloopalot'])"
-  },
-  {
-   "wait": 900
-  },
-  {
-   "shot": "L2-lineup"
-  },
-  {
-   "eval": "__DQ.show(['clankworthy','boulderdash','gloopold','sunmane'])"
-  },
-  {
-   "wait": 900
-  },
-  {
-   "shot": "L3-lineup"
-  },
-  {
-   "eval": "__DQ.show(['gloop'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "gloop-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "gloop-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "gloop-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "gloop-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "gloop-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "gloop-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "gloop-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "gloop-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['bobble'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "bobble-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "bobble-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "bobble-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "bobble-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "bobble-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "bobble-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "bobble-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "bobble-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['bloop'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "bloop-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "bloop-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "bloop-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "bloop-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "bloop-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "bloop-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "bloop-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "bloop-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['grumbleglop'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "grumbleglop-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "grumbleglop-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "grumbleglop-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "grumbleglop-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "grumbleglop-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "grumbleglop-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "grumbleglop-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "grumbleglop-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['sir_gloopalot'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "sir_gloopalot-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "sir_gloopalot-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "sir_gloopalot-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "sir_gloopalot-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "sir_gloopalot-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "sir_gloopalot-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "sir_gloopalot-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "sir_gloopalot-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['glimmergloop'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "glimmergloop-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "glimmergloop-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "glimmergloop-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "glimmergloop-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "glimmergloop-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "glimmergloop-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "glimmergloop-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "glimmergloop-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['gloopold'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "gloopold-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "gloopold-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "gloopold-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "gloopold-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "gloopold-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "gloopold-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "gloopold-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "gloopold-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['flapjack'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "flapjack-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "flapjack-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "flapjack-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "flapjack-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "flapjack-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "flapjack-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "flapjack-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "flapjack-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['peckish'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "peckish-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "peckish-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "peckish-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "peckish-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "peckish-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "peckish-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "peckish-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "peckish-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['grumpleroot'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "grumpleroot-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "grumpleroot-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "grumpleroot-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "grumpleroot-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "grumpleroot-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "grumpleroot-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "grumpleroot-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "grumpleroot-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['toadstooligan'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "toadstooligan-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "toadstooligan-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "toadstooligan-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "toadstooligan-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "toadstooligan-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "toadstooligan-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "toadstooligan-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "toadstooligan-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['bumbleblunder'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "bumbleblunder-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "bumbleblunder-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "bumbleblunder-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "bumbleblunder-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "bumbleblunder-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "bumbleblunder-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "bumbleblunder-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "bumbleblunder-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['boohoo'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "boohoo-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "boohoo-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "boohoo-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "boohoo-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "boohoo-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "boohoo-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "boohoo-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "boohoo-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['chestnut'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "chestnut-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "chestnut-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "chestnut-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "chestnut-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "chestnut-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "chestnut-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "chestnut-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "chestnut-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['clankworthy'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "clankworthy-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "clankworthy-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "clankworthy-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "clankworthy-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "clankworthy-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "clankworthy-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "clankworthy-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "clankworthy-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['boulderdash'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "boulderdash-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "boulderdash-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "boulderdash-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "boulderdash-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "boulderdash-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "boulderdash-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "boulderdash-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "boulderdash-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['pip'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "pip-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "pip-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "pip-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "pip-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "pip-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "pip-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "pip-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "pip-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['sunmane'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "sunmane-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "sunmane-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "sunmane-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "sunmane-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "sunmane-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "sunmane-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "sunmane-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "sunmane-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['bogwallop'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "bogwallop-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "bogwallop-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "bogwallop-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "bogwallop-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "bogwallop-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "bogwallop-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "bogwallop-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "bogwallop-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['cactuddle'])"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "cactuddle-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(40)"
-  },
-  {
-   "wait": 500
-  },
-  {
-   "shot": "cactuddle-34"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "wait": 300
-  },
-  {
-   "burst": {
-    "name": "cactuddle-idle",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
-   "eval": "__DQ.play(0,'taunt')"
-  },
-  {
-   "burst": {
-    "name": "cactuddle-taunt",
-    "count": 6,
-    "interval": 110
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.play(0,'attack')"
-  },
-  {
-   "burst": {
-    "name": "cactuddle-attack",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "__DQ.play(0,'hurt')"
-  },
-  {
-   "burst": {
-    "name": "cactuddle-hurt",
-    "count": 5,
-    "interval": 40
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'defeat')"
-  },
-  {
-   "burst": {
-    "name": "cactuddle-defeat",
-    "count": 12,
-    "interval": 60
-   }
-  },
-  {
-   "wait": 700
-  },
-  {
-   "eval": "__DQ.play(0,'join')"
-  },
-  {
-   "burst": {
-    "name": "cactuddle-join",
-    "count": 8,
-    "interval": 100
-   }
-  },
-  {
-   "wait": 600
-  },
-  {
-   "eval": "__DQ.show(['bobble'])"
-  },
-  {
-   "eval": "__DQ.cameraZoom(1.6)"
-  },
-  {
-   "wait": 600
-  },
-  {
-   "burst": {
-    "name": "bobble-close",
-    "count": 16,
-    "interval": 400
-   }
-  },
-  {
-   "eval": "__DQ.show(['cactuddle'])"
-  },
-  {
-   "eval": "__DQ.cameraZoom(2.2)"
-  },
-  {
-   "wait": 600
-  },
-  {
-   "burst": {
-    "name": "cactuddle-close",
-    "count": 10,
-    "interval": 400
-   }
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().monsters||null)"
-  },
-  {
-   "assert": "__DQ.errors.length===0",
-   "msg": "no runtime errors"
-  }
- ]
+"name": "critic P16 monsters a2r1",
+"steps": [
+{
+"waitFor": "window.__DQ && __DQ.ready",
+"timeout": 30000
+},
+{
+"wait": 1200
+},
+{
+"eval": "__DQ.ui(true)"
+},
+{
+"eval": "__DQ.show([\"gloop\", \"flapjack\", \"gloop\", \"flapjack\", \"gloop\"])"
+},
+{
+"wait": 900
+},
+{
+"shot": "form-slimes-drackies"
+},
+{
+"eval": "__DQ.ui(true)"
+},
+{
+"eval": "__DQ.show([\"bloop\", \"gloop\", \"bobble\", \"flapjack\", \"peckish\"])"
+},
+{
+"wait": 900
+},
+{
+"shot": "form-default"
+},
+{
+"eval": "__DQ.ui(true)"
+},
+{
+"eval": "__DQ.show([\"peckish\", \"grumpleroot\", \"toadstooligan\", \"bumbleblunder\"])"
+},
+{
+"wait": 900
+},
+{
+"shot": "form-meadow"
+},
+{
+"eval": "__DQ.ui(true)"
+},
+{
+"eval": "__DQ.show([\"boohoo\", \"chestnut\", \"sir_gloopalot\", \"grumbleglop\"])"
+},
+{
+"wait": 900
+},
+{
+"shot": "form-woods"
+},
+{
+"eval": "__DQ.ui(true)"
+},
+{
+"eval": "__DQ.show([\"clankworthy\", \"boulderdash\", \"cactuddle\"])"
+},
+{
+"wait": 900
+},
+{
+"shot": "form-big"
+},
+{
+"eval": "__DQ.show(['gloop','flapjack','gloop','flapjack','gloop'])"
+},
+{
+"wait": 700
+},
+{
+"burst": {
+"name": "form-sd-idle",
+"count": 8,
+"interval": 110
+}
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.play(2,'attack'),0)"
+},
+{
+"eval": "(__DQ.advance(70),0)"
+},
+{
+"shot": "form-sd-attack-f00"
+},
+{
+"eval": "(__DQ.advance(70),0)"
+},
+{
+"shot": "form-sd-attack-f01"
+},
+{
+"eval": "(__DQ.advance(70),0)"
+},
+{
+"shot": "form-sd-attack-f02"
+},
+{
+"eval": "(__DQ.advance(70),0)"
+},
+{
+"shot": "form-sd-attack-f03"
+},
+{
+"eval": "(__DQ.advance(70),0)"
+},
+{
+"shot": "form-sd-attack-f04"
+},
+{
+"eval": "(__DQ.advance(70),0)"
+},
+{
+"shot": "form-sd-attack-f05"
+},
+{
+"eval": "(__DQ.advance(70),0)"
+},
+{
+"shot": "form-sd-attack-f06"
+},
+{
+"eval": "(__DQ.advance(70),0)"
+},
+{
+"shot": "form-sd-attack-f07"
+},
+{
+"eval": "(__DQ.advance(70),0)"
+},
+{
+"shot": "form-sd-attack-f08"
+},
+{
+"eval": "(__DQ.advance(70),0)"
+},
+{
+"shot": "form-sd-attack-f09"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(50),0)"
+},
+{
+"shot": "form-sd-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(50),0)"
+},
+{
+"shot": "form-sd-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(50),0)"
+},
+{
+"shot": "form-sd-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(50),0)"
+},
+{
+"shot": "form-sd-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(50),0)"
+},
+{
+"shot": "form-sd-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(50),0)"
+},
+{
+"shot": "form-sd-hurt-f05"
+},
+{
+"eval": "(__DQ.play(0,'defeat'),__DQ.play(3,'defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(60),0)"
+},
+{
+"shot": "form-sd-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(60),0)"
+},
+{
+"shot": "form-sd-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(60),0)"
+},
+{
+"shot": "form-sd-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(60),0)"
+},
+{
+"shot": "form-sd-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(60),0)"
+},
+{
+"shot": "form-sd-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(60),0)"
+},
+{
+"shot": "form-sd-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(60),0)"
+},
+{
+"shot": "form-sd-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(60),0)"
+},
+{
+"shot": "form-sd-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(60),0)"
+},
+{
+"shot": "form-sd-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(60),0)"
+},
+{
+"shot": "form-sd-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(60),0)"
+},
+{
+"shot": "form-sd-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(60),0)"
+},
+{
+"shot": "form-sd-defeat-f11"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.ui(false)"
+},
+{
+"eval": "__DQ.show(['gloop'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "gloop-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "gloop-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloop-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloop-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloop-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloop-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloop-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloop-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloop-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloop-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloop-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloop-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloop-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloop-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloop-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloop-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloop-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloop-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloop-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloop-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloop-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloop-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloop-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloop-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloop-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloop-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloop-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloop-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloop-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloop-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloop-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloop-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloop-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloop-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloop-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloop-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloop-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloop-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloop-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloop-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloop-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloop-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloop-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloop-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloop-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloop-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloop-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloop-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloop-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloop-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloop-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloop-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloop-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloop-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloop-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloop-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloop-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloop-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloop-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloop-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloop-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloop-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['bobble'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "bobble-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "bobble-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bobble-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bobble-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bobble-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bobble-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bobble-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bobble-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bobble-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bobble-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bobble-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bobble-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bobble-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bobble-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bobble-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bobble-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bobble-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bobble-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bobble-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bobble-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bobble-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bobble-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bobble-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bobble-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bobble-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bobble-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bobble-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bobble-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bobble-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bobble-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bobble-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bobble-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bobble-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bobble-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bobble-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bobble-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bobble-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bobble-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bobble-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bobble-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bobble-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bobble-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bobble-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bobble-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bobble-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bobble-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bobble-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bobble-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bobble-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bobble-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bobble-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bobble-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bobble-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bobble-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bobble-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bobble-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bobble-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bobble-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bobble-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bobble-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bobble-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bobble-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['bloop'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "bloop-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "bloop-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bloop-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bloop-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bloop-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bloop-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bloop-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bloop-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bloop-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bloop-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bloop-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bloop-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bloop-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bloop-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bloop-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bloop-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bloop-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bloop-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bloop-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bloop-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bloop-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bloop-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bloop-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bloop-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bloop-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bloop-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bloop-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bloop-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bloop-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bloop-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bloop-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bloop-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bloop-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bloop-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bloop-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bloop-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bloop-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bloop-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bloop-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bloop-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bloop-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bloop-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bloop-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bloop-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bloop-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bloop-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bloop-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bloop-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bloop-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bloop-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bloop-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bloop-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bloop-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bloop-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bloop-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bloop-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bloop-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bloop-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bloop-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bloop-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bloop-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bloop-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['grumbleglop'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "grumbleglop-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "grumbleglop-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumbleglop-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumbleglop-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumbleglop-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumbleglop-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumbleglop-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumbleglop-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumbleglop-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumbleglop-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumbleglop-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumbleglop-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumbleglop-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumbleglop-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumbleglop-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumbleglop-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumbleglop-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumbleglop-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumbleglop-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumbleglop-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumbleglop-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumbleglop-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumbleglop-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumbleglop-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumbleglop-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumbleglop-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumbleglop-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumbleglop-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumbleglop-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumbleglop-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumbleglop-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumbleglop-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumbleglop-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumbleglop-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumbleglop-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumbleglop-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumbleglop-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumbleglop-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumbleglop-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumbleglop-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumbleglop-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumbleglop-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumbleglop-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumbleglop-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumbleglop-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumbleglop-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumbleglop-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumbleglop-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumbleglop-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumbleglop-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumbleglop-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumbleglop-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumbleglop-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumbleglop-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumbleglop-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumbleglop-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumbleglop-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumbleglop-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumbleglop-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumbleglop-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumbleglop-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumbleglop-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['sir_gloopalot'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "sir_gloopalot-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "sir_gloopalot-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sir_gloopalot-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sir_gloopalot-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sir_gloopalot-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sir_gloopalot-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sir_gloopalot-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sir_gloopalot-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sir_gloopalot-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sir_gloopalot-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sir_gloopalot-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sir_gloopalot-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sir_gloopalot-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sir_gloopalot-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sir_gloopalot-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sir_gloopalot-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sir_gloopalot-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sir_gloopalot-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sir_gloopalot-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sir_gloopalot-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sir_gloopalot-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sir_gloopalot-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sir_gloopalot-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sir_gloopalot-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sir_gloopalot-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sir_gloopalot-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sir_gloopalot-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sir_gloopalot-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sir_gloopalot-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sir_gloopalot-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sir_gloopalot-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sir_gloopalot-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sir_gloopalot-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sir_gloopalot-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sir_gloopalot-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sir_gloopalot-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sir_gloopalot-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sir_gloopalot-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sir_gloopalot-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sir_gloopalot-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sir_gloopalot-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sir_gloopalot-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sir_gloopalot-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sir_gloopalot-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sir_gloopalot-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sir_gloopalot-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sir_gloopalot-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sir_gloopalot-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sir_gloopalot-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sir_gloopalot-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sir_gloopalot-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sir_gloopalot-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sir_gloopalot-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sir_gloopalot-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sir_gloopalot-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sir_gloopalot-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sir_gloopalot-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sir_gloopalot-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sir_gloopalot-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sir_gloopalot-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sir_gloopalot-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sir_gloopalot-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['glimmergloop'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "glimmergloop-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "glimmergloop-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "glimmergloop-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "glimmergloop-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "glimmergloop-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "glimmergloop-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "glimmergloop-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "glimmergloop-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "glimmergloop-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "glimmergloop-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "glimmergloop-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "glimmergloop-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "glimmergloop-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "glimmergloop-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "glimmergloop-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "glimmergloop-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "glimmergloop-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "glimmergloop-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "glimmergloop-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "glimmergloop-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "glimmergloop-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "glimmergloop-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "glimmergloop-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "glimmergloop-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "glimmergloop-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "glimmergloop-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "glimmergloop-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "glimmergloop-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "glimmergloop-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "glimmergloop-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "glimmergloop-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "glimmergloop-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "glimmergloop-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "glimmergloop-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "glimmergloop-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "glimmergloop-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "glimmergloop-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "glimmergloop-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "glimmergloop-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "glimmergloop-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "glimmergloop-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "glimmergloop-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "glimmergloop-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "glimmergloop-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "glimmergloop-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "glimmergloop-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "glimmergloop-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "glimmergloop-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "glimmergloop-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "glimmergloop-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "glimmergloop-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "glimmergloop-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "glimmergloop-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "glimmergloop-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "glimmergloop-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "glimmergloop-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "glimmergloop-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "glimmergloop-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "glimmergloop-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "glimmergloop-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "glimmergloop-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "glimmergloop-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['gloopold'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "gloopold-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "gloopold-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloopold-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloopold-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloopold-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloopold-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloopold-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloopold-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloopold-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "gloopold-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloopold-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloopold-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloopold-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloopold-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloopold-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloopold-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloopold-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloopold-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloopold-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloopold-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloopold-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "gloopold-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloopold-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloopold-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloopold-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloopold-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloopold-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloopold-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloopold-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "gloopold-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloopold-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloopold-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloopold-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloopold-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloopold-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloopold-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloopold-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "gloopold-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloopold-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloopold-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloopold-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloopold-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloopold-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloopold-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloopold-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloopold-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloopold-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloopold-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloopold-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "gloopold-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloopold-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloopold-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloopold-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloopold-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloopold-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloopold-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloopold-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloopold-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloopold-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloopold-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloopold-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "gloopold-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['flapjack'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "flapjack-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "flapjack-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "flapjack-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "flapjack-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "flapjack-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "flapjack-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "flapjack-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "flapjack-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "flapjack-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "flapjack-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "flapjack-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "flapjack-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "flapjack-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "flapjack-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "flapjack-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "flapjack-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "flapjack-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "flapjack-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "flapjack-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "flapjack-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "flapjack-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "flapjack-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "flapjack-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "flapjack-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "flapjack-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "flapjack-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "flapjack-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "flapjack-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "flapjack-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "flapjack-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "flapjack-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "flapjack-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "flapjack-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "flapjack-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "flapjack-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "flapjack-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "flapjack-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "flapjack-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "flapjack-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "flapjack-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "flapjack-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "flapjack-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "flapjack-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "flapjack-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "flapjack-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "flapjack-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "flapjack-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "flapjack-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "flapjack-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "flapjack-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "flapjack-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "flapjack-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "flapjack-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "flapjack-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "flapjack-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "flapjack-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "flapjack-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "flapjack-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "flapjack-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "flapjack-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "flapjack-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "flapjack-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['peckish'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "peckish-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "peckish-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "peckish-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "peckish-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "peckish-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "peckish-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "peckish-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "peckish-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "peckish-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "peckish-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "peckish-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "peckish-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "peckish-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "peckish-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "peckish-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "peckish-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "peckish-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "peckish-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "peckish-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "peckish-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "peckish-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "peckish-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "peckish-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "peckish-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "peckish-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "peckish-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "peckish-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "peckish-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "peckish-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "peckish-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "peckish-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "peckish-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "peckish-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "peckish-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "peckish-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "peckish-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "peckish-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "peckish-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "peckish-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "peckish-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "peckish-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "peckish-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "peckish-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "peckish-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "peckish-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "peckish-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "peckish-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "peckish-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "peckish-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "peckish-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "peckish-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "peckish-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "peckish-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "peckish-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "peckish-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "peckish-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "peckish-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "peckish-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "peckish-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "peckish-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "peckish-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "peckish-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['grumpleroot'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "grumpleroot-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "grumpleroot-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumpleroot-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumpleroot-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumpleroot-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumpleroot-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumpleroot-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumpleroot-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumpleroot-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "grumpleroot-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumpleroot-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumpleroot-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumpleroot-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumpleroot-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumpleroot-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumpleroot-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumpleroot-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumpleroot-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumpleroot-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumpleroot-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumpleroot-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "grumpleroot-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumpleroot-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumpleroot-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumpleroot-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumpleroot-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumpleroot-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumpleroot-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumpleroot-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "grumpleroot-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumpleroot-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumpleroot-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumpleroot-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumpleroot-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumpleroot-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumpleroot-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumpleroot-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "grumpleroot-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumpleroot-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumpleroot-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumpleroot-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumpleroot-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumpleroot-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumpleroot-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumpleroot-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumpleroot-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumpleroot-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumpleroot-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumpleroot-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "grumpleroot-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumpleroot-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumpleroot-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumpleroot-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumpleroot-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumpleroot-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumpleroot-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumpleroot-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumpleroot-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumpleroot-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumpleroot-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumpleroot-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "grumpleroot-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['toadstooligan'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "toadstooligan-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "toadstooligan-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "toadstooligan-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "toadstooligan-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "toadstooligan-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "toadstooligan-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "toadstooligan-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "toadstooligan-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "toadstooligan-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "toadstooligan-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "toadstooligan-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "toadstooligan-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "toadstooligan-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "toadstooligan-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "toadstooligan-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "toadstooligan-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "toadstooligan-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "toadstooligan-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "toadstooligan-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "toadstooligan-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "toadstooligan-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "toadstooligan-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "toadstooligan-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "toadstooligan-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "toadstooligan-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "toadstooligan-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "toadstooligan-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "toadstooligan-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "toadstooligan-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "toadstooligan-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "toadstooligan-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "toadstooligan-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "toadstooligan-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "toadstooligan-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "toadstooligan-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "toadstooligan-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "toadstooligan-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "toadstooligan-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "toadstooligan-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "toadstooligan-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "toadstooligan-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "toadstooligan-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "toadstooligan-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "toadstooligan-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "toadstooligan-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "toadstooligan-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "toadstooligan-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "toadstooligan-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "toadstooligan-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "toadstooligan-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "toadstooligan-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "toadstooligan-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "toadstooligan-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "toadstooligan-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "toadstooligan-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "toadstooligan-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "toadstooligan-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "toadstooligan-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "toadstooligan-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "toadstooligan-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "toadstooligan-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "toadstooligan-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['bumbleblunder'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "bumbleblunder-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "bumbleblunder-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bumbleblunder-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bumbleblunder-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bumbleblunder-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bumbleblunder-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bumbleblunder-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bumbleblunder-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bumbleblunder-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bumbleblunder-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bumbleblunder-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bumbleblunder-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bumbleblunder-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bumbleblunder-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bumbleblunder-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bumbleblunder-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bumbleblunder-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bumbleblunder-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bumbleblunder-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bumbleblunder-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bumbleblunder-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bumbleblunder-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bumbleblunder-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bumbleblunder-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bumbleblunder-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bumbleblunder-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bumbleblunder-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bumbleblunder-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bumbleblunder-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bumbleblunder-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bumbleblunder-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bumbleblunder-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bumbleblunder-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bumbleblunder-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bumbleblunder-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bumbleblunder-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bumbleblunder-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bumbleblunder-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bumbleblunder-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bumbleblunder-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bumbleblunder-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bumbleblunder-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bumbleblunder-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bumbleblunder-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bumbleblunder-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bumbleblunder-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bumbleblunder-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bumbleblunder-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bumbleblunder-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bumbleblunder-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bumbleblunder-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bumbleblunder-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bumbleblunder-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bumbleblunder-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bumbleblunder-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bumbleblunder-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bumbleblunder-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bumbleblunder-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bumbleblunder-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bumbleblunder-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bumbleblunder-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bumbleblunder-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['boohoo'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "boohoo-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "boohoo-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boohoo-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boohoo-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boohoo-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boohoo-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boohoo-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boohoo-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boohoo-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boohoo-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boohoo-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boohoo-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boohoo-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boohoo-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boohoo-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boohoo-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boohoo-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boohoo-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boohoo-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boohoo-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boohoo-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boohoo-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boohoo-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boohoo-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boohoo-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boohoo-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boohoo-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boohoo-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boohoo-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boohoo-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boohoo-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boohoo-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boohoo-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boohoo-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boohoo-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boohoo-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boohoo-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boohoo-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boohoo-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boohoo-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boohoo-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boohoo-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boohoo-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boohoo-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boohoo-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boohoo-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boohoo-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boohoo-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boohoo-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boohoo-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boohoo-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boohoo-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boohoo-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boohoo-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boohoo-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boohoo-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boohoo-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boohoo-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boohoo-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boohoo-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boohoo-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boohoo-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['chestnut'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "chestnut-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "chestnut-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "chestnut-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "chestnut-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "chestnut-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "chestnut-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "chestnut-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "chestnut-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "chestnut-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "chestnut-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "chestnut-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "chestnut-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "chestnut-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "chestnut-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "chestnut-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "chestnut-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "chestnut-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "chestnut-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "chestnut-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "chestnut-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "chestnut-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "chestnut-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "chestnut-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "chestnut-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "chestnut-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "chestnut-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "chestnut-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "chestnut-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "chestnut-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "chestnut-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "chestnut-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "chestnut-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "chestnut-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "chestnut-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "chestnut-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "chestnut-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "chestnut-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "chestnut-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "chestnut-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "chestnut-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "chestnut-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "chestnut-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "chestnut-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "chestnut-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "chestnut-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "chestnut-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "chestnut-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "chestnut-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "chestnut-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "chestnut-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "chestnut-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "chestnut-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "chestnut-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "chestnut-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "chestnut-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "chestnut-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "chestnut-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "chestnut-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "chestnut-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "chestnut-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "chestnut-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "chestnut-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['clankworthy'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "clankworthy-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "clankworthy-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "clankworthy-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "clankworthy-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "clankworthy-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "clankworthy-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "clankworthy-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "clankworthy-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "clankworthy-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "clankworthy-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "clankworthy-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "clankworthy-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "clankworthy-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "clankworthy-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "clankworthy-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "clankworthy-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "clankworthy-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "clankworthy-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "clankworthy-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "clankworthy-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "clankworthy-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "clankworthy-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "clankworthy-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "clankworthy-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "clankworthy-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "clankworthy-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "clankworthy-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "clankworthy-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "clankworthy-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "clankworthy-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "clankworthy-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "clankworthy-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "clankworthy-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "clankworthy-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "clankworthy-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "clankworthy-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "clankworthy-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "clankworthy-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "clankworthy-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "clankworthy-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "clankworthy-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "clankworthy-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "clankworthy-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "clankworthy-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "clankworthy-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "clankworthy-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "clankworthy-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "clankworthy-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "clankworthy-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "clankworthy-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "clankworthy-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "clankworthy-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "clankworthy-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "clankworthy-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "clankworthy-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "clankworthy-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "clankworthy-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "clankworthy-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "clankworthy-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "clankworthy-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "clankworthy-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "clankworthy-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['boulderdash'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "boulderdash-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "boulderdash-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boulderdash-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boulderdash-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boulderdash-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boulderdash-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boulderdash-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boulderdash-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boulderdash-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "boulderdash-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boulderdash-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boulderdash-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boulderdash-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boulderdash-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boulderdash-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boulderdash-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boulderdash-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boulderdash-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boulderdash-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boulderdash-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boulderdash-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "boulderdash-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boulderdash-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boulderdash-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boulderdash-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boulderdash-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boulderdash-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boulderdash-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boulderdash-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "boulderdash-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boulderdash-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boulderdash-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boulderdash-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boulderdash-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boulderdash-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boulderdash-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boulderdash-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "boulderdash-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boulderdash-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boulderdash-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boulderdash-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boulderdash-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boulderdash-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boulderdash-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boulderdash-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boulderdash-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boulderdash-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boulderdash-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boulderdash-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "boulderdash-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boulderdash-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boulderdash-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boulderdash-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boulderdash-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boulderdash-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boulderdash-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boulderdash-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boulderdash-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boulderdash-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boulderdash-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boulderdash-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "boulderdash-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['pip'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "pip-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "pip-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "pip-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "pip-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "pip-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "pip-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "pip-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "pip-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "pip-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "pip-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "pip-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "pip-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "pip-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "pip-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "pip-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "pip-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "pip-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "pip-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "pip-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "pip-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "pip-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "pip-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "pip-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "pip-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "pip-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "pip-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "pip-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "pip-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "pip-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "pip-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "pip-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "pip-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "pip-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "pip-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "pip-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "pip-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "pip-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "pip-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "pip-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "pip-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "pip-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "pip-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "pip-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "pip-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "pip-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "pip-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "pip-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "pip-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "pip-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "pip-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "pip-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "pip-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "pip-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "pip-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "pip-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "pip-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "pip-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "pip-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "pip-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "pip-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "pip-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "pip-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['sunmane'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "sunmane-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "sunmane-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sunmane-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sunmane-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sunmane-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sunmane-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sunmane-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sunmane-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sunmane-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "sunmane-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sunmane-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sunmane-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sunmane-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sunmane-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sunmane-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sunmane-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sunmane-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sunmane-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sunmane-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sunmane-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sunmane-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "sunmane-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sunmane-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sunmane-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sunmane-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sunmane-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sunmane-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sunmane-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sunmane-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "sunmane-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sunmane-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sunmane-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sunmane-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sunmane-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sunmane-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sunmane-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sunmane-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "sunmane-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sunmane-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sunmane-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sunmane-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sunmane-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sunmane-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sunmane-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sunmane-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sunmane-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sunmane-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sunmane-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sunmane-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "sunmane-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sunmane-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sunmane-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sunmane-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sunmane-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sunmane-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sunmane-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sunmane-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sunmane-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sunmane-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sunmane-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sunmane-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "sunmane-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['bogwallop'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "bogwallop-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "bogwallop-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bogwallop-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bogwallop-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bogwallop-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bogwallop-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bogwallop-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bogwallop-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bogwallop-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "bogwallop-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bogwallop-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bogwallop-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bogwallop-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bogwallop-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bogwallop-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bogwallop-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bogwallop-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bogwallop-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bogwallop-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bogwallop-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bogwallop-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "bogwallop-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bogwallop-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bogwallop-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bogwallop-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bogwallop-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bogwallop-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bogwallop-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bogwallop-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "bogwallop-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bogwallop-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bogwallop-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bogwallop-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bogwallop-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bogwallop-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bogwallop-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bogwallop-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "bogwallop-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bogwallop-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bogwallop-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bogwallop-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bogwallop-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bogwallop-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bogwallop-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bogwallop-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bogwallop-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bogwallop-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bogwallop-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bogwallop-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "bogwallop-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bogwallop-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bogwallop-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bogwallop-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bogwallop-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bogwallop-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bogwallop-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bogwallop-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bogwallop-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bogwallop-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bogwallop-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bogwallop-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "bogwallop-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['cactuddle'])"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 700
+},
+{
+"shot": "cactuddle-front"
+},
+{
+"eval": "__DQ.cameraOrbit(55)"
+},
+{
+"wait": 200
+},
+{
+"shot": "cactuddle-side"
+},
+{
+"eval": "__DQ.cameraOrbit(0)"
+},
+{
+"wait": 100
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "cactuddle-idle-f00"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "cactuddle-idle-f01"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "cactuddle-idle-f02"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "cactuddle-idle-f03"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "cactuddle-idle-f04"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "cactuddle-idle-f05"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "cactuddle-idle-f06"
+},
+{
+"eval": "(__DQ.advance(150),0)"
+},
+{
+"shot": "cactuddle-idle-f07"
+},
+{
+"eval": "(__DQ.play('*','attack'),0)"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "cactuddle-attack-f00"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "cactuddle-attack-f01"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "cactuddle-attack-f02"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "cactuddle-attack-f03"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "cactuddle-attack-f04"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "cactuddle-attack-f05"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "cactuddle-attack-f06"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "cactuddle-attack-f07"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "cactuddle-attack-f08"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "cactuddle-attack-f09"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "cactuddle-attack-f10"
+},
+{
+"eval": "(__DQ.advance(65),0)"
+},
+{
+"shot": "cactuddle-attack-f11"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.hit('*'),0)"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "cactuddle-hurt-f00"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "cactuddle-hurt-f01"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "cactuddle-hurt-f02"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "cactuddle-hurt-f03"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "cactuddle-hurt-f04"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "cactuddle-hurt-f05"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "cactuddle-hurt-f06"
+},
+{
+"eval": "(__DQ.advance(45),0)"
+},
+{
+"shot": "cactuddle-hurt-f07"
+},
+{
+"eval": "(__DQ.advance(600),0)"
+},
+{
+"eval": "(__DQ.play('*','taunt'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "cactuddle-taunt-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "cactuddle-taunt-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "cactuddle-taunt-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "cactuddle-taunt-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','cast'),0)"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "cactuddle-cast-f00"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "cactuddle-cast-f01"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "cactuddle-cast-f02"
+},
+{
+"eval": "(__DQ.advance(250),0)"
+},
+{
+"shot": "cactuddle-cast-f03"
+},
+{
+"eval": "(__DQ.advance(900),0)"
+},
+{
+"eval": "(__DQ.play('*','defeat'),0)"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "cactuddle-defeat-f00"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "cactuddle-defeat-f01"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "cactuddle-defeat-f02"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "cactuddle-defeat-f03"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "cactuddle-defeat-f04"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "cactuddle-defeat-f05"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "cactuddle-defeat-f06"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "cactuddle-defeat-f07"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "cactuddle-defeat-f08"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "cactuddle-defeat-f09"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "cactuddle-defeat-f10"
+},
+{
+"eval": "(__DQ.advance(75),0)"
+},
+{
+"shot": "cactuddle-defeat-f11"
+},
+{
+"eval": "(__DQ.advance(300),0)"
+},
+{
+"eval": "(__DQ.play('*','join'),0)"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "cactuddle-join-f00"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "cactuddle-join-f01"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "cactuddle-join-f02"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "cactuddle-join-f03"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "cactuddle-join-f04"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "cactuddle-join-f05"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "cactuddle-join-f06"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "cactuddle-join-f07"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "cactuddle-join-f08"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "cactuddle-join-f09"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "cactuddle-join-f10"
+},
+{
+"eval": "(__DQ.advance(110),0)"
+},
+{
+"shot": "cactuddle-join-f11"
+},
+{
+"eval": "JSON.stringify(__DQ.state().monsters.formation.map(m=>[m.id,m.clip,m.say,m.visible]))"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['gloop'])"
+},
+{
+"wait": 400
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f00"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f01"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f02"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f03"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f04"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f05"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f06"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f07"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f08"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f09"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f10"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f11"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f12"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f13"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f14"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f15"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f16"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f17"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f18"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "gloop-longidle-f19"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['bobble'])"
+},
+{
+"wait": 400
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f00"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f01"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f02"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f03"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f04"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f05"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f06"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f07"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f08"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f09"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f10"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f11"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f12"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f13"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f14"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f15"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f16"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f17"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f18"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "bobble-longidle-f19"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['cactuddle'])"
+},
+{
+"wait": 400
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f00"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f01"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f02"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f03"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f04"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f05"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f06"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f07"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f08"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f09"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f10"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f11"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f12"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f13"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f14"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f15"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f16"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f17"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f18"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "cactuddle-longidle-f19"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['flapjack'])"
+},
+{
+"wait": 400
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f00"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f01"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f02"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f03"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f04"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f05"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f06"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f07"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f08"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f09"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f10"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f11"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f12"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f13"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f14"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f15"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f16"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f17"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f18"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "flapjack-longidle-f19"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['boohoo'])"
+},
+{
+"wait": 400
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f00"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f01"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f02"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f03"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f04"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f05"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f06"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f07"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f08"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f09"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f10"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f11"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f12"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f13"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f14"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f15"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f16"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f17"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f18"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "boohoo-longidle-f19"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['chestnut'])"
+},
+{
+"wait": 400
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f00"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f01"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f02"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f03"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f04"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f05"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f06"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f07"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f08"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f09"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f10"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f11"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f12"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f13"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f14"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f15"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f16"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f17"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f18"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "chestnut-longidle-f19"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"eval": "__DQ.show(['grumpleroot'])"
+},
+{
+"wait": 400
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f00"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f01"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f02"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f03"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f04"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f05"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f06"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f07"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f08"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f09"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f10"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f11"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f12"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f13"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f14"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f15"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f16"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f17"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f18"
+},
+{
+"eval": "(__DQ.advance(500),0)"
+},
+{
+"shot": "grumpleroot-longidle-f19"
+},
+{
+"eval": "__DQ.freeze(false)"
+},
+{
+"assert": "__DQ.errors.length===0",
+"msg": "no runtime errors"
+}
+]
 }

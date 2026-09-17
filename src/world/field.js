@@ -16,6 +16,8 @@
  *   P29 transitions -> Field.setTransition(fn(info, swap)): exits to a built map run through it (fade out, swap(), fade in)
  *   P11 / P31 / P32 -> Field.on('load' | 'unload' | 'update' | 'render', fn) — per-map and per-tick hooks, plus
  *                      Field.world() -> {scene, camera, map, player, cameraRig, blobs, lightRig, view} for adding meshes
+ *   Those pieces install themselves from their own plugin files (main.js calls install(ctx); ARCHITECTURE "Scene
+ *   plugins"). What a map's things SAY comes from its layer files (<id>.npcs.js lines; Menu > Search reads lines.search).
  *   Bus             -> map.leave {id} before a map is torn down, map.enter {id, name, kind, music, x, z} after it is built
  *
  * Input (F2): movement reads Input.axis() / Input.down('run') every tick (player.js); orbit reads Input.look()

@@ -1,0 +1,36 @@
+{ "name": "smooth — fixed frames with the real hero (Chars)", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 40000},
+  {"wait": 2500},
+  {"eval": "(async () => { __DQ.freeze(true); const L = (await import('/src/engine/loop.js')).Loop; L.resetCarry(); L.tick = 161; L.simMs = L.tick * 1000 / 60; L.simTime = L.simMs / 1000; return L.info(); })()"},
+  {"note": "sim clock pinned to tick 161 (where shots/smooth-frames-before froze) so wind sway / water phase match exactly"},
+
+  {"eval": "(__DQ.teleport('meadow', 1.4, 19.2), __DQ.face(180), __DQ.cameraOrbit(4), __DQ.cameraZoom(10.5), __DQ.advance(400))"},
+  {"wait": 300},
+  {"shot": "opening"},
+
+  {"eval": "(__DQ.teleport('meadow', -10, 10), __DQ.face(240), __DQ.cameraOrbit(60), __DQ.advance(400))"},
+  {"wait": 300},
+  {"shot": "cottage-yard"},
+
+  {"eval": "(__DQ.teleport('meadow', -1.2, -6.5), __DQ.face(180), __DQ.cameraOrbit(0), __DQ.advance(400))"},
+  {"wait": 300},
+  {"shot": "bridge"},
+
+  {"eval": "(__DQ.teleport('meadow', 12, -18), __DQ.face(160), __DQ.cameraOrbit(0), __DQ.advance(400))"},
+  {"wait": 300},
+  {"shot": "toward-village"},
+
+  {"eval": "(__DQ.teleport('meadow', 1.4, 19.2), __DQ.face(30), __DQ.cameraOrbit(180), __DQ.cameraZoom(4), __DQ.advance(600))"},
+  {"wait": 300},
+  {"shot": "hero-close"},
+
+  {"eval": "(__DQ.cameraZoom(10.5), __DQ.teleport('meadow', 2.2, 12.2), __DQ.face(150), __DQ.cameraOrbit(0), __DQ.advance(300))"},
+  {"eval": "(__DQ.freeze(false), __DQ.press('confirm', 60))"},
+  {"wait": 2600},
+  {"shot": "sign-dialogue"},
+  {"eval": "({scene: __DQ.state().scene, dialogue: __DQ.state().dialogue && __DQ.state().dialogue.text, boot: __DQ.state().boot, map: __DQ.state().map})"},
+  {"press": "Enter", "times": 5, "delay": 900},
+  {"wait": 800},
+  {"eval": "({errors: __DQ.errors.slice(0, 8), scene: __DQ.state().scene, hero: __DQ.state().player && __DQ.state().player.anim})"},
+  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"}
+]}

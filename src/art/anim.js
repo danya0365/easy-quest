@@ -80,7 +80,8 @@ const BS = 9;
 const IK_SLOTS = ['footL', 'footR', 'handLc', 'handRc', 'handLr', 'handRr'];
 // scalar channels
 export const EXPR = ['blink', 'wide', 'happy', 'lookX', 'lookY', 'browUp', 'browAngry', 'browSad', 'smile', 'frown',
-  'open', 'O', 'blush', 'weapon', 'item', 'legsFree', 'footPitchL', 'footPitchR', 'orientL', 'orientR', 'twoHand', 'tilt', 'seat'];
+  'open', 'O', 'blush', 'weapon', 'item', 'legsFree', 'footPitchL', 'footPitchR', 'orientL', 'orientR', 'twoHand', 'tilt', 'seat',
+  'stick', 'blade', 'bladeX', 'bladeY', 'bladeZ'];
 const EX = Object.fromEntries(EXPR.map((k, i) => [k, i]));
 
 class Pose {
@@ -127,34 +128,35 @@ function makeWriter(index) {
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // rest postures (shared by idle / walk / run so the character keeps its personality while moving)
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
-function restArms(P, c, k = 1, moving = 0) {
+function restArms(P, c, k = 1, moving = 0, run = 0, skip = null) {
   const s = c.style, m = c.m, kk = m.k;
   const a = s.arms || 'side';
+  const kL = k * (1 - (skip ? skip.L || 0 : 0)), kR = k * (1 - (skip ? skip.R || 0 : 0));
   // chest-space: origin at the chest bone, axes = the character's (x left, y up, z forward)
   const bellyY = (m.hipY + m.torso * 0.28) - m.chestY;
   switch (a) {
     case 'clasp': {   // hands folded in front of the tummy (Sera, the nun)
-      const w = k * (1 - moving * 0.35);
+      const f = 1 - moving * 0.35, w = Math.min(kL, kR) * f;
       P.handC(1, 0.035 * kk, bellyY, m.bodyZ + 0.075 * kk, w); P.handC(-1, -0.035 * kk, bellyY - 0.01 * kk, m.bodyZ + 0.08 * kk, w);
       break;
     }
     case 'hips': case 'hipL': {   // fist(s) on the hips, elbows out
-      const w = k * (1 - moving * 0.6);
+      const f = 1 - moving * 0.6;
       const hy = (m.hipY + m.torso * 0.12) - m.chestY;
-      P.handC(1, m.bodyX + 0.02 * kk, hy, 0.02 * kk, w);
-      P.rl('arm', 1, 0, 0, 0.5 * w);
-      if (a === 'hips') { P.handC(-1, -m.bodyX - 0.02 * kk, hy, 0.02 * kk, w); P.rl('arm', -1, 0, 0, 0.5 * w); }
+      P.handC(1, m.bodyX + 0.02 * kk, hy, 0.02 * kk, kL * f);
+      P.rl('arm', 1, 0, 0, 0.5 * kL * f);
+      if (a === 'hips') { P.handC(-1, -m.bodyX - 0.02 * kk, hy, 0.02 * kk, kR * f); P.rl('arm', -1, 0, 0, 0.5 * kR * f); }
       break;
     }
     case 'behind': {
-      const w = k * (1 - moving * 0.4);
-      P.handC(1, 0.04 * kk, bellyY, -m.bodyZ - 0.05 * kk, w); P.handC(-1, -0.04 * kk, bellyY, -m.bodyZ - 0.05 * kk, w);
+      const f = 1 - moving * 0.4;
+      P.handC(1, 0.04 * kk, bellyY, -m.bodyZ - 0.05 * kk, kL * f); P.handC(-1, -0.04 * kk, bellyY, -m.bodyZ - 0.05 * kk, kR * f);
       break;
     }
     case 'straps': {  // thumbs hooked under pack straps
-      const w = k * (1 - moving * 0.25);
+      const f = 1 - moving * 0.25;
       const sy = (m.shoulderY - m.torso * 0.28) - m.chestY;
-      P.handC(1, m.bodyX * 0.6, sy, m.bodyZ + 0.06 * kk, w); P.handC(-1, -m.bodyX * 0.6, sy, m.bodyZ + 0.06 * kk, w);
+      P.handC(1, m.bodyX * 0.6, sy, m.bodyZ + 0.06 * kk, kL * f); P.handC(-1, -m.bodyX * 0.6, sy, m.bodyZ + 0.06 * kk, kR * f);
       break;
     }
     default: break;
@@ -162,13 +164,17 @@ function restArms(P, c, k = 1, moving = 0) {
   const r = s.propR;   // what the right hand carries all the time
   if (r === 'stick' || r === 'spear' || r === 'cane' || r === 'fork') {
     const fwd = r === 'cane' ? 0.24 : r === 'stick' ? 0.2 : 0.1;
-    const h = s.gripY != null ? s.gripY : m.shoulderY - m.A1 - m.A2 * 0.6;
+    const h = s.gripY != null ? s.gripY : s.plant ? s.plant.gripY : m.shoulderY - m.A1 - m.A2 * 0.6;
     const swing = moving ? Math.sin(c.loco.phase * Math.PI * 2) * 0.05 * kk : 0;
-    P.handR(-1, -(m.shoulderX + 0.06 * kk), h, fwd * kk + swing, k);
-    P.x('orientR', k);
+    // carried (running, or a staff that is never planted): upright in the fist, tipped back when running
+    P.handR(-1, -(m.shoulderX + 0.06 * kk), h, fwd * kk + swing, kR);
+    P.x('orientR', kR);
+    if (run && s.plant) P.x('tilt', 0.8 * kR * run);
+    // a walking staff: the animator plants its tip on the ground and the hand follows the staff
+    if (s.plant) P.x('stick', kR);
   } else if (r === 'tankard' || r === 'loaf') {
-    P.rl('arm', -1, -0.35 * k, 0, 0.05 * k); P.rl('fore', -1, -1.45 * k, -0.25 * k, 0);
-    P.x('orientR', k);
+    P.rl('arm', -1, -0.35 * kR, 0, 0.05 * kR); P.rl('fore', -1, -1.45 * kR, -0.25 * kR, 0);
+    P.x('orientR', kR);
   }
 }
 
@@ -207,28 +213,50 @@ function idleClip(P, t, c) {
   P.x('smile', s.smile);
 }
 
+/**
+ * How far the pelvis must come down so both feet reach the ground at double support (front foot landK*D ahead,
+ * back foot (1-landK)*D behind with its heel already lifting). Walk heights are built from this, so the hips never
+ * rise out of reach of a planted foot and the bob is a smooth wave, not an IK kink.
+ */
+export function walkDrop(m, D, landK, heelLift) {
+  const reach = (m.L1 + m.L2) * 0.985;
+  const f = reach - Math.sqrt(Math.max(0, reach * reach - (landK * D) ** 2));
+  const b = reach - Math.sqrt(Math.max(0, reach * reach - ((1 - landK) * D) ** 2)) - heelLift;
+  return Math.max(0, f, b);
+}
+
 /** walk + run share this; runK picks the cycle */
 function locoClip(P, t, c, run) {
   const s = c.style, m = c.m, k = m.k, L = c.loco;
-  const amp = 1;
   const zL = L.zL, zR = L.zR, half = Math.max(0.05 * k, L.D * 0.5);
   const legPh = L.phase * TAU;                                    // L lands at phase 0
-  const step2 = (L.phase * 2) % 1;                                // per step
+  const step2 = (L.phase * 2) % 1;                                // per step: 0 = a foot lands
+  const heavy = s.gait === 'heavy';
   if (!run) {
-    // ── WALK: heel-toe, straight arms, bob up over the planted leg, sway over the stance foot ──
+    // ── WALK: heel-toe, straight arms, the body rises over the planted leg and sinks into each landing ──
     const stride = clamp(L.D / (m.legLen * 1.1), 0, 1);
-    const bob = (0.5 - 0.5 * Math.cos(step2 * TAU)) * 0.028 * k * s.bounce * (0.4 + 0.6 * stride);
-    P.p('hips', Math.sin(legPh + TAU * (0.25 - L.duty * 0.5)) * 0.018 * k * s.sway, bob, 0);
-    P.r('hips', 0.04 + s.hunch * 0.3, -(zL - zR) / (half * 2) * 0.16 * s.twist, Math.sin(legPh + TAU * (0.25 - L.duty * 0.5)) * -0.04 * s.sway);
-    P.r('spine', s.hunch * 0.8, 0, 0);
-    P.r('chest', s.hunch * 0.4 + s.chestOut, (zL - zR) / (half * 2) * 0.2 * s.twist, Math.sin(legPh + 1.2) * 0.03 * s.sway);
-    P.r('neck', -s.hunch * 0.6 - 0.03, 0, 0);
-    P.r('head', Math.sin(step2 * TAU + 0.8) * 0.025, 0, s.headCock * 0.5);
+    const drop = walkDrop(m, L.D, L.landK, L.heel);
+    // knees stay soft at mid-stance (kneeBend), children spring up more (bounce), heavy men sink into the landing
+    const soft = clamp(s.kneeBend, 0, 0.9) * (1 - clamp(s.bounce * 0.45, 0, 0.8));
+    const wave = 0.5 + 0.5 * Math.cos(step2 * TAU);                // 1 at landing, 0 at mid-stance
+    const land = env(step2, 0, 0.07, 0.09, heavy ? 0.34 : 0.24);    // the weight arriving on the new foot
+    const dip = land * (heavy ? 0.034 : 0.008) * k;
+    const swayW = Math.sin(legPh + TAU * (0.25 - L.duty * 0.5));   // + while the LEFT foot carries the weight
+    P.p('hips', swayW * 0.018 * k * s.sway, -drop * (soft + (1 - soft) * wave) - dip, 0);
+    P.r('hips', 0.04 + s.hunch * 0.3, -(zL - zR) / (half * 2) * 0.16 * s.twist, -swayW * 0.04 * s.sway);
+    P.r('spine', s.hunch * 0.8 + land * (heavy ? 0.05 : 0.01), 0, 0);
+    // shoulders roll over the stance leg (a big man lumbers), the head stays level
+    const roll = s.roll * (0.5 + 0.5 * stride);
+    P.r('chest', s.hunch * 0.4 + s.chestOut, (zL - zR) / (half * 2) * 0.2 * s.twist, Math.sin(legPh + 1.2) * 0.03 * s.sway - swayW * 0.085 * roll);
+    P.s('chest', land * 0.02 * s.roll, -land * 0.025 * s.roll, land * 0.02 * s.roll);
+    P.r('clavL', 0, 0, Math.max(0, -swayW) * 0.1 * roll); P.r('clavR', 0, 0, -Math.max(0, swayW) * 0.1 * roll);
+    P.r('neck', -s.hunch * 0.6 - 0.03 + land * (heavy ? 0.07 : 0.02), 0, swayW * 0.05 * roll);
+    P.r('head', Math.sin(step2 * TAU + 0.8) * 0.025, 0, s.headCock * 0.5 + swayW * 0.03 * roll);
     const swing = 0.52 * s.armSwing * (0.35 + 0.65 * stride);
     const backK = s.cloakArms ? 0.25 : 1;
     const aL = -(zR / half) * swing * s.armSwingL, aR = -(zL / half) * swing * s.armSwingR;
-    P.rl('arm', 1, aL > 0 ? aL * backK : aL, 0, s.armOut + 0.03 + (s.cloakArms ? 0.08 : 0));
-    P.rl('arm', -1, aR > 0 ? aR * backK : aR, 0, s.armOut + 0.03 + (s.cloakArms ? 0.08 : 0));
+    P.rl('arm', 1, aL > 0 ? aL * backK : aL, 0, s.armOut + 0.03 + (s.cloakArms ? 0.08 : 0) + (heavy ? Math.max(0, -swayW) * 0.08 : 0));
+    P.rl('arm', -1, aR > 0 ? aR * backK : aR, 0, s.armOut + 0.03 + (s.cloakArms ? 0.08 : 0) + (heavy ? Math.max(0, swayW) * 0.08 : 0));
     P.rl('fore', 1, -0.18 - Math.max(0, -zR / half) * 0.35 - s.elbow, 0, 0);
     P.rl('fore', -1, -0.18 - Math.max(0, -zL / half) * 0.35 - s.elbow, 0, 0);
     P.rl('hand', 1, 0, 0, 0.12); P.rl('hand', -1, 0, 0, 0.12);
@@ -242,7 +270,7 @@ function locoClip(P, t, c, run) {
     P.p('hips', Math.sin(legPh + TAU * 0.1) * 0.012 * k * s.sway, bob, 0.02 * k);
     P.r('hips', lean * 0.5, -(zL - zR) / (half * 2) * 0.22 * s.twist, 0);
     P.r('spine', lean * 0.6 + s.hunch * 0.6, 0, 0);
-    P.r('chest', lean * 0.2 + land * 0.06, (zL - zR) / (half * 2) * 0.3 * s.twist, 0);
+    P.r('chest', lean * 0.2 + land * 0.06, (zL - zR) / (half * 2) * 0.3 * s.twist, -Math.sin(legPh) * 0.05 * s.roll);
     P.r('neck', -lean * 0.9, 0, 0);
     P.r('head', -lean * 0.25 + land * 0.05, 0, 0);
     const pump = 0.95 * s.armSwing;
@@ -252,7 +280,7 @@ function locoClip(P, t, c, run) {
     P.rl('fore', -1, -1.35 + (zL / half) * 0.25, 0, 0);
     P.s('chest', land * 0.03, -land * 0.03, land * 0.03);
     P.x('open', 0.25 + flight * 0.15);
-    restArms(P, c, 0.85, 1);
+    restArms(P, c, 0.85, 1, 1);
   }
   P.x('smile', s.smile);
 }
@@ -546,6 +574,7 @@ const STYLE_DEFAULT = {
   hunch: 0, chestOut: 0, headTilt: 0, headCock: 0, breath: 1, breathPeriod: 3.6, fidget: 1, smile: 0.9, hop: 1,
   runLean: 1, cadence: 1, weapon: 'none', arms: 'side', propR: null, propL: null, gripY: null, runStart: 4.1, runFull: 4.9,
   turnRate: 1, blinkEvery: 3.2, cloakLift: 1, seed: 0, stride: 1.1,
+  gait: 'normal', roll: 0.35, kneeBend: 0.5, lift: 1, landK: 0.44, heelLift: 1, plant: null,
 };
 
 class Spring {
@@ -614,6 +643,9 @@ function orientWorld(bone, rootQ, ex, ey, ez, w) {
 export function createAnimator({ root, rig, metrics, style = {} }) {
   const m = metrics;
   const S = Object.assign({}, STYLE_DEFAULT, style);
+  if (style.turnRate == null && S.kid) S.turnRate = 1.3;            // little ones whip round, big men swing round
+  if (style.kneeBend == null && S.gait === 'heavy') S.kneeBend = 0.65;
+  if (style.roll == null && S.gait === 'heavy') S.roll = 1;
   const { bones, list, index, bind } = rig;
   const nb = list.length;
   const W = makeWriter(index);
@@ -672,7 +704,11 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
     hairX: new Spring(90, 8),
   };
 
-  const ctx = { m, style: S, loco: { phase: 0, D: 0, duty: 0.58, zL: 0, zR: 0 }, seed, T: 0 };
+  const ctx = { m, style: S, loco: { phase: 0, D: 0, duty: 0.58, zL: 0, zR: 0, landK: S.landK, heel: 0 }, seed, T: 0 };
+  // the walking staff (greatsword, cane, pitchfork): its tip is planted in world space like a third foot
+  const stick = { tip: new THREE.Vector3(), from: new THREE.Vector3(), planted: false, swing: false, kind: null, s: 0, dur: 0.3, lift: 0.1, init: false, plants: 0 };
+  const footLen = 0.1 * m.k;                                            // ankle -> ball of the foot, for heel lift
+  const heelMax = () => footLen * Math.sin(0.5) * S.heelLift;
 
   const api = {
     debug: false,
@@ -724,7 +760,7 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
       return true;
     },
     lookAt(v) { A.lookAt = v ? (A.lookAt || new THREE.Vector3()).copy(v) : null; },
-    resetFeet() { for (const f of feet) f.init = false; A.haveLast = false; },
+    resetFeet() { for (const f of feet) f.init = false; A.haveLast = false; stick.init = false; },
     get current() { return A.cur && !A.cur.fadingOut ? A.cur.name : (A.forced || (A.speed > 0.05 ? (A.runK > 0.5 ? 'run' : 'walk') : 'idle')); },
 
     update(dt) {
@@ -740,6 +776,7 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
         speed: r3(A.speed), amp: r3(A.amp), run: r3(A.runK), phase: r3(A.phase), stride: r3(A.D), cadence: r3(A.freq), lockW: r3(A.lockW),
         feet: feet.map(f => ({ side: f.side > 0 ? 'L' : 'R', swing: f.swing, s: r3(f.s) })),
         blinking: A.blinkK > 0.3, emote: A.emote,
+        stick: S.plant ? { planted: stick.planted && stick.init, swing: stick.swing, plants: stick.plants } : undefined,
         debug: api.debug ? {
           footLocal: feet.map(f => f.local ? [r3(f.local.x), r3(f.local.y), r3(f.local.z)] : null),
           hipsY: bones.hips ? r3(bones.hips.position.y) : null, vAct: r3(A.vAct), D: r3(A.D), freq: r3(A.freq), duty: r3(A.duty),
@@ -816,7 +853,7 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
     // foot z in root space for the arm swing
     invRoot.copy(root.matrixWorld).invert();
     for (const f of feet) { tmpV.copy(f.pos).applyMatrix4(invRoot); f.local = f.local || new THREE.Vector3(); f.local.copy(tmpV); }
-    ctx.loco.phase = A.phase; ctx.loco.D = Math.max(D, 0.02); ctx.loco.duty = duty;
+    ctx.loco.phase = A.phase; ctx.loco.D = Math.max(D, 0.02); ctx.loco.duty = duty; ctx.loco.landK = S.landK; ctx.loco.heel = heelMax() * (1 - A.runK);
     ctx.loco.zL = feet[0].local.z; ctx.loco.zR = feet[1].local.z;
 
     // ── base layer ──
@@ -926,6 +963,11 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
       const f = feet[li];
       const aw = clamp(pa[ikO + li * 4 + 3], 0, 1);
       f.target.copy(f.pos);
+      if (f.heel > 0.001) {
+        // pivot on the ball of the foot: the ankle rises and eases forward
+        const hl = f.heel * 0.5 * S.heelLift;
+        f.target.addScaledVector(Y_UP, footLen * Math.sin(hl)).addScaledVector(fwdW, footLen * (1 - Math.cos(hl)));
+      }
       if (aw > 0.001) {
         tmpV.set(pa[ikO + li * 4] / aw, pa[ikO + li * 4 + 1] / aw, pa[ikO + li * 4 + 2] / aw).applyMatrix4(root.matrixWorld);
         f.target.lerp(tmpV, aw);
@@ -954,19 +996,22 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
         const hp = _v3.setFromMatrixPosition(th.matrixWorld);
         const pole = tmpV.set(sgn * 0.12, 0, 1).applyQuaternion(rootQ).multiplyScalar(m.legLen).add(hp);
         solve2(th, sh, ft, feet[li].target, pole.clone(), ikW);
-        const pitch = pa[ex + (li === 0 ? EX.footPitchL : EX.footPitchR)] + feet[li].pitch;
+        const pitch = pa[ex + (li === 0 ? EX.footPitchL : EX.footPitchR)] + feet[li].pitch + (feet[li].heel || 0) * 0.5 * S.heelLift;
         orientWorld(ft, rootQ, pitch, sgn * 0.08, 0, ikW);
       }
     }
 
-    // ── arms: IK when a clip asks for it ──
+    // ── arms: IK when a clip asks for it. Right hand first: the left may need to grip what the right is holding ──
     const chest = bones.chest;
-    for (let ai = 0; ai < 2; ai++) {
+    const weaponK = clamp(pa[ex + EX.weapon], 0, 1);
+    const stickW = S.plant ? clamp(pa[ex + EX.stick], 0, 1) * (1 - weaponK) * (1 - legsFree) * (1 - A.runK) : 0;
+    stepStick(dt, stickW);
+    for (const ai of [1, 0]) {
       const side = ai === 0 ? 'L' : 'R', sgn = ai === 0 ? 1 : -1;
       const up = bones['arm' + side], lo = bones['fore' + side], hd = bones['hand' + side];
       if (!up || !lo || !hd) continue;
       const oc = ikO + (2 + ai) * 4, orr = ikO + (4 + ai) * 4;
-      let wc = clamp(pa[oc + 3], 0, 1), wr = clamp(pa[orr + 3], 0, 1);
+      const wc = clamp(pa[oc + 3], 0, 1), wr = clamp(pa[orr + 3], 0, 1);
       if (ai === 0 && pa[ex + EX.twoHand] > 0.001 && bones.propR) {
         // left hand grips the right hand's weapon just below the right fist
         bones.propR.updateWorldMatrix(true, false);
@@ -974,21 +1019,130 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
         solve2(up, lo, hd, g, _v3.set(sgn * 1, -0.3, -0.5).applyQuaternion(rootQ).add(g), clamp(pa[ex + EX.twoHand], 0, 1));
         continue;
       }
-      if (wc + wr < 0.001) continue;
-      const tgt = _v2.set(0, 0, 0);
-      if (wc > 0.001 && chest) tgt.addScaledVector(_v4.set(pa[oc] / wc, pa[oc + 1] / wc, pa[oc + 2] / wc).applyMatrix4(chest.matrixWorld), wc);
-      if (wr > 0.001) tgt.addScaledVector(_v4.set(pa[orr] / wr, pa[orr + 1] / wr, pa[orr + 2] / wr).applyMatrix4(root.matrixWorld), wr);
-      const w = Math.max(wc, wr);
-      tgt.divideScalar(wc + wr);
-      up.updateWorldMatrix(true, false);
-      const sp = _v5.setFromMatrixPosition(up.matrixWorld);
-      const pole = new THREE.Vector3(sgn * 0.8, -0.4, -0.7).applyQuaternion(rootQ).add(sp);
-      solve2(up, lo, hd, tgt.clone(), pole, clamp(w, 0, 1));
+      if (wc + wr > 0.001) {
+        const tgt = _v2.set(0, 0, 0);
+        if (wc > 0.001 && chest) tgt.addScaledVector(_v4.set(pa[oc] / wc, pa[oc + 1] / wc, pa[oc + 2] / wc).applyMatrix4(chest.matrixWorld), wc);
+        if (wr > 0.001) tgt.addScaledVector(_v4.set(pa[orr] / wr, pa[orr + 1] / wr, pa[orr + 2] / wr).applyMatrix4(root.matrixWorld), wr);
+        const w = Math.max(wc, wr);
+        tgt.divideScalar(wc + wr);
+        up.updateWorldMatrix(true, false);
+        const sp = _v5.setFromMatrixPosition(up.matrixWorld);
+        const pole = new THREE.Vector3(sgn * 0.8, -0.4, -0.7).applyQuaternion(rootQ).add(sp);
+        solve2(up, lo, hd, tgt.clone(), pole, clamp(w, 0, 1));
+      }
+      if (ai === 1) {
+        // hands that hold long things upright
+        const tilt = pa[ex + EX.tilt];
+        orientWorld(hd, rootQ, Math.PI / 2 + tilt - A.amp * 0.12 * Math.sin(A.phase * TAU), 0, 0, clamp(pa[ex + EX.orientR], 0, 1) * (1 - weaponK) * (1 - legsFree) * (1 - stickW));
+        // a swung blade points where the clip says (root-space direction)
+        const bw = clamp(pa[ex + EX.blade], 0, 1);
+        if (bw > 0.001) {
+          const bd = _v4.set(pa[ex + EX.bladeX], pa[ex + EX.bladeY], pa[ex + EX.bladeZ]);
+          if (bd.lengthSq() > 1e-6) { bd.normalize().applyQuaternion(rootQ); setWorldQuat(hd, quatFromDir(bd, _qH), bw); }
+        }
+        if (stickW > 0.001) stickIK(up, lo, hd, stickW);
+      }
     }
-    // hands that hold long things upright
-    const tilt = pa[ex + EX.tilt];
-    if (bones.handR) orientWorld(bones.handR, rootQ, Math.PI / 2 + tilt - A.amp * 0.12 * Math.sin(A.phase * TAU), 0, 0, clamp(pa[ex + EX.orientR], 0, 1) * (1 - clamp(pa[ex + EX.weapon], 0, 1)) * (1 - legsFree));
     if (bones.handL) orientWorld(bones.handL, rootQ, 0, 0, 0, clamp(pa[ex + EX.orientL], 0, 1));
+  }
+
+  // ── hand orientation helpers ──
+  const _qH = new THREE.Quaternion(), _qW = new THREE.Quaternion(), _mB = new THREE.Matrix4();
+  const _bx = new THREE.Vector3(), _by = new THREE.Vector3(), _bz = new THREE.Vector3();
+  /** world quaternion whose +Z runs along dirW (the blade / staff), knuckles kept facing the character's front */
+  function quatFromDir(dirW, out) {
+    _bz.copy(dirW).normalize();
+    _bx.set(-1, 0, 0).applyQuaternion(rootQ);
+    _bx.addScaledVector(_bz, -_bx.dot(_bz));
+    if (_bx.lengthSq() < 1e-6) _bx.set(0, 0, 1).applyQuaternion(rootQ).addScaledVector(_bz, -_bz.z);
+    _bx.normalize();
+    _by.crossVectors(_bz, _bx);
+    _mB.makeBasis(_bx, _by, _bz);
+    return out.setFromRotationMatrix(_mB);
+  }
+  function setWorldQuat(bone, qW, w) {
+    bone.parent.getWorldQuaternion(_qW).invert().multiply(qW);
+    bone.quaternion.slerp(_qW, w);
+    bone.updateWorldMatrix(false, true);
+  }
+
+  // ── the walking staff: a third foot. Planted with the left foot (the right hand's stride), carried forward in an
+  //    arc while the right foot lands; steps back under the hand when standing, turning, or picked up again ──
+  function stepStick(dt, sw) {
+    const P = S.plant;
+    if (!P || sw < 0.05) { stick.init = false; stick.planted = false; stick.swing = false; return; }
+    const restTip = (out, ahead = 0) => out.set(-(m.shoulderX + P.out + P.tipOut), 0, P.tipFwd + ahead).applyMatrix4(root.matrixWorld);
+    const plant = () => {
+      stick.swing = false; stick.planted = true; stick.s = 0; stick.plants++;
+      if (api.onEvent) { try { api.onEvent('plant', 'staff'); } catch (e) { reportError('anim.onEvent', e); } }
+    };
+    if (!stick.init) {
+      // pick it up from wherever the tip is now and set it down under the hand
+      if (bones.propR) { bones.propR.updateWorldMatrix(true, false); stick.from.set(0, 0, P.len).applyMatrix4(bones.propR.matrixWorld); } else restTip(stick.from);
+      stick.tip.copy(stick.from); stick.init = true; stick.planted = false;
+      stick.swing = true; stick.kind = 'settle'; stick.s = 0; stick.dur = 0.3; stick.lift = 0.04;
+    }
+    const vVirtual = Math.max(0, A.speed - Math.max(0, A.vAct)) * (1 - A.lockW);
+    if (!stick.swing && vVirtual > 0.001) stick.tip.addScaledVector(fwdW, -vVirtual * dt);
+    const walking = A.moving && A.amp > 0.3;
+    if (walking && !(stick.swing && stick.kind === 'settle')) {
+      const q = A.phase % 1, sd = 0.5, inSwing = q >= sd;
+      const Ds = A.speed * sd / Math.max(0.1, A.freq);
+      if (inSwing && !stick.swing) { stick.swing = true; stick.kind = 'gait'; stick.from.copy(stick.tip); stick.planted = false; }
+      if (stick.swing && stick.kind === 'gait') {
+        if (!inSwing) { restTip(stick.tip, Ds * 0.5); plant(); }
+        else {
+          const sN = (q - sd) / (1 - sd);
+          const remain = (1 - sN) * (1 - sd) / Math.max(0.1, A.freq);
+          const land = restTip(_v4, Ds * 0.5).addScaledVector(fwdW, Math.max(0, A.vAct) * remain);
+          stick.s = sN;
+          stick.tip.lerpVectors(stick.from, land, sN * sN * (3 - 2 * sN));
+          stick.tip.y += Math.sin(Math.pow(sN, 0.8) * Math.PI) * P.lift;
+        }
+      }
+    }
+    if (stick.swing && stick.kind === 'settle') {
+      stick.s = Math.min(1, stick.s + dt / stick.dur);
+      const e = stick.s * stick.s * (3 - 2 * stick.s);
+      const tgt = restTip(_v4);
+      stick.tip.lerpVectors(stick.from, tgt, e);
+      stick.tip.y = lerp(stick.from.y, tgt.y, stick.s) + Math.sin(stick.s * Math.PI) * stick.lift;
+      if (stick.s >= 1) plant();
+    } else if (!walking && !stick.swing) {
+      const tgt = restTip(_v4);
+      const d = Math.hypot(tgt.x - stick.tip.x, tgt.z - stick.tip.z);
+      if (d > (Math.abs(A.yawV) > 0.3 ? 0.1 : 0.16) * m.k) {
+        stick.swing = true; stick.kind = 'settle'; stick.s = 0; stick.from.copy(stick.tip); stick.planted = false;
+        stick.dur = clamp(0.24 + d * 0.35, 0.24, 0.5); stick.lift = clamp(0.04 + d * 0.12, 0.04, 0.12) * m.k;
+      }
+    }
+  }
+
+  /** the right hand rides the staff: grip at staff length from the planted tip, toward where the hand wants to be */
+  function stickIK(up, lo, hd, sw) {
+    const P = S.plant, pr = bones.propR;
+    if (!pr) return;
+    const cyc = Math.cos(A.phase * TAU) * A.amp * (1 - A.runK);
+    const Ds = A.speed * 0.5 / Math.max(0.1, A.freq);
+    const hipsLift = bones.hips ? (bones.hips.position.y - bind.hips.y) * 0.85 : 0;
+    const H = _v1.set(-(m.shoulderX + P.out), P.gripY + hipsLift, P.fwd + cyc * Math.min(P.swing, Ds * 0.32)).applyMatrix4(root.matrixWorld);
+    const T = stick.tip;
+    const dir = _v2.subVectors(H, T);
+    const len = dir.length() || 1; dir.divideScalar(len);
+    const G = _v3.copy(T).addScaledVector(dir, P.len);
+    quatFromDir(_v4.copy(dir).negate(), _qH);
+    const W = _v5.copy(pr.position).applyQuaternion(_qH).negate().add(G);
+    up.updateWorldMatrix(true, false);
+    const pole = new THREE.Vector3(-0.8, -0.4, -0.7).applyQuaternion(rootQ).add(_v4.setFromMatrixPosition(up.matrixWorld));
+    solve2(up, lo, hd, W, pole, sw);
+    setWorldQuat(hd, _qH, sw);
+    // re-aim from where the grip actually ended up, so the tip meets its spot on the ground
+    for (let i = 0; i < 2; i++) {
+      pr.updateWorldMatrix(true, false);
+      const g = _v3.setFromMatrixPosition(pr.matrixWorld);
+      quatFromDir(_v4.subVectors(T, g), _qH);
+      setWorldQuat(hd, _qH, sw);
+    }
   }
 
   // ── feet state machine ──
@@ -1008,18 +1162,20 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
         const off = f.side > 0 ? 0 : 0.5;
         const q = (A.phase + off) % 1;
         const inSwing = q >= duty;
+        // heel peels up at the end of the stance (walk), so the back leg need not drag the hips down
+        f.heel = moving && !f.swing ? sstep(duty * 0.55, duty, q) * (1 - A.runK) * A.amp : 0;
         if (f.swing && f.kind !== 'gait') { f.kind = 'gait'; f.from.copy(f.pos); f.dur = Math.max(0.05, (1 - duty) / Math.max(0.1, A.freq)); f.lift = 0.05 * m.legLen; }
         if (inSwing && !f.swing && moving) {
           f.swing = true; f.from.copy(f.pos); f.s = 0;
           f.dur = Math.max(0.05, (1 - duty) / Math.max(0.1, A.freq));
-          f.lift = lerp(0.11, 0.3, A.runK) * m.legLen * (0.45 + 0.55 * clamp(D / (m.legLen * 0.9), 0, 1)) * S.bounce ** 0.5;
+          f.lift = lerp(0.2, 0.32, A.runK) * m.legLen * (0.5 + 0.5 * clamp(D / (m.legLen * 0.9), 0, 1)) * S.lift;
           f.kind = 'gait';
         }
         if (f.swing && f.kind === 'gait') {
           const landing = moving && !inSwing;
           const s = landing ? 1 : moving ? clamp((q - duty) / (1 - duty), 0, 1) : clamp(f.s + dt / f.dur, 0, 1);
           const remain = (1 - s) * f.dur;
-          const land = rest(f, _v3, D * 0.5 * A.amp).addScaledVector(velW, remain);
+          const land = rest(f, _v3, D * lerp(S.landK, 0.5, A.runK) * A.amp).addScaledVector(velW, remain);
           if (landing || s >= 1) {
             f.pos.copy(land); f.swing = false; f.s = 0;
             if (api.onStep) { try { api.onStep(f.side > 0 ? 'L' : 'R'); } catch (e) { reportError('anim.onStep', e); } }
@@ -1027,8 +1183,8 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
             f.s = s;
             const e = s * s * (3 - 2 * s);
             f.pos.lerpVectors(f.from, land, e);
-            // run: heel kicks up behind first; walk: a low even arc
-            const arc = A.runK > 0.5 ? Math.sin(Math.pow(s, 0.7) * Math.PI) : Math.sin(s * Math.PI);
+            // run: heel kicks up behind first; walk: the knee lifts early, the foot reaches and sets down flat
+            const arc = A.runK > 0.5 ? Math.sin(Math.pow(s, 0.7) * Math.PI) : Math.sin(Math.pow(s, 0.8) * Math.PI);
             f.pos.y = lerp(f.from.y, land.y, s) + arc * f.lift;
             f.pitch = lerp(0.5 * (1 - s) * 1.2, -0.25, s) * (1 - A.runK * 0.3) - (A.runK * Math.sin(s * Math.PI) * 0.4);
           }
@@ -1037,6 +1193,7 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
       if (moving) return;
     }
     // idle: settle steps (also turns in place)
+    for (const f of feet) f.heel = 0;
     const other = (f) => feet[f.side > 0 ? 1 : 0];
     for (const f of feet) {
       if (f.swing && (f.kind !== 'gait' || !moving)) {

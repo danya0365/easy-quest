@@ -1,6 +1,7 @@
 /**
- * placeholder-hero.js — a round, charming stand-in for Bram until P07 (chars.js) and P08 (anim.js) land.
- *                                                                                           (integrator-owned)
+ * placeholder-hero.js — a round, charming stand-in for Bram. FALLBACK ONLY: the field's hero is the real Bram from
+ * P07 (chars.js) + P08 (anim.js) via src/world/player.js heroModel(); this model is used when chars.js is missing or
+ * throws, or when the page is opened with ?hero=placeholder (before/after comparisons).     (integrator-owned)
  * CANON §1: a round-headed boy in a too-big green travelling cloak, half a green ribbon knotted on his LEFT wrist.
  * Built only from F3: toon materials (PAL colours), inverted-hull outlines on the smooth parts, flat unlit eyes.
  *

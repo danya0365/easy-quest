@@ -66,7 +66,7 @@ function heightAt(x, z) {
 }
 let scene, camera, rig, sky, kit, blobs, stool;
 const cast = [];
-const S = { mode: 'cast', focus: -1, orbit: 0, zoom: 1, speed: 0, treadmill: false, theta: 0, life: true, lifeT: 1.5, camYaw: 0, camT: new THREE.Vector3(), camInit: false, lastPlay: 'idle', buildMs: 0 };
+const S = { mode: 'cast', focus: -1, pair: null, pairGap: 0.95, orbit: 0, zoom: 1, speed: 0, treadmill: false, theta: 0, life: true, lifeT: 1.5, camYaw: 0, camT: new THREE.Vector3(), camInit: false, lastPlay: 'idle', buildMs: 0 };
 
 function build() {
   const t0 = performance.now();
@@ -152,9 +152,15 @@ function resetToSlot(e) {
   e.ch.root.position.set(e.slot.x, heightAt(e.slot.x, e.slot.z), e.slot.z);
   e.ch.setFacing(e.slot.yaw, true);
 }
+function leavePair() {
+  if (!S.pair) return;
+  for (const i of S.pair) resetToSlot(cast[i]);
+  S.pair = null;
+}
 function show(id, arg) {
   const i = findCast(id, arg);
   if (i < 0) return { ok: false, reason: 'no such character', known: cast.map(e => e.key) };
+  leavePair();
   if (S.focus >= 0 && S.focus !== i) resetToSlot(cast[S.focus]);
   S.mode = 'focus'; S.focus = i; S.speed = 0; S.theta = 0; S.camInit = false; S.lastPlay = 'idle';
   const e = cast[i];
@@ -165,15 +171,42 @@ function show(id, arg) {
   return { ok: true, label: e.ch.label, height: +e.ch.height.toFixed(3) };
 }
 function showCast() {
+  leavePair();
   if (S.focus >= 0) resetToSlot(cast[S.focus]);
   S.mode = 'cast'; S.focus = -1; S.speed = 0; S.camInit = false; S.lastPlay = 'idle';
   for (const e of cast) resetToSlot(e);
   label();
   return cast.map(e => e.ch.label);
 }
+/** Father and son out walking together round the green: Halvard on the outside, Bram trotting at his elbow. */
+function showPair(speed = 1.6) {
+  const h = findCast('halvard'), b = findCast('hero', 6);
+  if (h < 0 || b < 0) return { ok: false };
+  if (S.focus >= 0) resetToSlot(cast[S.focus]);
+  leavePair();
+  S.mode = 'pair'; S.focus = -1; S.pair = [h, b]; S.theta = 0; S.camInit = false; S.speed = Math.max(0, +speed || 0);
+  for (const i of S.pair) { const e = cast[i]; e.ch.setMove(0); e.ch.play('idle', { fade: 0.05 }); }
+  placePair(0, true);
+  label();
+  return { ok: true, speed: S.speed };
+}
+function placePair(dt, instant) {
+  const [h, b] = S.pair.map(i => cast[i]);
+  S.theta += (S.speed * dt) / TRACK.r;
+  const put = (e, r, th) => {
+    const x = TRACK.x + Math.sin(th) * r, z = TRACK.z - Math.cos(th) * r;
+    e.ch.root.position.set(x, heightAt(x, z), z);
+    e.ch.setFacing(Math.atan2(Math.cos(th), Math.sin(th)), instant);
+  };
+  const rB = TRACK.r - S.pairGap;
+  put(h, TRACK.r, S.theta);
+  put(b, rB, S.theta - 0.03);
+  h.ch.setMove(S.speed); b.ch.setMove(S.speed * rB / TRACK.r);
+}
 function label() {
   const n = document.getElementById('t-name'), l = document.getElementById('t-look');
   if (S.mode === 'cast') { n.innerHTML = 'The cast of <b>Puddlewick</b>'; l.textContent = 'Everyone out on the green on a sunny morning.'; return; }
+  if (S.mode === 'pair') { n.innerHTML = '<b>Sir Halvard</b> and <b>Bram</b>'; l.textContent = 'Father and son, out walking. The greatsword thumps the ground at every stride.'; return; }
   const e = cast[S.focus];
   n.innerHTML = `<b>${e.ch.label}</b>`;
   l.textContent = LOOKS[e.key] || LOOKS[e.d.id] || '';
@@ -192,6 +225,7 @@ function update(dt) {
     f.ch.root.position.set(x, heightAt(x, z), z);
     f.ch.setFacing(Math.atan2(Math.cos(S.theta), Math.sin(S.theta)));
   }
+  if (S.mode === 'pair' && S.pair) placePair(dt, false);
   if (S.mode === 'cast' && S.life) {
     S.lifeT -= dt;
     if (S.lifeT <= 0) {
@@ -224,7 +258,11 @@ function update(dt) {
 function placeCamera(dt) {
   const f = focused();
   let yaw, pitch, dist, fov = 40;
-  if (f) {
+  if (S.mode === 'pair' && S.pair) {
+    const [h, b] = S.pair.map(i => cast[i]);
+    tgt.copy(h.ch.root.position).add(b.ch.root.position).multiplyScalar(0.5); tgt.y += 0.95;
+    yaw = (S.speed > 0.05 ? h.ch.facing : 0) + S.orbit * DEG; pitch = 10 * DEG; dist = 6.2 * S.zoom; fov = 38;
+  } else if (f) {
     const h = f.ch.height;
     tgt.copy(f.ch.root.position); tgt.y += h * 0.52;
     yaw = (S.speed > 0.05 && !S.treadmill ? f.ch.facing : 0) + S.orbit * DEG; pitch = 9 * DEG; dist = (h * 2.3 + 1.4) * S.zoom; fov = 38;
@@ -269,6 +307,53 @@ Debug.implement('cameraOrbit', (deg) => { if (deg === undefined) return S.orbit;
 Debug.implement('cameraZoom', (n) => { if (n === undefined) return S.zoom; S.zoom = Math.max(0.3, Math.min(4, +n || 1)); return S.zoom; });
 Debug.expose('show', (id, age) => show(id, age));
 Debug.expose('cast', () => showCast());
+Debug.expose('pair', (speed = 1.6) => showPair(speed));
+Debug.expose('snap', () => { S.camInit = false; return true; });
+/**
+ * Measure the focused character (or pair member n) over `frames` fixed 60 Hz ticks: hip/head bob, foot lift, how far
+ * each planted foot slides while the body travels, and the carried staff's tip (planted slide, height above ground).
+ */
+Debug.expose('probe', (frames = 180, who = 0) => {
+  const e = S.mode === 'pair' && S.pair ? cast[S.pair[who] ?? 0] : focused();
+  if (!e) return { ok: false, reason: 'show(id) or pair() first' };
+  const B = e.ch.bones, v = new THREE.Vector3(), rows = [];
+  const tipLocal = e.ch.metrics.stickLen ? new THREE.Vector3(0, 0, e.ch.metrics.stickLen) : null;
+  for (let i = 0; i < frames; i++) {
+    Loop.step(1000 / 60);
+    const st = e.ch.anim.state();
+    const r = e.ch.root.position.clone();
+    const row = { r, hips: B.hips.getWorldPosition(v).y - r.y, head: B.head.getWorldPosition(v).y - r.y, feet: [], swing: st.feet.map(f => f.swing), stick: st.stick || null };
+    for (const n of ['footL', 'footR']) { const p = B[n].getWorldPosition(new THREE.Vector3()); row.feet.push({ p, h: p.y - heightAt(p.x, p.z) }); }
+    if (tipLocal && B.propR) { const p = tipLocal.clone().applyMatrix4(B.propR.matrixWorld); row.tip = { p, h: p.y - heightAt(p.x, p.z) }; }
+    rows.push(row);
+  }
+  const rng = (a) => Math.round((Math.max(...a) - Math.min(...a)) * 1000) / 10;
+  const cm = (x) => Math.round(x * 1000) / 10;
+  const contacts = (pick, planted) => {
+    const out = []; let cur = null;
+    rows.forEach((row, i) => {
+      const on = planted(row);
+      if (on && !cur) cur = { i0: i, path: 0, body: 0, last: pick(row), lastR: row.r };
+      else if (on && cur) { const p = pick(row); cur.path += Math.hypot(p.x - cur.last.x, p.z - cur.last.z); cur.body += Math.hypot(row.r.x - cur.lastR.x, row.r.z - cur.lastR.z); cur.last = p; cur.lastR = row.r; }
+      if ((!on || i === rows.length - 1) && cur) { if (i - cur.i0 > 3) out.push({ frames: i - cur.i0, slideCm: cm(cur.path), bodyCm: cm(cur.body) }); cur = null; }
+    });
+    return out;
+  };
+  const res = {
+    label: e.ch.label, height: +e.ch.height.toFixed(3), clip: e.ch.clip, speed: e.ch.anim.state().speed, cadence: e.ch.anim.state().cadence, stride: e.ch.anim.state().stride,
+    hipBobCm: rng(rows.map(r => r.hips)), headBobCm: rng(rows.map(r => r.head)),
+    footLiftCm: [0, 1].map(k => rng(rows.map(r => r.feet[k].h))),
+    footContacts: [0, 1].map(k => contacts(r => r.feet[k].p, r => !r.swing[k])),
+  };
+  if (rows[0].tip) {
+    res.tip = {
+      heightCm: [cm(Math.min(...rows.map(r => r.tip.h))), cm(Math.max(...rows.map(r => r.tip.h)))],
+      plantedHeightCm: rows.filter(r => r.stick && r.stick.planted).map(r => cm(r.tip.h)).reduce((a, b, _, arr) => [Math.min(a[0], b), Math.max(a[1], b)], [Infinity, -Infinity]),
+      plants: contacts(r => r.tip.p, r => r.stick && r.stick.planted),
+    };
+  }
+  return res;
+});
 Debug.expose('play', (name, opts = {}) => {
   S.lastPlay = name;
   const targets = S.mode === 'cast' ? cast : [focused()];
@@ -316,7 +401,7 @@ Debug.provide('chars', () => {
   const f = focused();
   const info = App.renderer ? App.renderer.info.render : {};
   return {
-    mode: S.mode, focus: f ? f.ch.state() : null, speed: S.speed, treadmill: S.treadmill, orbit: S.orbit, zoom: S.zoom,
+    mode: S.mode, focus: f ? f.ch.state() : null, pair: S.pair ? S.pair.map(i => cast[i].ch.state()) : null, speed: S.speed, treadmill: S.treadmill, orbit: S.orbit, zoom: S.zoom,
     castSize: cast.length, castClips: cast.map(e => e.ch.clip), fps: Loop.fps, calls: info.calls, triangles: info.triangles,
     drawCallsPerChar: cast.map(e => e.ch.drawCalls), buildMs: S.buildMs,
   };

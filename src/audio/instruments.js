@@ -58,6 +58,40 @@ export function instrumentsFor(events) {
   return [...s];
 }
 
+/**
+ * The sample requests a note makes: [[instrument, midi, vel, layerLo, layerHi, prefer]]. Mirrors the voice functions
+ * below (keep them in step: a request the plan misses still plays, from the nearest decoded zone, and is counted in
+ * Sampler.fallbacks). music.js turns a theme's plan into the zone files to fetch — a theme downloads only what it plays.
+ */
+export function planNote(n) {
+  const v = n.voice, m = n.m ?? 60, vel = clamp(n.vel, 0.02, 1.15);
+  switch (v) {
+    case 'strings':
+      if (m > STR_TOP && !n.o?.trem) return [['violin', m, vel, undefined, undefined, 0], ['violin', m, vel, undefined, undefined, 1]];
+      return [[n.o?.trem ? 'strings_trem' : strShort(n) ? 'strings_spic' : 'strings', m, vel]];
+    case 'violin': return [['violin', m, vel]];
+    case 'horns': case 'hornSolo': return [['horn', hornM(m), vel]];
+    case 'trumpet': return [['trumpet', m > 87 ? m - 12 : m, vel]];
+    case 'trombone': case 'tuba': case 'flute': case 'oboe': case 'clarinet': case 'bassoon': case 'pizz': case 'harp':
+      return [[v, m, vel]];
+    case 'harpsi': return [['harpsichord', m, vel]];
+    case 'celesta':
+      if (m > 89) return [['glock', m, vel, 0.25, 0.9]];
+      return m + 12 < 79 ? [['vibes', m, vel, 0.25, 0.9]] : [['vibes', m, vel, 0.25, 0.9], ['glock', m + 12, vel, 0.3, 1.2]];
+    case 'bell': return [['chimes', m < 58 ? m + 12 : m, vel]];
+    case 'tri': return [['triangle', m, vel]];
+    case 'timp': return [[n.o?.roll ? 'timpani_roll' : 'timpani', m, vel]];
+    case 'snare': return n.o?.roll ? [['snare_roll', m, vel]] : [['snare', m, vel, 0.15, 0.95]];
+    case 'cymbal': return n.o?.roll ? [['cymbal_roll', m, vel]] : [['cymbal', m, vel, 0.15, 0.95]];
+    case 'organ': {
+      const r = [['organ', m, vel, 0.4, 0.8]];
+      if (n.o?.pedal && m - 12 >= 24) r.push(['organ', m - 12, vel, 0.4, 0.8]);
+      return r;
+    }
+    default: return [];
+  }
+}
+
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const cents = (c) => Math.pow(2, c / 1200);
 const ftom = (f) => 69 + 12 * Math.log2(f / 440);
@@ -181,7 +215,7 @@ VOICES.strings = (K, n, out) => {
     const ch = channel(K, n, out, clamp((n.pan ?? 0) + (k ? 0.18 : -0.18), -1, 1)); ds.push(ch.dispose);
     hs.push(Sampler.note(K.ctx, 'violin', {
       t: n.t + k * 0.009, dur: n.dur, m: n.m, vel: velOf(n), amp: LEVEL.violin * velOf(n) * n.gain * 0.62, rel: n.o?.rel ?? 0.3,
-      attack: n.o?.attack ?? 0, swell: n.o?.swell ?? 1, detune: k ? 7 : -5, prefer: k, offset: K.rnd() * 0.01, legato: n.legato,
+      attack: n.o?.attack ?? 0, swell: n.o?.swell ?? 1, detune: k ? 2 : -2, prefer: k, offset: K.rnd() * 0.01, legato: n.legato,
     }, ch.node));
   }
   return combine(K, n.t, hs, ds);
@@ -193,31 +227,25 @@ VOICES.violin = sampled('violin', {
   swell: (n) => (n.dur > 1.5 ? 1.1 : 1), offset: (K) => K.rnd() * 0.006,
 });
 
-// HORN SECTION — three players on neighbouring horn recordings, detuned, staggered and spread; the single-layer ff
-// recordings are darkened by a velocity low-pass (a horn's piano is round, its fortissimo buzzes)
+// HORN SECTION — the section is WRITTEN as parts (1st-4th horn on their own notes); each note is one real player.
+// (Three detuned copies of the same take used to be stacked for width: they phase-beat 5-6 dB every 1.5 s.)
+// The recordings are fortissimo takes, darkened by a velocity low-pass (a horn's piano is round, its fortissimo buzzes).
 const hornTone = (vel) => 900 + 12000 * Math.pow(clamp((vel - 0.12) / 0.85, 0, 1), 1.8);
+const hornM = (m) => ((m ?? 0) > 78 ? m - 12 : m); // a horn cannot play above F5 (the recordings stop there too)
 VOICES.horns = (K, n, out) => {
   const { ctx } = K;
   const vel = velOf(n);
-  // a horn section cannot play above F5 (the recordings stop there too): anything higher sounds an octave down
-  if ((n.m ?? 0) > 78) n = { ...n, m: n.m - 12 };
-  const players = K.quality === 'low' ? 2 : 3;
-  const tight = n.o?.tight ? 0.35 : 1;
-  const hs = [], ds = [];
+  n = { ...n, m: hornM(n.m) };
   const short = n.art === 'staccato' || n.dur < 0.18;
-  for (let k = 0; k < players; k++) {
-    const ch = channel(K, n, out, clamp((n.pan ?? 0) + [0, -0.32, 0.3][k], -1, 1));
-    const lp = BQ(ctx, 'lowpass', hornTone(vel) * (1 + 0.06 * k), 0.5); lp.connect(ch.node);
-    const hp = BQ(ctx, 'highpass', 70, 0.6); hp.connect(lp); // the anechoic chamber's rumble sits under every horn note
-    const dt = k === 0 ? 0 : (0.008 + 0.012 * K.rnd()) * tight;
-    hs.push(Sampler.note(ctx, 'horn', {
-      t: n.t + dt, dur: Math.max(0.05, n.dur - dt * 0.5), m: n.m, vel, amp: LEVEL.horns * vel * n.gain * [0.62, 0.55, 0.55][k],
-      rel: n.o?.rel ?? (short ? 0.09 : 0.24), attack: n.o?.attack ?? (vel < 0.4 ? 0.05 : 0.0), swell: n.o?.swell ?? 1,
-      detune: [0, -6, 5][k] + (K.rnd() - 0.5) * 4, prefer: k === 0 ? 0 : k, offset: K.rnd() * 0.004,
-    }, hp));
-    ds.push(ch.dispose, () => { disc(lp); disc(hp); });
-  }
-  return combine(K, n.t, hs, ds);
+  const ch = channel(K, n, out);
+  const lp = BQ(ctx, 'lowpass', hornTone(vel), 0.5); lp.connect(ch.node);
+  const hp = BQ(ctx, 'highpass', 70, 0.6); hp.connect(lp); // the anechoic chamber's rumble sits under every horn note
+  const h = Sampler.note(ctx, 'horn', {
+    t: n.t, dur: Math.max(0.05, n.dur), m: n.m, vel, amp: LEVEL.horns * vel * n.gain * 0.95,
+    rel: n.o?.rel ?? (short ? 0.09 : 0.24), attack: n.o?.attack ?? (vel < 0.4 ? 0.05 : 0.0), swell: n.o?.swell ?? 1,
+    offset: K.rnd() * 0.004, legato: n.legato,
+  }, hp);
+  return combine(K, n.t, [h], [ch.dispose, () => { disc(lp); disc(hp); }]);
 };
 
 // SOLO HORN — one player, a little rounder

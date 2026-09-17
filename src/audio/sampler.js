@@ -14,13 +14,19 @@
  *   Sampler.state()                        -> {instruments:{id:{status, zones, loaded, mb}}, mb, errors}
  *   Sampler.onChange(fn)                   progress callback (demo loading bars)
  *   Sampler.note(ctx, id, p, dest)         -> handle | null       one sampled note into `dest`
+ *   Sampler.plan(id, m, vel, lo, hi, prefer) -> [file]           the zone file(s) note() would pick (lazy per-zone loading)
+ *   Sampler.loadFiles(ctx, files)          -> Promise             decode just those zones (in the order given)
+ *   Sampler.missingFiles(ctx, files)       -> [file]              synchronous
  *
  * A note (p): {t, dur, m, amp, vel (0..1.15 picks/crossfades layers), rel, attack, swell, detune (cents),
  *   offset (s into the sample), legato (bool: skip the attack, short fade-in), ring (one-shot rings past dur),
  *   damp (one-shot is damped at note-off), path [[sec, midi]] (slurred line: crossfaded legato segments),
  *   prefer (k-th nearest zone within 2.6 semitones: section players on different samples), bend [[sec, cents]]}
  * Pitch: playbackRate from the nearest root (ties prefer shifting DOWN, which sounds more natural).
- * Layers: equal-power crossfade between the two layers either side of the velocity position.
+ * Layers: ONE layer per note — the one nearest the velocity position. (Summing two unaligned takes of the same pitch
+ * phase-beats: a held clarinet swung 10 dB. Loudness follows `amp`; the layer only chooses the timbre.)
+ * Fallback: if the chosen zone is not decoded yet (lazy per-zone loading), the nearest DECODED zone of the instrument
+ * plays instead (same layer first) — a note is only lost when nothing of that instrument has arrived.
  * Handle: {t0, end, level(t), release(t, rt), cleanup()} — the contract music.js's voice budget uses.
  * Never throws for a missing buffer: returns null (the caller decides; offline renders wait for load()).
  */
@@ -34,7 +40,7 @@ const decoding = new Map();   // `${sr}|${file}` -> Promise<AudioBuffer|null>
 const insts = new Map();      // id -> prepared lookup tables
 const status = new Map();     // `${sr}|${id}` -> {status, loaded, zones}
 const listeners = new Set();
-let errors = 0, mbLoaded = 0;
+let errors = 0, mbLoaded = 0, fallbacks = 0;
 const rrCounts = new WeakMap(); // ctx -> Map (renders are deterministic)
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -71,7 +77,9 @@ function prepare(id, inst) {
   for (let l = 0; l < layers.length; l++) if (!layers[l].length) layers[l] = layers[l - 1]?.length ? layers[l - 1] : layers.find((x) => x.length) || [];
   const pitched = inst.zones.some((z) => z.r != null);
   const rs = inst.zones.filter((z) => z.r != null).map((z) => z.r);
-  return { id, kind: inst.kind, layers, pitched, lo: rs.length ? Math.min(...rs) : 0, hi: rs.length ? Math.max(...rs) : 0, zones: inst.zones, bytes: inst.bytes };
+  const byFile = new Map(inst.zones.map((z) => [z.f, z]));
+  for (const z of inst.zones) fileInst.set(z.f, id);
+  return { id, kind: inst.kind, layers, pitched, lo: rs.length ? Math.min(...rs) : 0, hi: rs.length ? Math.max(...rs) : 0, zones: inst.zones, bytes: inst.bytes, byFile };
 }
 
 function fetchBytes(f) {
@@ -104,8 +112,15 @@ function decodeZone(ctx, z) {
 function stat(ctx, id) {
   const key = ctx.sampleRate + '|' + id;
   let s = status.get(key);
-  if (!s) { const I = insts.get(id); s = { status: 'idle', loaded: 0, zones: I ? I.zones.length : 0, p: null }; status.set(key, s); }
+  if (!s) { const I = insts.get(id); s = { status: 'idle', loaded: 0, zones: I ? I.zones.length : 0, p: null, want: new Set(), have: new Set() }; status.set(key, s); }
   return s;
+}
+const fileInst = new Map(); // file -> instrument id
+function refresh(s) {
+  s.loaded = s.have.size;
+  if (s.p && s.status !== 'error') return; // a whole-instrument load reports itself
+  let pending = 0; for (const f of s.want) if (!s.have.has(f)) pending++;
+  s.status = !s.want.size ? 'idle' : pending ? 'loading' : 'ready';
 }
 
 async function loadOne(ctx, id) {
@@ -114,10 +129,38 @@ async function loadOne(ctx, id) {
   if (!I) { report('load', 'no instrument ' + id); return; }
   const s = stat(ctx, id);
   if (s.p) return s.p;
-  s.status = 'loading'; s.zones = I.zones.length; emit();
-  s.p = Promise.all(I.zones.map((z) => decodeZone(ctx, z).then((b) => { if (b) s.loaded++; emit(); return b; })))
-    .then((bufs) => { s.status = bufs.every(Boolean) ? 'ready' : 'error'; emit(); });
+  s.status = 'loading'; s.zones = I.zones.length;
+  for (const z of I.zones) s.want.add(z.f);
+  emit();
+  s.p = Promise.all(I.zones.map((z) => decodeZone(ctx, z).then((b) => { if (b) { s.have.add(z.f); s.loaded = s.have.size; } emit(); return b; })))
+    .then((bufs) => { s.status = bufs.every(Boolean) ? 'ready' : 'error'; s.full = true; emit(); });
   return s.p;
+}
+
+/** decode a list of zone files (in order, a few at a time) for ctx's sample rate; never rejects */
+async function loadFiles(ctx, files) {
+  await loadManifest();
+  const list = [...new Set(files)].filter((f) => fileInst.has(f));
+  const todo = [];
+  for (const f of list) {
+    const id = fileInst.get(f); const s = stat(ctx, id);
+    s.want.add(f);
+    if (decoded.has(ctx.sampleRate + '|' + f)) { s.have.add(f); continue; }
+    todo.push(f);
+  }
+  for (const id of new Set(list.map((f) => fileInst.get(f)))) refresh(stat(ctx, id));
+  emit();
+  let k = 0;
+  const worker = async () => {
+    for (;;) {
+      const f = todo[k++]; if (f == null) return;
+      const id = fileInst.get(f); const z = insts.get(id).byFile.get(f); const s = stat(ctx, id);
+      const b = await decodeZone(ctx, z);
+      if (b) s.have.add(f); else if (!s.p) s.status = 'error';
+      refresh(s); emit();
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, worker));
 }
 
 const cents = (c) => Math.pow(2, c / 1200);
@@ -141,15 +184,35 @@ function pickRR(ctx, I, g) {
   return g.rr[n % g.rr.length];
 }
 
-/** velocity -> [{layer, w}] with an equal-power crossfade across the layer boundary */
-function layerMix(I, vel, lo = 0.22, hi = 0.86) {
+/** velocity -> the ONE layer nearest the velocity position (see header: summed layers phase-beat) */
+function layerOf(I, vel, lo = 0.22, hi = 0.86) {
   const N = I.layers.length;
-  if (N === 1) return [{ l: 0, w: 1 }];
+  if (N === 1) return 0;
   const x = clamp((vel - lo) / (hi - lo), 0, 1) * (N - 1);
-  const a = Math.floor(Math.min(x, N - 1 - 1e-9)), fr = x - a;
-  if (fr < 0.1) return [{ l: a, w: 1 }];
-  if (fr > 0.9) return [{ l: a + 1, w: 1 }];
-  return [{ l: a, w: Math.cos(fr * Math.PI / 2) }, { l: a + 1, w: Math.sin(fr * Math.PI / 2) }];
+  return clamp(Math.round(x), 0, N - 1);
+}
+/** the layer position before rounding (planning keeps both neighbours when a humanised velocity could cross) */
+function layerPos(I, vel, lo = 0.22, hi = 0.86) {
+  const N = I.layers.length;
+  return N === 1 ? 0 : clamp((vel - lo) / (hi - lo), 0, 1) * (N - 1);
+}
+const bufOf = (ctx, z) => decoded.get(ctx.sampleRate + '|' + z.f);
+/** the zone to play: the chosen one if decoded, else the nearest decoded zone (same layer first, then any layer) */
+function zoneFor(ctx, I, l, m, prefer) {
+  const g = pickRoot(I.layers[l], m, prefer); if (!g) return null;
+  const z = pickRR(ctx, I, g);
+  if (bufOf(ctx, z)) return z;
+  const order = [l, ...I.layers.map((_, k) => k).filter((k) => k !== l).sort((a, b) => Math.abs(a - l) - Math.abs(b - l))];
+  for (const k of order) {
+    let best = null, bd = Infinity;
+    for (const grp of I.layers[k]) for (const zz of grp.rr) {
+      if (!bufOf(ctx, zz)) continue;
+      const d = grp.r == null ? 0 : Math.abs(m - grp.r);
+      if (d < bd) { bd = d; best = zz; }
+    }
+    if (best) { fallbacks++; return best; }
+  }
+  return null;
 }
 
 /**
@@ -166,11 +229,10 @@ function note(ctx, id, p, dest) {
   const rel = p.rel ?? 0.25;
   const srcs = [], gains = [];
   let bufEnd = t, looped = false;
-  const mix = layerMix(I, p.vel ?? 0.6, p.layerLo, p.layerHi);
+  const mix = [{ l: layerOf(I, p.vel ?? 0.6, p.layerLo, p.layerHi), w: 1 }];
   for (const { l, w } of mix) {
-    const g = pickRoot(I.layers[l], p.m ?? 60, p.prefer || 0); if (!g) continue;
-    const z = pickRR(ctx, I, g);
-    const buf = decoded.get(ctx.sampleRate + '|' + z.f);
+    const z = zoneFor(ctx, I, l, p.m ?? 60, p.prefer || 0);
+    const buf = z && bufOf(ctx, z);
     if (!buf) return cleanupPartial(out, srcs);
     const s = ctx.createBufferSource(); s.buffer = buf;
     const rate = z.r == null ? cents(p.detune || 0) : Math.pow(2, ((p.m ?? z.r) - z.r) / 12) * cents(p.detune || 0);
@@ -268,15 +330,26 @@ const api = {
   has(id) { return insts.has(id); },
   range(id) { const I = insts.get(id); return I ? [I.lo, I.hi] : null; },
   note,
+  loadFiles,
+  missingFiles(ctx, files) { return [...new Set(files)].filter((f) => !decoded.has(ctx.sampleRate + '|' + f)); },
+  /** zone files a note would use: every round robin of the nearest root, in each layer the velocity could land on */
+  plan(id, m, vel = 0.6, lo, hi, prefer = 0, margin = 0.12) {
+    const I = insts.get(id); if (!I) return [];
+    const x = layerPos(I, vel, lo, hi); const ls = new Set([clamp(Math.round(x - margin), 0, I.layers.length - 1), clamp(Math.round(x + margin), 0, I.layers.length - 1)]);
+    const out = [];
+    for (const l of ls) { const g = pickRoot(I.layers[l], m ?? 60, prefer); if (g) for (const z of g.rr) out.push(z.f); }
+    return out;
+  },
+  get fallbacks() { return fallbacks; },
   onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
   state() {
     const out = {};
     for (const [key, s] of status) {
       const [sr, id] = key.split('|');
       const prev = out[id];
-      if (!prev || sr >= prev.sr) out[id] = { status: s.status, loaded: s.loaded, zones: s.zones, sr: +sr, mb: +((insts.get(id)?.bytes || 0) / 1048576).toFixed(2) };
+      if (!prev || sr >= prev.sr) out[id] = { status: s.status, loaded: s.loaded, wanted: s.want.size, zones: s.zones, sr: +sr, mb: +((insts.get(id)?.bytes || 0) / 1048576).toFixed(2) };
     }
-    return { manifest: !!manifest, instruments: out, mbFetched: +mbLoaded.toFixed(2), errors, totalMb: manifest ? +(manifest.totalBytes / 1048576).toFixed(2) : null };
+    return { manifest: !!manifest, instruments: out, mbFetched: +mbLoaded.toFixed(2), errors, fallbacks, totalMb: manifest ? +(manifest.totalBytes / 1048576).toFixed(2) : null };
   },
 };
 

@@ -1,18 +1,12 @@
-{ "name": "critic P28 sfx+mixer (a2r1)", "steps": [
+{ "name": "critic P28 sfx + mixer (a2r1)", "steps": [
   {"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000},
-  {"wait": 800},
-  {"shot": "board"},
-  {"eval": "__DQ.list().length"},
+  {"wait": 600}, {"shot": "board"},
   {"eval": "__DQ.unlock()"},
-  {"eval": "__DQ.selfTest()"},
-  {"eval": "__DQ.selfTestResult().rows.filter(r=>r.seamJump!=null)"},
-  {"eval": "__DQ.music('battle')"},
-  {"wait": 1500},
-  {"eval": "__DQ.dipProbe('cursor')"},
-  {"eval": "__DQ.dipProbe('monster_defeat')"},
-  {"eval": "__DQ.fight()"},
-  {"wait": 1800},
-  {"shot": "fight"},
-  {"wait": 6000},
-  {"assert": "__DQ.errors.length===0", "msg": "no runtime errors"}
+  {"press": "ArrowDown", "times": 3, "delay": 150},
+  {"press": "Enter"}, {"wait": 400}, {"shot": "after-cursor-confirm"},
+  {"eval": "__DQ.music('battle')"}, {"wait": 1500},
+  {"eval": "__DQ.fight()"}, {"wait": 3000}, {"shot": "mid-fight"},
+  {"eval": "__DQ.ambience('amb_meadow')"}, {"wait": 2500}, {"shot": "ambience"},
+  {"assert": "__DQ.list().length === 50", "msg": "50 effect ids"},
+  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"}
 ]}

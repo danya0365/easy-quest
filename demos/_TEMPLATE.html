@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/><title>DEMO — piece</title>
 <link rel="stylesheet" href="/src/ui/ui.css"/>
-<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}
+<style>html,body{margin:0;height:100%;overflow:hidden}
 #game-canvas{display:block;width:100vw;height:100vh}#ui-root{position:fixed;inset:0;pointer-events:none}</style>
 </head><body>
 <canvas id="game-canvas"></canvas><div id="ui-root"></div>
@@ -9,7 +9,50 @@
 { "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
 </script>
 <script type="module">
-// Import ONLY your own module(s) + shared foundation. Show the piece at its best.
-// Must set window.__DQ = { ready:true, state:()=>({...}) } once the first frame has drawn,
-// and should expose demo controls on __DQ so a critic can drive it.
+// DEMO — <piece id>: <one line of what this page proves>. Copy this file to demos/<ID>.html (+ scenarios/<ID>.json).
+// Import ONLY your own module(s) + the shared foundation. Show the piece at its best. Colours come from PAL only.
+//
+// THE RULES (docs/ARCHITECTURE.md "The extension points"):
+//  - Boot with App.start(): it installs window.__DQ (ready, state, errors, freeze, advance, ...). NEVER assign
+//    window.__DQ yourself — a page that overwrites it after App.start loses the whole contract.
+//  - Add controls with Debug.expose(name, fn) -> __DQ.<name>(...); report your state with Debug.provide(key, fn);
+//    replace contract stubs with Debug.implement(name, fn); log caught errors with reportError(where, err).
+//  - A plugin piece (title, dialogue, menu, hud, transitions, npc, encounter, battle scene/present) can install itself
+//    here exactly as main.js does: `(await import('/src/ui/hud.js')).install({ App, Scenes, Bus, Debug, UI, ... })`.
+import * as THREE from 'three';
+import { App } from '/src/engine/app.js';
+import { Scenes } from '/src/engine/states.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { PAL, C3, applyCssVars } from '/src/art/palette.js';
+
+applyCssVars();                                                       // --pal-* for ui.css
+Input.init();                                                         // keyboard / pad / touch; __DQ.press/hold/release
+App.start({ canvas: document.getElementById('game-canvas'), version: '0.1.0-demo', beforeUpdate: Input.update });
+
+// The demo scene: build your piece into a THREE.Scene and draw it. __DQ.ready flips true after the first drawn frame.
+Scenes.register('demo', () => {
+  const scene = new THREE.Scene();
+  scene.background = C3(PAL.sky.page);                                // an OPAQUE base scene may clear; overlays must not
+  const camera = new THREE.PerspectiveCamera(46, App.aspect(), 0.3, 1400);
+  camera.position.set(0, 3, 8); camera.lookAt(0, 1, 0);
+  let offResize = null;
+  return {
+    opaque: true,
+    enter() {
+      offResize = App.onResize(() => { camera.aspect = App.aspect(); camera.updateProjectionMatrix(); });
+      try {
+        // ... build your piece here ...
+      } catch (e) { reportError('demo build', e); }
+    },
+    exit() { if (offResize) offResize(); },
+    update(dt) { /* fixed 60 Hz sim: dt = 1/60 s */ },
+    render(alpha) { App.render(scene, camera); },
+    onInput(btn) { return true; },
+  };
+});
+Scenes.push('demo');
+
+Debug.provide('demo', () => ({ piece: '<id>' }));                    // shows up in __DQ.state().demo
+Debug.expose('show', (what) => ({ ok: true, what }));                // a control a critic can drive: __DQ.show('x')
 </script></body></html>

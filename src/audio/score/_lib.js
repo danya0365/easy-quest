@@ -147,7 +147,7 @@ export function Theme(meta) {
       let d = c.d; for (let j = i + 1; !o.rearticulate && j < harm.length && harm[j].sym === c.sym && harm[j].b === c.b + d; j++) d += harm[j].d;
       const v = voiceChord(c, o.n || 3, o.lo || 'D3', o.hi || 'A4', prev); prev = v;
       const vel = o.cresc ? lerp(dyn(o.cresc[0]), dyn(o.cresc[1]), (c.b - d0) / Math.max(1, d1 - d0)) : dyn(o.dyn || 'p');
-      v.forEach((m, k) => P.push({ b: c.b + (o.offset || 0), d: d + (o.overlap ?? 0.04) - (o.offset || 0), m, v: vel, ci: k, shape: false, art: o.art, o: o.o }));
+      v.forEach((m, k) => P.push({ b: c.b + (o.offset || 0), d: d + (o.overlap ?? 0.04) - (o.offset || 0), m, v: vel, ci: k, shape: false, art: o.art, o: o.o, gen: 'pad' }));
     });
   };
 
@@ -162,7 +162,7 @@ export function Theme(meta) {
       const tok = pat[pos % pat.length]; if (tok === 'R' || tok == null) continue;
       const vel = o.cresc ? lerp(dyn(o.cresc[0]), dyn(o.cresc[1]), (b - start) / Math.max(1, end - start)) : dyn(o.dyn || 'p');
       const accent = pos % pat.length === 0 ? 1.08 : 1;
-      P.push({ b, d: o.len || step * 3, m: degree(c, tok, o.base || 'G2'), v: vel * accent, shape: false, art: o.art, o: o.o });
+      P.push({ b, d: o.len || step * 3, m: degree(c, tok, o.base || 'G2'), v: vel * accent, shape: false, art: o.art, o: o.o, gen: 'arp' });
     }
   };
 
@@ -175,7 +175,7 @@ export function Theme(meta) {
         const b = cb + off; if (b < start - 1e-6 || b >= end - 1e-6) continue;
         const c = harm.find((h) => b >= h.b - 1e-6 && b < h.b + h.d - 1e-6); if (!c) continue;
         const vel = o.cresc ? lerp(dyn(o.cresc[0]), dyn(o.cresc[1]), (b - start) / Math.max(1, end - start)) : dyn(o.dyn || 'mp');
-        P.push({ b, d: dur, m: degree(c, tok, o.base || 'C2'), v: vel * (vm ?? 1), shape: false, art: o.art, o: o.o });
+        P.push({ b, d: dur, m: degree(c, tok, o.base || 'C2'), v: vel * (vm ?? 1), shape: false, art: o.art, o: o.o, gen: 'bass' });
       }
     }
   };
@@ -185,8 +185,21 @@ export function Theme(meta) {
     const loopBeats = (T.loop || 0) * T.meter;
     const bars = T.bars || T.intro + (T.loop || 0) || Math.ceil(T.events.reduce((m, e) => Math.max(m, e.b + e.d), 0) / T.meter - 1e-6);
     const totalBeats = Math.max(bars * T.meter, introBeats + loopBeats);
+    // a note written at or past the loop end belongs to the top of the NEXT pass: fold it to the loop start and mark it
+    // `wrap` (music.js skips it on the first pass). Left in place, the engine would schedule it after the loop's own
+    // opening notes had gone stale and skip them on every repeat.
+    if (loopBeats) for (const e of T.events) if (e.b >= introBeats + loopBeats - 1e-6) { e.b -= loopBeats; e.wrap = true; }
     const events = T.events.slice().sort((a, b) => a.b - b.b || (a.ci || 0) - (b.ci || 0));
     events.forEach((e, i) => { e.i = i; });
+    // slurs: a note in a single-line part whose next note starts exactly where it ends (music.js holds it into the join)
+    const lastOf = new Map(), poly = new Set();
+    for (const e of events) {
+      const prev = lastOf.get(e.part);
+      if (prev && e.b < prev.b + prev.d - 1e-6) poly.add(e.part);
+      if (prev && Math.abs(prev.b + prev.d - e.b) < 1e-6 && e.m != null && prev.m != null && !e.wrap && !prev.wrap) prev.next = e.i;
+      if (!prev || e.b + e.d >= prev.b + prev.d - 1e-6) lastOf.set(e.part, e);
+    }
+    for (const e of events) if (poly.has(e.part)) delete e.next;
     const time = tempoFn(T, totalBeats);
     const firstLoop = events.findIndex((e) => e.b >= introBeats - 1e-6);
     let lastEnd = 0; for (const e of events) lastEnd = Math.max(lastEnd, time(e.b + e.d) + (e.sec || 0));

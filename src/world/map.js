@@ -1,10 +1,23 @@
 /**
- * map.js — map data format, the map registry, tile collision and interaction queries.     (integrator-owned)
+ * map.js — map data format, the map registry, map LAYERS, tile collision and interaction queries.  (integrator-owned)
  *
  *   import { Maps, GameMap, PLAYER_RADIUS } from './world/map.js';
- *   Maps.register(meadowDef);                 // map files default-export a def (docs/ARCHITECTURE.md "map data format")
- *   const map = Maps.load('meadow');          // -> a fresh GameMap instance
+ *   await Maps.loadAll();                     // imports src/world/maps/index.js, every map and its layer files
+ *   Maps.register(meadowDef);                 // (or register a def object by hand: demos, tests)
+ *   const map = Maps.load('meadow');          // -> a fresh GameMap: the base def with its layers merged in
  *   const p = map.move(x, z, dx, dz);         // -> {x, z, blocked, nx, nz}  circle r = 0.35, smooth wall sliding
+ *
+ * ── Files and layers (so the pieces that fill a map never edit the same file) ─────────────────────────────────
+ *   src/world/maps/index.js        [{id, layers?}]  every map the game knows (P23). layers defaults to ['npcs', 'chests'].
+ *   src/world/maps/<id>.js         the BASE def (P23): ground, props, colliders, exits, camera, music, view() art.
+ *   src/world/maps/<id>.npcs.js    the PEOPLE layer (P11): {npcs: [...], lines: {key: text}} — who stands where, what
+ *                                  every person, sign, door, animal and lane end says. Base entities name a line with
+ *                                  `line: 'key'`; the layer supplies the words.
+ *   src/world/maps/<id>.chests.js  the TREASURE layer (P30): {chests: [...], props?: [...], lines?: {...}}.
+ *   A layer module default-exports an object, or fn(baseDef) -> object. Every listed layer file must exist (an empty
+ *   `export default {}` is fine) — a missing one is a 404, which the harness counts as a failure. Maps.addLayer(id,
+ *   kind, layer) registers one by hand. Merge at load: arrays (npcs, chests, props, exits, colliders, occluders) are
+ *   appended after the base's; `lines` objects are merged (later layers win); everything else comes from the base.
  *
  * ── The def (ARCHITECTURE.md, plus the extensions marked +) ──────────────────────────────────────────────────
  *   id, name, kind, size: [w, h] (tiles; 1 tile = 1 world unit), theme, music, light, weather, encounters
@@ -16,18 +29,22 @@
  *     solid:  fn(x, z, i, j) -> bool, called once per CELL CENTRE at load (i, j = cell indices)  |  Uint8Array(cells)
  *     ground: fn(x, z) -> 'grass'|'dirt'|'stone'|'wood'|'sand'|'snow'|'water'  |  Uint8Array(w*h) of GROUND_IDS index
  *   }
- *   props:  [{type, x, z, rot?, solid?: {r} | {w, d} | {pts, r}, text?, talk?, name?, reach?}]
- *           A prop with `text` (markup string or page array) or `talk(ctx)` is INTERACTABLE: confirm near it talks.
- *   npcs:   [{id, char, x, z, facing?, wander?, script}]         (P11 brings them to life; kept as data here)
- *   exits:  [{x, z, w?, h?, to, tx, tz, kind}]
+ *   props:  [{type, x, z, rot?, solid?: {r} | {w, d} | {pts, r}, text?, talk?, line?, voice?, name?, reach?}]
+ *           A prop with `text` (markup string or page array), `talk(ctx)`, or a `line` its layers fill is
+ *           INTERACTABLE: confirm near it talks.
+ *   npcs:   [{id, char, x, z, facing?, wander?, script?, text?, line?, voice?, name?}]   (P11 brings them to life)
+ *   + chests: [{id, x, z, item?, gold?, kind?, text?, talk?, line?, flag?}]             (P30 opens them)
+ *   exits:  [{x, z, w?, h?, to, tx, tz, kind, text?, line?, back?}]
+ *   + lines: {key: text | pages[] | {text, voice?, name?}}      words for anything above that names a `line`
  *   + colliders: [{type:'circle', x, z, r} | {type:'box', x, z, w, d, rot} | {type:'capsule', pts:[[x,z]...], r}]
  *   + spawn: {x, z, facing}     default arrival point (facing: radians, 0 = toward -z / "north")
  *   + camera: {orbit, pitch, dist, fov, lookUp}                  default field camera for this map (degrees)
  *   + walkY(x, z, heightAt) -> y  the surface you stand on (bridges, decks); default = terrain height
  *   + occluders: [{type:'sphere', x, y, z, r}]   volumes the follow camera must not sit behind or inside (canopies,
- *                           roofs); the field camera pulls in along its arm when one blocks the view of the player
+ *                           roofs); map.cameraClearance() tests them
+ *   + ambience: 'amb_meadow' | ...   the Sfx ambience bed main.js starts on map.enter
  *   + view(ctx) -> {update?(t, dt, ctx), dispose?(), state?()}   the art: builds meshes into ctx.scene. ctx has
- *                           {THREE, scene, rig, map, camera, App}. Until P03/P04/P05 land, hand-built maps own their art.
+ *                           {THREE, scene, rig, map, camera, App, blobs}. Recipes come from src/art/* via scenery.js.
  *   onEnter?(ctx)
  *
  * ── Collision ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -42,6 +59,8 @@ import { reportError } from '../engine/debug.js';
 
 export const PLAYER_RADIUS = 0.35;
 export const GROUND_IDS = ['grass', 'dirt', 'stone', 'wood', 'sand', 'snow', 'water'];
+/** The layer files a map has unless its index entry says otherwise: src/world/maps/<id>.<kind>.js */
+export const LAYER_KINDS = ['npcs', 'chests'];
 
 const STEP = 0.15;
 const ITER = 6;
@@ -70,8 +89,14 @@ export class GameMap {
     this.cell = 1 / this.res;                    // world size of one cell
     this.spawn = Object.assign({ x: this.origin[0] + this.w / 2, z: this.origin[1] + this.h / 2, facing: 0 }, d.spawn || {});
     this.props = Array.isArray(d.props) ? d.props.map((p, i) => Object.assign({ index: i }, p)) : [];
-    this.npcs = Array.isArray(d.npcs) ? d.npcs.slice() : [];
-    this.exits = Array.isArray(d.exits) ? d.exits.slice() : [];
+    this.npcs = Array.isArray(d.npcs) ? d.npcs.map(n => Object.assign({}, n)) : [];
+    this.chests = Array.isArray(d.chests) ? d.chests.map(c => Object.assign({}, c)) : [];
+    this.exits = Array.isArray(d.exits) ? d.exits.map(e => Object.assign({}, e)) : [];
+    this.layers = Array.isArray(d.layers) ? d.layers.slice() : [];
+    // words from the layers: anything naming a `line` (and saying nothing of its own) gets its text + voice here
+    this.lines = Object.assign({}, d.lines || {});
+    this.missingLines = [];
+    for (const o of [...this.props, ...this.npcs, ...this.chests, ...this.exits]) this._applyLine(o);
     this.colliders = [];
     this.occluders = Array.isArray(d.occluders) ? d.occluders.filter(o => o && Number.isFinite(+o.r)) : [];
     this.stats = { buildMs: 0, solidCells: 0 };
@@ -82,6 +107,19 @@ export class GameMap {
     for (const c of (d.colliders || [])) this.addCollider(c);
     for (const p of this.props) if (p.solid) this.addCollider(propCollider(p));
     this.stats.buildMs = Math.round((typeof performance !== 'undefined' ? performance.now() : 0) - t0);
+  }
+
+  /** Fill an entity's words from this.lines[entity.line] (text / pages, voice, name) unless it has its own. */
+  _applyLine(o) {
+    if (!o || o.line == null || o.text != null || typeof o.talk === 'function' || o.script != null) return;
+    const w = this.lines[o.line];
+    if (w == null) { this.missingLines.push(String(o.line)); return; }
+    if (typeof w === 'string' || Array.isArray(w)) { o.text = w; return; }
+    if (typeof w === 'object') {
+      if (w.text != null) o.text = w.text;
+      if (w.voice && !o.voice) o.voice = w.voice;
+      if (w.name && !o.name) o.name = w.name;
+    }
   }
 
   // ── terrain ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -283,11 +321,12 @@ export class GameMap {
   }
 
   // ── interaction ───────────────────────────────────────────────────────────────────────────────────────────
-  /** Props (and NPCs with a script) that can be talked to. */
+  /** Props, NPCs (with a script or words) and chests (with words or a talk hook) that can be talked to. */
   interactables() {
     const out = [];
     for (const p of this.props) if (p.text != null || typeof p.talk === 'function') out.push(p);
-    for (const n of this.npcs) if (n.script != null || n.text != null) out.push(n);
+    for (const n of this.npcs) if (n.script != null || n.text != null || typeof n.talk === 'function') out.push(n);
+    for (const c of this.chests) if (c.text != null || typeof c.talk === 'function') out.push(c);
     return out;
   }
 
@@ -342,7 +381,8 @@ export class GameMap {
   describe() {
     return { id: this.id, name: this.name, kind: this.kind, size: [this.w, this.h], origin: this.origin.slice(), res: this.res,
       solidCells: this.stats.solidCells, colliders: this.colliders.length, occluders: this.occluders.length, props: this.props.length, interactables: this.interactables().length,
-      exits: this.exits.length, music: this.music, buildMs: this.stats.buildMs };
+      npcs: this.npcs.length, chests: this.chests.length, layers: this.layers.slice(), lines: Object.keys(this.lines).length,
+      missingLines: this.missingLines.slice(0, 8), exits: this.exits.length, music: this.music, buildMs: this.stats.buildMs };
   }
 }
 
@@ -406,22 +446,89 @@ function contact(c, x, z, r) {
 }
 
 // ── registry ────────────────────────────────────────────────────────────────────────────────────────────────
+const LAYERS = new Map();        // map id -> Map(kind -> layer object | fn(baseDef))
+const LOADED = new Map();        // map id -> {base: bool, layers: {kind: bool}} (what Maps.loadAll managed to import)
+const MERGE_ARRAYS = ['npcs', 'chests', 'props', 'exits', 'colliders', 'occluders'];
+
+/** The base def with every registered layer merged in (a prototype-linked copy: the base's getters and view stay live). */
+function composeDef(base) {
+  const kinds = LAYERS.get(String(base.id));
+  if (!kinds || !kinds.size) return base;
+  const parts = [];
+  for (const [kind, layer] of kinds) {
+    try {
+      const part = typeof layer === 'function' ? layer(base) : layer;
+      if (part && typeof part === 'object') parts.push([kind, part]);
+    } catch (e) { reportError(`map "${base.id}" layer "${kind}"`, e); }
+  }
+  const def = Object.create(base);
+  const own = (key, value) => Object.defineProperty(def, key, { value, enumerable: true, writable: true, configurable: true });
+  for (const key of MERGE_ARRAYS) {
+    const extra = [];
+    for (const [, part] of parts) if (Array.isArray(part[key])) extra.push(...part[key]);
+    if (extra.length) own(key, [...(Array.isArray(base[key]) ? base[key] : []), ...extra]);
+  }
+  own('lines', Object.assign({}, base.lines || {}, ...parts.map(([, p]) => p.lines || {})));
+  own('layers', parts.map(([kind]) => kind));
+  return def;
+}
+
 export const Maps = {
   register(def) {
     if (!def || !def.id) { reportError('Maps.register', new Error('a map def needs an id')); return false; }
     registry.set(String(def.id), def);
     return true;
   },
+  /** Register a layer for a map (before or after the base): kind 'npcs' | 'chests' | anything; layer = object | fn(base). */
+  addLayer(id, kind, layer) {
+    if (!id || !kind || !layer) { reportError('Maps.addLayer', new Error(`bad layer ${id}.${kind}`)); return false; }
+    if (!LAYERS.has(String(id))) LAYERS.set(String(id), new Map());
+    LAYERS.get(String(id)).set(String(kind), layer);
+    return true;
+  },
+  layers(id) { const k = LAYERS.get(String(id)); return k ? Array.from(k.keys()) : []; },
   has(id) { return registry.has(String(id)); },
+  /** The BASE def (no layers). */
   get(id) { return registry.get(String(id)) || null; },
   list() { return Array.from(registry.keys()); },
-  /** Build a fresh GameMap from a registered id or a def object. Never throws: returns null on failure. */
+  /** What loadAll imported: {id: {base, layers: {kind: ok}}}. */
+  loaded() { return Object.fromEntries(Array.from(LOADED, ([id, v]) => [id, { base: v.base, layers: Object.assign({}, v.layers) }])); },
+  /** Build a fresh GameMap (base + layers) from a registered id or a def object. Never throws: returns null on failure. */
   load(idOrDef) {
     try {
       const def = typeof idOrDef === 'string' ? registry.get(idOrDef) : idOrDef;
       if (!def) { reportError('Maps.load', new Error(`unknown map "${idOrDef}" (registered: ${Maps.list().join(', ') || 'none'})`)); return null; }
-      return new GameMap(def);
+      return new GameMap(composeDef(def));
     } catch (e) { reportError('Maps.load', e); return null; }
+  },
+  /**
+   * Import one map and its layer files: entry = 'id' | {id, layers?: ['npcs', 'chests']}. Resolves true when the base
+   * loaded. Never rejects; a broken file is reported to __DQ.errors and the rest still loads.
+   */
+  async loadModule(entry) {
+    const id = typeof entry === 'string' ? entry : entry && entry.id;
+    if (!id) { reportError('Maps.loadModule', new Error('an index entry needs an id')); return false; }
+    const kinds = entry && Array.isArray(entry.layers) ? entry.layers : LAYER_KINDS;
+    const rec = { base: false, layers: {} };
+    LOADED.set(String(id), rec);
+    const [base] = await Promise.all([
+      import(`./maps/${id}.js`).then((m) => { rec.base = Maps.register(m.default); return rec.base; },
+        (e) => { reportError(`map "${id}": src/world/maps/${id}.js did not load`, e); return false; }),
+      ...kinds.map(kind => import(`./maps/${id}.${kind}.js`).then(
+        (m) => { rec.layers[kind] = m.default ? Maps.addLayer(id, kind, m.default) : false; },
+        (e) => { rec.layers[kind] = false; reportError(`map "${id}": layer src/world/maps/${id}.${kind}.js did not load`, e); })),
+    ]);
+    return base;
+  },
+  /** Import src/world/maps/index.js (or the given list) and every map + layer in it. Resolves the loaded ids. */
+  async loadAll(list) {
+    let entries = list;
+    if (!Array.isArray(entries)) {
+      try { const m = await import('./maps/index.js'); entries = m.default || m.MAPS || []; }
+      catch (e) { reportError('Maps.loadAll: src/world/maps/index.js did not load', e); entries = []; }
+    }
+    await Promise.all(entries.map(e => Maps.loadModule(e)));
+    return Maps.list();
   },
 };
 

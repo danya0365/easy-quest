@@ -279,6 +279,130 @@ function combShape(len, wid, n = 5) {
   s.lineTo(0, 0);
   return s;
 }
+// ── face shapes (all in XY, +Z out of the face, y = 0 on the mouth line / eye centre) ─────────────────────────────
+/** A thick stroke along a polyline [[x,y]..] with round caps. hw: half-width, a number or a function of u (0..1). */
+function strokeShape(pts, hw) {
+  const n = pts.length, f = typeof hw === 'function' ? hw : () => hw, L = [], R = [], ang = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+    let tx = b[0] - a[0], ty = b[1] - a[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+    const w = f(i / (n - 1));
+    L.push([pts[i][0] - ty * w, pts[i][1] + tx * w]); R.push([pts[i][0] + ty * w, pts[i][1] - tx * w]);
+    ang.push(Math.atan2(tx, -ty));
+  }
+  const s = new THREE.Shape();
+  s.moveTo(L[0][0], L[0][1]);
+  for (let i = 1; i < n; i++) s.lineTo(L[i][0], L[i][1]);
+  s.absarc(pts[n - 1][0], pts[n - 1][1], f(1), ang[n - 1], ang[n - 1] - Math.PI, true);
+  for (let i = n - 1; i >= 0; i--) s.lineTo(R[i][0], R[i][1]);
+  s.absarc(pts[0][0], pts[0][1], f(0), ang[0] + Math.PI, ang[0], true);
+  return s;
+}
+const sample = (n, fn) => Array.from({ length: n }, (_, i) => fn(i / (n - 1)));
+/** Flat (thin-extruded) decal geometry from shapes; depth scales with the feature so tiny faces stay crisp. */
+function flatGeo(shapes, depth = 0.004) {
+  const g = new THREE.ExtrudeGeometry(shapes, { depth, bevelEnabled: false, curveSegments: 8 });
+  g.translate(0, 0, -depth / 2);
+  return g;
+}
+/** Squeezed-shut eye ">" (left eye) / "<" (right eye), unit eye radius. */
+function shutEyeShape(r, side) {
+  const P0 = [-side * 0.72 * r, 0.5 * r], P1 = [side * 0.95 * r, 0.04 * r], P2 = [-side * 0.72 * r, -0.46 * r];
+  const pts = sample(15, (t) => [(1 - t) * (1 - t) * P0[0] + 2 * (1 - t) * t * P1[0] + t * t * P2[0], (1 - t) * (1 - t) * P0[1] + 2 * (1 - t) * t * P1[1] + t * t * P2[1]]);
+  return strokeShape(pts, (u) => r * (0.13 + 0.03 * Math.sin(Math.PI * u)));
+}
+/** Happy closed eye "^" arch. */
+function happyEyeShape(r) { return strokeShape(sample(15, (u) => { const x = lerp(-0.74, 0.74, u); return [x * r, (0.42 * (1 - (x * x) / 0.55) - 0.12) * r]; }), r * 0.14); }
+/** Dizzy spiral. */
+function spiralShape(r, side) {
+  return strokeShape(sample(46, (u) => { const a = side * u * 2.25 * TAU + 0.6, rr = r * (0.1 + 0.7 * u); return [Math.cos(a) * rr, Math.sin(a) * rr]; }), (u) => r * (0.075 + 0.045 * u));
+}
+/** An eyebrow for the eye on `side`: inner end thicker, a small arch. Centred on the origin. */
+function browShape(r, side, len = 1.3) {
+  return strokeShape(sample(9, (u) => [lerp(-side * 0.5, side * 0.5, u) * len * r, 0.12 * r * Math.sin(Math.PI * u)]), (u) => r * lerp(0.17, 0.095, u));
+}
+/** Upper lip height of a smirk at x (for hanging fangs on it). */
+function smirkLipY(w, h, lop, x) {
+  const yl = lop > 0 ? h * 0.08 : h * 0.5, yr = lop > 0 ? h * 0.5 : h * 0.08, t = clamp01(x / w + 0.5);
+  return (1 - t) * (1 - t) * yl + 2 * (1 - t) * t * (-h * 0.3) + t * t * yr;
+}
+/**
+ * The mouth set. Each kind -> [{shape(s), color key, lift layer, dy}]. w, h = the species' grin size; lop = +1 the right
+ * corner (viewer's right) rides up, -1 the left. Colours: 'in' mouth interior, 'line' ink, 'tongue', 'tooth'.
+ */
+function mouthLayers(kind, w, h, lop = 1) {
+  const L = [];
+  const add = (shape, col, layer = 0, dy = 0) => L.push({ shape, col, layer, dy });
+  const tongue = (x, y, rx, ry) => add(ovalShape(rx, ry, y, x), 'tongue', 1);
+  const fangs = (xs, lipY, len) => xs.forEach((x) => { const s = new THREE.Shape(), y0 = lipY(x) + h * 0.06, fw = Math.max(w * 0.045, h * 0.2); s.moveTo(x - fw, y0); s.lineTo(x + fw, y0); s.quadraticCurveTo(x + fw * 0.2, y0 - len * 0.7, x, y0 - len); s.quadraticCurveTo(x - fw * 0.2, y0 - len * 0.7, x - fw, y0); add(s, 'tooth', 2); });
+  // a tongue lolling out: a fat petal pointing down from (x, y), with an ink crease down the middle
+  const hangTongue = (x, y, len, wid, rot = 0) => {
+    const pts = petalShape(len, wid * 1.6, 0.5).extractPoints(8).shape, c = Math.cos(Math.PI + rot), sn = Math.sin(Math.PI + rot), p = new THREE.Shape();
+    const T = (qx, qy) => [x + qx * c - qy * sn, y + qx * sn + qy * c];
+    pts.forEach((q, i) => { const [X, Y] = T(q.x, q.y); i ? p.lineTo(X, Y) : p.moveTo(X, Y); });
+    add(p, 'tongue', 1);
+    add(strokeShape([T(0, len * 0.3), T(0, len * 0.72)], Math.max(0.0022, wid * 0.12)), 'inkSoft', 2);
+  };
+  switch (kind) {
+    case 'beam': { add(grinShape(w, h), 'in'); tongue(0, -h * 0.78, w * 0.2, h * 0.32); break; }
+    case 'smirk': case 'fang': case 'fangTongue': {
+      const s = new THREE.Shape(), yl = lop > 0 ? h * 0.08 : h * 0.5, yr = lop > 0 ? h * 0.5 : h * 0.08;
+      s.moveTo(-w / 2, yl); s.quadraticCurveTo(0, -h * 0.3, w / 2, yr); s.quadraticCurveTo(lop * w * 0.12, -h * 2.05, -w / 2, yl);
+      add(s, 'in');
+      if (kind !== 'fangTongue') tongue(-lop * w * 0.1, -h * 0.72, w * 0.16, h * 0.26);
+      // the dimple at the high corner: the smirk's whole attitude
+      const cx = lop * w / 2, cy = lop > 0 ? yr : yl;
+      add(strokeShape(sample(6, (u) => [cx + lop * (0.01 + u * 0.05) * w * 1.2, cy + (u * 0.55 - 0.1) * h - u * u * 0.3 * h]), Math.max(0.0035, h * 0.1)), 'line', 1);
+      if (kind === 'fang' || kind === 'fangTongue') fangs(kind === 'fang' ? [lop * w * 0.2] : [-w * 0.2, w * 0.2], (x) => smirkLipY(w, h, lop, x), h * 0.62);
+      if (kind === 'fangTongue') hangTongue(-lop * w * 0.06, -h * 0.55, h * 1.35, w * 0.13, -lop * 0.12);
+      break;
+    }
+    case 'grimace': {
+      const W = w * 0.84, H = h * 1.25, rr = H * 0.34, y0 = -h * 0.5, s = new THREE.Shape();
+      s.moveTo(-W / 2 + rr, y0 - H / 2); s.lineTo(W / 2 - rr, y0 - H / 2); s.quadraticCurveTo(W / 2, y0 - H / 2, W / 2, y0 - H / 2 + rr); s.lineTo(W / 2, y0 + H / 2 - rr);
+      s.quadraticCurveTo(W / 2, y0 + H / 2, W / 2 - rr, y0 + H / 2); s.lineTo(-W / 2 + rr, y0 + H / 2); s.quadraticCurveTo(-W / 2, y0 + H / 2, -W / 2, y0 + H / 2 - rr); s.lineTo(-W / 2, y0 - H / 2 + rr); s.quadraticCurveTo(-W / 2, y0 - H / 2, -W / 2 + rr, y0 - H / 2);
+      add(s, 'line');
+      const i = Math.max(0.004, H * 0.16), s2 = new THREE.Shape(), W2 = W - 2 * i, H2 = H - 2 * i, r2 = Math.max(0.002, rr - i);
+      s2.moveTo(-W2 / 2 + r2, y0 - H2 / 2); s2.lineTo(W2 / 2 - r2, y0 - H2 / 2); s2.quadraticCurveTo(W2 / 2, y0 - H2 / 2, W2 / 2, y0 - H2 / 2 + r2); s2.lineTo(W2 / 2, y0 + H2 / 2 - r2);
+      s2.quadraticCurveTo(W2 / 2, y0 + H2 / 2, W2 / 2 - r2, y0 + H2 / 2); s2.lineTo(-W2 / 2 + r2, y0 + H2 / 2); s2.quadraticCurveTo(-W2 / 2, y0 + H2 / 2, -W2 / 2, y0 + H2 / 2 - r2); s2.lineTo(-W2 / 2, y0 - H2 / 2 + r2); s2.quadraticCurveTo(-W2 / 2, y0 - H2 / 2, -W2 / 2 + r2, y0 - H2 / 2);
+      add(s2, 'tooth', 1);
+      const lw = Math.max(0.0025, H * 0.07);
+      add(strokeShape([[-W2 / 2 + r2 * 0.3, y0], [W2 / 2 - r2 * 0.3, y0]], lw), 'line', 2);
+      for (const x of [-0.24, 0, 0.24]) add(strokeShape([[x * W, y0 - H2 / 2 + lw], [x * W, y0 + H2 / 2 - lw]], lw), 'line', 2);
+      break;
+    }
+    case 'shout': {
+      const s = new THREE.Shape();
+      s.moveTo(-w * 0.44, h * 0.12); s.quadraticCurveTo(0, h * 0.3, w * 0.44, h * 0.12); s.quadraticCurveTo(w * 0.46, -h * 2.6, 0, -h * 2.1); s.quadraticCurveTo(-w * 0.46, -h * 2.6, -w * 0.44, h * 0.12);
+      add(s, 'in');
+      tongue(0, -h * 1.45, w * 0.2, h * 0.36);
+      fangs([-w * 0.22, w * 0.22], (x) => h * 0.12 + h * 0.18 * (1 - Math.pow(x / (w * 0.44), 2)) - h * 0.1, h * 0.55);
+      break;
+    }
+    case 'ow': add(strokeShape(sample(22, (u) => [lerp(-0.33, 0.33, u) * w, -h * 0.35 + h * 0.3 * Math.sin(u * 1.5 * TAU)]), Math.max(0.0035, h * 0.15)), 'line'); break;
+    case 'worry': add(strokeShape(sample(22, (u) => { const x = lerp(-0.3, 0.3, u); return [x * w, -h * 0.42 * (1 - (x * x) / 0.09) + h * 0.07 * Math.sin(u * 3 * Math.PI)]; }), Math.max(0.0035, h * 0.14)), 'line'); break;
+    case 'dizzy': {
+      const s = new THREE.Shape(); s.absellipse(lop * w * 0.06, -h * 0.55, w * 0.26, h * 0.78, 0, TAU, false, 0.3);
+      add(s, 'in');
+      hangTongue(lop * w * 0.14, -h * 0.9, h * 1.5, w * 0.15, lop * 0.35);
+      break;
+    }
+    case 'tongue': {
+      add(strokeShape(sample(18, (u) => { const x = lerp(-0.36, 0.36, u); return [x * w, -h * 0.4 * (1 - (x * x) / 0.13) + h * 0.05]; }), Math.max(0.0035, h * 0.13)), 'line', 1);
+      hangTongue(lop * w * 0.05, -h * 0.28, h * 1.45, w * 0.15, -lop * 0.1);
+      break;
+    }
+    case 'cat': {
+      add(strokeShape(sample(24, (u) => [lerp(-0.34, 0.34, u) * w, -h * 0.55 * Math.pow(Math.sin(2 * Math.PI * u) ** 2, 0.85)]), Math.max(0.003, h * 0.12)), 'line');
+      break;
+    }
+    case 'line': add(ovalShape(w / 2, Math.max(0.006, h / 2)), 'line'); break;
+    case 'frown': add(grinShape(w, -Math.abs(h)), 'in'); break;
+    case 'oh': default: { add(ovalShape(w * 0.22, h * 0.72, -h * 0.35), 'in'); add(ovalShape(w * 0.1, h * 0.22, -h * 0.72), 'tongue', 1); break; }
+  }
+  return L;
+}
+
 function starGeometry() {
   const s = new THREE.Shape(), N = 4, R = 1, r = 0.34;
   for (let i = 0; i < N * 2; i++) { const a = i / (N * 2) * TAU + Math.PI / 2, rr = i % 2 ? r : R; const x = Math.cos(a) * rr, y = Math.sin(a) * rr; i ? s.lineTo(x, y) : s.moveTo(x, y); }
@@ -297,7 +421,8 @@ class Builder {
     this.bones = [];
     this.byName = new Map();
     this.parts = { toon: [], unlit: [], trans: [], hull: [] };
-    this.meta = { eyes: [], mouths: [], ohs: [] };
+    this.meta = { eyes: [], mouths: [], ohs: [], face: { eyes: [], mouths: {} } };
+    this.skin = null; this.brows = false; this.browColor = null;
     this.bone('root', null, [0, 0, 0]);
     this.bone('body', 'root', [0, 0, 0]);
   }
@@ -377,52 +502,132 @@ class Builder {
   trans(geo, o) { return this.add('trans', geo, o); }
 
   /**
-   * The eye rig (MONSTER-BIBLE §0): bulging sclera, converging pupils, a highlight at 40° up-left, blink bones.
-   * o: {surf, y, gap, r, tilt (deg, + = angry inward), parent, pupil (ratio), hl, xOff, pitch, lid (colour) + lidCover,
-   *     pupilShape 'round'|'slit'|'bar'|'none', pupilColor, scleraColor, outline, forward (extra push), names}
+   * The eye rig (MONSTER-BIBLE §0 + the face-state layer). A sclera ball SUNK into the body so only a cap bulges (no
+   * sticker look at 3/4), converging pupils on their own bone so they can glance, a highlight, and — the expression —
+   * a body-coloured upper LID with an ink lash on its own bone (closure 0 open .. 1 shut, tilt), an optional BROW, and
+   * hidden face decals for squeezed-shut (> <), dizzy (spirals) and happy (^ ^) eyes. The face driver (§6) animates them.
+   * o: {surf, y, gap, r, tilt (deg, + = angry inward: the lid's resting slant), parent, pupil (ratio), hl, xOff, pitch,
+   *     lid (colour | false; default the species skin), brows (bool), browColor, pupilShape 'round'|'slit'|'bar'|'none',
+   *     pupilColor, scleraColor, outline, forward (extra push), bulge (0..1 of the ball that shows), names}
    */
   eyes(o) {
-    const { surf, y, gap, r, xOff = 0, forward = 0, bulge = 0.62, zScale = 0.6, names = ['eyeL', 'eyeR'] } = o;
+    // r is the radius the eye SHOWS on the body; the ball behind it is bigger and sunk so only a gentle dome bulges
+    const { surf, y, gap, r, xOff = 0, forward = 0, bulge = 0.3, zScale = 0.84, names = ['eyeL', 'eyeR'] } = o;
+    const R = r / Math.sqrt(1 - (1 - bulge) * (1 - bulge));
     const pts = [-1, 1].map((side) => {
       const x = side * gap / 2 + xOff;
       const th = thetaFor(surf, y, x - surf.c.x);
-      const push = (bulge * 2 * zScale - zScale) * r + forward;
+      const push = (bulge - 1) * R * zScale + forward;
       const c = surfPoint(surf, y, th, push);
-      return { pos: [c.x, c.y, c.z], yaw: th, side };
+      return { pos: [c.x, c.y, c.z], yaw: th, side, Y: y, th, x, lift: Math.max(0.002, forward * 0.5) };
     });
-    return this.eyesAt(pts, Object.assign({}, o, { names }));
+    return this.eyesAt(pts, Object.assign({ zScale }, o, { names, surf, r: R, rVis: r }));
   }
-  /** Eyes at explicit points: [{pos:[x,y,z], yaw, pitch?, side}] (for lids, stalks, sockets). Same options as eyes(). */
+  /** Eyes at explicit points: [{pos:[x,y,z], yaw, pitch?, side, parent?}] (lids, stalks, sockets). Same options as eyes(). */
   eyesAt(points, o) {
-    const { r, tilt = 0, parent = 'body', pupil = 0.46, hl = true, pitch = 0, lid = null, lidCover = 0.35,
+    const { r, tilt = 0, parent = 'body', pupil = 0.46, hl = true, pitch = 0,
       pupilShape = 'round', pupilColor = MON.pupil, scleraColor = MON.white, outline = 0.008, names = ['eyeL', 'eyeR'],
-      hlColor = MON.white, zScale = 0.6, sclera = true } = o;
+      hlColor = MON.white, zScale = 0.84, sy = 1.1, sclera = true } = o;
+    const rVis = o.rVis || r;
+    const lid = o.lid === false || !sclera ? null : (o.lid || this.skin || null);
     const out = [];
     points.forEach((P, k) => {
-      const side = P.side ?? (k === 0 ? -1 : 1), c = P.pos;
-      const name = this.bone(names[k] || ('eye' + k), P.parent || parent, c);
+      const side = P.side ?? (k === 0 ? -1 : 1), c = P.pos, par = P.parent || parent;
+      const name = this.bone(names[k] || ('eye' + k), par, c);
       this.meta.eyes.push(name);
-      const base = MT(c, [-(P.pitch ?? pitch) * DEG, P.yaw || 0, side * tilt * DEG]);
-      if (sclera) this.unlit(new THREE.SphereGeometry(r, 18, 14), { m: base.clone().multiply(MT([0, 0, 0], [0, 0, 0], [1, 1.12, zScale])), bone: name, color: scleraColor, outline, ocolor: PAL.outline.char });
-      const pr = r * pupil, px = -side * r * 0.1, pz = r * zScale * 0.9;
+      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-(P.pitch ?? pitch) * DEG, P.yaw || 0, 0, 'YXZ'));
+      const base = new THREE.Matrix4().compose(V3(c[0], c[1], c[2]), q, V3(1, 1, 1));
+      const at = (p, s = [1, 1, 1], rz = 0) => base.clone().multiply(MT(p, [0, 0, rz], s));
+      if (sclera) this.unlit(new THREE.SphereGeometry(r, 20, 16), { m: at([0, 0, 0], [1, sy, zScale]), bone: name, color: scleraColor, outline, ocolor: PAL.outline.char });
+      const pupilBone = this.bone(name + 'Pupil', name, c);
+      const pr = rVis * pupil, px = -side * rVis * 0.1, pz = r * zScale * 0.97;
       if (pupilShape !== 'none') {
         let pg;
-        if (pupilShape === 'slit') pg = MT([px, 0, pz], [0, 0, 0], [0.26, 1.55, 0.35]);
-        else if (pupilShape === 'bar') pg = MT([px * 0.5, -r * 0.04, pz], [0, 0, 0], [1.38, 0.8, 0.4]);
-        else pg = MT([px, -r * 0.04, pz], [0, 0, 0], [1, 1.1, 0.45]);
-        this.unlit(new THREE.SphereGeometry(pr, 14, 10), { m: base.clone().multiply(pg), bone: name, color: pupilColor });
+        if (pupilShape === 'slit') pg = at([px, 0, pz], [0.26, 1.55, 0.35]);
+        else if (pupilShape === 'bar') pg = at([px * 0.5, -r * 0.04, pz], [1.38, 0.8, 0.4]);
+        else pg = at([px, -r * 0.04, pz], [1, 1.1, 0.45]);
+        this.unlit(new THREE.SphereGeometry(pr, 14, 10), { m: pg, bone: pupilBone, color: pupilColor });
         if (hl) {
-          this.unlit(new THREE.SphereGeometry(pr * 0.34, 10, 8), { m: base.clone().multiply(MT([px - pr * 0.42, pr * 0.46, pz + pr * 0.5], [0, 0, 0], [1, 1, 0.5])), bone: name, color: hlColor });
-          this.unlit(new THREE.SphereGeometry(pr * 0.14, 8, 6), { m: base.clone().multiply(MT([px + pr * 0.36, -pr * 0.4, pz + pr * 0.45], [0, 0, 0], [1, 1, 0.5])), bone: name, color: hlColor });
+          this.unlit(new THREE.SphereGeometry(pr * 0.36, 10, 8), { m: at([px - pr * 0.42, pr * 0.46, pz + pr * 0.5], [1, 1, 0.5]), bone: pupilBone, color: hlColor });
+          this.unlit(new THREE.SphereGeometry(pr * 0.15, 8, 6), { m: at([px + pr * 0.36, -pr * 0.4, pz + pr * 0.45], [1, 1, 0.5]), bone: pupilBone, color: hlColor });
         }
       }
+      let lidBone = null;
       if (lid) {
-        const cap = new THREE.SphereGeometry(r * 1.08, 18, 8, 0, TAU, 0, Math.PI * lidCover);
-        this.toon(cap, { m: base.clone().multiply(MT([0, 0, 0], [0, 0, 0], [1, 1.12, zScale * 1.1])), bone: name, color: lid, outline: 0.006 });
+        lidBone = this.bone(name + 'Lid', name, c);
+        const rl = r + Math.max(0.0015, outline * 0.4);
+        this.toon(new THREE.SphereGeometry(rl, 24, 8, 0, TAU, 0, Math.PI / 2), { m: at([0, 0, 0], [1, sy, zScale]), bone: lidBone, color: lid, outline: 0 });
+        const lashR = Math.max(0.0035, r * 0.13);
+        const lash = new THREE.TorusGeometry(rl, lashR, 6, 26, Math.PI); lash.rotateX(Math.PI / 2);
+        this.unlit(lash, { m: at([0, 0, 0], [1, sy, zScale]), bone: lidBone, color: o.lash || PAL.outline.char });
+        for (const sx of [-1, 1]) this.unlit(new THREE.SphereGeometry(lashR, 6, 5), { m: at([sx * rl, 0, 0]), bone: lidBone, color: o.lash || PAL.outline.char });
       }
+      const e = this._eyeExtras(name, Object.assign({}, P, { side, parent: par, q, r: rVis, zScale }), o);
+      Object.assign(e, { pupil: pupilBone, lid: lidBone, kind: sclera ? 'ball' : 'flat', baseTilt: tilt, zs: zScale, sy, R: r });
       out.push({ name, pos: V3(c[0], c[1], c[2]), th: P.yaw || 0 });
     });
     return out;
+  }
+  /**
+   * Register an eye with the face layer and build its brow + hidden decals (> <, spirals, ^ ^). Used by eyesAt and by
+   * species whose eyes are not balls (Glimmergloop's slits, Boohoo's holes, glowstones). P: {pos, side, parent, q?, yaw?,
+   * pitch?, Y?, th? (surface placement), r}. o: {surf, brows, browColor, browLen, browLift, decalColor, decals, kind}
+   */
+  _eyeExtras(name, P, o = {}) {
+    const side = P.side, r = P.r ?? o.r, par = P.parent || 'body', c = P.pos, zs = P.zScale ?? 0.84;
+    const q = P.q || new THREE.Quaternion().setFromEuler(new THREE.Euler(-(P.pitch || 0) * DEG, P.yaw || 0, 0, 'YXZ'));
+    const surf = o.surf && P.Y != null ? o.surf : null;
+    const ink = o.decalColor || PAL.outline.char, depth = Math.max(0.003, r * 0.07), lift = (P.lift || 0.002) + r * 0.05;
+    const decal = (bone, shape, color, dy = 0, fwd = 0.45, dth = 0) => {
+      const g = flatGeo(shape, depth);
+      if (surf) this.unlit(wrapOn(g, surf, P.Y + dy, P.th + dth, lift), { bone, color });
+      else { const m = new THREE.Matrix4().compose(V3(c[0], c[1], c[2]), q, V3(1, 1, 1)).multiply(MT([0, dy, r * zs * fwd])); this.unlit(g, { m, bone, color }); }
+    };
+    const entry = { eye: name, side, r, q: [q.x, q.y, q.z, q.w], pupil: null, lid: null, brow: null, shut: null, dizzy: null, happy: null, kind: o.kind || 'flat', baseTilt: 0, zs, sy: 1 };
+    const brows = o.brows ?? this.brows;
+    if (brows) {
+      const bl = o.browLift ?? 1.38, dy = r * bl;
+      const dth = surf ? (thetaFor(surf, P.Y + dy, (P.x ?? Math.sin(P.th) * surf.r(P.Y, P.th)) + side * r * 0.1 - surf.c.x) - P.th) : 0;
+      const pos = surf ? surfPoint(surf, P.Y + dy, P.th + dth, 0) : V3(c[0], c[1], c[2]).add(V3(0, dy, r * zs * 0.55).applyQuaternion(q));
+      entry.brow = this.bone(name + 'Brow', par, [pos.x, pos.y, pos.z]);
+      const bc = o.browColor || this.browColor || mixHex(this.skin || PAL.outline.char, PAL.outline.char, 0.72);
+      const g = flatGeo(browShape(r, side, o.browLen ?? 1.25), depth);
+      if (surf) this.unlit(wrapOn(g, surf, P.Y + dy, P.th + dth, lift + depth * 0.4), { bone: entry.brow, color: bc });
+      else this.unlit(g, { m: new THREE.Matrix4().compose(V3(c[0], c[1], c[2]), q, V3(1, 1, 1)).multiply(MT([side * r * 0.1, dy, r * zs * 0.55])), bone: entry.brow, color: bc });
+    }
+    if (o.decals !== false) {
+      const pos = surf ? surfPoint(surf, P.Y, P.th, 0) : V3(c[0], c[1], c[2]).add(V3(0, 0, r * zs * 0.45).applyQuaternion(q));
+      const at = [pos.x, pos.y, pos.z];
+      entry.shut = this.bone(name + 'Shut', par, at, 0); decal(entry.shut, shutEyeShape(r, side), ink);
+      entry.happy = this.bone(name + 'Happy', par, at, 0); decal(entry.happy, happyEyeShape(r), ink);
+      entry.dizzy = this.bone(name + 'Dizzy', par, at, 0); decal(entry.dizzy, spiralShape(r, side), ink);
+    }
+    this.meta.face.eyes.push(entry);
+    return entry;
+  }
+
+  /**
+   * The mouth set for the face layer: every expression the species can pull, each a decal on its own bone (only one is
+   * shown at a time). kinds: beam (the befriended grin) · smirk · fang · fangTongue · grimace · shout · ow · worry ·
+   * dizzy · tongue · cat · line · frown · oh. `beam` names which kind is the resting 'mouth' bone.
+   */
+  faceMouths(o) {
+    const { surf, y, w = 0.16, h = 0.055, xOff = 0, parent = 'body', prefix = '', lop = 1, lift = 0.003,
+      kinds = ['beam', 'smirk', 'grimace', 'shout', 'ow', 'dizzy', 'tongue', 'worry', 'oh'], beam = 'beam', colors = {}, sizes = {} } = o;
+    const th = thetaFor(surf, y, xOff - surf.c.x), c = surfPoint(surf, y, th, 0);
+    const COL = Object.assign({ in: PAL.slime.mouth, line: MON.mouth, tongue: MON.tongue, tooth: MON.tooth, inkSoft: mixHex(MON.tongue, PAL.slime.mouth, 0.55) }, colors);
+    const depth = Math.max(0.003, h * 0.1);
+    for (const kind of kinds) {
+      const bone = kind === beam ? prefix + 'mouth' : kind === 'oh' ? prefix + 'mouthOh' : `${prefix}mouth_${kind}`;
+      this.bone(bone, parent, [c.x, c.y, c.z], kind === beam ? 1 : 0);
+      this.meta.face.mouths[kind] = bone;
+      if (kind === beam) { if (!this.meta.mouths.includes(bone)) this.meta.mouths.push(bone); } else if (kind === 'oh') this.meta.ohs.push(bone);
+      const [kw, kh] = sizes[kind] || [1, 1];
+      for (const Ly of mouthLayers(kind, w * kw, h * kh, lop)) {
+        this.unlit(wrapOn(flatGeo(Ly.shape, depth), surf, y + Ly.dy, th, lift + Ly.layer * depth * 0.95), { bone, color: COL[Ly.col] || COL.line });
+      }
+    }
+    return this.meta.face.mouths;
   }
 
   /** Mouth decal(s) on a surface. kind 'grin' | 'frown' | 'oh' | 'line' | 'fang'. Returns the bone name. */
@@ -652,11 +857,19 @@ function gloopBody(B, o = {}) {
         B.unlit(new THREE.SphereGeometry(E.r * 0.32, 6, 5), { m: MT([c.x - E.r * 0.3, c.y + E.r * 0.4, c.z + E.r * 0.5], [0, th, 0], [1, 1, 0.5]), bone: bodyBone, color: MON.white });
       }
     } else {
-      B.eyes(Object.assign({ surf, y: at[1] + E.y * sy, gap: E.gap * sx, r: E.r * Math.cbrt(sx * sy * sz), tilt: E.tilt, parent: bodyBone, lid: o.lid || null, lidCover: o.lidCover || 0.35 }, prefix ? { names: [prefix + 'eyeL', prefix + 'eyeR'] } : {}, o.eyeOpts || {}));
+      // the lid is the body's own colour at eye height, so a half-shut eye reads as the body closing over it
+      const Y = at[1] + E.y * sy, vc = o.vcol || ((x, y, z, ny, tmp) => tmp.copy(deep).lerp(light, smooth(0.0, topY + at[1], y)));
+      const skin = '#' + (vc(at[0], Y, at[2] + 0.3, 0, new THREE.Color()) || C3(color)).getHexString();
+      B.eyes(Object.assign({ surf, y: Y, gap: E.gap * sx, r: E.r * Math.cbrt(sx * sy * sz), tilt: E.tilt, parent: bodyBone, lid: o.lid === false ? false : skin, brows: o.brows ?? B.brows,
+        browColor: o.browColor || mixHex(scaleHex(color, 0.62), PAL.outline.char, 0.45) }, prefix ? { names: [prefix + 'eyeL', prefix + 'eyeR'] } : {}, o.eyeOpts || {}));
     }
     const Mo = Object.assign({ w: 0.16, h: 0.055, xOff: 0, y: 0.2 }, o.mouth || {});
-    B.mouth(Mo.kind || 'grin', { surf, y: at[1] + Mo.y * sy, w: Mo.w * sx, h: Mo.h * sy, xOff: at[0] + Mo.xOff, bone: prefix + 'mouth', parent: bodyBone, color: Mo.color || (Mo.kind === 'line' || Mo.kind === 'frown' ? MON.mouth : PAL.slime.mouth), tongue: Mo.tongue ?? true });
-    if (o.oh !== false) B.mouth('oh', { surf, y: at[1] + (Mo.y - 0.01) * sy, w: 0.07 * sx, h: 0.08 * sy, xOff: at[0] + Mo.xOff, bone: prefix + 'mouthOh', parent: bodyBone, hidden: true });
+    if (dotEyes) {
+      B.mouth(Mo.kind || 'grin', { surf, y: at[1] + Mo.y * sy, w: Mo.w * sx, h: Mo.h * sy, xOff: at[0] + Mo.xOff, bone: prefix + 'mouth', parent: bodyBone, color: Mo.color || PAL.slime.mouth, tongue: Mo.tongue ?? true });
+    } else {
+      B.faceMouths({ surf, y: at[1] + Mo.y * sy, w: Mo.w * sx, h: Mo.h * sy, xOff: at[0] + Mo.xOff, parent: bodyBone, prefix, lop: Mo.lop ?? 1, beam: Mo.beam || 'beam',
+        kinds: Mo.kinds || ['beam', 'smirk', 'grimace', 'shout', 'ow', 'dizzy', 'tongue', 'worry', 'oh'], sizes: Mo.sizes || {} });
+    }
   }
   if (o.gloss !== false) B.gloss(surf, at[1] + 0.38 * sy, -0.62, 0.075 * sx, 0.13 * sy, { bone: bodyBone, color: o.glossColor || MON.white });
   return { surf, bodyBone, tipBone, height: at[1] + topY, radius: 0.315 * Math.max(sx, sz) };
@@ -1818,7 +2031,133 @@ species('cactuddle', {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// 6. Clips
+// 6. The face layer — what the monster FEELS, per clip, tuned per species
+//    A wild monster is sly (half-lidded, glancing, a lopsided smirk); it squints and grits its teeth to wind up, yells
+//    as it lunges, squeezes its eyes shut when hit, goes dizzy as it poofs — and on 'join' its lids snap open into the
+//    big beaming face it keeps from then on (mood 'friend'). Species override any state in spec.face.
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+/** lid: closure 0 open .. 1 shut ([L, R] or one), tilt: lid slant deg (+ inner corners down = cross/sly, - = sad),
+ *  brow: [[raise (eye radii), angle deg (+ inner end down)] L, R], look: pupils [x, y] (-1..1), glance: sideways
+ *  pupil flicks, eyes: 'open' | 'shut' | 'dizzy' | 'happy', mouth: a faceMouths kind, eyeScale. */
+const FACE_STATES = {
+  wild: { lid: 0.46, tilt: 10, brow: [[-0.04, 12], [0.16, -4]], look: [0.1, -0.12], glance: 0.6, mouth: 'smirk' },
+  friend: { lid: 0.0, tilt: -4, brow: [[0.28, -8], [0.28, -8]], look: [0, 0.05], glance: 0, mouth: 'beam' },
+  windup: { lid: 0.66, tilt: 22, brow: [[-0.2, 30], [-0.2, 30]], look: [0, 0.12], mouth: 'grimace', eyeScale: 0.96 },
+  strike: { lid: 0.34, tilt: 18, brow: [[-0.16, 26], [-0.16, 26]], look: [0, 0.05], mouth: 'shout' },
+  recover: { lid: 0.42, tilt: 10, brow: [[-0.02, 12], [0.12, 0]], look: [0, 0], mouth: 'smirk' },
+  hurt: { eyes: 'shut', brow: [[0.14, -26], [0.14, -26]], mouth: 'ow' },
+  stunned: { lid: 0.0, tilt: -8, brow: [[0.36, -16], [0.36, -16]], look: [0, 0], mouth: 'oh', eyeScale: 1.08 },
+  taunt: { eyes: ['happy', 'open'], lid: [1, 0.12], tilt: 6, brow: [[-0.08, 14], [0.34, -12]], look: [0.45, 0], mouth: 'tongue' },
+  castIn: { lid: 1, tilt: 6, brow: [[-0.12, 16], [-0.12, 16]], mouth: 'oh' },
+  castOut: { lid: 0, tilt: 12, brow: [[0.24, 12], [0.24, 12]], look: [0, 0], mouth: 'shout', eyeScale: 1.12 },
+  dizzy: { eyes: 'dizzy', brow: [[0.26, -18], [0.06, -6]], mouth: 'dizzy' },
+  surprise: { lid: 0, tilt: -2, brow: [[0.38, -10], [0.38, -10]], look: [0, 0], mouth: 'oh', eyeScale: 1.14 },
+  happy: { eyes: 'happy', brow: [[0.32, -10], [0.32, -10]], mouth: 'beam' },
+};
+const FACE_SNAP = new Set(['hurt', 'strike', 'castOut', 'dizzy', 'surprise', 'happy', 'stunned']);
+const MOUTH_FALLBACK = { smirk: ['beam'], fang: ['smirk', 'beam'], fangTongue: ['fang', 'tongue', 'smirk', 'beam'], grimace: ['shout', 'line', 'oh', 'beam'],
+  shout: ['oh', 'beam'], ow: ['oh', 'beam'], worry: ['beam'], dizzy: ['oh', 'ow', 'beam'], tongue: ['smirk', 'beam'], cat: ['smirk', 'beam'],
+  line: ['frown', 'beam'], frown: ['line', 'beam'], oh: ['beam'], beam: [] };
+const LID_OPEN = -54 * DEG, LID_SHUT = 52 * DEG;
+
+function faceConf(spec) {
+  if (spec._faceConf) return spec._faceConf;
+  const out = {}, over = spec.face || {};
+  for (const k of new Set([...Object.keys(FACE_STATES), ...Object.keys(over)])) out[k] = Object.assign({}, FACE_STATES[k] || FACE_STATES.wild, over[k] || {});
+  spec._faceConf = out;
+  return out;
+}
+/** Which face state a clip is in at clip time ct. Species hooks can force one with ctx.faceKey. */
+function faceKeyFor(ctx, conf, clipName, ct) {
+  if (ctx.faceKey && conf[ctx.faceKey]) return ctx.faceKey;
+  const mood = ctx.mood === 'friend' ? 'friend' : 'wild';
+  switch (clipName) {
+    case 'attack': return ct < 0.15 ? 'windup' : ct < 0.36 ? 'strike' : ct < 0.56 ? (mood === 'friend' ? 'friend' : 'recover') : mood;
+    case 'hurt': return ct < 0.27 ? 'hurt' : ct < 0.42 ? 'stunned' : mood;
+    case 'taunt': return ct < 0.08 ? mood : ct < 0.92 ? 'taunt' : mood;
+    case 'cast': return ct < 0.6 ? 'castIn' : ct < 0.9 ? 'castOut' : mood;
+    case 'defeat': return conf.defeat ? 'defeat' : 'dizzy';
+    case 'dead': return conf.dead ? 'dead' : 'dizzy';
+    case 'join': return ct < 0.58 ? 'surprise' : ct < 0.88 ? 'friend' : ct < 1.3 ? 'happy' : 'friend';
+    default: return mood;
+  }
+}
+const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qc = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _n = new THREE.Vector3();
+
+/** Drive lids, pupils, brows, eye decals and the mouth set from the face state. F persists per instance. */
+function driveFace(ctx, T, F, dt, clipName, ct, blinkClose) {
+  const face = T.meta.face, b = ctx.b, conf = faceConf(ctx.spec);
+  const key = faceKeyFor(ctx, conf, clipName, ct), g = conf[key];
+  const snap = key !== F.key && (FACE_SNAP.has(key) || (key === 'friend' && clipName === 'join') || F.key === '');
+  F.key = key;
+  const k = snap ? 1 : 1 - Math.exp(-dt * (g.rate || 16));
+  for (let i = 0; i < 2; i++) {
+    const lt = Array.isArray(g.lid) ? g.lid[i] : (g.lid ?? 0);
+    F.lid[i] += (lt - F.lid[i]) * k;
+    const bt = (g.brow && g.brow[i]) || [0, 0];
+    F.brow[i][0] += (bt[0] - F.brow[i][0]) * k; F.brow[i][1] += (bt[1] - F.brow[i][1]) * k;
+  }
+  F.tilt += ((g.tilt ?? 0) - F.tilt) * k;
+  let lx = (g.look && g.look[0]) || 0, ly = (g.look && g.look[1]) || 0;
+  if (g.glance) lx += g.glance * Math.tanh(4 * Math.sin(TAU * ctx.t / (g.glancePeriod || 3.6) + ctx.seedA));
+  const kl = snap ? 1 : 1 - Math.exp(-dt * 14);
+  F.look[0] += (clamp01((lx + 1) / 2) * 2 - 1 - F.look[0]) * kl; F.look[1] += (Math.max(-1, Math.min(1, ly)) - F.look[1]) * kl;
+  const modes = Array.isArray(g.eyes) ? g.eyes : [g.eyes || 'open', g.eyes || 'open'];
+  F.eyes = modes[0] === modes[1] ? modes[0] : modes.join('/');
+  const eyeScale = ctx.eyeScale * (g.eyeScale || 1);
+  const tiltExtra = ctx.eyeTilt / DEG;
+  for (const e of face.eyes) {
+    const eb = b[e.eye]; if (!eb) continue;
+    const si = e.side < 0 ? 0 : 1, side = e.side, mode = modes[si];
+    const qe = e._q || (e._q = new THREE.Quaternion(e.q[0], e.q[1], e.q[2], e.q[3]));
+    _n.set(0, 0, 1).applyQuaternion(qe);
+    for (const m of ['shut', 'happy', 'dizzy']) {
+      const bn = e[m] && b[e[m]]; if (!bn) continue;
+      const on = mode === m;
+      bn.scale.setScalar(on ? eyeScale : 0.0001);
+      if (on && m === 'dizzy') bn.quaternion.premultiply(_qa.setFromAxisAngle(_n, -side * ctx.t * 9));
+      if (on && m === 'happy') bn.position.y += 0.08 * e.r * Math.abs(Math.sin(ctx.t * 9));
+    }
+    if (mode !== 'open' && e.shut) { eb.scale.setScalar(0.0001); }
+    else {
+      eb.scale.multiplyScalar(eyeScale);
+      const close = clamp01(Math.max(F.lid[si], blinkClose[si], ctx.lids[si]));
+      const lb = e.lid && b[e.lid];
+      if (lb) {
+        if (close < 0.02) lb.scale.setScalar(0.0001);
+        else {
+          _e.set(lerp(LID_OPEN, LID_SHUT, close), 0, side * (F.tilt + (e.baseTilt || 0) + tiltExtra) * DEG, 'ZYX');
+          _qb.setFromEuler(_e);
+          _qc.copy(qe).invert();
+          lb.quaternion.copy(qe).multiply(_qb).multiply(_qc);
+        }
+      } else if (e.kind === 'ball' || e.kind === 'flat' || e.kind === 'glow') {
+        eb.scale.y *= Math.max(0.05, 1 - 0.95 * close);
+        eb.rotation.z += side * ctx.eyeTilt;
+      }
+      const pb = e.pupil && b[e.pupil];
+      if (pb) {
+        const r = e.r, R = e.R || r, dx = F.look[0] * r * 0.34, dy = F.look[1] * r * 0.3;
+        const dz = (e.zs || 0.84) * R * 0.97 * (Math.sqrt(Math.max(0, 1 - (dx * dx + dy * dy) / (R * R))) - 1);
+        pb.position.add(_v.set(dx, dy, dz).applyQuaternion(qe));
+      }
+    }
+    const bb = e.brow && b[e.brow];
+    if (bb) {
+      bb.position.y += F.brow[si][0] * e.r;
+      bb.quaternion.premultiply(_qa.setFromAxisAngle(_n, side * F.brow[si][1] * DEG));
+    }
+  }
+  // the mouth: exactly one shown
+  const M = face.mouths, have = (m) => M[m] && b[M[m]];
+  let want = ctx.showOh ? 'oh' : (g.mouth || 'beam');
+  if (!have(want)) want = (MOUTH_FALLBACK[want] || []).find(have) || Object.keys(M).find(have);
+  F.mouth = want;
+  for (const kind in M) { const bn = b[M[kind]]; if (bn) bn.scale.setScalar(kind === want ? 1 : 0.0001); }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// 7. Clips
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 const CLIP_IDLE_W = { idle: 1, attack: 0, hurt: 0.25, cast: 0, taunt: 0, join: 0, defeat: 0, dead: 0 };
 
@@ -1833,10 +2172,11 @@ const CLIPS = {
   attack(ctx, ct, o) {
     const S = ctx.size, gap = o.distance ?? ctx.lunge, dir = o.dir || V3(0, 0, 1);
     let z = 0, sx = 1, sy = 1, lean = 0;
-    if (ct < 0.14) { const k = easeOutCubic(ct / 0.14); z = -0.25 * S * k; sx = lerp(1, 1.12, k); sy = lerp(1, 0.9, k); ctx.eyeTilt += 14 * DEG * k; }
-    else if (ct < 0.25) { const k = easeOutCubic((ct - 0.14) / 0.11); z = lerp(-0.25 * S, 0.7 * gap, k); sx = 0.9; sy = 1.15; lean = 18 * DEG * k; ctx.eyeTilt += 14 * DEG; }
+    const tiltK = ctx.hasFace ? 0 : 14 * DEG;   // face monsters squint with their lids instead
+    if (ct < 0.14) { const k = easeOutCubic(ct / 0.14); z = -0.25 * S * k; sx = lerp(1, 1.12, k); sy = lerp(1, 0.9, k); ctx.eyeTilt += tiltK * k; ctx.mover.rotation.z += Math.sin(ct * 90) * 1.6 * DEG * k; }
+    else if (ct < 0.25) { const k = easeOutCubic((ct - 0.14) / 0.11); z = lerp(-0.25 * S, 0.7 * gap, k); sx = 0.9; sy = 1.15; lean = 18 * DEG * k; ctx.eyeTilt += tiltK; }
     else if (ct < 0.33) {
-      z = 0.7 * gap; const k = 1 - seg(ct, 0.25, 0.33); sx = 1 + 0.12 * k; sy = 1 - 0.12 * k; lean = 18 * DEG * k; ctx.eyeTilt += 14 * DEG;
+      z = 0.7 * gap; const k = 1 - seg(ct, 0.25, 0.33); sx = 1 + 0.12 * k; sy = 1 - 0.12 * k; lean = 18 * DEG * k; ctx.eyeTilt += tiltK;
       if (!o._hit) { o._hit = true; ctx.emit('impact', o); if (typeof o.onImpact === 'function') { try { o.onImpact(); } catch (e) { reportError('Monsters onImpact', e); } } ctx.fx.sparkle(ctx.center().add(dir.clone().multiplyScalar(0.7 * gap + ctx.radius * 0.8)), 4, 0.2 * S, { size: 0.07 * Math.sqrt(S), life: 0.3, speed: 1.6 }); }
     } else if (ct < 0.51) { const k = seg(ct, 0.33, 0.51); z = 0.7 * gap - 0.08 * S * Math.sin(k * Math.PI); sx = 1 + 0.05 * Math.sin(k * TAU * 1.5) * (1 - k); sy = 1 - 0.05 * Math.sin(k * TAU * 1.5) * (1 - k); }
     else if (ct < 0.73) { const k = easeInOutQuad(seg(ct, 0.51, 0.73)); z = lerp(0.7 * gap, 0, k); ctx.b.root.position.y += Math.sin(k * Math.PI) * 0.06 * S; }
@@ -1855,51 +2195,62 @@ const CLIPS = {
     ctx.mover.rotation.z += 6 * DEG * k * side;
     const ph = seg(ct, 0, 0.42), w = Math.sin(ph * TAU) * (1 - ph);
     scaleBody(ctx, 1 + 0.12 * w, 1 - 0.15 * w);
-    ctx.eyeScale *= lerp(1, 0.25, hump(ct, 0.0, 0.34));
-    if (ct < 0.3) ctx.showOh = true;
+    if (ctx.hasFace) ctx.mover.position.x += Math.sin(ct * 70) * 0.012 * S * (1 - seg(ct, 0.05, 0.26));   // the "ow!" shudder
+    else { ctx.eyeScale *= lerp(1, 0.25, hump(ct, 0.0, 0.34)); if (ct < 0.3) ctx.showOh = true; }
     if (ctx.spec.hurtPose) ctx.spec.hurtPose(ctx, ct, o);
     return ct >= 0.42;
   },
   cast(ctx, ct, o) {
+    // eyes squeezed shut in concentration, a rising shiver that builds, then the release: a pop, a glow, a ring of stars
     const S = ctx.size;
     if (ct < 0.18) { const k = easeOutCubic(ct / 0.18); scaleBody(ctx, 1 + 0.1 * k, 1 - 0.1 * k); }
-    else if (ct < 0.62) {
-      const k = seg(ct, 0.18, 0.62);
-      ctx.mover.position.y += 0.22 * S * easeOutCubic(k);
-      ctx.mover.rotation.y += TAU * easeInOutQuad(k);
-      scaleBody(ctx, 0.95, 1.08);
-      if (!o._ring) { o._ring = true; ctx.fx.sparkle(ctx.center(), 8, ctx.radius * 2.4, { ring: true, size: 0.08 * Math.sqrt(S), life: 0.8, speed: 0.4, up: 0.9 }); }
-    } else if (ctx.flying ? ct < 0.85 : ct < 0.8) { ctx.mover.position.y += 0.22 * S; ctx.glow = hump(ct, 0.6, 0.82) * 0.42; ctx.eyeScale *= 1.12; }
-    else { const k = seg(ct, 0.8, 1.0); ctx.mover.position.y += 0.22 * S * (1 - easeInQuad(k)); if (k > 0.9) scaleBody(ctx, 1.06, 0.94); }
+    else if (ct < 0.6) {
+      const k = seg(ct, 0.18, 0.6);
+      ctx.mover.position.y += 0.16 * S * easeOutCubic(k);
+      ctx.mover.rotation.z += Math.sin(ct * 80) * (1.5 + 4 * k) * DEG;
+      scaleBody(ctx, 1 - 0.05 * k + 0.02 * Math.sin(ct * 60), 1 + 0.08 * k);
+      ctx.glow = 0.12 * k * (0.5 + 0.5 * Math.sin(ct * 40));
+      if (!o._motes) { o._motes = true; ctx.fx.sparkle(ctx.center(), 5, ctx.radius * 1.1, { ring: true, size: 0.05 * Math.sqrt(S), life: 0.5, speed: -0.3, up: 0.5 }); }
+    } else if (ctx.flying ? ct < 0.85 : ct < 0.8) {
+      const k = seg(ct, 0.6, 0.7);
+      ctx.mover.position.y += 0.16 * S; ctx.glow = hump(ct, 0.58, 0.82) * 0.45;
+      scaleBody(ctx, 1 + 0.12 * hump(ct, 0.6, 0.72), 1 + 0.1 * hump(ct, 0.6, 0.72)); void k;
+      if (!o._ring) { o._ring = true; ctx.fx.sparkle(ctx.center(), 10, ctx.radius * 2.6, { ring: true, size: 0.08 * Math.sqrt(S), life: 0.7, speed: 1.4, up: 0.2 }); }
+      if (!ctx.hasFace) ctx.eyeScale *= 1.12;
+    }
+    else { const k = seg(ct, 0.8, 1.0); ctx.mover.position.y += 0.16 * S * (1 - easeInQuad(k)); if (k > 0.9) scaleBody(ctx, 1.06, 0.94); }
     if (ctx.spec.castPose) ctx.spec.castPose(ctx, ct, o);
     return ct >= 1.0;
   },
   taunt(ctx, ct, o) {
     if (ctx.spec.taunt) return ctx.spec.taunt(ctx, ct, o);
+    // "nyah!": a cheeky side-to-side hop, a wink and a tongue out, then a smug waggle
     const S = ctx.size;
-    const h1 = hump(ct, 0.0, 0.26), h2 = hump(ct, 0.28, 0.54);
-    ctx.b.root.position.y += (h1 + h2) * 0.13 * S;
-    ctx.mover.rotation.z += (h1 - h2) * 12 * DEG;
-    ctx.b.root.position.x += (h1 - h2) * 0.06 * S;
-    const boing = seg(ct, 0.58, 1.0), w = Math.sin(boing * TAU * 2) * (1 - boing) * (boing > 0 ? 1 : 0);
-    scaleBody(ctx, 1 - 0.1 * w, 1 + 0.16 * w);
-    if (ct < 0.56) { ctx.showOh = true; ctx.eyeScale *= 1.15; }
-    return ct >= 1.0;
+    const h1 = hump(ct, 0.06, 0.3), h2 = hump(ct, 0.32, 0.56);
+    ctx.b.root.position.y += (h1 + h2) * 0.1 * S;
+    ctx.mover.rotation.z += (h1 - h2) * 14 * DEG;
+    ctx.b.root.position.x += (h1 - h2) * 0.07 * S;
+    const wag = seg(ct, 0.58, 0.92);
+    ctx.mover.rotation.y += Math.sin(wag * TAU * 2.5) * 16 * DEG * (wag > 0 && wag < 1 ? 1 - wag * 0.6 : 0);
+    const boing = seg(ct, 0.9, 1.1), w = Math.sin(boing * TAU * 1.5) * (1 - boing) * (boing > 0 ? 1 : 0);
+    scaleBody(ctx, 1 - 0.08 * w, 1 + 0.12 * w);
+    if (!ctx.hasFace && ct < 0.56) { ctx.showOh = true; ctx.eyeScale *= 1.15; }
+    return ct >= 1.1;
   },
   join(ctx, ct, o) {
     const S = ctx.size;
-    if (!o._shown) { o._shown = true; ctx.setVisible(true); ctx.defeated = false; ctx.fx.sparkle(ctx.center(), 6, ctx.radius * 1.6, { ring: true, size: 0.07 * Math.sqrt(S), life: 0.5, speed: 0.6 }); }
+    if (!o._shown) { o._shown = true; ctx.setVisible(true); ctx.defeated = false; ctx.mood = 'friend'; ctx.fx.sparkle(ctx.center(), 6, ctx.radius * 1.6, { ring: true, size: 0.07 * Math.sqrt(S), life: 0.5, speed: 0.6 }); }
     let pop = 1;
     if (ct < 0.26) { const k = ct / 0.26; pop = k < 0.62 ? lerp(0.0, 1.18, easeOutCubic(k / 0.62)) : lerp(1.18, 1.0, easeInOutQuad((k - 0.62) / 0.38)); }
     ctx.mover.scale.multiplyScalar(pop);
     const b1 = seg(ct, 0.26, 0.58), b2 = seg(ct, 0.58, 0.9);
     const H = 0.35 * Math.sqrt(S);
-    if (ct >= 0.26 && ct < 0.58) { ctx.b.root.position.y += H * 4 * b1 * (1 - b1); ctx.showOh = true; ctx.eyeScale *= 1.15; const st = Math.sin(b1 * Math.PI); scaleBody(ctx, 1 - 0.06 * st, 1 + 0.1 * st); }
+    if (ct >= 0.26 && ct < 0.58) { ctx.b.root.position.y += H * 4 * b1 * (1 - b1); if (!ctx.hasFace) { ctx.showOh = true; ctx.eyeScale *= 1.15; } const st = Math.sin(b1 * Math.PI); scaleBody(ctx, 1 - 0.06 * st, 1 + 0.1 * st); }
     if (ct >= 0.58 && ct < 0.9) { ctx.b.root.position.y += H * 4 * b2 * (1 - b2); const st = Math.sin(b2 * Math.PI); scaleBody(ctx, 1 - 0.06 * st, 1 + 0.1 * st); }
     const land = Math.max(hump(ct, 0.56, 0.64), hump(ct, 0.88, 0.98));
     scaleBody(ctx, 1 + 0.12 * land, 1 - 0.14 * land);
     if (ct >= 0.9 && !o._spark) { o._spark = true; ctx.fx.sparkle(ctx.center().add(V3(0, ctx.height * 0.3, 0)), 3, ctx.radius * 1.2, { size: 0.12 * Math.sqrt(S), life: 0.45, speed: 1.8, up: 0.8 }); ctx.fx.sparkle(ctx.center(), 5, ctx.radius * 1.8, { size: 0.06 * Math.sqrt(S), life: 0.6, speed: 1.0, up: 0.5, delay: 0.05 }); }
-    if (ct >= 0.9) { const k = seg(ct, 0.9, 1.35); ctx.mover.rotation.z += Math.sin(k * TAU * 2) * 6 * DEG * (1 - k); ctx.eyeScale *= lerp(0.55, 1, easeInOutQuad(k)); }
+    if (ct >= 0.9) { const k = seg(ct, 0.9, 1.35); ctx.mover.rotation.z += Math.sin(k * TAU * 2) * 6 * DEG * (1 - k); if (!ctx.hasFace) ctx.eyeScale *= lerp(0.55, 1, easeInOutQuad(k)); }
     if (ctx.spec.joinPose) ctx.spec.joinPose(ctx, ct, o);
     return ct >= 1.35;
   },
@@ -1909,6 +2260,34 @@ const CLIPS = {
     return (DEATHS[style] || DEATHS.pop)(ctx, ct, o);
   },
 };
+
+/**
+ * The dizzy beat a face monster has before it goes: spiral eyes, tongue out, a woozy sway and a sag. Returns how long
+ * the beat is (0 for monsters without a face layer), so a death style can start after it.
+ */
+function dizzyBeat(ctx, ct, o, len) {
+  if (!ctx.hasFace || o.quick) return 0;
+  if (ct < len) {
+    const k = ct / len, S = ctx.size;
+    ctx.faceKey = 'dizzy';
+    ctx.mover.rotation.z += Math.sin(ct * 19) * 9 * DEG * (0.6 + 0.4 * k);
+    ctx.mover.rotation.y += Math.sin(ct * 13) * 10 * DEG;
+    ctx.b.root.position.y -= 0.025 * S * easeOutCubic(k);
+    scaleBody(ctx, 1 + 0.05 * k, 1 - 0.07 * k);
+    if (!o._dizzyStars) { o._dizzyStars = true; ctx.fx.sparkle(ctx.center().add(V3(0, ctx.height * 0.45, 0)), 4, ctx.radius * 0.9, { ring: true, size: 0.05 * Math.sqrt(S), life: len + 0.15, speed: 0.5, up: 0.05 }); }
+  }
+  return len;
+}
+/** Keep named parts (a hat, a monocle) their own shape while the body squashes: undo the inherited scale. */
+function keepShape(ctx, names) {
+  if (!names) return;
+  for (const n of names) {
+    const bn = ctx.b[n]; if (!bn) continue;
+    let sx = 1, sy = 1, sz = 1, p = bn.parent;
+    while (p && p.isBone) { sx *= p.scale.x; sy *= p.scale.y; sz *= p.scale.z; p = p.parent; }
+    bn.scale.set(bn.scale.x / Math.max(0.05, sx), bn.scale.y / Math.max(0.05, sy), bn.scale.z / Math.max(0.05, sz));
+  }
+}
 
 /** The poof: puffs + body-colour chunks + sparkles, then the body is gone. */
 function poof(ctx, o, { scale = 1, chunks = 8, at = null } = {}) {
@@ -1923,15 +2302,22 @@ function poof(ctx, o, { scale = 1, chunks = 8, at = null } = {}) {
 }
 const DEATHS = {
   pop(ctx, ct, o) {
-    if (ct < 0.09) { const k = easeOutCubic(ct / 0.09); ctx.mover.scale.multiplyScalar(lerp(1, 1.25, k)); ctx.eyeScale *= 1.25; ctx.showOh = true; ctx.flash = 0.25 * k; }
+    const d = dizzyBeat(ctx, ct, o, 0.3);
+    if (ct < d) return false;
+    const t = ct - d;
+    if (t < 0.09) { const k = easeOutCubic(t / 0.09); ctx.mover.scale.multiplyScalar(lerp(1, 1.25, k)); ctx.eyeScale *= 1.25; ctx.showOh = true; ctx.faceKey = 'surprise'; ctx.flash = 0.25 * k; }
     else if (!o._poof) { o._poof = true; poof(ctx, o); }
-    return ct >= 0.7;
+    return t >= 0.7;
   },
   deflate(ctx, ct, o) {
-    if (ct < 0.26) { const k = easeInQuad(ct / 0.26); scaleBody(ctx, lerp(1, 1.4, k), lerp(1, 0.05, k)); ctx.eyeScale *= lerp(1, 1.3, k); ctx.showOh = true; }
-    else if (ct < 0.33) { const k = seg(ct, 0.26, 0.33); scaleBody(ctx, 1.4 * (1 + 0.15 * k), 0.05); }
+    const d = dizzyBeat(ctx, ct, o, 0.24);
+    if (ct < d) { keepShape(ctx, ctx.spec.keepShape); return false; }
+    const t = ct - d;
+    if (t < 0.26) { const k = easeInQuad(t / 0.26); scaleBody(ctx, lerp(1, 1.4, k), lerp(1, 0.1, k)); if (!ctx.hasFace) { ctx.eyeScale *= lerp(1, 1.3, k); ctx.showOh = true; } }
+    else if (t < 0.33) { const k = seg(t, 0.26, 0.33); scaleBody(ctx, 1.4 * (1 + 0.15 * k), 0.1); }
     else if (!o._poof) { o._poof = true; poof(ctx, o, { scale: 0.7, at: ctx.center().setY(0.08 * ctx.size) }); }
-    return ct >= 0.9;
+    keepShape(ctx, ctx.spec.keepShape);
+    return t >= 0.9;
   },
   fold(ctx, ct, o) {
     const S = ctx.size;
@@ -2015,6 +2401,11 @@ const DEATHS = {
     return ct >= 1.1;
   },
 };
+// face monsters get a dizzy beat before the card-flip, the lid-snap and the topple too
+for (const [k, len] of [['fold', 0.2], ['snap', 0.22], ['topple', 0.24]]) {
+  const f = DEATHS[k];
+  DEATHS[k] = (ctx, ct, o) => { const d = dizzyBeat(ctx, ct, o, len); return ct < d ? false : f(ctx, ct - d, o); };
+}
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // 7. Templates + instances
@@ -2024,6 +2415,7 @@ function template(id) {
   const spec = SPECIES.get(id);
   const B = new Builder(id);
   let info = {};
+  B.skin = spec.color || null; B.brows = spec.brows !== false;
   try { info = spec.build(B) || {}; } catch (e) { reportError(`Monsters.build(${id})`, e); }
   const k = spec.scale || 1;
   if (k !== 1) {
@@ -2108,7 +2500,8 @@ function instantiate(T) {
     height: T.height, radius: T.radius, bodyColor: T.bodyColor,
     boneNames: bones.map(x => x.name), boneRest: worldRest,
     lunge: Math.max(0.9, 0.9 + T.radius * 1.2),
-    t: rand() * 10, idleW: 1, hopY: 0, hopMax: 1, flying: false, vx: 0,
+    t: rand() * 10, idleW: 1, hopY: 0, hopMax: 1, flying: false, vx: 0, seedA: rand() * TAU,
+    mood: spec.mood || 'wild', faceKey: null, hasFace: T.meta.face.eyes.length > 0 || Object.keys(T.meta.face.mouths).length > 0,
     eyeScale: 1, eyeTilt: 0, showOh: false, flash: 0, glow: 0, fade: 1, snapK: 0, lids: [0, 0], shadowK: 1,
     defeated: false, visible: true,
     emit(evt, payload) { const set = listeners.get(evt); if (set) for (const fn of Array.from(set)) { try { fn(payload); } catch (e) { reportError(`Monsters ${T.id} on(${evt})`, e); } } },
@@ -2122,13 +2515,15 @@ function instantiate(T) {
     center() { return V3(mover.position.x + b.root.position.x, mover.position.y + b.root.position.y + T.height * 0.5, mover.position.z + b.root.position.z); },
   };
   const blink = { at: 1 + rand() * 3, t: -1, wink: 0 };
+  const faceEyeSet = new Set(T.meta.face.eyes.map(e => e.eye));
+  const face = { key: '', lid: [0.4, 0.4], brow: [[0, 0], [0, 0]], tilt: 0, look: [0, 0], mouth: '', eyes: 'open' };
   const clip = { name: 'idle', t: 0, opts: {}, resolve: null };
 
   function resetPose() {
     for (const bn of bones) { const r = rest[bn.name]; bn.position.copy(r); bn.rotation.set(0, 0, 0); bn.scale.setScalar(restScale[bn.name]); }
     mover.position.set(0, 0, 0); mover.rotation.set(0, 0, 0); mover.scale.set(1, 1, 1);
     ctx.eyeScale = 1; ctx.eyeTilt = 0; ctx.showOh = false; ctx.flash = 0; ctx.glow = 0; ctx.snapK = 0; ctx.flying = !!spec.hover; ctx.fade = 1;
-    ctx.hopY = 0; ctx.hopMax = 1; ctx.lids[0] = 0; ctx.lids[1] = 0; ctx.shadowK = 1;
+    ctx.hopY = 0; ctx.hopMax = 1; ctx.lids[0] = 0; ctx.lids[1] = 0; ctx.shadowK = 1; ctx.faceKey = null;
   }
   function finish(ok) {
     const r = clip.resolve; clip.resolve = null;
@@ -2164,15 +2559,19 @@ function instantiate(T) {
       let blinkY = 1;
       if (blink.t >= 0) { blink.t += dt; const k = blink.t < 0.06 ? blink.t / 0.06 : 1 - (blink.t - 0.06) / 0.06; blinkY = 1 - 0.94 * clamp01(k); if (blink.t > 0.12) blink.t = -1; }
       if (spec.noBlink) blinkY = 1;
+      const blinkClose = [(blink.wink === 0 || blink.wink === -1) ? 1 - blinkY : 0, (blink.wink === 0 || blink.wink === 1) ? 1 - blinkY : 0];
       const eyes = T.meta.eyes;
       for (let i = 0; i < eyes.length; i++) {
+        if (faceEyeSet.has(eyes[i])) continue;
         const e = b[eyes[i]]; if (!e) continue;
         const side = /L$/.test(eyes[i]) ? -1 : 1;
         const by = ((blink.wink === 0 || blink.wink === side) ? blinkY : 1) * Math.max(0.04, 1 - 0.96 * clamp01(ctx.lids[side < 0 ? 0 : 1]));
         e.scale.x *= ctx.eyeScale; e.scale.y *= ctx.eyeScale * by; e.scale.z *= ctx.eyeScale;
         e.rotation.z += side * ctx.eyeTilt;
       }
-      if (T.meta.ohs.length) {
+      if (ctx.hasFace) {
+        try { driveFace(ctx, T, face, dt, clip.name, clip.t, blinkClose); } catch (e) { reportError(`Monsters ${T.id} face`, e); }
+      } else if (T.meta.ohs.length) {
         for (const n of T.meta.ohs) if (b[n]) b[n].scale.setScalar(ctx.showOh ? 1 : 0);
         if (ctx.showOh) for (const n of T.meta.mouths) if (b[n]) b[n].scale.multiplyScalar(0.0001);
       }
@@ -2252,7 +2651,11 @@ function instantiate(T) {
     center() { return ctx.center(); },
     top() { return V3(mover.position.x + b.root.position.x, mover.position.y + b.root.position.y + T.height + 0.15 * size, mover.position.z + b.root.position.z); },
     say(text) { try { ctx.say(text); } catch (e) { reportError('Monsters.say', e); } },
-    state() { return { id: T.id, name: spec.name, clip: clip.name, t: +clip.t.toFixed(2), defeated: ctx.defeated, visible: ctx.visible, fx: fx.alive, say: say.t >= 0 ? say.text : null, height: +T.height.toFixed(3), radius: +T.radius.toFixed(3) }; },
+    state() { return { id: T.id, name: spec.name, clip: clip.name, t: +clip.t.toFixed(2), mood: ctx.mood, face: ctx.hasFace ? { state: face.key, eyes: face.eyes, mouth: face.mouth, lids: face.lid.map(v => +v.toFixed(2)) } : null, defeated: ctx.defeated, visible: ctx.visible, fx: fx.alive, say: say.t >= 0 ? say.text : null, height: +T.height.toFixed(3), radius: +T.radius.toFixed(3) }; },
+    /** 'wild' (sly enemy face) | 'friend' (the beaming face a monster keeps once it has joined). */
+    get mood() { return ctx.mood; },
+    set mood(m) { ctx.mood = m === 'friend' ? 'friend' : 'wild'; },
+    setMood(m) { ctx.mood = m === 'friend' ? 'friend' : 'wild'; return ctx.mood; },
     dispose() {
       try {
         finish(false);

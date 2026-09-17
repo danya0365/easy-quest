@@ -10,10 +10,12 @@
  *   Music.renderOffline(id, seconds, {raw, quality}) -> Promise<AudioBuffer>   same graph, OfflineAudioContext
  *   Music.state() -> {theme, loading, bar, beat, iteration, voices, ducked, ctxState, quality, space, steals, missed, sampler}
  *
- * Samples load lazily per theme: Music.play(id) fetches + decodes that theme's instruments first and starts the theme
- * the moment they are ready (the old theme keeps playing meanwhile; the new one crossfades in). The fanfare/battle
- * instruments are warmed in the background after the first play so stingers are instant. renderOffline awaits every
- * instrument the cue needs before rendering, so an offline render never has a sample dropout.
+ * Samples load lazily per theme and per ZONE: a theme's plan (every note -> the recorded zone it will play, see
+ * instruments.planNote / Sampler.plan) is fetched in order of first use. Music.play(id) starts the theme as soon as the
+ * zones of its first seconds plus one zone of every instrument it uses are decoded (the old theme keeps playing
+ * meanwhile; the new one crossfades in); the rest keeps arriving while it plays, and a note whose own zone is late
+ * plays from the nearest decoded zone instead of dropping out. The fanfare/battle zones are warmed in the background
+ * after the first play so stingers are instant. renderOffline decodes the cue's whole plan first: no dropouts.
  *
  * Graph (§2.3, standalone):
  *   voice ─► part bus (per performance) ─► perf.dry ─► THEME_SUM ─► DUCK ─► MUSIC ─► [output | MASTER]
@@ -22,7 +24,7 @@
  *   MASTER = compressor(-14, knee 8, 3:1, 6 ms, 180 ms) ─► masterGain ─► limiter ─► destination
  * Loops (§5.3): a beat clock that never resets; a note whose tail crosses the seam simply keeps ringing.
  */
-import { makeKit, VOICES, SEND, HUM, seatPan, makeIR, makeFDN, instrumentsFor } from './instruments.js';
+import { makeKit, VOICES, SEND, HUM, seatPan, makeIR, makeFDN, planNote } from './instruments.js';
 import { Sampler } from './sampler.js';
 import { THEMES, ALIASES, STINGER_THEME, STINGER_IDS } from './score/index.js';
 import { mtof } from './score/_lib.js';
@@ -40,6 +42,7 @@ const LEGATO = new Set(['strings', 'violin', 'flute', 'oboe', 'clarinet', 'basso
 /** warmed after the first play: every stinger and the battle theme */
 const WARM = ['battle_start', 'battle', 'victory', 'levelup', 'befriend', 'item_get', 'sad_sting', 'inn.sleep'];
 const MAX_WAIT = 8; // seconds a requested theme may wait for its samples before starting anyway
+const START_SEC = 6; // a theme starts once the zones of its first START_SEC seconds (+ one zone per instrument) are decoded
 const LOOKAHEAD = 0.15, PUMP_MS = 25;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ART = { staccato: 0.5, marcato: 0.78, tenuto: 0.96, legato: 1.0 };
@@ -70,6 +73,59 @@ function rampParam(p, t, dur, to, eq = true) {
   } catch (e) {
     try { p.cancelScheduledValues(t); p.setTargetAtTime(to, t, Math.max(0.01, dur / 4)); } catch (_) { report('ramp', e); }
   }
+}
+
+const SLUR_OK = (e) => e && e.art !== 'staccato' && e.art !== 'marcato' && !e.o?.trem;
+/** sounding length (s) of an event: articulation shortens it; a note slurred into its successor holds into the join
+ * (the successor's legato entry releases it — shortened first, the join dipped ~10 dB) */
+function durOf(th, e) {
+  let dur = th.time(e.b + e.d) - th.time(e.b);
+  const nx = e.next != null ? th.events[e.next] : null;
+  if (nx && LEGATO.has(e.voice) && SLUR_OK(e) && SLUR_OK(nx) && dur >= 0.12 && Math.abs((nx.m ?? 0) - (e.m ?? 0)) <= 12) return dur + 0.12;
+  const art = e.art != null ? (typeof e.art === 'number' ? e.art : ART[e.art] ?? 0.92) : (e.voice === 'strings' || e.voice === 'pad' || e.voice === 'organ' ? 1.0 : e.d >= 1 ? 0.94 : 0.86);
+  return dur * art + (art >= 1 ? 0.02 : 0);
+}
+
+/**
+ * A theme's sample plan: [{f, t}] every zone file its notes will play, with the first time (s from the theme start) it
+ * is needed, sorted by that time. Cached on the compiled theme (needs the manifest; returns null before it arrives).
+ */
+function planOf(th) {
+  if (th.plan) return th.plan;
+  if (!Sampler.loaded) return null;
+  const first = new Map();
+  for (const e of th.events) {
+    if (e.m == null && !['snare', 'cymbal', 'tri'].includes(e.voice)) continue;
+    const t = th.time(e.b) + (e.sec || 0) + (e.wrap ? th.loopSec : 0);
+    const ms = e.path ? e.path.map(([, m]) => m) : [e.m];
+    for (const m of ms) {
+      const n = { voice: e.voice, m, vel: e.v * (th.loopDb ? Math.pow(10, th.loopDb.max / 20) : 1), dur: durOf(th, e), art: e.art, o: e.o, bus: e.bus };
+      const reqs = planNote(n);
+      if (th.loopDb) reqs.push(...planNote({ ...n, vel: e.v }));
+      for (const [inst, mm, vel, lo, hi, prefer] of reqs) {
+        for (const f of Sampler.plan(inst, mm, vel, lo, hi, prefer)) if (!first.has(f) || first.get(f) > t) first.set(f, t);
+      }
+    }
+  }
+  th.plan = [...first.entries()].map(([f, t]) => ({ f, t })).sort((a, b) => a.t - b.t);
+  return th.plan;
+}
+/** the zones a theme needs before it may start: its first START_SEC seconds, plus the earliest zone of every instrument */
+function earlyOf(th) {
+  const plan = planOf(th); if (!plan) return null;
+  const seen = new Set(), out = [];
+  for (const { f, t } of plan) {
+    const inst = f.split('/')[1];
+    if (t < START_SEC || !seen.has(inst)) out.push(f);
+    seen.add(inst);
+  }
+  return out;
+}
+/** load order: the early set first (by time), then the rest by time */
+function orderOf(th) {
+  const early = new Set(earlyOf(th) || []);
+  const plan = planOf(th) || [];
+  return [...plan.filter((x) => early.has(x.f)).map((x) => x.f), ...plan.filter((x) => !early.has(x.f)).map((x) => x.f)];
 }
 
 export function createMusic() {
@@ -196,6 +252,7 @@ export function createMusic() {
       if (p.stopAt != null && t >= p.stopAt) { p.exhausted = true; break; }
       if (t > now + horizon) break;
       p.idx++;
+      if (e.wrap && p.iter === 0) continue; // written past the loop end: it sounds at the top of the second pass onwards
       if (t < now - 0.08 || p.muted.has(e.part)) continue; // stale (throttled tab) or a track muted by an error
       try { playEvent(p, e, t); } catch (err) { p.muted.add(e.part); report(`${th.id}/${e.part}`, err); }
     }
@@ -213,9 +270,7 @@ export function createMusic() {
     const spb = th.time(e.b + 1) - th.time(e.b);
     if (e.jit) ts += r() * e.jit * spb;
     ts = Math.max(ts, ctx.currentTime + 0.002);
-    let dur = th.time(e.b + e.d) - th.time(e.b);
-    const art = e.art != null ? (typeof e.art === 'number' ? e.art : ART[e.art] ?? 0.92) : (e.voice === 'strings' || e.voice === 'pad' || e.voice === 'organ' ? 1.0 : e.d >= 1 ? 0.94 : 0.86);
-    dur = dur * art + (art >= 1 ? 0.02 : 0);
+    const dur = durOf(th, e);
     let vel = e.v * (1 + (r() * 2 - 1) * hg) * (1 + (r() * 2 - 1) * (e.jitV || 0));
     if (th.loopDb && p.iter > 0) vel *= Math.pow(10, Math.min(p.iter * th.loopDb.per, th.loopDb.max) / 20);
     vel = clamp(vel, 0.02, 1.15);
@@ -272,7 +327,9 @@ export function createMusic() {
     const now = E.ctx.currentTime;
     if (E.pending) {
       const pd = E.pending;
-      if (!Sampler.missing(E.ctx, pd.need).length || now - pd.since > MAX_WAIT) { E.pending = null; start(pd.id, { ...pd.opts, waited: now - pd.since }); }
+      if (!pd.need && Sampler.loaded) request(pd.th);
+      if (!pd.need) pd.need = earlyOf(pd.th);
+      if ((pd.need && !Sampler.missingFiles(E.ctx, pd.need).length) || now - pd.since > MAX_WAIT) { E.pending = null; start(pd.id, { ...pd.opts, waited: now - pd.since }); }
     }
     const wall = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const gap = E.lastPump ? (wall - E.lastPump) / 1000 : 0;
@@ -330,8 +387,12 @@ export function createMusic() {
     p.killAt = at + fade + 0.02;
   }
 
-  /** instruments a theme needs (cached on the compiled theme) */
-  const needOf = (th) => th.need || (th.need = instrumentsFor(th.events));
+  /** fetch + decode a theme's plan, early zones first (idempotent: the sampler dedupes) */
+  function request(th) {
+    const files = orderOf(th);
+    if (!files.length) return Promise.resolve();
+    return Sampler.loadFiles(E.ctx, files).then(() => { if (!E.warmed) { E.warmed = true; warm(); } });
+  }
 
   function play(id, opts = {}) {
     if (!ensure()) return false;
@@ -342,11 +403,12 @@ export function createMusic() {
       const cur = E.current;
       if (cur && cur.id === id && cur.stopAt == null) { E.pending = null; return true; }
       if (th && !E.offline) {
-        const need = needOf(th);
-        Sampler.load(E.ctx, need).then(() => { if (!E.warmed) { E.warmed = true; warm(); } });
-        if (Sampler.missing(E.ctx, need).length && !opts.noHold) {
+        if (Sampler.loaded) request(th);
+        else Sampler.manifest().then(() => request(th)).catch(() => {});
+        const need = earlyOf(th);
+        if ((!need || Sampler.missingFiles(E.ctx, need).length) && !opts.noHold) {
           if (E.pending?.id === id) return true;
-          E.pending = { id, opts, need, since: E.ctx.currentTime };
+          E.pending = { id, th, opts, need, since: E.ctx.currentTime };
           return true;
         }
       }
@@ -355,13 +417,11 @@ export function createMusic() {
     } catch (e) { report('play', e); return false; }
   }
 
-  /** load the stinger + battle instruments in the background, one theme at a time */
+  /** load the stinger + battle zones in the background, one cue at a time */
   function warm() {
-    const ids = [];
-    for (const tid of WARM) if (THEMES[tid]) ids.push(...needOf(THEMES[tid]));
-    const uniq = [...new Set(ids)];
+    const ids = WARM.filter((tid) => THEMES[tid]);
     let k = 0;
-    const next = () => { if (k >= uniq.length || !E) return; Sampler.load(E.ctx, [uniq[k++]]).then(next); };
+    const next = () => { if (k >= ids.length || !E) return; Sampler.loadFiles(E.ctx, orderOf(THEMES[ids[k++]])).then(next); };
     next();
   }
 
@@ -477,14 +537,14 @@ export function createMusic() {
     const pos = c && c.th ? positionOf(c, now) : null;
     return {
       theme: E.pending ? E.pending.id : c ? c.id : null,
-      loading: E.pending ? { id: E.pending.id, waiting: +(now - E.pending.since).toFixed(2), missing: Sampler.missing(E.ctx, E.pending.need) } : null,
+      loading: E.pending ? { id: E.pending.id, waiting: +(now - E.pending.since).toFixed(2), missing: E.pending.need ? Sampler.missingFiles(E.ctx, E.pending.need).length : null } : null,
       playing: c ? c.id : null,
       bar: pos ? Math.floor(pos.beat / c.th.meter) + 1 : 0,
       beat: pos ? +((pos.beat % c.th.meter) + 1).toFixed(2) : 0,
       iteration: pos ? pos.iter : 0,
       voices: E.handles.filter((h) => h.t0 <= now && h.end > now).length,
       ducked: E.duckUntil != null && now > E.duckUntil ? 1 : +E.duckLevel.toFixed(2), ctxState: E.ctx.state, quality: E.quality, space: E.space, steals: E.steals,
-      missed: E.kit.missed, legato: E.legatoCount || 0,
+      missed: E.kit.missed, legato: E.legatoCount || 0, fallbacks: Sampler.fallbacks,
       sampler: Sampler.state(),
       performances: E.perfs.map((p) => ({ id: p.id, sting: p.sting, stopping: p.stopAt != null })),
     };
@@ -501,10 +561,10 @@ export function createMusic() {
     const sid0 = String(id).replace(/^sting:/, '');
     const cues = new Set([ALIASES[sid0] || sid0, STINGER_THEME[sid0]]);
     if (sid0 === 'battle_start') cues.add('battle');
-    let need = [];
-    if (opts.script || opts.loadAll) { const man = await Sampler.manifest(); need = Object.keys(man.instruments); }
-    else for (const c of cues) if (c && THEMES[c]) need.push(...instrumentsFor(THEMES[c].events));
-    await Sampler.load(off, need);
+    await Sampler.manifest();
+    if (opts.script || opts.loadAll) await Sampler.load(off, Object.keys(Sampler.loaded.instruments));
+    else { const files = []; for (const c of cues) if (c && THEMES[c]) files.push(...orderOf(THEMES[c])); await Sampler.loadFiles(off, files); }
+    const fb0 = Sampler.fallbacks;
     const step = 0.2;
     for (let k = 1; k * step < seconds - 0.01; k++) {
       off.suspend(k * step).then(() => { try { m._pump(); } catch (e) { report('offline pump', e); } off.resume(); });
@@ -518,7 +578,7 @@ export function createMusic() {
     m._pump();
     const buf = await off.startRendering();
     const st = m.state();
-    buf.__steals = st.steals; buf.__missed = st.missed; buf.__legato = st.legato;
+    buf.__steals = st.steals; buf.__missed = st.missed; buf.__legato = st.legato; buf.__fallbacks = Sampler.fallbacks - fb0;
     if (st.missed) report('renderOffline', `${st.missed} notes had no decoded sample (${id})`);
     return buf;
   }

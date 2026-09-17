@@ -53,7 +53,12 @@ const ACT3 = (L, { rowanOff = -3, linnetOff = -3, bram, rowan, linnet, barty, ex
 export const AREAS = [
   // ------------------------------------------------------------------------------------------------ Act I
   {
-    id: 'long_lane', name: 'Puddlewick Vale & the Long Lane', act: 1, beat: 'B3', leg: 1, tier: 1, areaLevel: 2, tableLvl: 2.75, hpMult: 1.25, levels: [1, 2, 4],
+    id: 'long_lane', name: 'Puddlewick Vale & the Long Lane', act: 1, beat: 'B3', leg: 1, tier: 1, areaLevel: 2, tableLvl: 2, hpMult: 0.6, expMult: 1.35, levels: [1, 2, 4],
+    // balance pass r4 (critic a2r1, "the boy's swing kills things"): was tableLvl 2.75 × hpMult 1.25 — a 30-HP Gloop
+    // against Bram's 5, fights of 3.4 rounds, Bram 6% of the killing blows. Now a Gloop has 11 HP (the bible says 9):
+    // two swings, one or two rounds, Bram about a third of the kills (tests/battle/first-hour.mjs holds the line).
+    // expMult keeps the EXP the old scaled table paid, so the boy still leaves the Lane at about Lv 4.
+    firstHour: true,
     note: 'First battles with Papa as guest; Bobble joins at Lv 1.',
     party: (L) => build([['hero', 0, W('wooden_sword', 'wayfarers_clothes')], ['halvard'], ['bobble', -1]], L),
     table: [['gloop', 5], ['peckish', 4], ['bloop', 3], ['flapjack', 2], ['grumpleroot', 2], ['bumbleblunder', 2], ['toadstooligan', 1]],
@@ -67,7 +72,9 @@ export const AREAS = [
     group: [1, 2], walk: 6, bag: { herb: 2 },
   },
   {
-    id: 'saltmarrow_coast', name: 'Saltmarrow Coast', act: 1, beat: 'B4–B7', leg: 2, tier: 2, areaLevel: 4, tableLvl: 4.5, hpMult: 1.25, levels: [3, 4, 5],
+    id: 'saltmarrow_coast', name: 'Saltmarrow Coast', act: 1, beat: 'B4–B7', leg: 2, tier: 2, areaLevel: 4, tableLvl: 4.5, hpMult: 0.75, levels: [3, 4, 5],
+    // r4: was hpMult 1.25 (49-HP Crabbits, Halvard 56% of the kills, Bram 13%); still Papa's road, still the boy's fight
+    firstHour: true,
     party: (L) => build([['hero', 0, W('copper_sword', 'wayfarers_clothes', 'pot_lid', 'straw_hat')], ['halvard'], ['bobble', -1]], L),
     table: [['crabbit', 4], ['peckish', 2], ['gloop', 2], ['batterfly', 2], ['grumbleglop', 1], ['bumbleblunder', 2]],
     group: [1, 3], bag: { herb: 4 },
@@ -271,5 +278,6 @@ export function specOf(area, [id, , lvl]) {
   if (!L) return id;
   const spec = { id, partyLevel: L, areaLevel: area.areaLevel };
   if (area.hpMult && lvl === undefined) spec.hpMult = area.hpMult;
+  if (area.expMult && lvl === undefined) spec.expMult = area.expMult;
   return spec;
 }

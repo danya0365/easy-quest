@@ -1,255 +1,97 @@
 {
- "name": "critic P14/P19 a2r1 — a six-year-old mashing Enter through the real demo, carried fight to fight",
+ "name": "critic P14/P19 a2r1 (fresh) — a child mashing Enter through the real demo, carried fight to fight",
  "steps": [
-  {
-   "waitFor": "window.__DQ && __DQ.ready",
-   "timeout": 30000
-  },
-  {
-   "eval": "(window.tap = () => { window.dispatchEvent(new KeyboardEvent('keydown',{code:'Enter',key:'Enter',bubbles:true})); window.dispatchEvent(new KeyboardEvent('keyup',{code:'Enter',key:'Enter',bubbles:true})); }, window.mash = async (cond, max = 800, d = 200) => { for (let i = 0; i < max; i++) { try { if (cond()) return i; } catch (e) {} window.tap(); await new Promise(r => setTimeout(r, d)); } return -1; }, 'ok')"
-  },
-  {
-   "note": "1. Game start: Long Lane, Lv1, fresh. Mash Enter only."
-  },
-  {
-   "eval": "(() => { __DQ.assist(0); __DQ.battle('long_lane', {level: 1, seed: 424242}); return __DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp); })()"
-  },
-  {
-   "wait": 2500
-  },
-  {
-   "shot": "first-fight-open"
-  },
-  {
-   "eval": "mash(() => __DQ.state().battle.turn >= 1 && !__DQ.idle(), 40, 250)"
-  },
-  {
-   "wait": 700
-  },
-  {
-   "shot": "first-fight-round1-hits"
-  },
-  {
-   "eval": "mash(() => ['victory','defeat','fled'].includes(__DQ.state().battle.phase), 200, 250)"
-  },
-  {
-   "wait": 1800
-  },
-  {
-   "shot": "first-fight-tally"
-  },
-  {
-   "eval": "JSON.stringify({rounds: __DQ.state().battle.turn, res: (({outcome,exp,gold,rounds}) => ({outcome,exp,gold,rounds}))(__DQ.state().snapshot.result), party: __DQ.state().party})"
-  },
-  {
-   "eval": "__DQ.log(20).join(' | ')"
-  },
-  {
-   "note": "2. Keep mashing: Enter on the end menu = Another fight. Stop at the first level-up."
-  },
-  {
-   "eval": "mash(() => __DQ.log(60).some(l => l.startsWith('levelup')), 900, 200)"
-  },
-  {
-   "wait": 900
-  },
-  {
-   "shot": "first-levelup"
-  },
-  {
-   "wait": 1600
-  },
-  {
-   "shot": "first-levelup-b"
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().carried)"
-  },
-  {
-   "eval": "__DQ.log(14).join(' | ')"
-  },
-  {
-   "note": "3. Keep mashing Long Lane to see rhythm across ~6 more fights."
-  },
-  {
-   "eval": "(async () => { const out = []; for (let k = 0; k < 6; k++) { const f0 = __DQ.state().carried.fights; await mash(() => __DQ.state().carried.fights > f0, 400, 180); const s = __DQ.state(); out.push({f: s.carried.fights, r: s.snapshot.result && s.snapshot.result.rounds, o: s.snapshot.result && s.snapshot.result.outcome, exp: s.snapshot.result && s.snapshot.result.exp, lv: s.carried.levels.hero, hp: s.party.map(p => p.hp + '/' + p.mhp).join(',')}); } return JSON.stringify(out); })()"
-  },
-  {
-   "shot": "long-lane-after-8"
-  },
-  {
-   "note": "4. Mumbleroot at its design level (fresh, Lv7), mashing Enter."
-  },
-  {
-   "eval": "(() => { __DQ.battle('cobwell_manor', {boss: true, seed: 77}); return JSON.stringify(__DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp)); })()"
-  },
-  {
-   "wait": 2500
-  },
-  {
-   "shot": "mumbleroot-open"
-  },
-  {
-   "eval": "mash(() => __DQ.state().battle.turn >= 3, 300, 200)"
-  },
-  {
-   "wait": 600
-  },
-  {
-   "shot": "mumbleroot-r3"
-  },
-  {
-   "eval": "mash(() => __DQ.state().snapshot.enemies.some(e => e.telegraphing) || ['victory','defeat'].includes(__DQ.state().battle.phase), 400, 200)"
-  },
-  {
-   "wait": 900
-  },
-  {
-   "shot": "mumbleroot-telegraph"
-  },
-  {
-   "eval": "mash(() => ['victory','defeat'].includes(__DQ.state().battle.phase), 900, 200)"
-  },
-  {
-   "wait": 2200
-  },
-  {
-   "shot": "mumbleroot-end"
-  },
-  {
-   "eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party})"
-  },
-  {
-   "eval": "__DQ.log(16).join(' | ')"
-  },
-  {
-   "note": "5. Mumbleroot 4 levels under (Lv3), mash."
-  },
-  {
-   "eval": "(() => { __DQ.battle('cobwell_manor', {boss: true, level: 3, seed: 78}); return 'ok'; })()"
-  },
-  {
-   "eval": "mash(() => ['victory','defeat'].includes(__DQ.state().battle.phase), 900, 180)"
-  },
-  {
-   "wait": 2600
-  },
-  {
-   "shot": "mumbleroot-lv3-end"
-  },
-  {
-   "eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party, log: __DQ.log(8)})"
-  },
-  {
-   "note": "6. Act II Pelican Coast: mash until a monster asks to join."
-  },
-  {
-   "eval": "(() => { __DQ.battle('pelican_coast', {level: 12, seed: 9001}); return 'ok'; })()"
-  },
-  {
-   "eval": "mash(() => { const m = __DQ.state().ui.menu; return m && m.kind === 'recruit'; }, 2500, 160)"
-  },
-  {
-   "wait": 600
-  },
-  {
-   "shot": "recruit-offer"
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().carried)"
-  },
-  {
-   "eval": "__DQ.log(10).join(' | ')"
-  },
-  {
-   "note": "7. Late game Whistfell Abbey normal fight at Lv25, mash."
-  },
-  {
-   "eval": "(() => { __DQ.battle('whistfell_abbey', {level: 25, seed: 555}); return JSON.stringify(__DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp)); })()"
-  },
-  {
-   "wait": 2500
-  },
-  {
-   "shot": "abbey-open"
-  },
-  {
-   "eval": "mash(() => __DQ.state().battle.turn >= 1 && !__DQ.idle(), 40, 250)"
-  },
-  {
-   "wait": 900
-  },
-  {
-   "shot": "abbey-r1"
-  },
-  {
-   "eval": "mash(() => ['victory','defeat','fled'].includes(__DQ.state().battle.phase), 600, 200)"
-  },
-  {
-   "wait": 1800
-  },
-  {
-   "shot": "abbey-end"
-  },
-  {
-   "eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party, res: (({exp,gold}) => ({exp,gold}))(__DQ.state().snapshot.result)})"
-  },
-  {
-   "note": "8. Hush + Hark at design level 27, mash."
-  },
-  {
-   "eval": "(() => { __DQ.battle('whistfell_abbey', {boss: true, seed: 31}); return 'ok'; })()"
-  },
-  {
-   "wait": 2500
-  },
-  {
-   "shot": "hushhark-open"
-  },
-  {
-   "eval": "mash(() => ['victory','defeat'].includes(__DQ.state().battle.phase), 1500, 160)"
-  },
-  {
-   "wait": 2600
-  },
-  {
-   "shot": "hushhark-end"
-  },
-  {
-   "eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party})"
-  },
-  {
-   "note": "9. The level-up ceremony, frame by frame (two Toadstooligans at Lv1, mash)."
-  },
-  {
-   "eval": "(() => { __DQ.battle(\"long_lane\", {level: 1, seed: 1234, enemies: [\"toadstooligan\",\"toadstooligan\"]}); return \"ok\"; })()"
-  },
-  {
-   "eval": "mash(() => __DQ.log(80).some(l => l.startsWith(\"levelup\")), 400, 220)"
-  },
-  {
-   "burst": {
-    "name": "levelup-ceremony",
-    "count": 10,
-    "interval": 450
-   }
-  },
-  {
-   "wait": 1200
-  },
-  {
-   "burst": {
-    "name": "levelup-late",
-    "count": 6,
-    "interval": 700
-   }
-  },
-  {
-   "eval": "__DQ.log(12).join(\" | \")"
-  },
-  {
-   "assert": "__DQ.errors.length === 0",
-   "msg": "no runtime errors"
-  }
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000},
+  {"eval": "(window.tap = (code = 'Enter') => { window.dispatchEvent(new KeyboardEvent('keydown', {code, key: code, bubbles: true})); window.dispatchEvent(new KeyboardEvent('keyup', {code, key: code, bubbles: true})); }, window.mash = async (cond, max = 800, d = 200) => { for (let i = 0; i < max; i++) { try { if (cond()) return i; } catch (e) {} window.tap(); await new Promise(r => setTimeout(r, d)); } return -1; }, window.R = {}, 'ok')"},
+
+  {"note": "A. The very first fight: Long Lane, Lv 1, Papa and Bobble. Enter only."},
+  {"eval": "(() => { __DQ.assist(0); __DQ.battle('long_lane', {level: 1, seed: 90210}); return __DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp).join(', '); })()"},
+  {"wait": 2600},
+  {"shot": "A1-first-fight-open"},
+  {"eval": "mash(() => __DQ.state().battle.turn >= 1 && !__DQ.idle(), 40, 260)"},
+  {"wait": 900},
+  {"shot": "A2-first-fight-round1"},
+  {"eval": "mash(() => ['victory','defeat','fled'].includes(__DQ.state().battle.phase), 200, 260)"},
+  {"wait": 2200},
+  {"shot": "A3-first-fight-tally"},
+  {"eval": "JSON.stringify({r: __DQ.state().battle.turn, res: (({outcome,exp,gold}) => ({outcome,exp,gold}))(__DQ.state().snapshot.result), party: __DQ.state().party.map(p => p.name + ' ' + p.hp + '/' + p.mhp + ' Lv' + p.lvl)})"},
+  {"eval": "__DQ.log(24).join(' | ')"},
+
+  {"note": "B. Keep mashing (Enter on the end menu = Another fight) until the first level-up."},
+  {"eval": "mash(() => __DQ.log(80).some(l => l.startsWith('levelup')), 900, 200)"},
+  {"burst": {"name": "B-levelup", "count": 6, "interval": 500}},
+  {"eval": "JSON.stringify({fights: __DQ.state().carried.fights, lv: __DQ.state().carried.levels})"},
+  {"eval": "__DQ.log(14).join(' | ')"},
+
+  {"note": "C. Rhythm: eight more mashed fights on the Long Lane, recording rounds / EXP / HP."},
+  {"eval": "(async () => { const out = []; for (let k = 0; k < 8; k++) { const f0 = __DQ.state().carried.fights; await mash(() => __DQ.state().carried.fights > f0, 500, 150); const s = __DQ.state(); const r = s.snapshot.result || {}; out.push([s.carried.fights, r.outcome, 'r' + r.rounds, 'exp' + r.exp, 'Lv' + s.carried.levels.hero, s.party.map(p => p.hp + '/' + p.mhp).join(',')].join(' ')); } return out.join(' || '); })()"},
+  {"shot": "C1-long-lane-after-rhythm"},
+
+  {"note": "D. Whispering Wood, the children alone: watch Willow's Scorcha and Sera's Mend (Fight! auto)."},
+  {"eval": "(() => { __DQ.battle('whispering_wood', {level: 5, seed: 4040}); return 'ok'; })()"},
+  {"wait": 2400},
+  {"shot": "D1-wood-open"},
+  {"eval": "(async () => { for (let i = 0; i < 60; i++) { const s = __DQ.state(); if (['victory','defeat','fled'].includes(s.battle.phase)) break; if (__DQ.log(60).some(l => /Scorcha|Mend/.test(l)) && !__DQ.idle()) return 'spell ' + i; if (__DQ.idle() && s.ui.menu && s.ui.menu.kind === 'command') tap('KeyF'); await new Promise(r => setTimeout(r, 120)); } return 'none'; })()"},
+  {"burst": {"name": "D2-spell", "count": 5, "interval": 260}},
+  {"eval": "mash(() => ['victory','defeat','fled'].includes(__DQ.state().battle.phase), 400, 200)"},
+  {"wait": 1500},
+  {"shot": "D3-wood-end"},
+  {"eval": "__DQ.log(30).join(' | ')"},
+
+  {"note": "E. Mumbleroot at the level children arrive (7), carried from the Wood party, mashing Enter."},
+  {"eval": "(() => { __DQ.assist(0); __DQ.battle('cobwell_manor', {boss: true, level: 7, seed: 777}); return JSON.stringify(__DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp)); })()"},
+  {"wait": 2600},
+  {"shot": "E1-mumbleroot-open"},
+  {"eval": "mash(() => __DQ.state().snapshot.enemies.some(e => e.telegraphing) || ['victory','defeat'].includes(__DQ.state().battle.phase), 500, 200)"},
+  {"wait": 1000},
+  {"shot": "E2-mumbleroot-telegraph"},
+  {"eval": "mash(() => ['victory','defeat'].includes(__DQ.state().battle.phase), 1200, 200)"},
+  {"wait": 2600},
+  {"shot": "E3-mumbleroot-end"},
+  {"eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party.map(p => p.name + ' ' + p.hp + '/' + p.mhp), log: __DQ.log(10)})"},
+
+  {"note": "F. Act II Pelican Coast, Lv 12: mash until a monster asks to join; answer Yes with Enter."},
+  {"eval": "(() => { __DQ.battle('pelican_coast', {level: 12, seed: 31337}); return 'ok'; })()"},
+  {"eval": "mash(() => { const m = __DQ.state().ui.menu; return m && m.kind === 'recruit'; }, 3000, 140)"},
+  {"wait": 900},
+  {"shot": "F1-recruit-offer"},
+  {"eval": "JSON.stringify({fights: __DQ.state().carried.fights, offer: __DQ.state().carried.recruitOffer, log: __DQ.log(8)})"},
+  {"press": "Enter"},
+  {"wait": 2600},
+  {"shot": "F2-joined"},
+  {"eval": "JSON.stringify(__DQ.state().carried.friends)"},
+
+  {"note": "G. A gentle defeat: Bram alone at Lv1 vs two Bumbleblunders, mashing."},
+  {"eval": "(() => { for (let s = 1; s < 300; s++) { __DQ.instant(true); __DQ.assist(0); __DQ.battle('long_lane_alone', {level: 1, enemies: [{id: 'bumbleblunder', partyLevel: 4}, {id: 'bumbleblunder', partyLevel: 4}], seed: s}); __DQ.autoplay(99, 'mash'); if (__DQ.state().battle.phase === 'defeat') { __DQ.instant(false); window.R.defeatSeed = s; return s; } } __DQ.instant(false); return -1; })()"},
+  {"eval": "(() => { __DQ.battle('long_lane_alone', {level: 1, enemies: [{id: 'bumbleblunder', partyLevel: 4}, {id: 'bumbleblunder', partyLevel: 4}], seed: window.R.defeatSeed}); return 'ok'; })()"},
+  {"eval": "mash(() => ['victory','defeat','fled'].includes(__DQ.state().battle.phase), 400, 220)"},
+  {"wait": 2600},
+  {"shot": "G1-defeat"},
+  {"eval": "__DQ.log(8).join(' | ')"},
+
+  {"note": "H. Late game, Whistfell Abbey Lv25 normal fight, mash: how big are the numbers now?"},
+  {"eval": "(() => { __DQ.battle('whistfell_abbey', {level: 25, seed: 2525}); return JSON.stringify(__DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp)); })()"},
+  {"wait": 2500},
+  {"eval": "mash(() => __DQ.state().battle.turn >= 1 && !__DQ.idle(), 40, 250)"},
+  {"wait": 700},
+  {"shot": "H1-abbey-round1"},
+  {"eval": "mash(() => ['victory','defeat','fled'].includes(__DQ.state().battle.phase), 800, 200)"},
+  {"wait": 1600},
+  {"shot": "H2-abbey-end"},
+  {"eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party.map(p => p.name + ' ' + p.hp + '/' + p.mhp), log: __DQ.log(20)})"},
+
+  {"note": "I. Mortmain at 28, mashing only (a six-year-old at the finale, fresh from the inn)."},
+  {"eval": "(() => { __DQ.assist(0); __DQ.battle('quiet_deep', {boss: true, level: 28, seed: 2828}); return 'ok'; })()"},
+  {"wait": 2600},
+  {"shot": "I1-mortmain-open"},
+  {"eval": "mash(() => __DQ.state().battle.turn >= 4, 800, 180)"},
+  {"wait": 800},
+  {"shot": "I2-mortmain-r4"},
+  {"eval": "mash(() => ['victory','defeat'].includes(__DQ.state().battle.phase), 2500, 150)"},
+  {"wait": 2600},
+  {"shot": "I3-mortmain-end"},
+  {"eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party.map(p => p.name + ' ' + p.hp + '/' + p.mhp)})"},
+
+  {"assert": "__DQ.errors.length === 0 && __DQ.state().errors === 0", "msg": "no runtime errors"}
  ]
 }

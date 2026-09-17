@@ -70,7 +70,14 @@ const RAW = {
 
   // DQ command window (F4 reads these through applyCssVars: var(--pal-ui-win-top) etc.)
   ui:     { winTop: '#2c4fb8', winBottom: '#132a78', border: '#f4f1ea', borderShade: '#0a1540', text: '#ffffff',
-            textDim: '#c9d4f2', cursor: '#ffe98a', gold: '#ffd64a', hp: '#8ee07a', mp: '#8fc8ff', danger: '#ff8a7a', shadow: '#050a20' },
+            textDim: '#c9d4f2', cursor: '#ffe98a', gold: '#ffd64a', hp: '#8ee07a', mp: '#8fc8ff', danger: '#ff8a7a', shadow: '#050a20',
+            // added (integrator, F4 needs): the tokens ui.css used to colour-mix, at exactly the mixed values it rendered
+            winMid: '#213e9b', titleInk: '#f9e8ba', label: '#c9d4f2', purple: '#b89cd4', grey: '#adbce8', orange: '#f0a232' },
+
+  // MONSTER-BIBLE §9 colours src/art/monsters.js (P16) picks up automatically (PAL.monster[key] wins over its derived
+  // colour). Added (integrator, canon keeper need): only Pip's sunspot so far, which matches P16's derived colour; the
+  // rest of §9 would override P16's tuned house-style derivations (e.g. the Gloop), so P16 adds them when it chooses.
+  monster:{ sunspot: '#e8a04a' },
 
   // Painting inks: the exact highlight / shadow tints the tuned texture recipes glaze with (ART-DIRECTION §9).
   ink:    { highlight: '#fffaeb', shadow: '#32281e', speck: '#281e14', cobbleShadow: '#3c2a1c', cobbleLight: '#fffcf0',

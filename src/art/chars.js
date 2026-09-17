@@ -47,7 +47,7 @@ const COL = {
   olive: mixHex(PAL.char.skin, PAL.dirt.base, 0.38),
   cheek: mixHex(PAL.char.skin, PAL.flower.pink, 0.6),
   sunburn: mixHex(PAL.char.skin, PAL.flower.red, 0.3),
-  eye: PAL.char.eye, white: PAL.char.white, mouth: PAL.slime.mouth, tongue: PAL.slime.tongue,
+  eye: PAL.char.eye, white: PAL.char.white, mouth: PAL.slime.mouth, tongue: PAL.slime.tongue, sclera: PAL.plaster.light,
   ribbon: PAL.foliage.light,
   steel: PAL.stone.light, steelDark: PAL.stone.mid, iron: PAL.paint.iron, gold: PAL.paint.gold,
   boot: PAL.char.boot, belt: PAL.char.belt, leather: PAL.cloth.leather,
@@ -224,10 +224,10 @@ function newBuf() { return { pos: [], nor: [], uv: [], col: [], si: [], sw: [], 
 function appendGeo(buf, geo, part, index, hullTh = 0, wantUv = true) {
   const g = geo;
   if (!g.attributes.normal) g.computeVertexNormals();
-  const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv;
+  const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, DC = g.attributes.dqcol || null;
   const base = buf.v;
   const rep = part.rep || [1, 1];
-  const colFixed = part.colorFn ? null : C3(part.color || PAL.debug.missing);
+  const colFixed = part.colorFn || DC ? null : C3(part.color || PAL.debug.missing);
   const rigid = part.weights ? null : index[part.bone];
   if (!part.weights && rigid === undefined) throw new Error(`chars: unknown bone "${part.bone}"`);
   for (let i = 0; i < P.count; i++) {
@@ -237,7 +237,8 @@ function appendGeo(buf, geo, part, index, hullTh = 0, wantUv = true) {
     buf.nor.push(_n.x, _n.y, _n.z);
     if (wantUv) { const u = U ? U.getX(i) : 0, v = U ? U.getY(i) : 0; buf.uv.push(u * rep[0], v * rep[1]); }
     // colour
-    if (part.colorFn) _c.copy(C3(part.colorFn(_p, _n)));
+    if (DC) _c.setRGB(DC.getX(i), DC.getY(i), DC.getZ(i));
+    else if (part.colorFn) _c.copy(C3(part.colorFn(_p, _n)));
     else _c.copy(colFixed);
     if (part.grad) { const [y0, y1, dk] = part.grad; const k = lerp(dk, 1, sstep(y0, y1, _p.y)); _c.multiplyScalar(k); }
     buf.col.push(_c.r, _c.g, _c.b);
@@ -428,10 +429,19 @@ function stdEyes(K, o = {}) {
     K.joint('eye' + S, 'head', [P.x, P.y, P.z]);
     if (style === 'arc') {
       K.decal('eye' + S, s * yaw, pitch, r * 0.01, (d) => G.torus(w * 1.0, r * 0.022, d, Math.PI), COL.eye, { rot: [0, 0, 0] });
+    } else if (style === 'adult') {
+      // a grown-up's eye: warm white almond, a dark iris set toward the nose, a thick upper lid that droops kindly
+      // at the outer corner. Deep enough to still read in profile.
+      const ew = w, eh = h;
+      K.decal('eye' + S, s * yaw, pitch, -ew * 0.1, (d) => G.ell(d * 0.9), COL.sclera, { scale: [ew, eh, ew * 0.55] });
+      K.decal('eye' + S, s * yaw, pitch, ew * 0.22, (d) => G.ell(d * 0.8), COL.eye, { p: [-s * ew * 0.12, -eh * 0.08, 0], scale: [ew * 0.52, eh * 0.86, ew * 0.3] });
+      K.decal('eye' + S, s * yaw, pitch, ew * 0.42, (d) => G.ell(d * 0.4), COL.white, { p: [-s * ew * 0.02, eh * 0.28, 0], scale: [ew * 0.17, ew * 0.17, ew * 0.08] });
+      K.decal('eye' + S, s * yaw, pitch, ew * 0.2, (d) => G.torus(ew * 1.02, r * 0.03, d, Math.PI), COL.eye, { p: [0, -eh * 0.18, 0], rot: [0, 0, s * -0.12], scale: [1, eh / ew * 1.25, 1] });
     } else {
       const ew = style === 'dot' ? w * 0.72 : style === 'narrow' ? w * 0.95 : style === 'big' ? w * 1.18 : w;
       const eh = style === 'dot' ? w * 0.9 : style === 'narrow' ? h * 0.7 : style === 'big' ? h * 1.12 : h;
-      K.decal('eye' + S, s * yaw, pitch, -ew * 0.12, (d) => G.ell(d * 0.9), COL.eye, { scale: [ew, eh, ew * 0.45] });
+      // deep enough to stand proud of the head: a face still reads when the head is seen in profile
+      K.decal('eye' + S, s * yaw, pitch, -ew * 0.08, (d) => G.ell(d * 0.9), COL.eye, { scale: [ew, eh, ew * 0.62] });
       if (style !== 'dot' || o.highlights) {
         K.decal('eye' + S, s * yaw, pitch, ew * 0.3, (d) => G.ell(d * 0.5), COL.white, { p: [-s * ew * 0.28 + ew * 0.05, eh * 0.38, 0], scale: [ew * 0.36, ew * 0.4, ew * 0.2] });
         if (style === 'big') K.decal('eye' + S, s * yaw, pitch, ew * 0.3, (d) => G.ell(d * 0.4), COL.white, { p: [s * ew * 0.3, -eh * 0.35, 0], scale: [ew * 0.18, ew * 0.18, ew * 0.1] });
@@ -448,7 +458,11 @@ function stdEyes(K, o = {}) {
       const { P: BP } = K.onHead(byaw, bp, 0);
       K.joint('brow' + S, 'head', [BP.x, BP.y, BP.z]);
       const bw = (o.browW ?? 0.2) * r;
-      if (brow === 'bushy') {
+      if (brow === 'heavy') {
+        // a heavy, shaggy ridge set low over the eye: a grown man's brow (toon, so it catches the light like hair)
+        K.headPart('brow' + S, byaw, bp, r * 0.05, (d) => G.ell(d * 0.8), o.browColor || COL.eye, { scale: [bw, bw * 0.36, bw * 0.46], rot: [0.25, 0, s * (o.browTilt ?? -0.16)], outline: 0 });
+        K.headPart('brow' + S, byaw + s * bw / r * 0.62, bp - 0.05, r * 0.045, (d) => G.ell(d * 0.6), o.browColor || COL.eye, { scale: [bw * 0.5, bw * 0.3, bw * 0.36], rot: [0.2, 0, s * -0.55], outline: 0 });
+      } else if (brow === 'bushy') {
         K.headPart('brow' + S, byaw, bp, r * 0.03, (d) => G.ell(d * 0.7), o.browColor || COL.eye, { scale: [bw, bw * 0.42, bw * 0.4], rot: [0, 0, s * -0.12], outline: 0 });
       } else {
         K.decal('brow' + S, byaw, bp, r * 0.005, (d) => G.ell(d * 0.6), o.browColor || COL.eye, { scale: [bw * 0.55, r * 0.028, r * 0.02], rot: [0, 0, s * -0.1] });
@@ -544,15 +558,22 @@ function stdTorso(K, prof, o) {
   K.lathe(null, [0, m.hipY, 0], P, o.color, { weights: wTorso(m), weave: o.weave ?? 1, scale: [o.xs || 1, 1, o.zs || 0.82], detail: o.detail || 1.1, grad: o.grad });
 }
 
-/** a treasure for the item-held-aloft pose (hidden until celebrate) */
+/**
+ * A treasure for the item-held-aloft pose (hidden until celebrate). It sits IN the fist of the free hand (the left one
+ * when the right carries something): in bind pose that is just past the mitten's fingers, so when the arm goes up the
+ * treasure rides on top of the fist.
+ */
 function stdItem(K) {
   const m = K.m, k = m.k;
-  const c = [0, m.top + m.hair + 0.13 * Math.max(0.8, k), 0.03 * k];
-  K.joint('item', 'chest', c);
-  const s = 0.085 * Math.max(0.8, k);
-  K.add(() => new THREE.OctahedronGeometry(1, 0), TRS(c, [0, 0, 0], [s * 0.8, s * 1.15, s * 0.8]), { bone: 'item', color: PAL.water.light, outline: 0, rep: [1, 1] });
-  K.torus('item', c, s * 0.62, s * 0.12, COL.gold, { rot: [Math.PI / 2, 0, 0] });
-  K.ball('item', [c[0] - s * 0.3, c[1] + s * 0.45, c[2] + s * 0.42], [s * 0.14, s * 0.14, s * 0.08], PAL.water.foam, { outline: 0, detail: 0.4 });
+  const side = K.style && K.style.propR ? 'L' : 'R', sd = side === 'L' ? 1 : -1;
+  const hand = K.abs('hand' + side) || [sd * m.shX, m.handY, 0];
+  const s = 0.105 * Math.max(0.78, Math.min(1.15, k));
+  const hr = 0.075 * k;
+  const c = [hand[0], hand[1] - hr * 1.2 - s * 1.2, hand[2] + 0.01 * k];
+  K.joint('item', 'hand' + side, c);
+  K.add(() => new THREE.OctahedronGeometry(1, 0), TRS(c, [0, 0, 0], [s * 0.78, s * 1.2, s * 0.78]), { bone: 'item', color: PAL.water.light, outline: 0, rep: [1, 1] });
+  K.torus('item', c, s * 0.66, s * 0.13, COL.gold, { rot: [Math.PI / 2, 0, 0] });
+  K.ball('item', [c[0] - s * 0.28, c[1] + s * 0.42, c[2] + s * 0.4], [s * 0.15, s * 0.15, s * 0.08], PAL.water.foam, { outline: 0, detail: 0.4 });
 }
 
 // ── hair & cloth helpers ────────────────────────────────────────────────────────────────────────────────────
@@ -588,6 +609,125 @@ function skirt(K, prof, color, o = {}) {
   K.lathe(null, [0, 0, o.z || 0], prof, color, { weights: w, weave: o.weave ?? 1, scale: [o.xs || 1, 1, o.zs || 0.9], detail: o.detail || 1.1, grad: [hem, hem + 0.2 * m.k, 0.84], phiStart: o.phiStart || 0, phiLen: o.phiLen || TAU });
   const inner = prof.map(([r, y]) => [Math.max(0.001, r - 0.01 * m.k), y]);
   K.lathe(null, [0, 0, o.z || 0], inner, o.lining || scaleHex(color, 0.7), { weights: w, weave: 0, scale: [o.xs || 1, 1, o.zs || 0.9], detail: 0.8, flip: true, outline: 0, phiStart: o.phiStart || 0, phiLen: o.phiLen || TAU });
+}
+
+/**
+ * A shaggy hair / fur mass: a CLOSED shell (outer surface, pointed tufts, inner wall tucked under the skin) hugging an
+ * ellipsoid E = {c:[x,y,z], rx, ry, rz}. One continuous piece with one outline, so a beard reads as hair and a mane
+ * with grey temples reads as one head of hair (not as separate outlined blobs).
+ *   o.yaw0 / o.yaw1   range round the ellipsoid (0 = +Z front); o.wrap = full circle (yaw -PI..PI, seam at the back)
+ *   o.top(a, yaw)     pitch of the upper edge (PI/2 = crown); a = |yaw|
+ *   o.bot(a, yaw)     pitch of the lower edge, before tufts
+ *   o.tuft(a, yaw)    extra pitch (radians of arc) the pointed tufts hang past the edge
+ *   o.thick(a, t)     thickness in world units at t (0 upper edge .. 1 tip)
+ *   o.locks, o.lockDepth   clumps across the range and how deep the grooves between them are
+ *   o.hang            pitch below which the mass stops hugging and hangs straight down (beards, napes)
+ *   o.flare, o.fwd    outward / forward push per unit of hanging length
+ *   o.topTaper        0..1 of t over which the mass grows out of the skin (0 = starts at full thickness)
+ *   o.color(q, lc, a, t) -> THREE.Color (linear); q = unit direction on the ellipsoid, lc = 1 at a lock's centre
+ */
+function shagGeo(E, o) {
+  const nu = o.nu || 64, nv = o.nv || 12;
+  const wrap = !!o.wrap;
+  const yaw0 = wrap ? -Math.PI : o.yaw0, yaw1 = wrap ? Math.PI : o.yaw1;
+  const locks = o.locks || 12, depth = o.lockDepth ?? 0.4;
+  const hang = o.hang ?? -9, flare = o.flare ?? 0, fwd = o.fwd ?? 0;
+  const inset = o.inset ?? 0.012;
+  const cols = wrap ? nu : nu + 1;
+  const rows = nv * 2 + 1;
+  const pos = new Float32Array(cols * rows * 3), col = new Float32Array(cols * rows * 3), uv = new Float32Array(cols * rows * 2);
+  const surf = (yaw, pitch, P, N) => {
+    // point + outward normal; below `hang` the mass drops straight down from the hang line
+    const pp = Math.max(pitch, hang);
+    const d = V3(Math.sin(yaw) * Math.cos(pp), Math.sin(pp), Math.cos(yaw) * Math.cos(pp));
+    P.set(E.c[0] + d.x * E.rx, E.c[1] + d.y * E.ry, E.c[2] + d.z * E.rz);
+    N.set(d.x / E.rx, d.y / E.ry, d.z / E.rz).normalize();
+    if (pitch < hang) {
+      const L = (hang - pitch) * (E.ry + Math.hypot(d.x * E.rx, d.z * E.rz)) * 0.5;
+      const hz = V3(N.x, 0, N.z); if (hz.lengthSq() < 1e-6) hz.set(Math.sin(yaw), 0, Math.cos(yaw)); hz.normalize();
+      P.y -= L; P.addScaledVector(hz, L * flare); P.z += L * fwd;
+      N.lerp(hz, clamp((hang - pitch) * 4, 0, 1)).normalize();
+    }
+    return d;
+  };
+  const Pn = V3(), Nn = V3(), c = new THREE.Color();
+  for (let iu = 0; iu < cols; iu++) {
+    const u = iu / nu, yaw = lerp(yaw0, yaw1, u), a = Math.abs(yaw);
+    const lph = u * locks;
+    const lc = 0.5 + 0.5 * Math.cos(lph * TAU);                         // 1 at a lock's centre, 0 in the groove
+    const tri = Math.abs(((lph + 0.5) % 1) * 2 - 1);                      // 1 at a lock's centre
+    const jig = 0.7 + 0.6 * hash01(Math.floor(lph + 0.5) * 7.31 + (o.seed || 0));
+    const endK = wrap ? 1 : sstep(0, o.endTaper ?? 0.06, u) * sstep(0, o.endTaper ?? 0.06, 1 - u);
+    const top = o.top(a, yaw), bot = o.bot(a, yaw);
+    const edge = bot - (o.tuft ? o.tuft(a, yaw) : 0) * Math.pow(tri, 1.6) * jig * endK;
+    for (let r = 0; r < rows; r++) {
+      const outer = r <= nv;
+      const t = outer ? r / nv : (rows - 1 - r) / nv;
+      const pitch = lerp(top, lerp(bot, edge, sstep(0.55, 1, t)), t);
+      const d = surf(yaw, pitch, Pn, Nn);
+      const grow = o.topTaper ? sstep(0, o.topTaper, t) : 1;
+      const tip = 1 - sstep(0.62, 1, t) * 0.94;
+      const th = o.thick(a, t) * (1 - depth * (1 - lc)) * grow * tip * endK;
+      const k = (r * cols + iu);
+      if (outer) Pn.addScaledVector(Nn, th); else Pn.addScaledVector(Nn, -inset * (0.3 + 0.7 * grow));
+      pos[k * 3] = Pn.x; pos[k * 3 + 1] = Pn.y; pos[k * 3 + 2] = Pn.z;
+      uv[k * 2] = lph; uv[k * 2 + 1] = t;
+      c.copy(o.color(d, lc, a, t, yaw));
+      col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;
+    }
+  }
+  const idx = [];
+  const segU = wrap ? nu : nu;
+  for (let iu = 0; iu < segU; iu++) {
+    const i2 = wrap ? (iu + 1) % cols : iu + 1;
+    for (let r = 0; r < rows - 1; r++) {
+      const a0 = r * cols + iu, b0 = r * cols + i2, a1 = (r + 1) * cols + iu, b1 = (r + 1) * cols + i2;
+      idx.push(a0, a1, b0, b0, a1, b1);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  g.setAttribute('dqcol', new THREE.BufferAttribute(col, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  // make sure the outer surface faces out
+  const probe = Math.floor(nv / 2) * cols + Math.floor(cols / 2);
+  surf(lerp(yaw0, yaw1, Math.floor(cols / 2) / nu), 0, Pn, Nn);
+  const nrm = g.attributes.normal, P = g.attributes.position;
+  const outDir = V3(P.getX(probe) - E.c[0], P.getY(probe) - E.c[1], P.getZ(probe) - E.c[2]);
+  if (V3(nrm.getX(probe), nrm.getY(probe), nrm.getZ(probe)).dot(outDir) < 0) {
+    const I = g.index; for (let i = 0; i < I.count; i += 3) { const b = I.getX(i + 1); I.setX(i + 1, I.getX(i + 2)); I.setX(i + 2, b); }
+    g.computeVertexNormals();
+  }
+  return g;
+}
+const hash01 = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+/** add a shag mass as one part (same resolution for the body and its outline, so the tufts' outlines line up) */
+function shag(K, bone, E, o) {
+  let cached = null;
+  const make = () => (cached ? cached.clone() : (cached = shagGeo(E, o)).clone());
+  return K.add(make, new THREE.Matrix4(), { bone, color: PAL.char.hair, outline: o.outline ?? OUTLINE.char, rep: [1, 1], hullDetail: 1 });
+}
+/** a toon colour helper for shag colour functions */
+const LC = (hex) => C3(hex);
+
+/**
+ * A limb with a real muscle profile (bicep, forearm bulge) between two bind points. prof: [[t 0..1, radius]...]
+ * from a to b; rounded caps both ends.
+ */
+function limbProf(K, bone, a, b, prof, color, o = {}) {
+  const A = V3(...a), B = V3(...b), dir = B.clone().sub(A), len = dir.length();
+  const q = new THREE.Quaternion().setFromUnitVectors(V3(0, -1, 0), dir.normalize());
+  const M = new THREE.Matrix4().compose(A, q, V3(o.sx || 1, 1, o.sz || 1));
+  const make = (d) => {
+    const pts = [], r0 = prof[0][1], r1 = prof[prof.length - 1][1], n = Math.max(2, Math.round(3 * d));
+    for (let i = 0; i <= n; i++) { const an = -Math.PI / 2 + (i / n) * (Math.PI / 2); pts.push(new THREE.Vector2(Math.cos(an) * r1 + 1e-4, -len + Math.sin(an) * r1 * 0.7)); }
+    for (let i = prof.length - 2; i >= 1; i--) pts.push(new THREE.Vector2(prof[i][1], -prof[i][0] * len));
+    for (let i = 0; i <= n; i++) { const an = (i / n) * (Math.PI / 2); pts.push(new THREE.Vector2(Math.cos(an) * r0 + 1e-4, Math.sin(an) * r0 * 0.7)); }
+    return new THREE.LatheGeometry(pts, Math.max(8, Math.round(14 * d * (o.detail || 1))));
+  };
+  return K.add(make, M, Object.assign({ bone, color, outline: OUTLINE.char, rep: [3, Math.max(1, len / WEAVE_WORLD)] }, o));
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -698,59 +838,132 @@ DEFS.hero = {
 DEFS.halvard = {
   label: () => 'Sir Halvard',
   ages: [41],
-  body: () => ({ r: 0.27, leg: 0.58, ankle: 0.1, torso: 0.68, neck: 0.02, hipX: 0.13, shX: 0.37, arm: 0.64, bodyX: 0.31, bodyZ: 0.24, hipsUp: 0.05, hair: 0.08 }),
-  style: () => ({ bounce: 0.7, armSwingR: 0.2, sway: 1.25, twist: 0.8, breath: 1.4, breathPeriod: 4.6, fidget: 0.7, smile: 0.55, hop: 0.6, runLean: 0.8, cadence: 0.92, weapon: 'great', propR: 'stick', gripY: 0.97, cloakLift: 1, turnRate: 0.85, chestOut: 0.04, armOut: 0.2 }),
+  // a Toriyama giant: ~2.07 u (Bram at 6 comes up to his belly), a barrel chest twice the boy's width on a narrower
+  // waist, huge bare forearms, a small head in a big mane and beard
+  body: () => ({ r: 0.25, leg: 0.66, ankle: 0.1, torso: 0.76, neck: 0.016, hipX: 0.155, shX: 0.47, arm: 0.66, bodyX: 0.4, bodyZ: 0.3, hipsUp: 0.05, hair: 0.075 }),
+  style: () => ({
+    gait: 'heavy', bounce: 0.55, sway: 1.9, twist: 1.25, roll: 1, cadence: 0.72, stride: 1.12, armSwing: 0.95, armSwingR: 0,
+    armOut: 0.3, elbow: 0.28, breath: 1.5, breathPeriod: 4.8, fidget: 0.55, smile: 0.5, hop: 0.45, runLean: 0.7,
+    weapon: 'great', propR: 'stick', plant: { len: 1.05, gripY: 1.0, out: 0.1, fwd: 0.2, tipOut: 0.08, tipFwd: 0.22, swing: 0.2, lift: 0.16 },
+    turnRate: 0.6, chestOut: 0.05, hunch: 0.04, kidEyes: false, blinkEvery: 3.8,
+  }),
   dress(K) {
     const m = K.m, k = m.k;
-    const hair = mixHex(PAL.char.hairBrown, PAL.char.hair, 0.45), grey = mixHex(COL.greyHair, PAL.cloud.shade, 0.55);
+    const hair = mixHex(PAL.char.hairBrown, PAL.char.hair, 0.4), hairLit = mixHex(PAL.char.hairBrown, PAL.wood.mid, 0.25);
+    const grey = mixHex(COL.greyHair, PAL.cloud.shade, 0.35);
     const blue = PAL.cloth.blue, blueD = PAL.cloth.blueDark;
-    stdLegs(K, { pants: PAL.cloth.leather, pantsTo: 'ankle', boot: scaleHex(COL.boot, 0.85), bootStyle: 'tall', thigh: 0.1, knee: 0.08, ankleR: 0.066, cuff: PAL.wood.dark, bootScale: 1.15 });
-    stdTorso(K, [[0.001, -0.04], [0.2, -0.03], [0.24, 0.05], [0.25, 0.17], [0.27, 0.3], [0.285, 0.42], [0.255, 0.5], [0.15, 0.555], [0.001, 0.565]], { color: COL.steelDark, zs: 0.8, weave: 0.9 });
-    // surcoat body over the mail
-    K.lathe(null, [0, m.hipY, 0], [[0.215, -0.07], [0.25, 0.04], [0.262, 0.17], [0.283, 0.3], [0.298, 0.42], [0.27, 0.49]].map(([r, y]) => [r * k, y * k]), blue, { weights: wTorso(m), weave: 1, scale: [1, 1, 0.8], detail: 1.1 });
-    // tails, split front and back so the big legs can stride
-    skirt(K, [[0.36, 0.33], [0.37, 0.36], [0.33, 0.5], [0.29, m.hipY + 0.02], [0.27, m.hipY + 0.08]], blue, { phiStart: -0.95, phiLen: 1.9, zs: 0.82, lining: blueD });
-    skirt(K, [[0.36, 0.33], [0.37, 0.36], [0.33, 0.5], [0.29, m.hipY + 0.02], [0.27, m.hipY + 0.08]], blue, { phiStart: Math.PI - 1.0, phiLen: 2.0, zs: 0.82, lining: blueD });
-    // patches: darker blue, cream and a mustard square, a little crooked
-    const pz = (dy, r) => r * k * 0.8 + 0.012;
-    K.box('chest', [0.13, m.chestY + 0.06, pz(0, 0.29) - 0.02], [0.12, 0.1, 0.012], blueD, { rot: [-0.1, 0.35, 0.18] });
-    K.box('chest', [-0.12, m.chestY - 0.1, pz(0, 0.28) - 0.01], [0.09, 0.08, 0.012], PAL.cloth.cream, { rot: [0.05, -0.3, -0.12] });
-    K.box('skirtF', [0.12, 0.48, 0.3], [0.1, 0.09, 0.012], PAL.cloth.mustard, { rot: [0.15, 0.3, 0.1] });
-    // stitches round the cream patch
-    for (let i = 0; i < 4; i++) K.box('chest', [-0.165 + i * 0.03, m.chestY - 0.05, pz(0, 0.28) + 0.0], [0.006, 0.02, 0.01], COL.eye, { rot: [0, -0.3, 0.3] });
-    K.torus('hips', [0, m.hipY + 0.08, 0], 0.285, 0.035, COL.belt, { scale: [1, 0.8, 1], weave: 0.3 });
-    K.box('hips', [0, m.hipY + 0.08, 0.235], [0.1, 0.085, 0.03], COL.gold);
-    // a baldric strap across the chest
-    K.torus('chest', [0, m.chestY + 0.02, 0.0], 0.33, 0.022, PAL.cloth.leather, { rot: [0.0, 0, 0.75], scale: [1, 1, 0.85], weave: 0.3 });
-    stdArms(K, { sleeve: COL.steelDark, sleeveTo: 'wrist', skin: COL.ruddy, upperR: 0.078, foreR: 0.07, handR: 0.08, hand: PAL.cloth.leather, cuff: PAL.cloth.leather, puff: true, puffColor: blue });
-    // ── head: ruddy, big nose, kind small eyes under heavy brows, a shaggy mane and beard, grey at the temples ──
-    stdHead(K, { skin: COL.ruddy, nose: 'big', noseC: mixHex(COL.ruddy, PAL.tile.light, 0.25), earScale: 1.1 });
-    stdEyes(K, { style: 'narrow', w: 0.12, h: 0.2, yaw: 0.33, pitch: -0.08, brow: 'bushy', browColor: hair, browW: 0.24, browPitch: 0.2 });
-    stdMouth(K, { pitch: -0.56, w: 0.12, blush: 'anim' });
-    hairCap(K, hair, { theta: 0.62, tilt: -0.55, grow: 1.1 });
-    // mane: big shaggy locks round the back and sides; grey sweeps flat over the temples
-    for (const [yaw, p, sx, sy, col, lift] of [[Math.PI, 0.3, 0.6, 0.55, hair, 0.06], [Math.PI - 0.75, 0.25, 0.52, 0.55, hair, 0.06], [-Math.PI + 0.75, 0.25, 0.52, 0.55, hair, 0.06], [Math.PI, -0.2, 0.62, 0.5, hair, 0.05],
-      [Math.PI - 1.05, -0.12, 0.45, 0.5, hair, 0.05], [-Math.PI + 1.05, -0.12, 0.45, 0.5, hair, 0.05], [0.5, 0.74, 0.42, 0.34, hair, 0.05], [-0.5, 0.74, 0.42, 0.34, hair, 0.05], [0, 0.84, 0.46, 0.34, hair, 0.06], [0.1, 0.6, 0.36, 0.26, hair, 0.04]])
-      lock(K, yaw, p, [sx, sy, 0.24], col, { lift, outline: OUTLINE.char, detail: 0.8 });
-    const silver = mixHex(COL.greyHair, PAL.cloud.shade, 0.55);
-    for (const s of [1, -1]) {
-      lock(K, s * 1.42, 0.02, [0.22, 0.34, 0.1], silver, { lift: 0.02, outline: 0, detail: 0.7, rot: [0, 0, s * 0.15] });
-      lock(K, s * 1.2, 0.26, [0.16, 0.14, 0.08], mixHex(silver, hair, 0.4), { lift: 0.03, outline: 0, detail: 0.6, rot: [0, 0, s * 0.5] });
+    const skin = mixHex(COL.tan, COL.ruddy, 0.55);
+    const leather = PAL.cloth.leather, leatherD = scaleHex(PAL.cloth.leather, 0.72);
+    const trousers = mixHex(PAL.cloth.leather, PAL.char.hair, 0.45);
+
+    // ── legs: thick, in heavy tall boots ──
+    stdLegs(K, { pants: trousers, pantsTo: 'ankle', boot: scaleHex(COL.boot, 0.82), bootStyle: 'tall', thigh: 0.118, knee: 0.088, ankleR: 0.068, cuff: PAL.wood.dark, bootScale: 1.24 });
+
+    // ── the barrel chest: a V from a broad chest down to the belt, the patched blue surcoat over it ──
+    const torso = [[0.001, 0.70], [0.25, 0.71], [0.3, 0.8], [0.325, 0.92], [0.37, 1.06], [0.425, 1.2], [0.452, 1.32], [0.44, 1.41], [0.38, 1.48], [0.25, 1.535], [0.13, 1.56], [0.001, 1.57]];
+    K.lathe(null, [0, 0, 0], torso, blue, { weights: wTorso(m), weave: 1, scale: [1.06, 1, 0.72], detail: 1.5, grad: [0.72, 0.95, 0.85] });
+    K.ball('chest', [0, 1.26, 0.07], [0.36, 0.23, 0.27], blue, { weave: 1, detail: 1.3 });            // the chest itself
+    K.ball('chest', [0, 1.37, -0.07], [0.38, 0.17, 0.25], blue, { weave: 1, detail: 1.2, outline: 0 }); // the yoke of the back
+    K.torus('chest', [0, 1.525, 0.0], 0.165, 0.048, blueD, { scale: [1.12, 0.9, 1], weave: 1, outline: OUTLINE.char, detail: 1.2 });
+    K.ball('neck', [0, 1.55, 0.02], [0.13, 0.08, 0.12], skin, { skin: true, outline: 0, detail: 0.8 });
+    // surcoat tails, split front and back so the big legs can stride
+    const tails = [[0.425, 0.4], [0.435, 0.43], [0.385, 0.58], [0.335, 0.74], [0.312, 0.84]];
+    skirt(K, tails, blue, { phiStart: -0.9, phiLen: 1.8, xs: 1.05, zs: 0.76, lining: blueD });
+    skirt(K, tails, blue, { phiStart: Math.PI - 0.98, phiLen: 1.96, xs: 1.05, zs: 0.76, lining: blueD });
+    // a broad belt with a big buckle
+    K.torus('hips', [0, 0.855, 0], 0.318, 0.046, COL.belt, { scale: [1.07, 0.76, 0.95], weave: 0.3, outline: OUTLINE.char });
+    K.box('hips', [0, 0.855, 0.268], [0.14, 0.12, 0.035], COL.gold);
+    K.box('hips', [0, 0.855, 0.282], [0.075, 0.055, 0.02], COL.iron);
+    // patches: darker blue on the chest (with stitches), cream on the belly, mustard on the tails
+    K.box('chest', [0.175, 1.31, 0.3], [0.14, 0.12, 0.016], blueD, { rot: [-0.2, 0.4, 0.16] });
+    for (let i = 0; i < 4; i++) K.box('chest', [0.12 + i * 0.037, 1.382 - i * 0.004, 0.292 - i * 0.012], [0.008, 0.028, 0.012], PAL.cloth.cream, { rot: [-0.2, 0.4, 0.16] });
+    K.box('spine', [-0.165, 1.02, 0.236], [0.105, 0.095, 0.016], PAL.cloth.cream, { rot: [0.05, -0.33, -0.12] });
+    for (let i = 0; i < 3; i++) K.box('spine', [-0.215 + i * 0.045, 0.965, 0.228 - (i === 0 ? 0.012 : 0)], [0.007, 0.026, 0.012], COL.eye, { rot: [0.05, -0.33, 0.35] });
+    K.box('skirtF', [0.15, 0.56, 0.29], [0.11, 0.1, 0.016], PAL.cloth.mustard, { rot: [0.32, 0.36, 0.1] });
+
+    // ── arms: huge, bare below the surcoat's cap sleeves, forearms like hams, leather bracers and gauntlets ──
+    for (const [sd, S] of [[1, 'L'], [-1, 'R']]) {
+      const x = sd * m.shX;
+      const sh = [x, m.shoulderY, 0], el = [x, m.shoulderY - m.A1, 0], wr = [x, m.handY + 0.013, 0];
+      const at = (t) => [x, lerp(el[1], wr[1], t), 0];
+      limbProf(K, 'arm' + S, sh, el, [[0, 0.128], [0.32, 0.136], [0.72, 0.114], [1, 0.095]], skin, { skin: true, detail: 1.1 });
+      K.ball('fore' + S, [x, el[1], -0.005], [0.097, 0.1, 0.1], skin, { skin: true, outline: 0, detail: 0.8 });
+      limbProf(K, 'fore' + S, el, wr, [[0, 0.1], [0.24, 0.12], [0.6, 0.102], [1, 0.078]], skin, { skin: true, detail: 1.1 });
+      limbProf(K, 'fore' + S, at(0.42), at(0.98), [[0, 0.114], [0.5, 0.104], [1, 0.09]], leather, { weave: 0.5, outline: 0, detail: 1 });
+      for (const t of [0.52, 0.86]) K.torus('fore' + S, [x, lerp(el[1], wr[1], t), 0], lerp(0.114, 0.09, (t - 0.42) / 0.56) + 0.004, 0.011, leatherD, { detail: 0.8 });
+      // the surcoat's shoulder cap, a ring of mail peeping out under it
+      K.ball('arm' + S, [x + sd * 0.02, m.shoulderY + 0.015, 0], [0.178, 0.165, 0.185], blue, { weave: 1, detail: 1.1 });
+      K.torus('arm' + S, [x, m.shoulderY - 0.125, 0], 0.132, 0.022, COL.steelDark, { detail: 0.9 });
+      if (sd > 0) K.box('arm' + S, [x + 0.1, m.shoulderY + 0.07, 0.12], [0.1, 0.09, 0.016], blueD, { rot: [-0.5, 0.55, -0.4] });
+      // gauntlet mitts
+      const hr = 0.105, hc = [x, m.handY - hr * 0.76, 0.01];
+      K.torus('fore' + S, [x, m.handY + 0.02, 0], 0.086, 0.024, leatherD, { detail: 0.9 });
+      K.ball('hand' + S, hc, [hr * 0.95, hr * 1.04, hr * 0.9], leather, { detail: 1 });
+      K.ball('hand' + S, [x - sd * hr * 0.15, hc[1] + hr * 0.2, hc[2] + hr * 0.74], [hr * 0.36, hr * 0.48, hr * 0.36], leather, { outline: OUTLINE.char, detail: 0.6, rot: [0.4, 0, 0] });
+      K.joint('prop' + S, 'hand' + S, [x, m.handY - hr * 0.76, 0]);
     }
-    // beard: round the jaw and chin, leaving the mouth; moustache above it
-    for (const [yaw, p, s] of [[0, -0.92, 0.36], [0.5, -0.72, 0.32], [-0.5, -0.72, 0.32], [0.95, -0.42, 0.3], [-0.95, -0.42, 0.3], [0.25, -0.95, 0.3], [-0.25, -0.95, 0.3]])
-      lock(K, yaw, p, [s, s * 0.9, s * 0.7], yaw === 0 || Math.abs(yaw) < 0.3 ? hair : mixHex(hair, grey, 0.35), { lift: 0.1, outline: OUTLINE.char, detail: 0.7 });
-    for (const s of [1, -1]) lock(K, s * 0.2, -0.38, [0.24, 0.1, 0.12], hair, { lift: 0.06, rot: [0, 0, s * 0.35], outline: OUTLINE.char, detail: 0.6 });
-    // ── the greatsword, carried like a walking stick (hand-local +Z = blade) ──
-    const c = [-m.shX, m.handY - 0.06, 0];
-    K.box('propR', [c[0], c[1], c[2] + 0.54], [0.1, 0.028, 0.82], COL.steel);
-    K.box('propR', [c[0], c[1] + 0.016, c[2] + 0.5], [0.024, 0.006, 0.66], COL.steelDark);
-    K.add(() => new THREE.ConeGeometry(0.05, 0.1, 4), TRS([c[0], c[1], c[2] + 1.0], [Math.PI / 2, 0, 0, 'XYZ'], [1, 1, 0.28]), { bone: 'propR', color: COL.steel, rep: [1, 1] });
-    K.box('propR', [c[0], c[1], c[2] + 0.1], [0.34, 0.05, 0.05], COL.iron);
-    K.ball('propR', [c[0] + 0.17, c[1], c[2] + 0.1], 0.035, COL.gold, { outline: 0, detail: 0.5 });
-    K.ball('propR', [c[0] - 0.17, c[1], c[2] + 0.1], 0.035, COL.gold, { outline: 0, detail: 0.5 });
-    K.cyl('propR', [c[0], c[1], c[2] - 0.05], 0.028, 0.028, 0.24, PAL.cloth.leather, { rot: [Math.PI / 2, 0, 0] });
-    K.ball('propR', [c[0], c[1], c[2] - 0.2], 0.048, COL.gold, { outline: 0, detail: 0.6 });
+
+    // ── head: sun-browned, a big nose, a grown man's kind eyes under heavy brows ──
+    stdHead(K, { skin, nose: 'big', noseC: mixHex(skin, PAL.tile.light, 0.28), ears: false, sx: 1.0, sy: 0.98, sz: 1.0 });
+    stdEyes(K, { style: 'adult', w: 0.135, h: 0.09, yaw: 0.31, pitch: -0.05, brow: 'heavy', browColor: mixHex(hair, grey, 0.2), browW: 0.24, browPitch: 0.17, browTilt: -0.1 });
+    stdMouth(K, { pitch: -0.54, w: 0.12, blush: 'anim', cheekYaw: 0.52, cheekPitch: -0.26 });
+    const E = K.head, r = m.r;
+    const Lh = LC(hair), Ll = LC(hairLit), Lg = LC(grey), cc = new THREE.Color();
+    // the mane: one shaggy mass from the crown down to the nape, locks falling over the ears, grey at the temples
+    shag(K, 'head', E, {
+      wrap: true, nu: 96, nv: 12, locks: 26, lockDepth: 0.5, seed: 3,
+      top: () => Math.PI / 2,
+      bot: (a) => (a < 1.25 ? lerp(0.56, -0.08, sstep(0.3, 1.2, a)) : lerp(-0.08, -0.52, sstep(1.35, 2.6, a))),
+      tuft: (a) => lerp(0.1, 0.22, sstep(0.3, 1.2, a)) + sstep(1.6, 2.8, a) * 0.28,
+      thick: (a, t) => r * (0.12 + 0.15 * (1 - t) * (1 - t)) * (a < 0.7 ? lerp(0.72, 1, a / 0.7) : 1),
+      hang: -0.26, flare: 0.22,
+      color: (q, lc, a, t) => {
+        const temple = sstep(0.45, 0.85, Math.abs(q.x)) * (1 - sstep(0.25, 0.72, q.y)) * sstep(-0.55, 0.05, q.z);
+        cc.copy(Lh).lerp(Ll, 0.5 * lc * (1 - t) * sstep(0.2, 0.9, q.y));
+        return cc.lerp(Lg, clamp(temple * (0.55 + 0.45 * lc) * 1.05, 0, 0.88));
+      },
+    });
+    // the beard: from under the mane's sideburns round the jaw, hanging to his chest; the mouth shows above it
+    shag(K, 'head', E, {
+      yaw0: -1.72, yaw1: 1.72, nu: 60, nv: 12, locks: 11, lockDepth: 0.5, seed: 11, topTaper: 0.2, endTaper: 0.08,
+      top: (a) => lerp(-0.66, 0.05, sstep(0.14, 1.3, a)),
+      bot: (a) => lerp(-1.2, -0.42, sstep(0.25, 1.62, a)),
+      tuft: (a) => lerp(0.34, 0.1, sstep(0.2, 1.3, a)),
+      thick: (a) => r * lerp(0.21, 0.12, sstep(0.2, 1.4, a)),
+      hang: -0.62, flare: 0.12, fwd: 0.32,
+      color: (q, lc, a, t) => {
+        cc.copy(Lh).lerp(Ll, 0.35 * lc * (1 - t));
+        return cc.lerp(Lg, sstep(1.05, 1.6, a) * 0.6 * (1 - sstep(0.1, 0.6, t)));
+      },
+    });
+    // moustache: two bushy wings drooping over the corners of the mouth
+    for (const sd of [1, -1]) {
+      lock(K, sd * 0.2, -0.4, [0.3, 0.125, 0.16], hair, { lift: 0.055, rot: [0, 0, sd * 0.42], detail: 0.9 });
+      lock(K, sd * 0.43, -0.53, [0.15, 0.1, 0.11], hair, { lift: 0.05, rot: [0, 0, sd * 1.05], detail: 0.7 });
+    }
+
+    // ── the greatsword, carried like a walking stick: grip at the prop joint, blade along +Z to the tip ──
+    const g = [-m.shX, m.handY - 0.105 * 0.76, 0];
+    const L = 1.05, roll = -0.62;                                   // blade turned so both its flat and its edge read
+    const R2 = (x, y) => [g[0] + x * Math.cos(roll) - y * Math.sin(roll), g[1] + x * Math.sin(roll) + y * Math.cos(roll)];
+    const P3 = (x, y, z) => { const q = R2(x, y); return [q[0], q[1], g[2] + z]; };
+    K.m.stickLen = L;
+    const bladeProf = [[0.001, 0.105], [0.105, 0.125], [0.108, 0.24], [0.096, 0.8], [0.074, 0.95], [0.001, L]];
+    K.add(() => {
+      const geo = new THREE.LatheGeometry(bladeProf.map(([rr, y]) => new THREE.Vector2(rr, y)), 4);
+      geo.applyMatrix4(new THREE.Matrix4().makeScale(1, 1, 0.34));
+      geo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2));
+      geo.computeVertexNormals();
+      return geo;
+    }, TRS([g[0], g[1], g[2]], [0, 0, roll]), { bone: 'propR', color: COL.steel, outline: OUTLINE.char * 0.8, rep: [1, 1], hullDetail: 1 });
+    K.add(() => { const geo = new THREE.LatheGeometry([[0.001, 0.2], [0.02, 0.22], [0.02, 0.78], [0.001, 0.8]].map(([rr, y]) => new THREE.Vector2(rr, y)), 4); geo.applyMatrix4(new THREE.Matrix4().makeScale(1, 1, 1.9)); geo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2)); return geo; },
+      TRS([g[0], g[1], g[2]], [0, 0, roll]), { bone: 'propR', color: COL.steelDark, outline: 0, rep: [1, 1] });
+    limbProf(K, 'propR', P3(-0.23, 0, 0.09), P3(0.23, 0, 0.09), [[0, 0.034], [0.5, 0.046], [1, 0.034]], COL.iron, { detail: 0.8 });
+    for (const sx of [-1, 1]) K.ball('propR', P3(sx * 0.245, 0, 0.09), 0.05, COL.gold, { detail: 0.7 });
+    K.ball('propR', P3(0, 0, 0.1), [0.06, 0.06, 0.05], COL.gold, { detail: 0.6, outline: 0 });
+    limbProf(K, 'propR', [g[0], g[1], g[2] - 0.27], [g[0], g[1], g[2] + 0.06], [[0, 0.034], [0.5, 0.039], [1, 0.034]], leather, { detail: 0.7 });
+    for (const z of [-0.2, -0.1]) K.torus('propR', [g[0], g[1], g[2] + z], 0.04, 0.009, COL.iron, { rot: [0, 0, 0], detail: 0.6 });
+    K.ball('propR', [g[0], g[1], g[2] - 0.31], [0.058, 0.058, 0.065], COL.gold, { detail: 0.8 });
     stdItem(K);
   },
 };
@@ -1265,11 +1478,12 @@ function getLook(id, age, variant) {
   const def = DEFS[id];
   const m = makeBody(def.body(age, variant));
   const K = new Kit(m);
+  const style = Object.assign({ seed: LOOKS.size * 1.37 + age * 0.11 }, def.style(age, variant));
+  K.style = style;
   baseJoints(K);
   def.dress(K, age, variant);
   const index = {}; K.joints.forEach((j, i) => { index[j.name] = i; });
   const geos = mergeKit(K, index);
-  const style = Object.assign({ seed: LOOKS.size * 1.37 + age * 0.11 }, def.style(age, variant));
   const look = { key, id, age, variant: variant || null, label: def.label(age, variant), metrics: m, style, joints: K.joints, geos, buildMs: Math.round(performance.now() - t0) };
   for (const g of [geos.toon, geos.hull, geos.face]) g.name = 'chars:' + key;
   LOOKS.set(key, look);
@@ -1304,6 +1518,8 @@ function instantiate(look) {
   anim.onIcon = (name, dur) => {
     if (!(name in ICONS)) return;
     if (!icon) { icon = new THREE.Sprite(iconMaterial(name)); icon.name = 'emote'; icon.renderOrder = 5; root.add(icon); }
+    // start invisible at bubble height: it pops in on the next update (never a full-size balloon at the feet)
+    icon.scale.setScalar(1e-4); icon.position.set(0.12 * look.metrics.k, bubbleY, 0);
     icon.material = iconMaterial(name);
     iconName = name; iconT = 0; iconDur = Number.isFinite(dur) ? Math.max(0.8, dur) : Infinity;
     icon.visible = true;

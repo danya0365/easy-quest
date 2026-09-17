@@ -15,6 +15,9 @@
  * Cancel backs out one window at a time; Menu again closes everything. Nothing traps you.
  *
  * __DQ.state().menu = {open, stage, windows}
+ *
+ * PLUGIN: main.js imports this file once and calls install(ctx) (which registers the 'menu' scene). P13 fills this
+ * file (Spells, Items, Equip, Status, Party, Settings) and it is live in the real game with no shared-file edit.
  */
 import { UI } from './window.js';
 import { Text } from './text.js';
@@ -192,5 +195,8 @@ export function registerFieldMenu() {
   Scenes.register('menu', menuScene);
   Debug.provide('menu', () => ({ open: false, stage: 'closed', windows: [] }));
 }
+
+/** Plugin entry (main.js): register the field menu scene. ctx is the plugin context (see main.js). */
+export function install(ctx = {}) { void ctx; registerFieldMenu(); }
 
 export default registerFieldMenu;

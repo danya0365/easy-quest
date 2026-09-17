@@ -14,7 +14,7 @@ const kidParty = () => [heroAt(5), newMember('willow_child'), newMember('sera_ch
 
 // ------------------------------------------------------------------------------------------------ contract
 test('contract: phases, needsCommand, command, undoCommand, resolveRound, snapshot', () => {
-  const b = battle({ party: [heroAt(3), newMember('bobble', 3)], enemies: ['gloop', 'gloop'] });
+  const b = battle({ party: [heroAt(3), newMember('bobble', 3, { tactic: 'orders' })], enemies: ['gloop', 'gloop'] });
   assert.equal(b.phase, 'command');
   assert.equal(b.opening[0].t, 'appear');
   assert.equal(b.opening[0].text, 'Two Gloops draw near!');
@@ -152,7 +152,7 @@ test('events: spells — damage, heal, heal refused at full (no MP spent), reviv
   const sera = newMember('sera', 20);
   const bram = heroAt(20, { weapon: 'steel_sword' }, { hp: 60 });
   const willow = newMember('willow', 21);
-  const b = battle({ party: [bram, sera, willow], enemies: ['cactuddle', 'cactuddle'] });
+  const b = battle({ party: [bram, sera, willow], enemies: ['cactuddle', 'cactuddle'], options: { tactics: 'orders' } });
   const full = b.command('sera', { type: 'spell', id: 'mend', target: 'sera' });
   assert.equal(full.ok, false); assert.match(full.text, /Sera is already in the pink!/);
   assert.equal(b.snapshot().party[1].mp, sera.mp, 'no MP lost for the refusal');
@@ -164,7 +164,7 @@ test('events: spells — damage, heal, heal refused at full (no MP spent), reviv
   assert.ok(ev.some((e) => e.t === 'status' && e.status === 'def_up' && e.on));
   assert.ok(ev.some((e) => e.t === 'status' && (e.status === 'sleep' || e.resisted)));
 
-  const c = battle({ party: [newMember('linnet', 20, { hp: 100 }), newMember('willow', 21)], enemies: ['sir_cumference'], options: { S: 0 } });
+  const c = battle({ party: [newMember('linnet', 20, { hp: 100 }), newMember('willow', 21)], enemies: ['sir_cumference'], options: { S: 0, tactics: 'orders' } });
   c.command('linnet', { type: 'spell', id: 'wobble', target: 'e1' });
   c.command('willow', { type: 'spell', id: 'tanglefoot', target: 'e1' });
   const ev2 = c.resolveRound();
@@ -172,7 +172,7 @@ test('events: spells — damage, heal, heal refused at full (no MP spent), reviv
   assert.ok(ev2.some((e) => e.t === 'status' && (e.status === 'root' || e.resisted)));
 
   // Rouse always works on a worn-out friend
-  const d = battle({ party: [heroAt(20, {}, { hp: 0 }), newMember('sera', 20)], enemies: ['gloop'] });
+  const d = battle({ party: [heroAt(20, {}, { hp: 0 }), newMember('sera', 20, { tactic: 'orders' })], enemies: ['gloop'] });
   assert.equal(d.needsCommand().id, 'sera');
   assert.ok(d.command('sera', { type: 'spell', id: 'rouse', target: 'hero' }).ok);
   const ev3 = d.resolveRound();
@@ -181,7 +181,7 @@ test('events: spells — damage, heal, heal refused at full (no MP spent), reviv
 
   // cure
   const p = newMember('sera', 20); const poisoned = heroAt(10, {}, { status: { poison: 99 } });
-  const e = battle({ party: [poisoned, p], enemies: ['gloop'] });
+  const e = battle({ party: [poisoned, p], enemies: ['gloop'], options: { tactics: 'orders' } });
   e.command('hero', { type: 'defend' });
   e.command('sera', { type: 'spell', id: 'sweeten', target: 'hero' });
   const ev4 = e.resolveRound();
@@ -281,7 +281,7 @@ test('events: phases (Mortmain becomes Enfolded, two actions), transform (the Co
 test('wagon: swapping costs the turn, the newcomer acts next round, and it greys out with a reason when the wagon cannot follow', () => {
   const party = [heroAt(10), newMember('bobble', 10), newMember('pip', 10)];
   const wagon = [newMember('digby', 10)];
-  const b = battle({ party, wagon, enemies: ['twiglet', 'twiglet', 'twiglet'] });
+  const b = battle({ party, wagon, enemies: ['twiglet', 'twiglet', 'twiglet'], options: { tactics: 'orders' } });
   assert.equal(b.needsCommand().canSwap.ok, true);
   assert.ok(b.command('hero', { type: 'attack' }).ok);
   assert.ok(b.command('bobble', { type: 'swap', target: 'digby' }).ok);
@@ -323,7 +323,7 @@ test('wagon: a party beyond four rides in the wagon, earns full EXP, and jumps d
 });
 
 // ------------------------------------------------------------------------------------------------ flee
-test('flee: success ends the battle; failures soften the next blows; the third try always works', () => {
+test('flee: success ends the battle; failures soften the next blows; the fourth try always works', () => {
   let ok = null, failed = null;
   for (let seed = 1; seed < 300 && !(ok && failed); seed++) {
     const b = createBattle({ party: [heroAt(2, {}, { hp: 30 })], enemies: ['flapjack', 'flapjack', 'flapjack'], data: DATA, rng: seed, options: { ambush: 'none' } });
@@ -338,7 +338,7 @@ test('flee: success ends the battle; failures soften the next blows; the third t
   assert.ok(!failed.ev.some((e) => e.t === 'act' && e.actor === 'hero'), 'a failed flee costs the party\'s turn');
   const b = failed.b;
   let tries = b._internal.fleeFails;
-  while (!b.over && tries < 2) {
+  while (!b.over && tries < 3) {
     b.command('hero', { type: 'flee' });
     b.resolveRound();
     tries = b._internal.fleeFails;
