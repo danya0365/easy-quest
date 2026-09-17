@@ -37,7 +37,7 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { PAL, C3, mixHex, scaleHex, lerp, clamp01, smooth } from './palette.js';
+import { PAL, C3, css, mixHex, scaleHex, lerp, clamp01, smooth } from './palette.js';
 import { makeToon, makeContactShadow } from './toon.js';
 import { reportError } from '../engine/debug.js';
 
@@ -76,6 +76,23 @@ const MON = Object.freeze(Object.fromEntries(Object.entries({
   mouth: mx('char.hair', 'outline.char', 0.5), pupil: 'char.eye', eyebrow: mx('dirt.dark', 'stone.dark', 0.25),
   ruby: mx('flower.red', 'slime.mouth', 0.35), blush: mx('flower.pink', 'animal.cheek', 0.5), white: 'char.white', lens: 'snow.ice',
   spark: 'ui.cursor', puff: 'cloud.lit', coin: mx('cloth.mustard', 'flower.yellow', 0.3),
+  // tier two + the Act I story creatures (MONSTER-BIBLE §2 #12-15, §6b)
+  crab: mx('tile.light', 'tile.mid', 0.3), crabLight: mx('tile.light', 'flower.yellow', 0.25), crabBelly: mx('sand.shell', 'tile.light', 0.28),
+  crabEar: mx('animal.cheek', 'char.skin', 0.45), earInner: mx('flower.pink', 'animal.cheek', 0.35), clawIn: mx('slime.tongue', 'tile.dark', 0.35),
+  owl: mx('wood.light', 'stone.dark', 0.3), owlDark: mx('wood.mid', 'bark.dark', 0.35), owlFace: mx('plaster.mid', 'animal.woolShade', 0.45),
+  owlBelly: mx('plaster.dark', 'thatch.pale', 0.3), velvet: mx('cloth.purpleDark', 'flower.red', 0.22), velvetDeep: mx('cloth.purpleDark', 'char.hair', 0.45),
+  moth: mx('thatch.mid', 'stone.light', 0.35), mothDark: mx('wood.mid', 'thatch.dark', 0.5), mothFuzz: mx('plaster.light', 'thatch.pale', 0.4),
+  mothWing: mx('plaster.dark', 'thatch.pale', 0.35), mothEdge: mx('wood.light', 'thatch.dark', 0.45), eyespot: mx('char.hair', 'stone.mortar', 0.3),
+  eyespotRing: mx('flower.center', 'cloth.mustard', 0.4), glove: mx('cloth.red', 'flower.red', 0.45), cuff: 'plaster.light',
+  bark: mx('bark.mid', 'bark.dark', 0.35), barkLight: mx('bark.light', 'bark.mid', 0.3), barkDark: mx('bark.dark', 'bark.furrow', 0.4),
+  twine: mx('cloth.rope', 'thatch.pale', 0.3), woodCut: mx('dirt.light', 'thatch.pale', 0.35), woodRing: mx('wood.light', 'dirt.dark', 0.35),
+  robe: mx('cloud.shade', 'stone.mid', 0.2), robeLight: mx('cloud.mid', 'plaster.light', 0.35), robeShade: mx('cloud.core', 'cloth.purple', 0.12),
+  porcelain: mx('plaster.light', 'animal.cheek', 0.12), hood: mx('char.hair', 'shadow.aoCool', 0.35), rope: mx('cloth.rope', 'stone.mid', 0.55),
+  coat: mx('char.hair', 'paint.glass', 0.35), coatLight: mx('paint.glass', 'cloud.core', 0.25), satin: mx('paint.glass', 'cloud.core', 0.45),
+  shirt: 'plaster.light', breath: mx('cloud.mid', 'snow.ice', 0.4), wilt: mx('flower.pink', 'stone.mid', 0.35),
+  chrome: mx('snow.light', 'sky.page', 0.18), chromeSky: mx('sky.page', 'snow.ice', 0.35), chromeGround: mx('stone.dark', 'bark.dark', 0.35), chromeDeep: mx('water.deep', 'char.hair', 0.45),
+  ghostLit: mx('snow.light', 'sky.haze', 0.25), ghostShade: mx('snow.shade', 'cloud.shade', 0.5),
+  tabard: 'cloth.blue', tabardDark: 'cloth.blueDark', lighthouse: 'plaster.light', lamp: mx('flower.yellow', 'sky.sunGlow', 0.4),
 }).map(([k, v]) => [k, pick(k, v.startsWith('#') ? v : mixHex(v, v, 0))])));
 
 const outlineOf = (hex) => mixHex(scaleHex(hex, 0.45), PAL.outline.char, 0.6);
@@ -132,6 +149,10 @@ function latheSurf(profile, { sx = 1, sy = 1, sz = 1, x = 0, y = 0, z = 0 } = {}
     c: V3(x, y, z),
     r(Y, th) { const rr = rAtLocal((Y - y) / sy); return rr <= 0 ? 0 : ellipseR(rr * sx, rr * sz, th); },
   };
+}
+/** Surface of a vertical elliptic cylinder (semi-axes rx, rz) centred on c (for bundles of sticks). */
+function cylSurf(rx, rz, c = [0, 0, 0]) {
+  return { c: V3(c[0], c[1], c[2]), r(Y, th) { return ellipseR(rx, rz, th); } };
 }
 /** Surface of an ellipsoid (semi-axes rx, ry, rz) centred at c. */
 function ellSurf(rx, ry, rz, c = [0, 0, 0]) {
@@ -210,6 +231,54 @@ function scallopWing(span, chord, n = 3) {
   s.lineTo(0, chord * 0.18);
   return s;
 }
+/**
+ * A finely tessellated elliptical disc in XY (concentric rings of vertices). A wrapped decal must have interior
+ * vertices: a plain ShapeGeometry disc has only rim vertices, its chords sink into a dome and only the rim shows.
+ */
+function discGeo(rx, ry, segs = 20, rings = 4) {
+  const g = new THREE.RingGeometry(0, 1, segs, rings);
+  g.scale(rx, ry, 1);
+  return g;
+}
+/** A capsule from point a to point b (monster space), radius r. */
+function capsuleAB(a, b, r, capSegs = 4, radial = 12) {
+  const A = V3(a[0], a[1], a[2]), E = V3(b[0], b[1], b[2]), d = E.clone().sub(A), len = Math.max(1e-4, d.length());
+  const g = new THREE.CapsuleGeometry(r, len, capSegs, radial);
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(V3(0, 1, 0), d.normalize()));
+  g.translate((A.x + E.x) / 2, (A.y + E.y) / 2, (A.z + E.z) / 2);
+  return g;
+}
+/** A tube along a smooth curve through points whose radius follows rFn(u), u 0..1 from the first point. */
+function taperTube(points, rFn, radial = 8, segs = 32) {
+  const curve = new THREE.CatmullRomCurve3(points.map(p => V3(p[0], p[1], p[2])), false, 'centripetal');
+  const g = new THREE.TubeGeometry(curve, segs, 1, radial, false);
+  const p = g.attributes.position, n = g.attributes.normal, c = V3();
+  for (let i = 0; i <= segs; i++) {
+    curve.getPointAt(i / segs, c); const r = rFn(i / segs);
+    for (let j = 0; j <= radial; j++) { const v = i * (radial + 1) + j; p.setXYZ(v, c.x + n.getX(v) * r, c.y + n.getY(v) * r, c.z + n.getZ(v) * r); }
+  }
+  return g;
+}
+/** Weld a geometry's seams (drop uv/normal, merge, recompute) so reshaped spheres and lathes shade without a crease. */
+function smoothNormals(geo) {
+  let g = geo.index ? geo.toNonIndexed() : geo;
+  for (const k of Object.keys(g.attributes)) if (k !== 'position') g.deleteAttribute(k);
+  g = mergeVertices(g, 1e-5);
+  g.computeVertexNormals();
+  return g;
+}
+/** Piecewise-linear radius along u: stops [[u, r], ...]. */
+const taper = (stops) => (u) => { for (let i = 1; i < stops.length; i++) if (u <= stops[i][0]) return lerp(stops[i - 1][1], stops[i][1], (u - stops[i - 1][0]) / Math.max(1e-6, stops[i][0] - stops[i - 1][0])); return stops[stops.length - 1][1]; };
+/** A comb / feathered-antenna shape pointing +Y: a leaf with `n` soft teeth down each side. */
+function combShape(len, wid, n = 5) {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  for (let i = 0; i < n; i++) { const y0 = len * (i + 0.2) / n, y1 = len * (i + 0.7) / n, k = Math.sin(Math.PI * (i + 0.5) / n); s.lineTo(wid * 0.25 * k, y0); s.lineTo(wid * k, y1); }
+  s.lineTo(0, len);
+  for (let i = n - 1; i >= 0; i--) { const y0 = len * (i + 0.2) / n, y1 = len * (i + 0.7) / n, k = Math.sin(Math.PI * (i + 0.5) / n); s.lineTo(-wid * k, y1); s.lineTo(-wid * 0.25 * k, y0); }
+  s.lineTo(0, 0);
+  return s;
+}
 function starGeometry() {
   const s = new THREE.Shape(), N = 4, R = 1, r = 0.34;
   for (let i = 0; i < N * 2; i++) { const a = i / (N * 2) * TAU + Math.PI / 2, rr = i % 2 ? r : R; const x = Math.cos(a) * rr, y = Math.sin(a) * rr; i ? s.lineTo(x, y) : s.moveTo(x, y); }
@@ -254,7 +323,7 @@ class Builder {
     for (let i = 0; i < n; i++) {
       const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
       let c = base;
-      if (vcol) { c = vcol(x, y, z, nr ? nr.getY(i) : 0, tmp) || base; }
+      if (vcol) { c = vcol(x, y, z, nr ? nr.getY(i) : 0, tmp, nr ? nr.getX(i) : 0, nr ? nr.getZ(i) : 0) || base; }
       col[i * itemSize] = c.r; col[i * itemSize + 1] = c.g; col[i * itemSize + 2] = c.b;
       if (itemSize === 4) col[i * 4 + 3] = alpha;
       const w = weights ? weights(x, y, z) : null;
@@ -388,10 +457,9 @@ class Builder {
 
   /** Glossy highlight decal (unlit) wrapped on a surface. */
   gloss(surf, y, th, w, h, { bone = 'body', dot = true, color = MON.white, rot = 0.35, lift = 0.004 } = {}) {
-    const s = ovalShape(w / 2, h / 2);
-    const g = new THREE.ShapeGeometry(s, 16); g.rotateZ(rot);
+    const g = discGeo(w / 2, h / 2, 20, 5); g.rotateZ(rot);
     this.unlit(wrapOn(g, surf, y, th, lift), { bone, color });
-    if (dot) { const d = new THREE.ShapeGeometry(ovalShape(w * 0.16, w * 0.16), 10); this.unlit(wrapOn(d, surf, y + h * 0.62, th + (w * 0.9) / Math.max(0.05, surf.r(y, th)), lift), { bone, color }); }
+    if (dot) { const d = discGeo(w * 0.16, w * 0.16, 12, 2); this.unlit(wrapOn(d, surf, y + h * 0.62, th + (w * 0.9) / Math.max(0.05, surf.r(y, th)), lift), { bone, color }); }
   }
 
   build() {
@@ -420,6 +488,45 @@ function fxRes() {
   const starMat = new THREE.MeshBasicMaterial({ color: C3(PAL.char.white), side: THREE.DoubleSide }); starMat.userData.shared = true;
   FXRES = { blobGeo, starGeo, blobMat, starMat };
   return FXRES;
+}
+
+/** The little speech bubble a monster says one line in ("Sorry!", "…typical."): a canvas card, cached per line. */
+const BUBBLES = new Map();
+function bubbleTexture(text) {
+  if (BUBBLES.has(text)) return BUBBLES.get(text);
+  let tex = null;
+  try {
+    const W = 512, H = 208, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    const font = (px) => `800 ${px}px ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif`;
+    let px = 68; g.font = font(px);
+    while (g.measureText(text).width > W - 120 && px > 28) { px -= 4; g.font = font(px); }
+    const tw = g.measureText(text).width, bw = Math.min(W - 28, tw + 84), bh = 132, bx = (W - bw) / 2, by = 14, r = 52;
+    const card = () => { g.beginPath(); g.moveTo(bx + r, by); g.arcTo(bx + bw, by, bx + bw, by + bh, r); g.arcTo(bx + bw, by + bh, bx, by + bh, r); g.arcTo(bx, by + bh, bx, by, r); g.arcTo(bx, by, bx + bw, by, r); g.closePath(); };
+    const tail = () => { g.beginPath(); g.moveTo(bx + bw * 0.26, by + bh - 6); g.quadraticCurveTo(bx + bw * 0.22, by + bh + 34, bx + bw * 0.1, by + bh + 52); g.quadraticCurveTo(bx + bw * 0.3, by + bh + 38, bx + bw * 0.42, by + bh - 6); g.closePath(); };
+    g.lineJoin = 'round'; g.strokeStyle = css(PAL.outline.char); g.lineWidth = 20;
+    card(); g.stroke(); tail(); g.stroke();
+    g.fillStyle = css(PAL.cloud.lit); card(); g.fill(); tail(); g.fill();
+    g.fillStyle = css(PAL.outline.char); g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(text, W / 2, by + bh / 2 + 4);
+    tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; tex.userData.shared = true;
+    tex.userData.aspect = W / H;
+  } catch (e) { reportError('Monsters say-bubble', e); }
+  BUBBLES.set(text, tex);
+  return tex;
+}
+
+const _gm = new THREE.Matrix4();
+/**
+ * Pose `target` (a bone under root whose rest pivot equals the last bone of `chain`) exactly as the chain root>a>b..
+ * poses it. Lets a part ride the body in every clip and still be let go of on its own in a death (a Crabbit's ears,
+ * Hoot Couture's cape, a Quietling's mask, Mumbleroot's coat).
+ */
+function glue(ctx, target, chain) {
+  const t = ctx.b[target]; if (!t) return;
+  _gm.identity();
+  for (const n of chain) { const bn = ctx.b[n]; if (!bn) return; bn.updateMatrix(); _gm.multiply(bn.matrix); }
+  _gm.decompose(t.position, t.quaternion, t.scale);
 }
 
 class Fx {
@@ -656,7 +763,7 @@ species('bloop', {
     B.toon(cross(0.05, 0.016), { m: cm, bone: hat, color: MON.cap });
     B.toon(cross(0.016, 0.05), { m: cm, bone: hat, color: MON.cap });
     // rosy cheeks — she worries so hard she's always a bit pink
-    for (const side of [-1, 1]) { const Y = 0.22 * S[1], th = thetaFor(g.surf, Y, side * 0.14); B.unlit(wrapOn(new THREE.ShapeGeometry(ovalShape(0.03, 0.017), 12), g.surf, Y, th, 0.003), { color: MON.blush }); }
+    for (const side of [-1, 1]) { const Y = 0.22 * S[1], th = thetaFor(g.surf, Y, side * 0.14); B.unlit(wrapOn(discGeo(0.03, 0.017, 20, 4), g.surf, Y, th, 0.003), { color: MON.blush }); }
     return { height: g.height, radius: g.radius };
   },
   idle(ctx, t, dt) {
@@ -789,9 +896,9 @@ species('glimmergloop', {
     }
     B.mouth('line', { surf: g.surf, y: 0.19 * S[1], w: 0.07, h: 0.01, color: MON.mouth });
     B.gloss(g.surf, 0.3, -0.72, 0.06, 0.12, { rot: 0.4 });
-    B.unlit(wrapOn(new THREE.ShapeGeometry(ovalShape(0.022, 0.05), 12), g.surf, 0.14, 0.95, 0.005), { color: MON.white });
+    B.unlit(wrapOn(discGeo(0.022, 0.05, 20, 4), g.surf, 0.14, 0.95, 0.005), { color: MON.white });
     const glint = B.bone('glint', 'body', [0, 0, 0], 0);
-    const band = new THREE.ShapeGeometry(ovalShape(0.018, 0.2), 10); band.rotateZ(0.5);
+    const band = discGeo(0.018, 0.2, 20, 4); band.rotateZ(0.5);
     B.unlit(wrapOn(band, g.surf, 0.24, 0, 0.006), { bone: glint, color: MON.white });
     return { height: g.height, radius: g.radius };
   },
@@ -870,7 +977,7 @@ species('flapjack', {
       vcol: (x, y, z, ny, tmp) => tmp.copy(C3(sc(MON.bat, 0.85))).lerp(C3(mx(MON.bat, 'char.white', 0.12)), smooth(cy - 0.12, cy + 0.14, y)) });
     const surf = ellSurf(R[0], R[1], R[2], [0, cy, 0]);
     // pale pancake belly
-    B.unlit(wrapOn(new THREE.ShapeGeometry(ovalShape(0.085, 0.045), 16), surf, cy - 0.075, 0, 0.003), { color: MON.batBelly });
+    B.unlit(wrapOn(discGeo(0.085, 0.045, 20, 4), surf, cy - 0.075, 0, 0.003), { color: MON.batBelly });
     // ears: rounded cones, rotated out
     for (const side of [-1, 1]) {
       const ear = B.bone(side < 0 ? 'earL' : 'earR', 'body', [side * 0.09, cy + 0.12, -0.01]);
@@ -932,7 +1039,7 @@ species('peckish', {
       B.toon(c, { m: MT([0, cy - 0.02, 0.15]), bone: bn, color: name === 'beakU' ? MON.beak : sc(MON.beak, 0.88), outline: 0.01 });
     }
     B.eyes({ surf, y: cy + 0.07, gap: 0.115, r: 0.055, forward: 0.004 });
-    for (const side of [-1, 1]) { const Y = cy + 0.005, th = thetaFor(surf, Y, side * 0.12); B.unlit(wrapOn(new THREE.ShapeGeometry(ovalShape(0.028, 0.016), 12), surf, Y, th, 0.003), { color: MON.blush }); }
+    for (const side of [-1, 1]) { const Y = cy + 0.005, th = thetaFor(surf, Y, side * 0.12); B.unlit(wrapOn(discGeo(0.028, 0.016, 20, 4), surf, Y, th, 0.003), { color: MON.blush }); }
     // wings
     for (const side of [-1, 1]) {
       const name = B.bone(side < 0 ? 'wingL' : 'wingR', 'body', [side * 0.17, cy + 0.05, -0.01]);
@@ -1047,7 +1154,7 @@ species('toadstooligan', {
       vcol: (x, y, z, ny, tmp) => ny < -0.35 ? tmp.copy(C3(MON.gill)) : tmp.copy(C3(sc(MON.cap, 0.9))).lerp(C3(mx(MON.cap, 'char.white', 0.12)), smooth(cy + 0.02, cy + 0.22, y)) });
     const cs = latheSurf(capP, { y: cy });
     [[cy + 0.17, 0.0, 0.05], [cy + 0.1, 0.95, 0.045], [cy + 0.1, -0.95, 0.042], [cy + 0.06, 2.0, 0.045], [cy + 0.07, -2.1, 0.04], [cy + 0.16, 2.9, 0.045], [cy + 0.2, -0.6, 0.03]].forEach(([Y, th, rr]) => {
-      B.unlit(wrapOn(new THREE.ShapeGeometry(ovalShape(rr, rr * 0.8), 14), cs, Y, th, 0.004), { bone: cap, color: MON.cream });
+      B.unlit(wrapOn(discGeo(rr, rr * 0.8, 20, 4), cs, Y, th, 0.004), { bone: cap, color: MON.cream });
     });
     B.eyes({ surf: stem, y: 0.165, gap: 0.12, r: 0.065, tilt: 10, forward: 0.006 });
     B.mouth('fang', { surf: stem, y: 0.075, w: 0.11, h: 0.04, teeth: 2, teethUp: true, tongue: false });
@@ -1106,7 +1213,7 @@ species('bumbleblunder', {
     B.eyes({ surf: hs, y: hc[1] + 0.03, gap: 0.11, r: 0.06, forward: 0.004 });
     B.mouth('grin', { surf: hs, y: hc[1] - 0.05, w: 0.07, h: 0.028 });
     B.mouth('oh', { surf: hs, y: hc[1] - 0.05, w: 0.045, h: 0.05, hidden: true });
-    for (const side of [-1, 1]) { const Y = hc[1] - 0.025, th = thetaFor(hs, Y, side * 0.085); B.unlit(wrapOn(new THREE.ShapeGeometry(ovalShape(0.022, 0.013), 10), hs, Y, th, 0.003), { color: MON.blush }); }
+    for (const side of [-1, 1]) { const Y = hc[1] - 0.025, th = thetaFor(hs, Y, side * 0.085); B.unlit(wrapOn(discGeo(0.022, 0.013, 20, 4), hs, Y, th, 0.003), { color: MON.blush }); }
     B.gloss(hs, hc[1] + 0.08, -0.7, 0.03, 0.04, { dot: false });
     // antennae that wobble with lag
     for (const side of [-1, 1]) {
@@ -1168,7 +1275,7 @@ species('boohoo', {
       const Y = 0.42, th = thetaFor(surf, Y, side * 0.078), c = surfPoint(surf, Y, th, 0.004);
       const name = B.bone(side < 0 ? 'eyeL' : 'eyeR', 'body', [c.x, c.y, c.z]);
       B.meta.eyes.push(name);
-      B.unlit(wrapOn(new THREE.ShapeGeometry(ovalShape(0.058, 0.066), 20), surf, Y, th, 0.005), { bone: name, color: MON.ghostEye });
+      B.unlit(wrapOn(discGeo(0.058, 0.066, 20, 4), surf, Y, th, 0.005), { bone: name, color: MON.ghostEye });
       const iris = B.bone(side < 0 ? 'irisL' : 'irisR', name, [c.x, c.y, c.z + 0.01]);
       B.unlit(new THREE.SphereGeometry(0.022, 10, 8), { m: MT([c.x + side * -0.006, c.y + 0.008, c.z + 0.008], [0, th, 0], [1, 1, 0.4]), bone: iris, color: MON.ghostIris });
       B.unlit(new THREE.SphereGeometry(0.008, 6, 5), { m: MT([c.x + side * -0.014, c.y + 0.024, c.z + 0.012], [0, th, 0], [1, 1, 0.4]), bone: iris, color: MON.white });
@@ -1435,7 +1542,7 @@ function catRig(B, { k = 1, mane = false, bell = true }) {
   const head = B.bone('head', 'body', K([0, 0.2, 0.08]));
   B.toon(new THREE.SphereGeometry(hr, 28, 20), { m: MT(K(hc), [0, 0, 0], [k * 1.08, k * 0.95, k * 0.95]), bone: head, color: orange, outline: th * 1.1, vcol: fur(0.18 * k, 0.36 * k) });
   const hs = ellSurf(hr * k * 1.08, hr * k * 0.95, hr * k * 0.95, K(hc));
-  for (const [dx, a] of [[-0.03, -0.2], [0, 0], [0.03, 0.2]]) B.unlit(wrapOn(new THREE.ShapeGeometry(ovalShape(0.008 * k, 0.03 * k), 8), hs, (hc[1] + 0.1) * k, dx * k / 0.13 + a * 0.2, 0.003 * k), { bone: head, color: dark });
+  for (const [dx, a] of [[-0.03, -0.2], [0, 0], [0.03, 0.2]]) B.unlit(wrapOn(discGeo(0.008 * k, 0.03 * k, 20, 4), hs, (hc[1] + 0.1) * k, dx * k / 0.13 + a * 0.2, 0.003 * k), { bone: head, color: dark });
   for (const side of [-1, 1]) {
     B.toon(new THREE.SphereGeometry(0.046, 14, 10), { m: MT(K([side * 0.034, 0.212, 0.205]), [0, 0, 0], [k, k * 0.82, k * 0.75]), bone: head, color: cream, outline: th * 0.6 });
     const ear = B.bone(side < 0 ? 'earL' : 'earR', head, K([side * 0.08, 0.34, 0.07]));
@@ -1566,7 +1673,7 @@ species('bogwallop', {
     const tongue = B.bone('tongue', 'body', [0.42, 0.92, 1.3]);
     const tg = new THREE.CapsuleGeometry(0.07, 0.18, 4, 10); tg.translate(0, -0.12, 0);
     B.toon(tg, { m: MT([0.42, 0.93, 1.33], [0.5, 0, 0.1], [1, 1, 0.45]), bone: tongue, color: MON.tongue, outline: 0.015 });
-    for (const side of [-1, 1]) { const Y = 1.12, th = thetaFor(surf, Y, side * 0.95); B.unlit(wrapOn(new THREE.ShapeGeometry(ovalShape(0.16, 0.08), 16), surf, Y, th, 0.006), { color: MON.blush }); }
+    for (const side of [-1, 1]) { const Y = 1.12, th = thetaFor(surf, Y, side * 0.95); B.unlit(wrapOn(discGeo(0.16, 0.08, 20, 4), surf, Y, th, 0.006), { color: MON.blush }); }
     // eyes on top in raised sockets; toad pupils are bars, and they read as friendly
     const pts = [];
     for (const side of [-1, 1]) {
@@ -1677,7 +1784,7 @@ species('cactuddle', {
     B.eyes({ surf, y: 0.43, gap: 0.15, r: 0.085, tilt: -12, pupil: 0.55, forward: 0.02 });
     B.mouth('grin', { surf, y: 0.3, w: 0.09, h: 0.035, lift: 0.02 });
     B.mouth('oh', { surf, y: 0.3, w: 0.05, h: 0.06, hidden: true, lift: 0.02 });
-    for (const side of [-1, 1]) { const Y = 0.33, th = thetaFor(surf, Y, side * 0.15); B.unlit(wrapOn(new THREE.ShapeGeometry(ovalShape(0.032, 0.018), 12), surf, Y, th, 0.022), { color: MON.blush }); }
+    for (const side of [-1, 1]) { const Y = 0.33, th = thetaFor(surf, Y, side * 0.15); B.unlit(wrapOn(discGeo(0.032, 0.018, 20, 4), surf, Y, th, 0.022), { color: MON.blush }); }
     B.gloss(surf, 0.5, -0.65, 0.03, 0.09, { dot: false, lift: 0.02 });
     return { height: 0.7, radius: 0.42, shadow: 0.7 };
   },
@@ -1812,7 +1919,7 @@ function poof(ctx, o, { scale = 1, chunks = 8, at = null } = {}) {
   ctx.fx.sparkle(c, 6, ctx.radius * 2 * scale, { size: 0.085 * Math.sqrt(S), life: 0.65, speed: 1.3 * Math.sqrt(S), up: 0.8, delay: 0.06 });
   ctx.setVisible(false);
   ctx.emit('poof', o);
-  if (ctx.spec.say) ctx.emit('say', ctx.spec.say);
+  if (ctx.spec.say) ctx.say(ctx.spec.say);
 }
 const DEATHS = {
   pop(ctx, ct, o) {
@@ -1989,6 +2096,10 @@ function instantiate(T) {
 
   const fx = new Fx(root);
   const listeners = new Map();
+  const bubbleMat = new THREE.SpriteMaterial({ transparent: true, depthTest: false, depthWrite: false });
+  const bubble = new THREE.Sprite(bubbleMat); bubble.visible = false; bubble.renderOrder = 30; bubble.name = 'monster-say'; bubble.frustumCulled = false;
+  root.add(bubble);
+  const say = { t: -1, text: '', x: 0, y: 0, z: 0 };
   const b = Object.fromEntries(bones.map(x => [x.name, x]));
   const size = Math.max(0.6, T.height / 0.535);
 
@@ -1998,10 +2109,16 @@ function instantiate(T) {
     boneNames: bones.map(x => x.name), boneRest: worldRest,
     lunge: Math.max(0.9, 0.9 + T.radius * 1.2),
     t: rand() * 10, idleW: 1, hopY: 0, hopMax: 1, flying: false, vx: 0,
-    eyeScale: 1, eyeTilt: 0, showOh: false, flash: 0, glow: 0, fade: 1, snapK: 0,
+    eyeScale: 1, eyeTilt: 0, showOh: false, flash: 0, glow: 0, fade: 1, snapK: 0, lids: [0, 0], shadowK: 1,
     defeated: false, visible: true,
     emit(evt, payload) { const set = listeners.get(evt); if (set) for (const fn of Array.from(set)) { try { fn(payload); } catch (e) { reportError(`Monsters ${T.id} on(${evt})`, e); } } },
     setVisible(v) { ctx.visible = !!v; bodyGroup.visible = !!v; },
+    /** Say one short line in a bubble above the head (also emitted as the 'say' event). */
+    say(text) {
+      const tex = bubbleTexture(String(text)); ctx.emit('say', text); if (!tex) return;
+      bubbleMat.map = tex; bubbleMat.needsUpdate = true; say.t = 0; say.text = String(text);
+      say.x = mover.position.x + b.root.position.x; say.y = Math.max(0.3, mover.position.y + b.root.position.y) + T.height + 0.16 * Math.sqrt(size); say.z = mover.position.z + b.root.position.z + T.radius * 0.3;
+    },
     center() { return V3(mover.position.x + b.root.position.x, mover.position.y + b.root.position.y + T.height * 0.5, mover.position.z + b.root.position.z); },
   };
   const blink = { at: 1 + rand() * 3, t: -1, wink: 0 };
@@ -2011,7 +2128,7 @@ function instantiate(T) {
     for (const bn of bones) { const r = rest[bn.name]; bn.position.copy(r); bn.rotation.set(0, 0, 0); bn.scale.setScalar(restScale[bn.name]); }
     mover.position.set(0, 0, 0); mover.rotation.set(0, 0, 0); mover.scale.set(1, 1, 1);
     ctx.eyeScale = 1; ctx.eyeTilt = 0; ctx.showOh = false; ctx.flash = 0; ctx.glow = 0; ctx.snapK = 0; ctx.flying = !!spec.hover; ctx.fade = 1;
-    ctx.hopY = 0; ctx.hopMax = 1;
+    ctx.hopY = 0; ctx.hopMax = 1; ctx.lids[0] = 0; ctx.lids[1] = 0; ctx.shadowK = 1;
   }
   function finish(ok) {
     const r = clip.resolve; clip.resolve = null;
@@ -2051,7 +2168,7 @@ function instantiate(T) {
       for (let i = 0; i < eyes.length; i++) {
         const e = b[eyes[i]]; if (!e) continue;
         const side = /L$/.test(eyes[i]) ? -1 : 1;
-        const by = (blink.wink === 0 || blink.wink === side) ? blinkY : 1;
+        const by = ((blink.wink === 0 || blink.wink === side) ? blinkY : 1) * Math.max(0.04, 1 - 0.96 * clamp01(ctx.lids[side < 0 ? 0 : 1]));
         e.scale.x *= ctx.eyeScale; e.scale.y *= ctx.eyeScale * by; e.scale.z *= ctx.eyeScale;
         e.rotation.z += side * ctx.eyeTilt;
       }
@@ -2073,10 +2190,23 @@ function instantiate(T) {
       const lift = Math.max(0, mover.position.y + b.root.position.y);
       const k = ctx.flying ? 1 - 0.45 * clamp01(lift / (1.2 * size)) : 1 - 0.38 * clamp01(lift / Math.max(1e-4, ctx.hopMax));
       shadow.position.set(hx, 0.02, hz);
-      const sz = T.shadow * Math.max(0.2, k) * Math.max(0.05, mover.scale.x);
+      const sz = T.shadow * Math.max(0.2, k) * Math.max(0.05, mover.scale.x) * Math.max(0.01, ctx.shadowK);
       shadow.scale.set(sz, 1, sz * (spec.shadowZ || 0.85));
       shadow.visible = ctx.visible;
       fx.update(dt);
+      // the say-bubble: pops in above the head, drifts up, fades
+      if (say.t >= 0) {
+        say.t += dt;
+        const L = 1.7, k2 = say.t / L;
+        if (k2 >= 1) { say.t = -1; bubble.visible = false; }
+        else {
+          const w = 0.62 * Math.sqrt(size) * (say.t < 0.22 ? easeOutBack(say.t / 0.22, 2.2) : 1);
+          bubble.scale.set(w, w / (bubbleMat.map?.userData.aspect || 2.46), 1);
+          bubble.position.set(say.x + T.radius * 0.35, say.y + 0.12 * Math.sqrt(size) * easeOutCubic(k2), say.z);
+          bubbleMat.opacity = 1 - smooth(0.78, 1, k2);
+          bubble.visible = true;
+        }
+      }
     } catch (e) { reportError(`Monsters ${T.id} update`, e); }
   }
 
@@ -2121,12 +2251,14 @@ function instantiate(T) {
     get visible() { return ctx.visible; },
     center() { return ctx.center(); },
     top() { return V3(mover.position.x + b.root.position.x, mover.position.y + b.root.position.y + T.height + 0.15 * size, mover.position.z + b.root.position.z); },
-    state() { return { id: T.id, name: spec.name, clip: clip.name, t: +clip.t.toFixed(2), defeated: ctx.defeated, visible: ctx.visible, fx: fx.alive, height: +T.height.toFixed(3), radius: +T.radius.toFixed(3) }; },
+    say(text) { try { ctx.say(text); } catch (e) { reportError('Monsters.say', e); } },
+    state() { return { id: T.id, name: spec.name, clip: clip.name, t: +clip.t.toFixed(2), defeated: ctx.defeated, visible: ctx.visible, fx: fx.alive, say: say.t >= 0 ? say.text : null, height: +T.height.toFixed(3), radius: +T.radius.toFixed(3) }; },
     dispose() {
       try {
         finish(false);
         root.removeFromParent();
         for (const m of Object.values(mats)) m.dispose();
+        bubbleMat.dispose();
         for (const m of Object.values(meshes)) { m.removeFromParent(); }
         skeleton.dispose();
         fx.dispose();

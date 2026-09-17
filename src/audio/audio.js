@@ -40,7 +40,12 @@
  *                                 input (connect to it directly) and also carries dest.bus(name), dest.reverbSend,
  *                                 dest.sendFor(name), dest.ctx, dest.mixer, dest.duckPulse(bus, amount, {at,...}).
  *   Audio.onUnlock(fn)            fn() once the context is running (immediately if it already is).
- *   Audio.state()                 {ctxState, sampleRate, volumes, ducks, pulses, space, unlocked, peakDb}
+ *   Audio.bindEvents(bus)         MUSIC-BIBLE §5 on the game's event bus (anything with on(evt, fn)): dialogue.start
+ *                                 ducks the music to 0.55 over 120 ms until dialogue.end (back over 400 ms); menu.open
+ *                                 ducks it to 0.80 until menu.close. Idempotent per bus; returns an unbind function.
+ *   Audio.hold(key, bus, amount, ms) / Audio.releaseHold(key, ms)   a named duck (one per key, re-holding retargets it);
+ *                                 what bindEvents and Sfx.glyph's typing duck use. Audio.holding(key) -> boolean.
+ *   Audio.state()                 {ctxState, sampleRate, volumes, ducks, pulses, holds, space, unlocked, peakDb}
  */
 
 export const BUS_NAMES = ['music', 'sfx', 'ui', 'voice', 'ambience'];
@@ -248,6 +253,8 @@ function applySpace(m, name, seconds = 0.35) {
 // --- the singleton ----------------------------------------------------------------------------------------------
 const GESTURES = ['pointerdown', 'mousedown', 'touchend', 'keydown'];
 let _ctx = null, _mix = null, _analyser = null, _armed = false, _unsupported = false, _unlockCbs = [];
+const _holds = new Map();  // key -> {bus, amount, release}
+const _bound = new Map();  // event bus -> unbind
 const _vol = { ...DEFAULT_VOLUMES };
 
 function onGesture() { Audio.unlock(); }
@@ -359,6 +366,36 @@ export const Audio = {
     const m = _mix; if (!m) return;
     const b = m.buses[name]; if (!b) return;
     b.ducks.clear(); retarget(m, b, ms);
+    for (const [k, h] of _holds) if (h.bus === name) _holds.delete(k);
+  },
+
+  /** A named, held duck: one per key. Holding an existing key moves it to the new amount; releaseHold lets it go. */
+  hold(key, name = 'music', amount = 0.55, ms = 120) {
+    const cur = _holds.get(key);
+    if (cur && cur.bus === name && Math.abs(cur.amount - amount) < 1e-3) return;
+    if (cur) cur.release(ms);
+    const release = Audio.duck(name, amount, ms);
+    _holds.set(key, { bus: name, amount, release });
+  },
+  releaseHold(key, ms = 400) { const h = _holds.get(key); if (!h) return; _holds.delete(key); h.release(ms); },
+  holding(key) { return _holds.has(key); },
+
+  /**
+   * Wire the mixer to the game's event bus (MUSIC-BIBLE §5): dialogue ducks the score to 0.55, a menu to 0.80.
+   * The game emits dialogue.start/dialogue.end (main.js) and menu.open/menu.close (ui/menu.js).
+   */
+  bindEvents(bus) {
+    if (!bus || typeof bus.on !== 'function') return () => {};
+    if (_bound.has(bus)) return _bound.get(bus);
+    const offs = [];
+    const on = (evt, fn) => { const off = bus.on(evt, (...a) => { try { fn(...a); } catch (e) { reportError('audio ' + evt, e); } }); if (typeof off === 'function') offs.push(off); };
+    on('dialogue.start', () => Audio.hold('dialogue', 'music', 0.55, 120));
+    on('dialogue.end', () => Audio.releaseHold('dialogue', 400));
+    on('menu.open', () => Audio.hold('menu', 'music', 0.8, 120));
+    on('menu.close', () => Audio.releaseHold('menu', 400));
+    const unbind = () => { for (const off of offs) { try { off(); } catch (_) {} } _bound.delete(bus); Audio.releaseHold('dialogue'); Audio.releaseHold('menu'); };
+    _bound.set(bus, unbind);
+    return unbind;
   },
 
   setSpace(name, ms = 350) {
@@ -438,6 +475,7 @@ export const Audio = {
       sampleRate: _ctx ? _ctx.sampleRate : 0,
       unlocked: !!_ctx && _ctx.state === 'running',
       volumes: { ..._vol }, ducks, pulses, space: _mix ? _mix.space : null,
+      holds: Object.fromEntries([..._holds].map(([k, h]) => [k, h.amount])), eventsBound: _bound.size > 0,
       peakDb: +Audio.peakDb().toFixed(1),
     };
   },

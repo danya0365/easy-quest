@@ -1,18 +1,21 @@
-{ "name": "critic P27 music — live jukebox, hero themes, stingers, errors",
-  "steps": [
-  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000},
-  {"wait": 600}, {"shot": "jukebox-boot"},
-  {"eval": "document.getElementById('wake').click()"}, {"wait": 300},
-  {"eval": "(__DQ.select('village'), __DQ.play('village', {fade: 0.2}))"}, {"wait": 4000}, {"shot": "live-village"},
-  {"assert": "__DQ.state().audio.theme === 'village' && __DQ.state().audio.voices > 0", "msg": "village sounds live"},
-  {"eval": "(__DQ.select('overworld'), __DQ.play('overworld', {fade: 1.2}))"}, {"wait": 12000}, {"shot": "live-overworld-A"},
-  {"assert": "__DQ.state().audio.theme === 'overworld' && __DQ.state().audio.voices > 0", "msg": "overworld sounds live"},
-  {"eval": "__DQ.stinger('battle_start')"}, {"wait": 5000}, {"shot": "live-battle"},
-  {"assert": "__DQ.state().audio.theme === 'battle'", "msg": "battle stinger chains into battle"},
-  {"eval": "__DQ.stinger('victory')"}, {"wait": 1500}, {"shot": "live-victory"},
-  {"eval": "__DQ.stinger('level_up')"}, {"wait": 1200},
-  {"eval": "__DQ.stinger('item_get')"}, {"wait": 1200},
-  {"eval": "__DQ.stinger('join')"}, {"wait": 1500}, {"shot": "live-stingers"},
-  {"assert": "__DQ.state().audio.voices <= 60", "msg": "voice budget holds under stacked stingers"},
-  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"}
-]}
+{
+ "name": "critic P27 a2r1 - the score: loop seams, loudness, fanfare length, live sample readiness",
+ "steps": [
+  { "waitFor": "window.__DQ && __DQ.ready", "timeout": 30000 },
+  { "waitFor": "document.querySelectorAll('#orch .ins').length >= 20", "timeout": 15000 },
+  { "eval": "(async () => { const { THEMES } = await import('/src/audio/score/index.js'); window.__crit = { overrun: Object.values(THEMES).filter(t => t.kind === 'loop').flatMap(t => t.events.filter(e => e.b >= t.introBeats + t.loopBeats - 1e-6).map(e => t.id + ':' + e.part + '@' + e.b)), victorySec: +THEMES.victory.lengthSec.toFixed(2) }; return window.__crit; })()" },
+  { "note": "village: log every flute/harp/pizz note the engine actually starts around the 58.18 s loop seam" },
+  { "eval": "(async () => { const { VOICES } = await import('/src/audio/instruments.js'); const log = []; const keep = {}; for (const v of ['flute','harp','pizz']) { keep[v] = VOICES[v]; VOICES[v] = (K, n, o) => { log.push([v, n.t, n.m]); return keep[v](K, n, o); }; } try { await __DQ.renderAudio('village', 61); } finally { Object.assign(VOICES, keep); } const near = (a, z) => log.filter(([, t]) => t >= a && t < z); const first = near(0, 1.0).map(([v, , m]) => v + m).sort(); const seam = near(58.1, 59.1).map(([v, , m]) => v + m).sort(); window.__crit.seamFirst = first; window.__crit.seamAfterLoop = seam; window.__crit.seamPickupPresent = ['flute74','harp55','pizz43'].every(k => seam.includes(k)); return { first, seam }; })()" },
+  { "eval": "(async () => { const b = await __DQ.renderAudio('tension', 40); let pk = 0; for (let c = 0; c < b.numberOfChannels; c++) { const d = b.getChannelData(c); for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > pk) pk = a; } } window.__crit.tensionPeakDb = +(20 * Math.log10(pk)).toFixed(2); return window.__crit.tensionPeakDb; })()" },
+  { "eval": "(__DQ.select('village'), __DQ.play('village', {fade: 0.2}))" },
+  { "waitFor": "__DQ.state().audio.playing === 'village'", "timeout": 20000 },
+  { "wait": 2500 },
+  { "shot": "jukebox-village" },
+  { "assert": "window.__crit.overrun.length === 0", "msg": "no score event starts at or after its loop end (village flute tail overruns bar 32 and the engine then skips the loop's first bar)" },
+  { "assert": "window.__crit.seamPickupPresent === true", "msg": "after the village loop seam the A pickup (flute D5, harp G3, pizz G2) actually sounds, as it does on the first pass" },
+  { "assert": "window.__crit.tensionPeakDb <= -1", "msg": "tension is not riding the limiter at 0 dBFS (it is the loudest cue in the score)" },
+  { "assert": "window.__crit.victorySec <= 7", "msg": "victory fanfare is a jingle, not an 11 s piece the player waits through" },
+  { "assert": "__DQ.samples().errors === 0", "msg": "every sample fetched and decoded" },
+  { "assert": "__DQ.errors.length === 0", "msg": "no runtime errors" }
+ ]
+}

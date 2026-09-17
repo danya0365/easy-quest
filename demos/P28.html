@@ -96,11 +96,15 @@ function ensureMusic() {
   return musicReady;
 }
 
-window.__DQ = { ready: false, errors: [], version: 'P28-r8' };
+window.__DQ = { ready: false, errors: [], version: 'P28-r9' };
 const $ = (s) => document.querySelector(s);
 const pretty = (id) => id.replace(/^amb_/, '').replace(/^footstep_/, '').replace(/^text_/, 'text: ').replace(/_/g, ' ');
 
 Audio.init();
+// The game's event bus, in miniature: the demo's dialogue goes through the same path as the game's (main.js emits
+// dialogue.start / dialogue.end; Audio.bindEvents turns them into the MUSIC-BIBLE §5 duck).
+const demoBus = (() => { const L = new Map(); return { on(e, fn) { if (!L.has(e)) L.set(e, new Set()); L.get(e).add(fn); return () => L.get(e).delete(fn); }, emit(e, p) { for (const fn of [...(L.get(e) || [])]) fn(p); } }; })();
+Audio.bindEvents(demoBus);
 let selected = null, lastPlayed = null, walking = null, walkTimer = 0, typing = 0, selfTest = null, talkRelease = null, musicTheme = null, fightTimers = [], hitCheckResult = null;
 const allEntries = () => [...document.querySelectorAll('.entry')];
 
@@ -153,12 +157,13 @@ for (const k of Object.keys(LINES)) $('#talk').insertAdjacentHTML('beforeend', `
 for (const m of ['grass', 'dirt', 'stone', 'wood', 'snow']) $('#walk').insertAdjacentHTML('beforeend', `<button class="entry" data-walk="${m}">${m}</button>`);
 $('#walk').insertAdjacentHTML('beforeend', `<button class="entry" data-walk="">stop</button>`);
 
-function endTalk() { if (talkRelease) { talkRelease(400); talkRelease = null; } }
+function endTalk() { if (talkRelease) { talkRelease(); talkRelease = null; } }
 function talk(who) {
   const line = LINES[who], my = ++typing;
   let i = 0;
   endTalk();
-  talkRelease = Audio.duck('music', 0.55, 120); // dialogue open: MUSIC-BIBLE §5
+  demoBus.emit('dialogue.start', { speaker: who }); // -> Audio.bindEvents: music to 0.55 (MUSIC-BIBLE §5)
+  talkRelease = () => { demoBus.emit('dialogue.end', { speaker: who }); Sfx.textDone(); };
   const step = () => {
     if (my !== typing) return; // cancelled or replaced: whoever cancelled already released the duck
     i++;
@@ -394,6 +399,123 @@ async function hitCheck(ids) {
   return hitCheckResult;
 }
 
+// ---- menus and text over the music ---------------------------------------------------------------------------------
+/** Glyph times for a line typed like src/ui/text.js: 35 glyphs/s, spaces at 0.45 of a glyph, pauses after punctuation. */
+function typedTimes(line, t0 = 1, gps = 35) {
+  const PAUSE = { ',': 0.1, ';': 0.12, ':': 0.12, '.': 0.24, '!': 0.24, '?': 0.24 }, out = [];
+  let t = t0;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i], space = ch === ' ';
+    if (!space && /[\p{L}\p{N}]/u.test(ch) && (!out.length || t - out[out.length - 1] >= 0.022)) out.push(t);
+    t += (space ? 0.45 : 1) / gps;
+    if (!space && PAUSE[ch] && (line[i + 1] === ' ' || i === line.length - 1)) t += PAUSE[ch];
+  }
+  return out;
+}
+/**
+ * A line of dialogue typed over a theme, as the game plays it: the ticks at text.js pace in that speaker's voice, and
+ * the music held down by the typing duck (Sfx.glyph: 0.7 over 120 ms, held until 2.5 s after the last glyph).
+ */
+async function renderTalk(theme, who, seconds = 8, o = {}) {
+  const M = await import('/src/audio/music.js');
+  const need = theme ? await musicNeed(theme) : [];
+  const [id, pitch] = Sfx.speakers()[who] || Sfx.speakers().narrator;
+  const times = typedTimes(LINES[who] || LINES.halvard, 1.0);
+  const buf = await Audio.renderOffline(async (octx, dest) => {
+    if (need.length) { try { const { Sampler } = await import('/src/audio/sampler.js'); await Sampler.load(octx, need); } catch (e) { __DQ.errors.push('samples: ' + e); } }
+    const m = M.createMusic();
+    m.init({ ctx: octx, output: dest.bus('music'), reverbSend: dest.reverbSend, quality: 'high' });
+    for (let k = 1; k * 0.2 < seconds + 0.25; k++) octx.suspend(k * 0.2).then(() => { try { m._pump(); } catch (_) {} octx.resume(); }).catch(() => {});
+    if (theme) m.play(theme, { fade: 0, at: 0.02 });
+    m._pump();
+    if (who !== '-') {
+      const last = times[times.length - 1];
+      dest.duckPulse('music', 0.7, { at: times[0], attack: 0.12, hold: last - times[0] + 2.5, release: 0.7 });
+      if (!o.noTicks) times.forEach((t, i) => Sfx.renderInto(id, dest, t, { variant: i + 1, pitch }));
+    }
+    return m;
+  }, seconds, { sampleRate: 48000 });
+  buf.times = times;
+  return buf;
+}
+
+// K-weighted power prefix sums (BS.1770 filters, L+R), optional 4th-order 250 Hz high-pass first (a small speaker)
+function kSum(buf, tv) {
+  const fs = buf.sampleRate;
+  const ch = [0, Math.min(1, buf.numberOfChannels - 1)].map((c) => { let x = buf.getChannelData(c); if (tv) x = hpf(hpf(x, fs, 250, 0.5412), fs, 250, 1.3066); return hpf(shelfK(x, fs), fs, 38.13, 0.5003); });
+  const cs = new Float64Array(buf.length + 1);
+  for (let i = 0; i < buf.length; i++) cs[i + 1] = cs[i] + ch[0][i] * ch[0][i] + ch[1][i] * ch[1][i];
+  return { cs, fs };
+}
+const kWin = (K, a, w) => { const s0 = Math.max(0, Math.round(a * K.fs)), s1 = Math.min(K.cs.length - 1, s0 + Math.round(w * K.fs)); return -0.691 + 10 * Math.log10((K.cs[s1] - K.cs[s0]) / Math.max(1, s1 - s0) + 1e-12); };
+const kMax = (K, a, b, w, hop = 0.005) => { let m = -120; for (let s = a; s + w <= b + 1e-9; s += hop) m = Math.max(m, kWin(K, s, w)); return m; };
+const LAG = 0.012; // the output trails the schedule by the glue's and the limiter's look-ahead (6 + 6 ms)
+
+let uiCheckResult = null;
+const UI_BLIPS = ['cursor', 'confirm', 'cancel', 'buzzer'], UI_TICKS = ['text_high', 'text_low', 'text_monster'];
+/**
+ * Can a child hear the menus and the text over the music? For each blip and tick, landing every 0.9 s on P27's town
+ * and battle themes (the true mix, dips included), against the same render with no effect:
+ *   pop     the most the effect raises the music's loudness in any 50 ms window while it sounds (K-weighted, t..t+150 ms)
+ *   onset   the same for its own first 50 ms
+ *   region  the critic a2r1 figure: loudest 50 ms of the mix over [t-50, t+350] ms minus the loudest of the music alone
+ * plus each effect's own loudness (max 50 / 100 ms) against a sword hit's, the buzzer's small-speaker loss, the kill
+ * against the swing, and a typed line of dialogue in every voice over the town theme with the typing duck on.
+ */
+async function uiCheck() {
+  const SECS = 9, T = []; for (let t = 1; t <= SECS - 1.5 + 1e-9; t += 0.9) T.push(+t.toFixed(2));
+  const med = (a) => { const q = a.slice().sort((x, y) => x - y); return q[Math.floor(q.length / 2)]; };
+  const solo = {};
+  for (const id of [...UI_BLIPS, ...UI_TICKS, 'sword_hit', 'monster_defeat']) {
+    const rows = [];
+    for (const v of [1, 2, 3]) { const b = await Sfx.render(id, 1.5, { variant: v, sampleRate: 48000 }); const K = kSum(b, false), KT = kSum(b, true);
+      rows.push({ l50: kMax(K, 0, 1.5, 0.05), l100: kMax(K, 0, 1.5, 0.1), tvLoss: kMax(K, 0, 1.5, 0.4) - kMax(KT, 0, 1.5, 0.4) }); }
+    solo[id] = { l50: r1(Math.max(...rows.map(r => r.l50))), l100: r1(Math.max(...rows.map(r => r.l100))), tvLoss: r1(med(rows.map(r => r.tvLoss))) };
+  }
+  const mix = {};
+  for (const theme of ['town', 'battle']) {
+    const KB = kSum(await renderMix(theme, [], SECS), false);
+    for (const id of [...UI_BLIPS, ...UI_TICKS]) {
+      const KM = kSum(await renderMix(theme, [id], SECS, T), false);
+      const pop = [], onset = [], region = [];
+      for (const t of T) {
+        let m = -99; for (let s = t; s <= t + 0.15 + 1e-9; s += 0.005) m = Math.max(m, kWin(KM, s, 0.05) - kWin(KB, s, 0.05));
+        pop.push(r1(m));
+        onset.push(r1(kWin(KM, t + LAG, 0.05) - kWin(KB, t + LAG, 0.05)));
+        region.push(r1(Math.max(0, kMax(KM, t - 0.05, t + 0.35, 0.05, 0.01) - kMax(KB, t - 0.05, t + 0.35, 0.05, 0.01))));
+      }
+      mix[`${theme}+${id}`] = { popMedian: med(pop), popMin: Math.min(...pop), onsetMedian: med(onset), regionMedian: med(region), pop, region };
+    }
+  }
+  // dialogue: a line typed in each kind of voice over the town theme, as heard in the game (typing duck on): each tick's
+  // lift over the same ducked music without it, and the typed line's loudness against the theme on its own
+  const alone = kSum(await renderTalk('town', '-', 7), false), talkRows = {};
+  for (const who of ['willow', 'halvard', 'bobble']) {
+    const buf = await renderTalk('town', who, 7), K = kSum(buf, false), KD = kSum(await renderTalk('town', who, 7, { noTicks: true }), false), lifts = [];
+    for (const t of buf.times) { let m = -99; for (let s = t; s <= t + 0.03 + 1e-9; s += 0.005) m = Math.max(m, kWin(K, s, 0.05) - kWin(KD, s, 0.05)); lifts.push(m); }
+    const a = buf.times[0], b = buf.times[buf.times.length - 1];
+    talkRows[who] = { ticks: lifts.length, tickLiftMedian: r1(med(lifts)), tickLiftP10: r1(lifts.slice().sort((x, y) => x - y)[Math.floor(lifts.length * 0.1)]),
+      lineLoudness: r1(kWin(K, a, b - a)), duckedMusic: r1(kWin(KD, a, b - a)), musicAlone: r1(kWin(alone, a, b - a)) };
+  }
+  // the bar
+  const hit = solo.sword_hit.l100, fails = [];
+  for (const id of UI_BLIPS) if (solo[id].l100 > hit - 5) fails.push(`${id}: ${solo[id].l100} LUFS is within 5 LU of a sword hit (${hit})`);
+  for (const id of UI_TICKS) if (solo[id].l100 > hit - 5) fails.push(`${id}: ${solo[id].l100} LUFS is within 5 LU of a sword hit`);
+  for (const [k, r] of Object.entries(mix)) {
+    if (r.popMedian < 3) fails.push(`${k}: lifts the music only ${r.popMedian} LU (median)`);
+    if (r.popMin < 2) fails.push(`${k}: one landed only ${r.popMin} LU over the music`);
+  }
+  for (const [who, r] of Object.entries(talkRows)) {
+    if (r.tickLiftP10 < 3) fails.push(`talk ${who}: 1 tick in 10 lifts the ducked music under ${r.tickLiftP10} LU`);
+    if (r.lineLoudness > r.musicAlone + 3) fails.push(`talk ${who}: the typed line (${r.lineLoudness}) is more than 3 LU over the music (${r.musicAlone})`);
+  }
+  if (solo.buzzer.tvLoss > 3) fails.push(`buzzer loses ${solo.buzzer.tvLoss} dB on a small speaker`);
+  if (solo.monster_defeat.l100 < hit - 0.5) fails.push(`monster_defeat (${solo.monster_defeat.l100}) is quieter than a hit (${hit})`);
+  const dips = {}; for (const id of ['cursor', 'confirm']) { const r = await __DQ.dipProbe(id); dips[id] = r.minDip; if (!(r.minDip <= 0.85 && r.recovered > 0.95)) fails.push(`${id}: music dip ${r.minDip}`); }
+  uiCheckResult = { ok: fails.length === 0, fails, swordHitL100: hit, solo, mix, talk: talkRows, dips };
+  return uiCheckResult;
+}
+
 // ---- the critic API ------------------------------------------------------------------------------------------------
 const SEQ = { text_high: 1 / 38, text_low: 1 / 38, text_monster: 1 / 38, cursor: 0.12, footstep_grass: 0.42, footstep_dirt: 0.42, footstep_stone: 0.42, footstep_wood: 0.42, footstep_snow: 0.42, gold_coins: 0.9, sword_hit: 0.7 };
 Object.assign(window.__DQ, {
@@ -404,6 +526,17 @@ Object.assign(window.__DQ, {
   unlock: () => Audio.unlock(),
   select: (id) => { const el = document.querySelector(`[data-id="${id}"],[data-amb="${id}"]`); select(el, true); return !!el; },
   talk: (who) => talk(who), walk: (m) => walk(m),
+  /** The game-side typing duck with no dialogue event at all (what happens if nothing else ducks the music): */
+  typeProbe: async () => {
+    Audio.unlock(); endTalk(); Sfx.textDone(0);
+    for (let i = 0; i < 12; i++) { Sfx.glyph('willow'); await new Promise(r => setTimeout(r, 30)); }
+    await new Promise(r => setTimeout(r, 250));
+    const during = { duck: Audio.state().ducks.music, typingDuck: Sfx.state().typingDuck };
+    Sfx.textDone(100); await new Promise(r => setTimeout(r, 300));
+    return { during, after: { duck: Audio.state().ducks.music, typingDuck: Sfx.state().typingDuck } };
+  },
+  uiCheck: () => uiCheck(),
+  uiCheckResult: () => uiCheckResult,
   setVolume: (b, v) => { Audio.setVolume(b, v); const el = $('#v-' + b); if (el) { el.value = Math.round(v * 100); $('#o-' + b).textContent = el.value; } },
   fight: () => fight(),
   /** Play an effect live and watch the music bus for 600 ms: {minDip, recovered} (minDip 0.5 = -6 dB). */
@@ -423,11 +556,14 @@ Object.assign(window.__DQ, {
    *               '<amb_id>' renders the live chain (variants crossfaded, never exactly repeating)
    * 'mix:<theme>+<id>&<id>'  the TRUE mix: P27's theme on this mixer's music bus with the effects landing on it
    *               every 0.9 s from 1.0 s (music dips included). 'mix:battle' alone = the music bus with no effects.
+   * 'talk:<theme>+<speaker>'  a line of dialogue typed over the theme as the game plays it: ticks at text.js pace in
+   *               that speaker's voice (willow, halvard, bobble, ...), the music held down by the typing duck.
    */
   renderAudio: (id, seconds) => {
     if (id.startsWith('seq:')) { const real = id.slice(4); return Sfx.render(real, seconds, { every: SEQ[real] || 0.5 }); }
     if (id.startsWith('var:')) { const [, real, v] = id.split(':'); return Sfx.render(real, seconds, { variant: Number(v) }); }
     if (id.startsWith('loop:')) { const [, real, v = 0] = id.split(':'); return Sfx.render(real, seconds, { single: true, variant: Number(v) }); }
+    if (id.startsWith('talk:')) { const [theme, who = 'willow'] = id.slice(5).split('+'); return renderTalk(theme, who, seconds || 7); }
     if (id.startsWith('mix:')) { const [theme, fx = ''] = id.slice(4).split('+'); return renderMix(theme, fx.split(/[,&]/).filter(Boolean), seconds || 8); }
     return Sfx.render(id, seconds);
   },
@@ -469,6 +605,8 @@ Object.assign(window.__DQ, {
     selected: selected ? (selected.dataset.id || selected.dataset.amb || selected.textContent) : null,
     lastPlayed, walking, music: musicTheme, musicEngine: MusicMod ? MusicMod.Music.state() : null, errors: __DQ.errors.length,
     selfTest: selfTest ? { ok: selfTest.ok, count: selfTest.count, failures: selfTest.failures.length } : null,
+    uiCheck: uiCheckResult ? { ok: uiCheckResult.ok, fails: uiCheckResult.fails, swordHitL100: uiCheckResult.swordHitL100,
+      blips: Object.fromEntries(Object.entries(uiCheckResult.mix).map(([k, r]) => [k, [r.popMedian, r.popMin, r.regionMedian]])), talk: uiCheckResult.talk } : null,
     hitCheck: hitCheckResult ? { ok: hitCheckResult.ok, fails: hitCheckResult.fails, busMedian: hitCheckResult.busMedian, envelopeCorrelation: hitCheckResult.envelopeCorrelation,
       rows: hitCheckResult.rows.map(r => [r.id, { overBusTV: r.overBusTV, mixLiftTV: r.mixLiftTV, snapAtMs: r.snapAtMs, snapOverBodyDb: r.snapOverBodyDb, bodyDrop10Ms: r.bodyDrop10Ms }]) } : null,
   }),

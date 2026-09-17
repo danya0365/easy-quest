@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-17T16:05:27.716Z",
+  "updated": "2026-09-17T16:20:10.694Z",
   "wave": 1,
   "waveTitle": "Smooth + Wave B (camera, sky/terrain, props, buildings+Puddlewick, dialogue+NPCs, battle scene, menus+HUD, title)",
   "pieces": {
@@ -148,24 +148,36 @@
     },
     "P07": {
       "id": "P07",
-      "status": "building",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
+      "status": "iterating",
+      "score": 62,
+      "best": 62,
+      "rounds": 1,
+      "gap": "Adults have no Toriyama faces: dot eyes, no brows, faceted small heads; Halvard a blue box, not a shaggy bear - rebuild adult head/face kit starting with Halvard",
       "note": "first build done",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-17T16:15:26.799Z",
+          "score": 62,
+          "gap": "Adults have no Toriyama faces: dot eyes, no brows, faceted small heads; Halvard a blue box, not a shaggy bear - rebuild adult head/face kit starting with Halvard"
+        }
+      ],
       "name": "Character models"
     },
     "P08": {
       "id": "P08",
-      "status": "building",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
+      "status": "iterating",
+      "score": 65,
+      "best": 65,
+      "rounds": 1,
+      "gap": "Talk is near-static (mouth rarely opens, no brows, no beat gestures); wave reads as face-rub; props glued and clipping",
       "note": "first build done",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-17T16:15:26.843Z",
+          "score": 65,
+          "gap": "Talk is near-static (mouth rarely opens, no brows, no beat gestures); wave reads as face-rub; props glued and clipping"
+        }
+      ],
       "name": "Character animation"
     },
     "P09": {
@@ -226,16 +238,21 @@
     "P14": {
       "id": "P14",
       "status": "iterating",
-      "score": 50,
-      "best": 50,
-      "rounds": 1,
-      "gap": "Difficulty is flat then a wall: 60-90% of fights 1 round/0 dmg, bosses 1-8 won first try even 4 Lv under; Mortmain/Malgrim never beaten by a mash kid in 20 tries at S=100. Tune to arrival level.",
+      "score": 66,
+      "best": 66,
+      "rounds": 2,
+      "gap": "Attack-only kid walls in Act III: bosses at design Lv from full HP win 46-63%; bruised, with no retry help, mean 3-9 tries (max 18 Hush+Hark). The 6.1.6 door helper exists only in journey.mjs - build it into src (2nd boss wipe: full heal + herbs)",
       "note": "first build done",
       "history": [
         {
           "at": "2026-09-17T13:56:16.568Z",
           "score": 50,
           "gap": "Difficulty is flat then a wall: 60-90% of fights 1 round/0 dmg, bosses 1-8 won first try even 4 Lv under; Mortmain/Malgrim never beaten by a mash kid in 20 tries at S=100. Tune to arrival level."
+        },
+        {
+          "at": "2026-09-17T16:19:04.342Z",
+          "score": 66,
+          "gap": "Attack-only kid walls in Act III: bosses at design Lv from full HP win 46-63%; bruised, with no retry help, mean 3-9 tries (max 18 Hush+Hark). The 6.1.6 door helper exists only in journey.mjs - build "
         }
       ],
       "name": "Battle core"
@@ -293,16 +310,21 @@
     "P19": {
       "id": "P19",
       "status": "iterating",
-      "score": 45,
-      "best": 45,
-      "rounds": 1,
-      "gap": "Levels don't matter: flee-everything kid beats 8 bosses 2-7 Lv under on boss EXP alone; walker +3 Lv in Act I, -3 in Act III, hits Lv30 cap in final dungeon; Mend 29%->17% of HP",
+      "score": 56,
+      "best": 56,
+      "rounds": 2,
+      "gap": "Grind valve shut: x0.2 EXP over curve + Lv30 cap. 3x fights = +1 Lv; no-heal masher caps ~29.5 by the Abbey, then 9 tries (max 18) at Hush+Hark, hard wall on a 2x Highfeather walk at Lv30. Floor keel at 0.6, cap 40",
       "note": "first build done: growth.js (six personalities + Lantern, templates, guests, learnsets) and formulas.js; 51 tests; sim over every area",
       "history": [
         {
           "at": "2026-09-17T13:56:16.683Z",
           "score": 45,
           "gap": "Levels don't matter: flee-everything kid beats 8 bosses 2-7 Lv under on boss EXP alone; walker +3 Lv in Act I, -3 in Act III, hits Lv30 cap in final dungeon; Mend 29%->17% of HP"
+        },
+        {
+          "at": "2026-09-17T16:19:04.377Z",
+          "score": 56,
+          "gap": "Grind valve shut: x0.2 EXP over curve + Lv30 cap. 3x fights = +1 Lv; no-heal masher caps ~29.5 by the Abbey, then 9 tries (max 18) at Hush+Hark, hard wall on a 2x Highfeather walk at Lv30. Floor keel "
         }
       ],
       "name": "Stats, growth, level-up ceremony"
@@ -386,17 +408,22 @@
     },
     "P27": {
       "id": "P27",
-      "status": "building",
-      "score": 0,
+      "status": "iterating",
+      "score": 56,
       "best": 56,
-      "rounds": 1,
-      "gap": "strings+horns (58% of all note-time) are lowpassed saw stacks: swap them for real multisampled string & horn sections (e.g. VSCO-2 CE, CC0) in the same engine",
+      "rounds": 2,
+      "gap": "Accompaniment is generated, not composed: melody doubled in octaves over block pads + one arpeggio/root-fifth pattern for whole pieces, no countermelodies (village: 32 bars of the same harp figure, empty phrase-end bars). Hand-write answering counter-lines. Also: village loop drops its first bar every repeat.",
       "note": "first build done — score now played by real recorded multisamples (VSCO 2 CE, VCSL CC0; Iowa MIS horn), 26 instruments, 24.8 MB, all 27 cues peak -1.6..-2.4 dBFS, no clipping/dropouts",
       "history": [
         {
           "at": "2026-09-17T14:23:09.788Z",
           "score": 56,
           "gap": "strings+horns (58% of all note-time) are lowpassed saw stacks: swap them for real multisampled string & horn sections (e.g. VSCO-2 CE, CC0) in the same engine"
+        },
+        {
+          "at": "2026-09-17T16:20:10.694Z",
+          "score": 56,
+          "gap": "Accompaniment is generated, not composed: melody doubled in octaves over block pads + one arpeggio/root-fifth pattern for whole pieces, no countermelodies (village: 32 bars of the same harp figure, em"
         }
       ],
       "name": "Music — the symphonic score"

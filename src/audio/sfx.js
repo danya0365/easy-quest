@@ -10,11 +10,15 @@
  *   Sfx.ambience(id|null, {fade}) crossfade the one ambience bed (amb_meadow|amb_town|amb_cave|amb_night). A bed is a
  *                              chain of 3 differently seeded variants of a seamless loop, crossfaded, so it never
  *                              repeats exactly (render(id, s, {single:true}) renders one variant looped, for seams)
- *   Sfx.glyph(charId)          text tick in that speaker's voice (rate-limited; call once per typed glyph)
+ *   Sfx.glyph(charId)          text tick in that speaker's voice (rate-limited; call once per typed glyph). Holds the
+ *                              music down while text types (the typing duck, 0.7); Sfx.textDone() lets it go at once
  *   Sfx.state()                -> {voices, last:[ids], ambience, played}
  *
  * Every play re-rolls small pitch / level / filter / timing offsets from `variant` (or Math.random when
  * omitted) so repeats never sound robotic. Aliases: gold, whoosh, search, footstep {material}, text {voice}.
+ *
+ * Menu blips (cursor, confirm, cancel, buzzer) sit at music level, 5+ LU under a hit, and dip the music ~3 dB for 15 ms;
+ * glyph ticks a little under them. See MENU & TEXT.
  *
  * Impacts (sword_hit, sword_crit, monster_hurt, player_hurt) open on a sharp, flat-topped snap that peaks 1 ms in,
  * ~9-10 dB over a body that is each one's own pitched sound and falls 10 dB within ~25-37 ms; see BATTLE below. Each
@@ -137,7 +141,8 @@ function makeEnv(realCtx, busNode, sendNode, d, opts, rng, T) {
   const E = { ctx, keep, t: T, r: rng, end: T, srcs: [], d, opts, sr: ctx.sampleRate, post: null };
   E.rr = (a, b) => a + (b - a) * rng();
   E.pick = (arr) => arr[Math.floor(rng() * arr.length) % arr.length];
-  const semis = (opts.pitch != null && opts.pitch > 0 ? 12 * Math.log2(opts.pitch) : 0) + (rng() * 2 - 1) * (d.pj ?? 0.3);
+  // d.detune (cents) moves a whole sound off the tempered scale: see MENU & TEXT
+  const semis = (opts.pitch != null && opts.pitch > 0 ? 12 * Math.log2(opts.pitch) : 0) + (rng() * 2 - 1) * (d.pj ?? 0.3) + (d.detune ?? 0) / 100;
   E.P = Math.pow(2, semis / 12);
   E.fj = 1 + (rng() * 2 - 1) * (d.fj ?? 0.07);
   E.tj = d.tj ?? 0.004;
@@ -385,52 +390,77 @@ function resolve(id, opts = {}) {
 
 // =================================================================================================================
 // MENU & TEXT  (ui / voice buses) — bright, short, chunky, the same every time give or take a hair
-S('cursor', { group: 'Menu & text', bus: 'ui', gain: 0.62, pj: 0.08, vj: 0.05, fj: 0.03, minGap: 0.022, poly: 3, desc: 'menu cursor blip' }, (E) => {
-  tone(E, { type: 'pulse25', f: 1318.5, f1: 1245, ft: 0.025, a: 0.001, d: 0.075, g: 0.2, filter: { type: 'lowpass', f: 3800, f1: 1900, ft: 0.05, Q: 0.6 } });
-  tone(E, { type: 'sine', f: 1318.5, f1: 1260, ft: 0.025, a: 0.001, d: 0.085, g: 0.34 });
-  tone(E, { type: 'triangle', f: 659.3, a: 0.001, d: 0.03, g: 0.16 });
+// LEVEL: a child presses these hundreds of times, over the music, so they sit right up AT music level: cursor, confirm,
+// cancel and buzzer peak at about -18 LUFS over 100 ms (the town / battle themes' median is -17 to -19.5), 5+ LU
+// under a sword hit (-12.8), with their energy packed into the first 50 ms so each one is a clear "tick" on top of the
+// score, not a smear. Each dips the music ~3 dB for 15 ms under its attack (`pulse`), like the hits. A glyph tick sits
+// a little under a blip (a line types 35 of them a second, so the running stream lands at about music level), and
+// while text types the music ducks (Sfx.glyph), so the chatter always reads. `__DQ.uiCheck()` on the P28 page measures it.
+// PITCH: blips and ticks sit a third of a semitone off the tempered scale (`detune`). Too short to hear as out of tune,
+// but a tick exactly on a note the score is holding (a G6 tick under a town theme in D) partly cancels against it:
+// measured, the same tick lifted the town theme 1.0-1.6 LU on G6 and 2.9-3.6 LU 3% either side.
+const BLIP_DIP = [0.7, 0.002, 0.015, 0.05], OFF_SCALE = 35;
+S('cursor', { group: 'Menu & text', bus: 'ui', detune: OFF_SCALE, gain: 1.7, pj: 0.08, vj: 0.05, fj: 0.03, minGap: 0.022, poly: 3, pulse: BLIP_DIP, desc: 'menu cursor blip' }, (E) => {
+  tone(E, { type: 'pulse25', f: 1318.5, f1: 1245, ft: 0.025, a: 0.001, d: 0.06, g: 0.24, filter: { type: 'lowpass', f: 4400, f1: 2000, ft: 0.04, Q: 0.6 } });
+  tone(E, { type: 'sine', f: 1318.5, f1: 1260, ft: 0.025, a: 0.001, d: 0.07, g: 0.34 });
+  tone(E, { type: 'triangle', f: 659.3, a: 0.001, d: 0.035, g: 0.2 });
+  // a hair of "tk" on the front, so the blip lands like a key, not a whistle
+  noise(E, { a: 0.0005, d: 0.006, g: 0.08, filters: [{ type: 'bandpass', f: 3200, Q: 1.2, nojit: true }] });
 });
 
-S('confirm', { group: 'Menu & text', bus: 'ui', gain: 0.66, pj: 0.08, vj: 0.05, fj: 0.03, minGap: 0.04, poly: 2, desc: 'pick it! (with a thunk)' }, (E) => {
-  tone(E, { type: 'pulse25', f: 1174.7, a: 0.001, d: 0.05, g: 0.17, filter: { type: 'lowpass', f: 4200, Q: 0.5 } });
-  tone(E, { type: 'sine', f: 1174.7, a: 0.001, d: 0.055, g: 0.3 });
-  tone(E, { t: 0.052, type: 'pulse25', f: 1760, a: 0.001, d: 0.17, g: 0.17, filter: { type: 'lowpass', f: 4800, f1: 2200, ft: 0.12, Q: 0.5 } });
-  tone(E, { t: 0.052, type: 'sine', f: 1760, a: 0.001, d: 0.19, g: 0.3 });
-  tone(E, { type: 'sine', f: 190, f1: 92, ft: 0.06, a: 0.001, d: 0.09, g: 0.55 });
-  noise(E, { a: 0.0008, d: 0.018, g: 0.1, filters: [{ type: 'lowpass', f: 1800 }] });
+S('confirm', { group: 'Menu & text', bus: 'ui', detune: OFF_SCALE, gain: 1.1, pj: 0.08, vj: 0.05, fj: 0.03, minGap: 0.04, poly: 2, pulse: BLIP_DIP, desc: 'pick it! (with a thunk)' }, (E) => {
+  tone(E, { type: 'pulse25', f: 1174.7, a: 0.001, d: 0.045, g: 0.19, filter: { type: 'lowpass', f: 4200, Q: 0.5 } });
+  tone(E, { type: 'sine', f: 1174.7, a: 0.001, d: 0.05, g: 0.32 });
+  tone(E, { t: 0.036, type: 'pulse25', f: 1760, a: 0.001, d: 0.1, g: 0.12, filter: { type: 'lowpass', f: 4800, f1: 2200, ft: 0.1, Q: 0.5 } });
+  tone(E, { t: 0.036, type: 'sine', f: 1760, a: 0.001, d: 0.12, g: 0.2 });
+  // the thunk: a round low knock, driven a touch so its upper harmonics still thunk on a telly speaker
+  tone(E, { type: 'sine', f: 190, f1: 92, ft: 0.06, a: 0.001, d: 0.08, g: 0.5, drive: 1.8, driveIn: 1.6, post: [{ type: 'lowpass', f: 1400, nojit: true }] });
+  noise(E, { a: 0.0008, d: 0.016, g: 0.12, filters: [{ type: 'lowpass', f: 1800 }] });
 });
 
-S('cancel', { group: 'Menu & text', bus: 'ui', gain: 0.62, pj: 0.08, vj: 0.05, fj: 0.03, minGap: 0.04, poly: 2, desc: 'back out, softly' }, (E) => {
-  tone(E, { type: 'triangle', f: 987.8, a: 0.001, d: 0.05, g: 0.3 });
-  tone(E, { type: 'pulse25', f: 987.8, a: 0.001, d: 0.04, g: 0.09, filter: { type: 'lowpass', f: 2600 } });
-  tone(E, { t: 0.055, type: 'triangle', f: 659.3, f1: 622, ft: 0.1, a: 0.001, d: 0.14, g: 0.34 });
-  tone(E, { t: 0.055, type: 'pulse25', f: 659.3, f1: 622, ft: 0.1, a: 0.001, d: 0.09, g: 0.08, filter: { type: 'lowpass', f: 2000 } });
-  tone(E, { t: 0.055, type: 'sine', f: 160, f1: 110, ft: 0.05, d: 0.06, g: 0.28 });
+S('cancel', { group: 'Menu & text', bus: 'ui', detune: OFF_SCALE, gain: 1.47, pj: 0.08, vj: 0.05, fj: 0.03, minGap: 0.04, poly: 2, pulse: BLIP_DIP, desc: 'back out, softly' }, (E) => {
+  tone(E, { type: 'triangle', f: 987.8, a: 0.001, h: 0.008, d: 0.04, g: 0.3 });
+  tone(E, { type: 'pulse25', f: 987.8, a: 0.001, h: 0.006, d: 0.032, g: 0.15, filter: { type: 'lowpass', f: 3400 } });
+  noise(E, { a: 0.0005, d: 0.006, g: 0.07, filters: [{ type: 'bandpass', f: 2800, Q: 1.2, nojit: true }] });
+  tone(E, { t: 0.038, type: 'triangle', f: 659.3, f1: 622, ft: 0.09, a: 0.001, d: 0.1, g: 0.32 });
+  tone(E, { t: 0.038, type: 'pulse25', f: 659.3, f1: 622, ft: 0.09, a: 0.001, d: 0.07, g: 0.1, filter: { type: 'lowpass', f: 2600 } });
+  tone(E, { t: 0.038, type: 'sine', f: 160, f1: 110, ft: 0.05, d: 0.05, g: 0.22 });
 });
 
-S('buzzer', { group: 'Menu & text', bus: 'ui', gain: 0.32, pj: 0.05, vj: 0.04, minGap: 0.2, poly: 1, desc: "can't do that — bu-bup" }, (E) => {
-  for (const t of [0, 0.125]) {
-    tone(E, { t, type: 'softsq', f: 155.6, a: 0.003, h: 0.07, d: 0.045, g: 0.3, filter: { type: 'lowpass', f: 1300, Q: 0.8 } });
-    tone(E, { t, type: 'sawtooth', f: 146.8, a: 0.003, h: 0.07, d: 0.04, g: 0.1, filter: { type: 'lowpass', f: 900 } });
-    tone(E, { t, type: 'sine', f: 77.8, a: 0.003, h: 0.07, d: 0.045, g: 0.35 });
+// "bu-bup": a low, buzzy no. Two slightly detuned buzzes beat against each other (~9 Hz roughness), and the tone lives
+// in its harmonics (a nasal 700-1100 Hz band), not in a sub, so a telly speaker plays all of it.
+S('buzzer', { group: 'Menu & text', bus: 'ui', gain: 0.88, pj: 0.05, vj: 0.04, minGap: 0.2, poly: 1, pulse: BLIP_DIP, desc: "can't do that — bu-bup" }, (E) => {
+  for (const [t, k] of [[0, 1], [0.12, 0.9]]) {
+    tone(E, { t, type: 'sawtooth', f: 146.8, a: 0.004, h: 0.06, d: 0.035, g: 0.3 * k, filters: [{ type: 'lowpass', f: 2200, Q: 0.6, nojit: true }, { type: 'peaking', f: 900, Q: 1, gain: 7, nojit: true }, { type: 'highpass', f: 260, Q: 0.7, nojit: true }] });
+    tone(E, { t, type: 'softsq', f: 155.6, a: 0.004, h: 0.06, d: 0.035, g: 0.34 * k, filters: [{ type: 'lowpass', f: 1800, Q: 0.7, nojit: true }, { type: 'highpass', f: 260, Q: 0.7, nojit: true }] });
+    tone(E, { t, type: 'sine', f: 155.6, a: 0.004, h: 0.06, d: 0.035, g: 0.05 * k });
   }
 });
 
-S('text_high', { group: 'Menu & text', bus: 'voice', gain: 0.5, pj: 0.12, vj: 0.1, fj: 0.02, minGap: 0.018, poly: 3, desc: 'glyph tick — light voices (Willow, Sera, children)' }, (E) => {
-  tone(E, { type: 'sine', f: 1568, a: 0.001, d: 0.03, g: 0.4 });
-  tone(E, { type: 'pulse25', f: 1568, a: 0.001, d: 0.018, g: 0.07, filter: { type: 'lowpass', f: 3500 } });
+// Glyph ticks: a tactile "tk" (a flick of band-passed noise) on a short pitched body that holds ~6 ms before it falls,
+// ~20 ms of energy in all. Never a bare sine: a pure tone at a pitch the score is playing can cancel against it.
+S('text_high', { group: 'Menu & text', bus: 'voice', detune: OFF_SCALE + 5, gain: 1.2, pj: 0.12, vj: 0.1, fj: 0.02, minGap: 0.018, poly: 3, desc: 'glyph tick — light voices (Willow, Sera, children)' }, (E) => {
+  noise(E, { a: 0.0005, d: 0.007, g: 0.14, filters: [{ type: 'bandpass', f: 2600, Q: 1, nojit: true }] });
+  tone(E, { type: 'sine', f: 1568, a: 0.001, h: 0.005, d: 0.028, g: 0.3 });
+  tone(E, { type: 'pulse25', f: 1568, a: 0.001, h: 0.005, d: 0.02, g: 0.11, filter: { type: 'lowpass', f: 4000 } });
+  tone(E, { type: 'triangle', f: 784, a: 0.001, d: 0.016, g: 0.12 });
 });
 
-S('text_low', { group: 'Menu & text', bus: 'voice', gain: 0.55, pj: 0.12, vj: 0.1, fj: 0.02, minGap: 0.018, poly: 3, desc: 'glyph tick — deep voices (Halvard, Barty, the Bishop)' }, (E) => {
-  tone(E, { type: 'triangle', f: 392, a: 0.001, d: 0.042, g: 0.5 });
-  tone(E, { type: 'pulse25', f: 392, a: 0.001, d: 0.026, g: 0.1, filter: { type: 'lowpass', f: 1600 } });
-  tone(E, { type: 'sine', f: 784, a: 0.001, d: 0.02, g: 0.12 });
+S('text_low', { group: 'Menu & text', bus: 'voice', detune: OFF_SCALE + 5, gain: 1.38, pj: 0.12, vj: 0.1, fj: 0.02, minGap: 0.018, poly: 3, desc: 'glyph tick — deep voices (Halvard, Barty, the Bishop)' }, (E) => {
+  noise(E, { a: 0.0005, d: 0.008, g: 0.14, filters: [{ type: 'bandpass', f: 1500, Q: 1, nojit: true }] });
+  tone(E, { type: 'triangle', f: 392, a: 0.001, h: 0.006, d: 0.036, g: 0.36 });
+  tone(E, { type: 'pulse25', f: 392, a: 0.001, h: 0.005, d: 0.026, g: 0.16, filter: { type: 'lowpass', f: 2400 } });
+  tone(E, { type: 'sine', f: 784, a: 0.001, d: 0.022, g: 0.14 });
 });
 
-S('text_monster', { group: 'Menu & text', bus: 'voice', gain: 0.55, pj: 1.4, vj: 0.14, minGap: 0.018, poly: 3, desc: 'glyph tick — monster gabble (Bobble, Pip)' }, (E) => {
-  const fp = [[0.012, 370], [0.045, 280]];
-  tone(E, { type: 'pulse25', f: 294, fp, a: 0.002, d: 0.05, g: 0.2, filter: { type: 'bandpass', f: 900, Q: 1.2 } });
-  tone(E, { type: 'triangle', f: 294, fp, a: 0.002, d: 0.055, g: 0.32 });
+// Monsters gabble: every glyph a little rising "bwip" through a vowel that opens (a moving formant), at a random pitch,
+// so it never sounds like a person's tick.
+S('text_monster', { group: 'Menu & text', bus: 'voice', gain: 2.2, pj: 1.6, vj: 0.14, minGap: 0.018, poly: 3, desc: 'glyph tick — monster gabble (Bobble, Pip)' }, (E) => {
+  const fp = [[0.018, 470], [0.045, 390]];
+  noise(E, { a: 0.0006, d: 0.008, g: 0.1, filters: [{ type: 'bandpass', f: 1200, Q: 1, nojit: true }] });
+  tone(E, { type: 'pulse25', f: 250, fp, a: 0.003, h: 0.004, d: 0.05, g: 0.34, filters: [{ type: 'bandpass', f: 700, fp: [[0.03, 1700]], Q: 2.2 }] });
+  tone(E, { type: 'sine', f: 250, fp, a: 0.003, d: 0.045, g: 0.3 });
+  tone(E, { type: 'sine', f: 1500, f1: 2300, ft: 0.02, a: 0.002, d: 0.02, g: 0.07 });
 });
 
 S('map_open', { group: 'Menu & text', bus: 'ui', gain: 1.0, send: 0.12, pj: 0.3, desc: 'unfold the map' }, (E) => {
@@ -444,26 +474,31 @@ S('map_open', { group: 'Menu & text', bus: 'ui', gain: 1.0, send: 0.12, pj: 0.3,
 
 // =================================================================================================================
 // FIELD
-S('door_open', { group: 'Field', gain: 0.85, send: 0.07, pj: 0.6, desc: 'latch, creak, swing, bump' }, (E) => {
+S('door_open', { group: 'Field', gain: 1.07, send: 0.07, pj: 0.6, desc: 'latch, creak, swing, bump' }, (E) => {
   noise(E, { a: 0.0008, d: 0.02, g: 0.5, filters: [{ type: 'bandpass', f: 3200, Q: 2 }] });
   tone(E, { type: 'square', f: 1850, a: 0.0008, d: 0.012, g: 0.05, filter: { type: 'lowpass', f: 5000 } });
   tone(E, { t: 0.012, type: 'sine', f: 420, f1: 300, ft: 0.03, d: 0.045, g: 0.25 });
   creak(E, { t: 0.05, dur: 0.34, f: 34, f1: 58, g: 0.55, res: [760, 1480], Q: 7 });
-  noise(E, { t: 0.05, color: 'pink', a: 0.12, d: 0.3, g: 0.12, filters: [{ type: 'lowpass', f: 700 }] });
-  tone(E, { t: 0.43, type: 'sine', f: 120, f1: 70, ft: 0.08, d: 0.15, g: 0.5 });
-  noise(E, { t: 0.43, a: 0.001, d: 0.05, g: 0.2, filters: [{ type: 'lowpass', f: 900 }] });
+  noise(E, { t: 0.05, color: 'pink', a: 0.12, d: 0.3, g: 0.1, filters: [{ type: 'bandpass', f: 520, Q: 0.7 }] });
+  // the bump as it swings to: a low thud, driven so its harmonics carry it on a small speaker, and a wooden knock
+  tone(E, { t: 0.43, type: 'sine', f: 120, f1: 70, ft: 0.08, d: 0.14, g: 0.3, drive: 2.2, driveIn: 1.4, post: [{ type: 'lowpass', f: 1100, nojit: true }] });
+  tone(E, { t: 0.43, type: 'triangle', f: 260, f1: 180, ft: 0.05, a: 0.001, d: 0.07, g: 0.2 });
+  noise(E, { t: 0.43, a: 0.001, d: 0.05, g: 0.4, filters: [{ type: 'bandpass', f: 650, Q: 1.2 }, { type: 'lowpass', f: 1500, nojit: true }] });
 });
 
-S('door_locked', { group: 'Field', gain: 0.85, send: 0.05, pj: 0.5, desc: "rattle rattle — it won't budge" }, (E) => {
+S('door_locked', { group: 'Field', gain: 1.32, send: 0.05, pj: 0.5, desc: "rattle rattle — it won't budge" }, (E) => {
   [0, 0.075, 0.15].forEach((t, i) => {
     t += E.rr(-0.006, 0.006);
     noise(E, { t, a: 0.0008, d: 0.03, g: 0.45 - i * 0.08, filters: [{ type: 'bandpass', f: 2400, Q: 3 }] });
     tone(E, { t, type: 'sine', f: 1320 * E.rr(0.97, 1.03), a: 0.0008, d: 0.025, g: 0.07 });
-    tone(E, { t, type: 'sine', f: 170, f1: 130, ft: 0.03, d: 0.055, g: 0.35 });
+    // the door shaking in its frame: a knock with its harmonics (the "dk" a telly still plays)
+    tone(E, { t, type: 'sine', f: 170, f1: 130, ft: 0.03, d: 0.05, g: 0.2, drive: 2, driveIn: 1.4, post: [{ type: 'lowpass', f: 1200, nojit: true }] });
+    noise(E, { t, a: 0.0008, d: 0.03, g: 0.22 - i * 0.04, filters: [{ type: 'bandpass', f: 720, Q: 1.5 }] });
   });
-  tone(E, { t: 0.27, type: 'sine', f: 140, f1: 85, ft: 0.1, d: 0.17, g: 0.55 });
-  tone(E, { t: 0.27, type: 'triangle', f: 196, f1: 150, ft: 0.1, d: 0.1, g: 0.16 });
-  noise(E, { t: 0.27, d: 0.06, g: 0.2, filters: [{ type: 'lowpass', f: 700 }] });
+  // ...and the last heavy shove: THUD
+  tone(E, { t: 0.27, type: 'sine', f: 140, f1: 85, ft: 0.1, d: 0.15, g: 0.25, drive: 2.2, driveIn: 1.5, post: [{ type: 'lowpass', f: 1000, nojit: true }] });
+  tone(E, { t: 0.27, type: 'triangle', f: 280, f1: 170, ft: 0.08, d: 0.09, g: 0.3 });
+  noise(E, { t: 0.27, d: 0.07, g: 0.42, filters: [{ type: 'bandpass', f: 600, Q: 1 }, { type: 'lowpass', f: 1400, nojit: true }] });
 });
 
 S('stairs', { group: 'Field', gain: 0.8, send: 0.08, pj: 0.4, desc: 'tap-tap-tap down (opts.up for climbing)' }, (E, o) => {
@@ -488,20 +523,25 @@ S('pot_search', { group: 'Field', gain: 0.8, send: 0.06, pj: 0.8, desc: 'rock th
   noise(E, { t: 0.16, color: 'pink', a: 0.05, h: 0.1, d: 0.15, g: 0.08, filters: [{ type: 'bandpass', f: 900, Q: 1.5 }] });
 });
 
-S('barrel_search', { group: 'Field', gain: 0.8, send: 0.06, pj: 0.7, desc: 'knock-knock, lid up, rummage' }, (E) => {
+S('barrel_search', { group: 'Field', gain: 1.25, send: 0.06, pj: 0.7, desc: 'knock-knock, lid up, rummage' }, (E) => {
   for (const [t, g] of [[0, 0.55], [0.11, 0.4]]) {
-    tone(E, { t, type: 'sine', f: 175, f1: 140, ft: 0.05, d: 0.15, g });
-    tone(E, { t, type: 'triangle', f: 352, d: 0.05, g: g * 0.3 });
-    noise(E, { t, d: 0.03, g: g * 0.4, filters: [{ type: 'bandpass', f: 700, Q: 2.5 }] });
+    // a hollow knock on the stave: the barrel's low "dom", driven so its overtones ring, and the wood's own ring
+    tone(E, { t, type: 'sine', f: 175, f1: 140, ft: 0.05, d: 0.13, g: g * 0.48, drive: 2, driveIn: 1.4, post: [{ type: 'lowpass', f: 1300, nojit: true }] });
+    tone(E, { t, type: 'triangle', f: 352, d: 0.06, g: g * 0.45 });
+    tone(E, { t, type: 'sine', f: 540 * E.rr(0.97, 1.03), d: 0.05, g: g * 0.22 });
+    noise(E, { t, d: 0.03, g: g * 0.55, filters: [{ type: 'bandpass', f: 700, Q: 2.5 }] });
   }
   creak(E, { t: 0.2, dur: 0.14, f: 60, f1: 75, g: 0.18, res: [1100], Q: 8 });
   grains(E, { t: 0.24, span: 0.26, count: 10, fLo: 800, fHi: 2000, Q: 2.5, dLo: 0.008, dHi: 0.025, gLo: 0.08, gHi: 0.22 });
 });
 
-S('bump_wall', { group: 'Field', gain: 0.38, pj: 0.6, minGap: 0.14, poly: 1, desc: 'bumf — walked into something' }, (E) => {
-  tone(E, { type: 'sine', f: 125, f1: 68, ft: 0.07, a: 0.001, d: 0.12, g: 0.9 });
-  tone(E, { type: 'pulse25', f: 88, f1: 60, ft: 0.05, d: 0.06, g: 0.2, filter: { type: 'lowpass', f: 450 } });
-  noise(E, { d: 0.025, g: 0.22, filters: [{ type: 'lowpass', f: 700 }] });
+S('bump_wall', { group: 'Field', gain: 0.77, pj: 0.6, minGap: 0.14, poly: 1, desc: 'bumf — walked into something' }, (E) => {
+  // a round low bump, driven so its harmonics (250-900 Hz) still say "bumf" on a small speaker
+  tone(E, { type: 'sine', f: 125, f1: 68, ft: 0.07, a: 0.001, d: 0.1, g: 0.34, drive: 2.4, driveIn: 1.6, post: [{ type: 'lowpass', f: 1000, nojit: true }] });
+  tone(E, { type: 'pulse25', f: 88, f1: 60, ft: 0.05, d: 0.06, g: 0.2, filter: { type: 'lowpass', f: 900 } });
+  // and the soft "f" of a shoulder meeting plaster: a dull knock in the low mids
+  tone(E, { type: 'triangle', f: 260, f1: 150, ft: 0.05, a: 0.001, d: 0.06, g: 0.34 });
+  noise(E, { d: 0.04, g: 0.56, filters: [{ type: 'bandpass', f: 520, Q: 0.9 }, { type: 'lowpass', f: 1400, nojit: true }] });
 });
 
 S('splash', { group: 'Field', gain: 0.85, send: 0.1, pj: 0.8, desc: 'plunge, spray, droplets' }, (E) => {
@@ -514,14 +554,15 @@ S('splash', { group: 'Field', gain: 0.85, send: 0.1, pj: 0.8, desc: 'plunge, spr
   }
 });
 
-S('wagon_rattle', { group: 'Field', gain: 0.8, send: 0.08, pj: 0.5, desc: "Papa's wagon: wheels, boards, hooves, harness bells" }, (E) => {
+S('wagon_rattle', { group: 'Field', gain: 1.12, send: 0.08, pj: 0.5, desc: "Papa's wagon: wheels, boards, hooves, harness bells" }, (E) => {
   const D = 1.9;
-  noise(E, { color: 'brown', a: 0.15, h: D - 0.45, d: 0.3, g: 0.55, filters: [{ type: 'lowpass', f: 200 }], am: { rate: 2.35, depth: 0.4 } });
+  noise(E, { color: 'brown', a: 0.15, h: D - 0.45, d: 0.3, g: 0.22, filters: [{ type: 'lowpass', f: 200 }], am: { rate: 2.35, depth: 0.4 } });
+  noise(E, { color: 'pink', a: 0.15, h: D - 0.45, d: 0.3, g: 0.14, filters: [{ type: 'bandpass', f: 420, Q: 0.9 }], am: { rate: 4.7, depth: 0.5 } });
   for (let k = 0; k < 4; k++) {
     for (const [side, off] of [[-0.45, 0], [0.45, 0.19]]) {
       const t = 0.12 + k * 0.43 + off + E.rr(-0.02, 0.02);
       if (t > D - 0.1) continue;
-      tone(E, { t, type: 'sine', f: E.rr(160, 190), f1: 110, ft: 0.04, d: 0.08, g: 0.38, pan: side });
+      tone(E, { t, type: 'sine', f: E.rr(160, 190), f1: 110, ft: 0.04, d: 0.08, g: 0.3, pan: side, drive: 2, driveIn: 1.4, post: [{ type: 'lowpass', f: 1200, nojit: true }] });
       noise(E, { t, d: 0.035, g: 0.18, pan: side, filters: [{ type: 'bandpass', f: 900, Q: 2 }] });
     }
   }
@@ -547,10 +588,11 @@ S('footstep_grass', { ...STEP, gain: 0.62, desc: 'shff' }, (E) => {
   grains(E, { t: 0.004, span: 0.05, count: 5, fLo: 3000, fHi: 7000, Q: 1.2, dLo: 0.003, dHi: 0.008, gLo: 0.05, gHi: 0.15 });
   tone(E, { type: 'sine', f: 95, f1: 60, ft: 0.04, d: 0.05, g: 0.2 });
 });
-S('footstep_dirt', { ...STEP, gain: 0.43, desc: 'thup, gritty' }, (E) => {
-  tone(E, { type: 'sine', f: 115, f1: 62, ft: 0.05, d: 0.08, g: 0.55 });
-  noise(E, { a: 0.002, d: 0.07, g: 0.35, filters: [{ type: 'lowpass', f: 1600 }, { type: 'highpass', f: 180 }] });
-  grains(E, { t: 0.002, span: 0.045, count: 6, fLo: 1800, fHi: 4200, Q: 1.5, dLo: 0.003, dHi: 0.007, gLo: 0.05, gHi: 0.14 });
+S('footstep_dirt', { ...STEP, gain: 0.7, desc: 'thup, gritty' }, (E) => {
+  tone(E, { type: 'sine', f: 115, f1: 62, ft: 0.05, d: 0.07, g: 0.3 });
+  // the scuff of a sole on packed earth: a broad, soft band sliding down, and grit
+  noise(E, { a: 0.003, d: 0.08, g: 0.5, filters: [{ type: 'bandpass', f: 900, f1: 500, ft: 0.06, Q: 0.7 }, { type: 'highpass', f: 220, nojit: true }] });
+  grains(E, { t: 0.004, span: 0.06, count: 8, fLo: 1600, fHi: 4200, Q: 1.3, dLo: 0.003, dHi: 0.008, gLo: 0.06, gHi: 0.18 });
 });
 S('footstep_stone', { ...STEP, gain: 0.7, send: 0.06, desc: 'tak' }, (E) => {
   noise(E, { a: 0.0006, d: 0.014, g: 0.55, filters: [{ type: 'bandpass', f: 3000, Q: 1.3 }] });
@@ -558,8 +600,10 @@ S('footstep_stone', { ...STEP, gain: 0.7, send: 0.06, desc: 'tak' }, (E) => {
   tone(E, { type: 'sine', f: 190, f1: 150, ft: 0.02, d: 0.035, g: 0.35 });
 });
 S('footstep_wood', { ...STEP, gain: 0.37, send: 0.05, desc: 'tonk, hollow boards' }, (E) => {
-  tone(E, { type: 'sine', f: 160, f1: 118, ft: 0.04, d: 0.09, g: 0.55 });
-  tone(E, { type: 'triangle', f: 330, f1: 300, ft: 0.03, d: 0.05, g: 0.2 });
+  tone(E, { type: 'sine', f: 160, f1: 118, ft: 0.04, d: 0.08, g: 0.42, drive: 1.8, driveIn: 1.3, post: [{ type: 'lowpass', f: 1000, nojit: true }] });
+  // the board rings: two hollow, pitched modes (this is what makes it wood and not earth)
+  tone(E, { type: 'triangle', f: 330, f1: 300, ft: 0.03, d: 0.07, g: 0.3 });
+  tone(E, { type: 'sine', f: 610 * E.rr(0.96, 1.04), a: 0.001, d: 0.06, g: 0.2 });
   noise(E, { a: 0.0008, d: 0.03, g: 0.3, filters: [{ type: 'bandpass', f: 1100, Q: 3 }] });
   if (E.r() < 0.25) creak(E, { t: 0.02, dur: 0.09, f: 70, f1: 90, g: 0.08, res: [1250], Q: 9 });
 });
@@ -593,7 +637,8 @@ S('chest_open', { group: 'Treasure', gain: 1.0, send: 0.06, pj: 0.3, vj: 0.05, d
 /** A wooden lid landing on a wooden box: the box's hollow modes ringing briefly, a low knock, a puff of dull noise. */
 function lid(E, t, k) {
   for (const [f, d, g] of [[176, 0.16, 0.34], [398, 0.11, 0.26], [742, 0.07, 0.16], [1210, 0.045, 0.1]]) {
-    tone(E, { t, type: 'sine', f: f * E.rr(0.97, 1.03), f1: f * 0.94, ft: 0.03, a: 0.0008, d, g: g * k });
+    // each mode starts a hair apart (a real box's modes never all start in phase): same knock, ~3 dB less peak
+    tone(E, { t: t + E.rr(0, 0.0025), type: 'sine', f: f * E.rr(0.97, 1.03), f1: f * 0.94, ft: 0.03, a: 0.0008, d, g: g * k });
   }
   tone(E, { t, type: 'triangle', f: 260, f1: 130, ft: 0.05, a: 0.001, d: 0.1, g: 0.2 * k });
   noise(E, { t, a: 0.0008, d: 0.06, g: 0.3 * k, filters: [{ type: 'bandpass', f: 520, Q: 0.9 }, { type: 'lowpass', f: 1800, nojit: true }] });
@@ -746,7 +791,7 @@ S('monster_hurt', { ...IMPACT, gain: 0.81, send: 0.015, pj: 0.9, vj: 0.06, fj: 0
   tone(E, { t: yt, type: 'pulse25', f: 950 * y, fp: yfp, a: 0.025, d: yd * 0.68, g: 0.1, filter: { type: 'lowpass', f: 2600 } });
 });
 
-S('monster_defeat', { pulse: [0.5, 0.004, 0.25, 0.3], group: 'Battle', gain: 1.0, send: 0.14, pj: 0.4, desc: 'the poof: pop, a vanishing swoosh, three falling notes' }, (E) => {
+S('monster_defeat', { pulse: [0.5, 0.004, 0.25, 0.3], group: 'Battle', gain: 1.72, send: 0.14, pj: 0.4, desc: 'the poof: pop, a vanishing swoosh, three falling notes' }, (E) => {
   // pop: a round upward blip with a snap on it and a "bof" of weight underneath
   const len = 0.003;
   snap(E, 0, { g: 0.3, len, f: 1400, hp: 800, nlp: 4200, lp: 6000 });
@@ -854,7 +899,7 @@ function boltCrack(E, t, k = 1, f = 520) {
   grains(E, { t, span: 0.1 * k, count: Math.round(9 * k), fLo: 260, fHi: 950, Q: 2.4, dLo: 0.008, dHi: 0.022, gLo: 0.2 * k, gHi: 0.4 * k, fade: true });
 }
 
-S('lightning', { pulse: [0.5, 0.01, 0.4, 0.45], group: 'Magic', gain: 1.35, sat: 0.55, satOut: 1.1, send: 0.3, pj: 0.6, desc: 'Zapple: bzzt — CRACK — rumble' }, (E) => {
+S('lightning', { pulse: [0.5, 0.01, 0.4, 0.45], group: 'Magic', gain: 1.35, sat: 0.55, satOut: 0.78, send: 0.3, pj: 0.6, desc: 'Zapple: bzzt — CRACK — rumble' }, (E) => {
   tone(E, { type: 'sawtooth', f: 62, a: 0.01, h: 0.03, d: 0.06, g: 0.22, filters: [{ type: 'bandpass', f: 1800, Q: 1.5 }], am: { rate: 47, depth: 0.9 } });
   noise(E, { a: 0.01, h: 0.02, d: 0.06, g: 0.1, filters: [{ type: 'bandpass', f: 3500, Q: 2 }], am: { rate: 53, depth: 0.9 } });
   const t = 0.07;
@@ -1288,6 +1333,18 @@ function playLoop(d, opts) {
   return handle;
 }
 
+// The typing duck (see Sfx.glyph). Named hold 'typing' on the music bus.
+const TYPING = { depth: 0.7, attackMs: 120, holdMs: 2500, releaseMs: 700 };
+let typingTimer = 0;
+function typingDuck() {
+  try {
+    if (!Audio.ctx || Audio.holding('dialogue')) return; // the dialogue duck already has the music down
+    Audio.hold('typing', 'music', TYPING.depth, TYPING.attackMs);
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => { typingTimer = 0; Audio.releaseHold('typing', TYPING.releaseMs); }, TYPING.holdMs);
+  } catch (e) { reportError('typing duck', e); }
+}
+
 /** A quiet play dips the music less: depth scales with the requested volume. */
 function pulseDepth(amount, opts) { const v = clamp(opts.vol ?? 1, 0, 1); return 1 - (1 - amount) * v; }
 
@@ -1355,11 +1412,19 @@ export const Sfx = {
     } catch (e) { reportError('sfx ' + id, e); return null; }
   },
 
-  /** Text tick in a speaker's voice: Sfx.glyph('halvard'). Unknown speakers get the neutral high tick. */
+  /**
+   * Text tick in a speaker's voice: Sfx.glyph('halvard'). Unknown speakers get the neutral high tick.
+   * While text types, the music is held down (TYPING: to 0.7 over 120 ms, back over 700 ms once no glyph has come for
+   * 2.5 s, or at once on Sfx.textDone()). The ticks read over the score even where nothing else ducks it; when the
+   * game's dialogue duck (Audio.bindEvents: dialogue.start -> 0.55) is already holding the music, this adds nothing.
+   */
   glyph(speaker = 'narrator', opts = {}) {
     const [id, pitch] = SPEAKERS[speaker] || SPEAKERS.narrator;
+    if (!opts.noDuck) typingDuck();
     return Sfx.play(id, { ...opts, pitch: (opts.pitch ?? 1) * pitch });
   },
+  /** The text has finished (or was skipped / closed): let the typing duck go now. */
+  textDone(ms = TYPING.releaseMs) { clearTimeout(typingTimer); typingTimer = 0; Audio.releaseHold('typing', ms); },
   speakers() { return { ...SPEAKERS }; },
 
   /** Crossfade the single ambience bed. Sfx.ambience(null) fades it out. */
@@ -1384,6 +1449,7 @@ export const Sfx = {
     for (const v of active) stopVoice(v, ms);
     active = [];
     if (amb) { amb.handle && amb.handle.stop(ms); amb = null; }
+    Sfx.textDone(300);
   },
 
   list() { return ORDER.slice(); },
@@ -1458,7 +1524,7 @@ export const Sfx = {
     const ctx = Audio.ctx;
     if (ctx) prune(ctx.currentTime);
     const h = amb && amb.handle;
-    return { voices: active.length, played, last: recent.slice(-6), ambience: amb ? amb.id : null, ids: ORDER.length,
+    return { voices: active.length, played, last: recent.slice(-6), ambience: amb ? amb.id : null, ids: ORDER.length, typingDuck: Audio.holding('typing'),
       bed: h && h.loop ? { segments: h.k, last: h.last ?? null, next: h.next ?? null, scheduledAhead: h.gain && ctx ? +(h.nextAt - ctx.currentTime).toFixed(2) : 0 } : null };
   },
 };

@@ -1,78 +1,255 @@
 {
  "name": "critic P14/P19 a2r1 — a six-year-old mashing Enter through the real demo, carried fight to fight",
  "steps": [
-  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000},
-  {"eval": "(window.tap = () => { window.dispatchEvent(new KeyboardEvent('keydown',{code:'Enter',key:'Enter',bubbles:true})); window.dispatchEvent(new KeyboardEvent('keyup',{code:'Enter',key:'Enter',bubbles:true})); }, window.mash = async (cond, max = 800, d = 200) => { for (let i = 0; i < max; i++) { try { if (cond()) return i; } catch (e) {} window.tap(); await new Promise(r => setTimeout(r, d)); } return -1; }, 'ok')"},
-  {"note": "1. Game start: Long Lane, Lv1, fresh. Mash Enter only."},
-  {"eval": "(() => { __DQ.assist(0); __DQ.battle('long_lane', {level: 1, seed: 424242}); return __DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp); })()"},
-  {"wait": 2500},
-  {"shot": "first-fight-open"},
-  {"eval": "mash(() => __DQ.state().battle.turn >= 1 && !__DQ.idle(), 40, 250)"},
-  {"wait": 700},
-  {"shot": "first-fight-round1-hits"},
-  {"eval": "mash(() => ['victory','defeat','fled'].includes(__DQ.state().battle.phase), 200, 250)"},
-  {"wait": 1800},
-  {"shot": "first-fight-tally"},
-  {"eval": "JSON.stringify({rounds: __DQ.state().battle.turn, res: (({outcome,exp,gold,rounds}) => ({outcome,exp,gold,rounds}))(__DQ.state().snapshot.result), party: __DQ.state().party})"},
-  {"eval": "__DQ.log(20).join(' | ')"},
-  {"note": "2. Keep mashing: Enter on the end menu = Another fight. Stop at the first level-up."},
-  {"eval": "mash(() => __DQ.log(60).some(l => l.startsWith('levelup')), 900, 200)"},
-  {"wait": 900},
-  {"shot": "first-levelup"},
-  {"wait": 1600},
-  {"shot": "first-levelup-b"},
-  {"eval": "JSON.stringify(__DQ.state().carried)"},
-  {"eval": "__DQ.log(14).join(' | ')"},
-  {"note": "3. Keep mashing Long Lane to see rhythm across ~6 more fights."},
-  {"eval": "(async () => { const out = []; for (let k = 0; k < 6; k++) { const f0 = __DQ.state().carried.fights; await mash(() => __DQ.state().carried.fights > f0, 400, 180); const s = __DQ.state(); out.push({f: s.carried.fights, r: s.snapshot.result && s.snapshot.result.rounds, o: s.snapshot.result && s.snapshot.result.outcome, exp: s.snapshot.result && s.snapshot.result.exp, lv: s.carried.levels.hero, hp: s.party.map(p => p.hp + '/' + p.mhp).join(',')}); } return JSON.stringify(out); })()"},
-  {"shot": "long-lane-after-8"},
-  {"note": "4. Mumbleroot at its design level (fresh, Lv7), mashing Enter."},
-  {"eval": "(() => { __DQ.battle('cobwell_manor', {boss: true, seed: 77}); return JSON.stringify(__DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp)); })()"},
-  {"wait": 2500},
-  {"shot": "mumbleroot-open"},
-  {"eval": "mash(() => __DQ.state().battle.turn >= 3, 300, 200)"},
-  {"wait": 600},
-  {"shot": "mumbleroot-r3"},
-  {"eval": "mash(() => __DQ.state().snapshot.enemies.some(e => e.telegraphing) || ['victory','defeat'].includes(__DQ.state().battle.phase), 400, 200)"},
-  {"wait": 900},
-  {"shot": "mumbleroot-telegraph"},
-  {"eval": "mash(() => ['victory','defeat'].includes(__DQ.state().battle.phase), 900, 200)"},
-  {"wait": 2200},
-  {"shot": "mumbleroot-end"},
-  {"eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party})"},
-  {"eval": "__DQ.log(16).join(' | ')"},
-  {"note": "5. Mumbleroot 4 levels under (Lv3), mash."},
-  {"eval": "(() => { __DQ.battle('cobwell_manor', {boss: true, level: 3, seed: 78}); return 'ok'; })()"},
-  {"eval": "mash(() => ['victory','defeat'].includes(__DQ.state().battle.phase), 900, 180)"},
-  {"wait": 2600},
-  {"shot": "mumbleroot-lv3-end"},
-  {"eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party, log: __DQ.log(8)})"},
-  {"note": "6. Act II Pelican Coast: mash until a monster asks to join."},
-  {"eval": "(() => { __DQ.battle('pelican_coast', {level: 12, seed: 9001}); return 'ok'; })()"},
-  {"eval": "mash(() => { const m = __DQ.state().ui.menu; return m && m.kind === 'recruit'; }, 2500, 160)"},
-  {"wait": 600},
-  {"shot": "recruit-offer"},
-  {"eval": "JSON.stringify(__DQ.state().carried)"},
-  {"eval": "__DQ.log(10).join(' | ')"},
-  {"note": "7. Late game Whistfell Abbey normal fight at Lv25, mash."},
-  {"eval": "(() => { __DQ.battle('whistfell_abbey', {level: 25, seed: 555}); return JSON.stringify(__DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp)); })()"},
-  {"wait": 2500},
-  {"shot": "abbey-open"},
-  {"eval": "mash(() => __DQ.state().battle.turn >= 1 && !__DQ.idle(), 40, 250)"},
-  {"wait": 900},
-  {"shot": "abbey-r1"},
-  {"eval": "mash(() => ['victory','defeat','fled'].includes(__DQ.state().battle.phase), 600, 200)"},
-  {"wait": 1800},
-  {"shot": "abbey-end"},
-  {"eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party, res: (({exp,gold}) => ({exp,gold}))(__DQ.state().snapshot.result)})"},
-  {"note": "8. Hush + Hark at design level 27, mash."},
-  {"eval": "(() => { __DQ.battle('whistfell_abbey', {boss: true, seed: 31}); return 'ok'; })()"},
-  {"wait": 2500},
-  {"shot": "hushhark-open"},
-  {"eval": "mash(() => ['victory','defeat'].includes(__DQ.state().battle.phase), 1500, 160)"},
-  {"wait": 2600},
-  {"shot": "hushhark-end"},
-  {"eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party})"},
-  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"}
+  {
+   "waitFor": "window.__DQ && __DQ.ready",
+   "timeout": 30000
+  },
+  {
+   "eval": "(window.tap = () => { window.dispatchEvent(new KeyboardEvent('keydown',{code:'Enter',key:'Enter',bubbles:true})); window.dispatchEvent(new KeyboardEvent('keyup',{code:'Enter',key:'Enter',bubbles:true})); }, window.mash = async (cond, max = 800, d = 200) => { for (let i = 0; i < max; i++) { try { if (cond()) return i; } catch (e) {} window.tap(); await new Promise(r => setTimeout(r, d)); } return -1; }, 'ok')"
+  },
+  {
+   "note": "1. Game start: Long Lane, Lv1, fresh. Mash Enter only."
+  },
+  {
+   "eval": "(() => { __DQ.assist(0); __DQ.battle('long_lane', {level: 1, seed: 424242}); return __DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp); })()"
+  },
+  {
+   "wait": 2500
+  },
+  {
+   "shot": "first-fight-open"
+  },
+  {
+   "eval": "mash(() => __DQ.state().battle.turn >= 1 && !__DQ.idle(), 40, 250)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "shot": "first-fight-round1-hits"
+  },
+  {
+   "eval": "mash(() => ['victory','defeat','fled'].includes(__DQ.state().battle.phase), 200, 250)"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "shot": "first-fight-tally"
+  },
+  {
+   "eval": "JSON.stringify({rounds: __DQ.state().battle.turn, res: (({outcome,exp,gold,rounds}) => ({outcome,exp,gold,rounds}))(__DQ.state().snapshot.result), party: __DQ.state().party})"
+  },
+  {
+   "eval": "__DQ.log(20).join(' | ')"
+  },
+  {
+   "note": "2. Keep mashing: Enter on the end menu = Another fight. Stop at the first level-up."
+  },
+  {
+   "eval": "mash(() => __DQ.log(60).some(l => l.startsWith('levelup')), 900, 200)"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "first-levelup"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "first-levelup-b"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().carried)"
+  },
+  {
+   "eval": "__DQ.log(14).join(' | ')"
+  },
+  {
+   "note": "3. Keep mashing Long Lane to see rhythm across ~6 more fights."
+  },
+  {
+   "eval": "(async () => { const out = []; for (let k = 0; k < 6; k++) { const f0 = __DQ.state().carried.fights; await mash(() => __DQ.state().carried.fights > f0, 400, 180); const s = __DQ.state(); out.push({f: s.carried.fights, r: s.snapshot.result && s.snapshot.result.rounds, o: s.snapshot.result && s.snapshot.result.outcome, exp: s.snapshot.result && s.snapshot.result.exp, lv: s.carried.levels.hero, hp: s.party.map(p => p.hp + '/' + p.mhp).join(',')}); } return JSON.stringify(out); })()"
+  },
+  {
+   "shot": "long-lane-after-8"
+  },
+  {
+   "note": "4. Mumbleroot at its design level (fresh, Lv7), mashing Enter."
+  },
+  {
+   "eval": "(() => { __DQ.battle('cobwell_manor', {boss: true, seed: 77}); return JSON.stringify(__DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp)); })()"
+  },
+  {
+   "wait": 2500
+  },
+  {
+   "shot": "mumbleroot-open"
+  },
+  {
+   "eval": "mash(() => __DQ.state().battle.turn >= 3, 300, 200)"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "shot": "mumbleroot-r3"
+  },
+  {
+   "eval": "mash(() => __DQ.state().snapshot.enemies.some(e => e.telegraphing) || ['victory','defeat'].includes(__DQ.state().battle.phase), 400, 200)"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "mumbleroot-telegraph"
+  },
+  {
+   "eval": "mash(() => ['victory','defeat'].includes(__DQ.state().battle.phase), 900, 200)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "mumbleroot-end"
+  },
+  {
+   "eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party})"
+  },
+  {
+   "eval": "__DQ.log(16).join(' | ')"
+  },
+  {
+   "note": "5. Mumbleroot 4 levels under (Lv3), mash."
+  },
+  {
+   "eval": "(() => { __DQ.battle('cobwell_manor', {boss: true, level: 3, seed: 78}); return 'ok'; })()"
+  },
+  {
+   "eval": "mash(() => ['victory','defeat'].includes(__DQ.state().battle.phase), 900, 180)"
+  },
+  {
+   "wait": 2600
+  },
+  {
+   "shot": "mumbleroot-lv3-end"
+  },
+  {
+   "eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party, log: __DQ.log(8)})"
+  },
+  {
+   "note": "6. Act II Pelican Coast: mash until a monster asks to join."
+  },
+  {
+   "eval": "(() => { __DQ.battle('pelican_coast', {level: 12, seed: 9001}); return 'ok'; })()"
+  },
+  {
+   "eval": "mash(() => { const m = __DQ.state().ui.menu; return m && m.kind === 'recruit'; }, 2500, 160)"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "shot": "recruit-offer"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().carried)"
+  },
+  {
+   "eval": "__DQ.log(10).join(' | ')"
+  },
+  {
+   "note": "7. Late game Whistfell Abbey normal fight at Lv25, mash."
+  },
+  {
+   "eval": "(() => { __DQ.battle('whistfell_abbey', {level: 25, seed: 555}); return JSON.stringify(__DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp)); })()"
+  },
+  {
+   "wait": 2500
+  },
+  {
+   "shot": "abbey-open"
+  },
+  {
+   "eval": "mash(() => __DQ.state().battle.turn >= 1 && !__DQ.idle(), 40, 250)"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "abbey-r1"
+  },
+  {
+   "eval": "mash(() => ['victory','defeat','fled'].includes(__DQ.state().battle.phase), 600, 200)"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "shot": "abbey-end"
+  },
+  {
+   "eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party, res: (({exp,gold}) => ({exp,gold}))(__DQ.state().snapshot.result)})"
+  },
+  {
+   "note": "8. Hush + Hark at design level 27, mash."
+  },
+  {
+   "eval": "(() => { __DQ.battle('whistfell_abbey', {boss: true, seed: 31}); return 'ok'; })()"
+  },
+  {
+   "wait": 2500
+  },
+  {
+   "shot": "hushhark-open"
+  },
+  {
+   "eval": "mash(() => ['victory','defeat'].includes(__DQ.state().battle.phase), 1500, 160)"
+  },
+  {
+   "wait": 2600
+  },
+  {
+   "shot": "hushhark-end"
+  },
+  {
+   "eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party})"
+  },
+  {
+   "note": "9. The level-up ceremony, frame by frame (two Toadstooligans at Lv1, mash)."
+  },
+  {
+   "eval": "(() => { __DQ.battle(\"long_lane\", {level: 1, seed: 1234, enemies: [\"toadstooligan\",\"toadstooligan\"]}); return \"ok\"; })()"
+  },
+  {
+   "eval": "mash(() => __DQ.log(80).some(l => l.startsWith(\"levelup\")), 400, 220)"
+  },
+  {
+   "burst": {
+    "name": "levelup-ceremony",
+    "count": 10,
+    "interval": 450
+   }
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "burst": {
+    "name": "levelup-late",
+    "count": 6,
+    "interval": 700
+   }
+  },
+  {
+   "eval": "__DQ.log(12).join(\" | \")"
+  },
+  {
+   "assert": "__DQ.errors.length === 0",
+   "msg": "no runtime errors"
+  }
  ]
 }
