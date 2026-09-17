@@ -4,9 +4,12 @@
 ## Hard rules
 1. **No build step.** Plain ES modules + the import map in `index.html`. `import * as THREE from 'three'` and
    `import {X} from 'three/addons/...'` both work. Never add bundlers, TypeScript, JSX, or npm runtime deps.
-2. **No external network at runtime.** No CDNs, no image/audio/font downloads. Every asset is **procedural**:
-   geometry built in code, textures drawn to `<canvas>`, audio synthesized with Web Audio, fonts = CSS system
-   stack or a canvas-drawn bitmap font. The game must run offline from `file`-less static hosting.
+2. **No external network at runtime.** No CDNs, no runtime downloads from other hosts. Art is **procedural**:
+   geometry built in code, textures drawn to `<canvas>`, fonts = CSS system stack or a canvas-drawn bitmap font.
+   **Exception — music instruments (owner decision 2026-09-17: "use real recorded instruments, like PS2"):**
+   the score plays through **real recorded, multisampled instruments** vendored locally under
+   `vendor/samples/<library>/` — see "Sampled instruments" below. SFX stay synthesised (they may reuse the
+   vendored instrument samples, e.g. a harp gliss or a bell). The game must still run offline from static hosting.
 3. **Never throw inside the frame loop.** Wrap risky work; push failures to `__DQ.errors` and keep rendering.
    A black screen is the single worst failure mode in this project.
 4. **60 fps at 1280x720 on integrated graphics.** Budget: < 400 draw calls, < 150k triangles on screen.
@@ -144,3 +147,19 @@ Bump `v` and write a migration if you change the shape.
 Every piece owns `demos/<ID>.html` and `scenarios/<ID>.json` — a standalone page that shows that piece at its
 best, in isolation, with `window.__DQ` exposed so a critic can drive it. Copy `demos/_TEMPLATE.html`.
 This is how a piece gets judged on its own. See `docs/HARNESS.md`.
+
+## Sampled instruments (music) — owner decision 2026-09-17
+- **Licence:** CC0 / public domain strongly preferred (e.g. VSCO-2 Community Edition, University of Iowa MIS).
+  MIT or CC-BY is acceptable only with the exact licence text copied in and an entry in `CREDITS.md`.
+  Never CC-BY-NC/ND, "free for personal use", Sampling Plus, or anything with unclear terms. Verify the licence
+  file itself, not a README claim.
+- **Location:** `vendor/samples/<library>/<instrument>/...` plus `vendor/samples/<library>/LICENSE*`, and a
+  generated manifest `vendor/samples/manifest.json` (instrument -> zones: root note, velocity layer, loop
+  start/end in samples, file, gain trim).
+- **Format:** must decode via `decodeAudioData` in Playwright's headless Chromium, Firefox and Safari. Looped
+  sustains must be sample-accurate (FLAC or WAV — never MP3/AAC for loops, their encoder padding breaks loop
+  points). One-shots (pizzicato, harp, harpsichord, timpani, percussion) may be MP3.
+- **Budget:** <= 30 MB for everything under `vendor/samples/`, mono where stereo adds nothing, trimmed tails,
+  zones every minor third (or every major third for a quiet voice), 1-3 velocity layers.
+- **Loading:** lazy per instrument, cached; the game never blocks on audio — a theme starts as soon as its
+  instruments are decoded, crossfading in. `Music.renderOffline` must use the same samples.

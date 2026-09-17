@@ -199,7 +199,7 @@ export const AREAS = [
     group: [1, 2], bag: { strong_herb: 6, fresh_herb: 1, honeycake: 1 },
   },
   {
-    id: 'whistfell_abbey', name: 'Whistfell Abbey', act: 3, beat: 'B24', leg: 10, tier: 5, areaLevel: 25, tableLvl: 25.25, hpMult: 0.8, levels: [24, 25, 26], wagonReachable: false,
+    id: 'whistfell_abbey', name: 'Whistfell Abbey', act: 3, beat: 'B24', leg: 10, tier: 5, areaLevel: 25, tableLvl: 24.5, hpMult: 0.9, levels: [24, 25, 26], wagonReachable: false,
     party: (L) => ACT3(L, { rowanOff: -1, linnetOff: -1, bram: W('halvards_greatsword', 'gleaming_plate', 'mirror_shield', 'wide_awake_crown', 'osrics_wooden_bird'),
       rowan: W('larksteel_sword', 'iron_armour', 'larksteel_shield', 'larksteel_helm'), linnet: W('ash_staff', 'larkweave_cloak', null, 'leather_cap'),
       barty: W('thunderfork', 'gleaming_plate', 'iron_shield', 'iron_helm'), extra: [['pip', -1], ['bobble', -2]] }),
@@ -208,7 +208,7 @@ export const AREAS = [
     boss: { enemies: ['hush', 'hark'], level: 26 },
   },
   {
-    id: 'quiet_deep', name: 'The Quiet Deep', act: 3, beat: 'B25', leg: 10, tier: 5, areaLevel: 26, tableLvl: 25, hpMult: 0.65, levels: [25, 26, 27], wagonReachable: false,
+    id: 'quiet_deep', name: 'The Quiet Deep', act: 3, beat: 'B25', leg: 10, tier: 5, areaLevel: 26, tableLvl: 24, hpMult: 0.8, levels: [25, 26, 27], wagonReachable: false,
     note: 'Queen Elowen has joined at the party\'s level (B24).',
     party: (L) => build([
       ['hero', 0, W('halvards_greatsword', 'gleaming_plate', 'dragon_scale_shield', 'wide_awake_crown', 'osrics_wooden_bird')],

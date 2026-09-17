@@ -637,8 +637,8 @@ function snap(E, t, o = {}) {
   pre.connect(ws); ws.connect(lp); lp.connect(out); out.connect(E.out);
   const h = o.h ?? 0.0006, d = o.d ?? 0.012;
   // band-limit the flick BEFORE the clipper: clipped white noise is mostly energy above the lowpass, all crest
-  noise(E, { t, a: 0.0003, h, d, g: o.ng ?? 1, to: pre, filters: [{ type: 'highpass', f: o.hp ?? 1000, nojit: true }, { type: 'lowpass', f: (o.lp ?? 7000) * 0.7, nojit: true }] });
-  tone(E, { t, type: 'sine', f, f1: f * 0.4, ft: 0.006, a: 0.0003, h, d, g: o.tg ?? 0.3, to: pre });
+  noise(E, { t, a: 0.0003, h, d, g: o.ng ?? 0.5, to: pre, filters: [{ type: 'highpass', f: o.hp ?? 1000, nojit: true }, { type: 'lowpass', f: (o.lp ?? 7000) * 0.7, nojit: true }] });
+  tone(E, { t, type: 'sine', f, f1: f * 0.4, ft: 0.006, a: 0.0003, h, d, g: o.tg ?? 1, to: pre });
   return T + h + d;
 }
 
@@ -658,7 +658,7 @@ function blade(E, t, k = 1, dir = 1, lo = 1) {
 }
 
 S('sword_hit', { group: 'Battle', gain: 1.0, send: 0.035, pj: 0.6, vj: 0.06, fj: 0.08, poly: 4,
-  pulse: [0.7, 0.003, 0.06, 0.18], desc: 'zush! a sharp snap, a bright swish and a thwack' }, (E) => {
+  pulse: [0.6, 0.003, 0.03, 0.14], desc: 'zush! a sharp snap, a bright swish and a thwack' }, (E) => {
   const dir = E.r() < 0.5 ? -1 : 1;
   snap(E, 0, { f: 2600 * E.rr(0.94, 1.08), hp: 1200, lp: 7500 });
   blade(E, 0, 1, dir);
@@ -1278,6 +1278,7 @@ const SPEAKERS = {
 
 // =================================================================================================================
 /** For measurement: a bare voice environment (no jitter) writing into `out` at time t. */
+export const _parts = { snap: (...a) => snap(...a), blade: (...a) => blade(...a) };
 export function _testEnv(ctx, out, t = 0) { return makeEnv(ctx, out, null, { gain: 1, pj: 0, vj: 0, fj: 0 }, {}, mulberry32(1), t); }
 
 export const Sfx = {

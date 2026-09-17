@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-17T14:45:35.435Z",
+  "updated": "2026-09-17T14:46:19.411Z",
   "wave": 0,
   "waveTitle": "Foundation (attempt 2) — canon + art direction + engine + vertical slice",
   "pieces": {
@@ -520,6 +520,10 @@
     {
       "at": "2026-09-17T14:44:56.929Z",
       "t": "Critic r1: P14 battle rules 50, P19 growth 45 (difficulty flat then a wall; levels don't matter), P27 music 56 (strings/horns sound like filtered saws), P28 SFX 62→62 (hits lack a transient snap)."
+    },
+    {
+      "at": "2026-09-17T14:46:19.411Z",
+      "t": "★ Owner approved the look & UI ('much prettier than the original — keep it'). Locked as floor: docs/approved/*.png, tag approved-look-v1."
     }
   ]
 }
