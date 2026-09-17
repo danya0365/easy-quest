@@ -1,4 +1,251 @@
-html,body{margin:0;height:100%;background:#000;overflow:hidden}
+/* ui.css — page chrome + the Dragon Quest window look.                       (F4, owner: src/ui/ui.css)
+ *
+ * UNITS. Every size is written in DESIGN PIXELS of a 1280x720 frame: calc(N * var(--u)).
+ * src/ui/window.js sets --u on .dq-ui from the real viewport (min(W/1280, H/720) * text scale), so the UI is
+ * identical at every resolution and P33 can scale it with UI.setScale(n).
+ *
+ * COLOUR. The --dq-* theme tokens on :root are all derived from palette.js (PAL.ui etc., published as --pal-* by
+ * applyCssVars(), which window.js calls at install). UI.setTheme({...}) can override any token at runtime.
+ * Page chrome below uses only CSS keywords.
+ */
+
+/* ── page chrome (index.html / demos) ─────────────────────────────────────────────────────────────────────── */
+html,body{margin:0;height:100%;background:black;overflow:hidden}
 #game-root{position:fixed;inset:0}
 #game-canvas{display:block;width:100%;height:100%}
 #ui-root{position:absolute;inset:0;pointer-events:none}
+
+/* ── theme ─────────────────────────────────────────────────────────────────────────────────────────────────── */
+:root{
+  --dq-font: "Arial Rounded MT Bold", "Arial Rounded MT", ui-rounded, "Nunito", "Varela Round", "Quicksand",
+             "Trebuchet MS", "Verdana", system-ui, sans-serif;
+  --dq-num-font: var(--dq-font);
+
+  /* Every colour below is DERIVED from the palette (src/art/palette.js PAL.ui and friends), which window.js publishes
+     as --pal-* custom properties via applyCssVars(). This file contains no colour literals of its own. */
+
+  /* the window: deep blue, lighter at the top */
+  --dq-win-top: color-mix(in srgb, var(--pal-ui-win-top) 80%, var(--pal-ui-mp));
+  --dq-win-mid: color-mix(in srgb, var(--pal-ui-win-top) 55%, var(--pal-ui-win-bottom));
+  --dq-win-bot: color-mix(in srgb, var(--pal-ui-win-bottom) 78%, var(--pal-ui-shadow));
+  --dq-win-sheen: color-mix(in srgb, var(--pal-ui-text) 11%, transparent);
+  --dq-edge: var(--pal-ui-border);                                                         /* thick pale border */
+  --dq-edge-low: color-mix(in srgb, var(--pal-ui-border) 88%, var(--pal-ui-border-shade));  /* its lower edge: a hint of bevel */
+  --dq-hair: color-mix(in srgb, var(--pal-ui-text-dim) 52%, transparent);                   /* the inner hairline */
+  --dq-rim: color-mix(in srgb, var(--pal-ui-border-shade) 72%, transparent);                /* dark line outside the border + gap inside */
+  --dq-drop: color-mix(in srgb, var(--pal-ui-shadow) 40%, transparent);                     /* soft drop shadow */
+
+  /* ink */
+  --dq-ink: var(--pal-ui-text);
+  --dq-ink-shadow: color-mix(in srgb, var(--pal-ui-shadow) 88%, transparent);
+  --dq-dim: color-mix(in srgb, var(--pal-ui-text-dim) 60%, var(--pal-ui-win-top));          /* disabled entries */
+  --dq-label: var(--pal-ui-text-dim);                                                        /* small labels (H / M / Lv / G) */
+  --dq-title-ink: color-mix(in srgb, var(--pal-cloth-cream) 80%, var(--pal-ui-gold));        /* title tabs, speaker names */
+
+  /* inline text colours ({gold} {red} ...) */
+  --dq-gold: var(--pal-ui-gold);
+  --dq-red: var(--pal-ui-danger);
+  --dq-green: var(--pal-ui-hp);
+  --dq-blue: var(--pal-ui-mp);
+  --dq-pink: var(--pal-flower-pink);
+  --dq-purple: color-mix(in srgb, var(--pal-cloth-purple) 55%, var(--pal-ui-text));
+  --dq-grey: color-mix(in srgb, var(--pal-ui-text-dim) 82%, var(--pal-ui-win-top));
+  --dq-orange: var(--pal-flower-center);
+
+  /* names F2's touch skin (src/engine/input.js) looks for, so the on-screen buttons match these windows */
+  --dq-win-edge: var(--dq-edge);
+  --dq-win-line: var(--dq-hair);
+  --dq-win-hi: color-mix(in srgb, var(--pal-ui-win-top) 60%, var(--pal-ui-mp));
+
+  /* sizes (design px) */
+  --dq-text: 33;      /* dialogue */
+  --dq-menu: 30;      /* menus */
+  --dq-small: 22;
+}
+
+/* ── layer ─────────────────────────────────────────────────────────────────────────────────────────────────── */
+.dq-ui{
+  --u: 1px;
+  position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:10;
+  font-family: var(--dq-font); color: var(--dq-ink);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  user-select:none; -webkit-user-select:none;
+}
+.dq-ui *{box-sizing:border-box}
+
+/* ── the window ────────────────────────────────────────────────────────────────────────────────────────────── */
+.dq-win{
+  position:absolute;
+  padding: calc(20 * var(--u)) calc(26 * var(--u));
+  font-size: calc(var(--dq-menu) * var(--u));
+  line-height: 1.42;
+  letter-spacing: .035em;
+  white-space: nowrap;
+  color: var(--dq-ink);
+  text-shadow: 0 calc(2.2 * var(--u)) 0 var(--dq-ink-shadow), 0 0 calc(2 * var(--u)) var(--dq-ink-shadow);
+  background: linear-gradient(180deg, var(--dq-win-top) 0%, var(--dq-win-mid) 46%, var(--dq-win-bot) 100%);
+  border: calc(5 * var(--u)) solid var(--dq-edge);
+  border-bottom-color: var(--dq-edge-low);
+  border-radius: calc(15 * var(--u));
+  box-shadow:
+    0 0 0 calc(1.6 * var(--u)) var(--dq-rim),
+    inset 0 0 0 calc(2.2 * var(--u)) var(--dq-rim),
+    0 calc(9 * var(--u)) calc(22 * var(--u)) var(--dq-drop),
+    0 calc(3 * var(--u)) calc(5 * var(--u)) var(--dq-drop);
+  transform-origin: 50% 50%;
+  visibility: hidden;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.dq-win.dq-shown{visibility:visible}
+.dq-win.dq-interactive.dq-shown{pointer-events:auto}
+/* inner hairline */
+.dq-win::before{
+  content:""; position:absolute; pointer-events:none;
+  inset: calc(4.5 * var(--u));
+  border: calc(1.6 * var(--u)) solid var(--dq-hair);
+  border-radius: calc(9 * var(--u));
+}
+/* soft sheen across the top third */
+.dq-win::after{
+  content:""; position:absolute; pointer-events:none;
+  left: calc(7 * var(--u)); right: calc(7 * var(--u)); top: calc(7 * var(--u)); height: min(40%, calc(70 * var(--u)));
+  border-radius: calc(8 * var(--u)) calc(8 * var(--u)) 50% 50% / calc(8 * var(--u)) calc(8 * var(--u)) calc(16 * var(--u)) calc(16 * var(--u));
+  background: linear-gradient(180deg, var(--dq-win-sheen), transparent);
+}
+.dq-win > *{position:relative; z-index:1}
+.dq-win.dq-slim{padding: calc(12 * var(--u)) calc(20 * var(--u))}
+.dq-win.dq-message{
+  font-size: calc(var(--dq-text) * var(--u));
+  line-height: 1.46;
+  padding: calc(20 * var(--u)) calc(38 * var(--u)) calc(24 * var(--u));
+  white-space: normal;
+}
+.dq-win.dq-titled{padding-top: calc(28 * var(--u))}
+
+/* title tab straddling the top border */
+.dq-title{
+  position:absolute !important; z-index:2;
+  top: calc(-21 * var(--u)); left: calc(20 * var(--u));
+  height: calc(34 * var(--u));
+  padding: 0 calc(14 * var(--u));
+  font-size: calc(21 * var(--u)); line-height: calc(26 * var(--u));
+  letter-spacing: .09em;
+  color: var(--dq-title-ink);
+  background: linear-gradient(180deg, var(--dq-win-top), var(--dq-win-mid));
+  border: calc(4 * var(--u)) solid var(--dq-edge);
+  border-radius: calc(10 * var(--u));
+  box-shadow: 0 0 0 calc(1.4 * var(--u)) var(--dq-rim), 0 calc(3 * var(--u)) calc(6 * var(--u)) var(--dq-drop);
+  white-space: nowrap;
+}
+.dq-title.dq-center{left:50%; transform:translateX(-50%)}
+
+/* ── content helpers ───────────────────────────────────────────────────────────────────────────────────────── */
+.dq-body{position:relative}
+.dq-row{display:flex; align-items:baseline; gap: calc(14 * var(--u))}
+.dq-row > .dq-grow{flex:1}
+.dq-num{font-family: var(--dq-num-font); font-variant-numeric: tabular-nums; text-align:right}
+.dq-label{color: var(--dq-label); font-size: .78em; letter-spacing:.06em}
+.dq-small{font-size: calc(var(--dq-small) * var(--u))}
+.dq-cols{display:flex; align-items:stretch}
+.dq-cols > .dq-col{padding: 0 calc(18 * var(--u))}
+.dq-cols > .dq-col:first-child{padding-left:0}
+.dq-cols > .dq-col:last-child{padding-right:0}
+.dq-vdiv{
+  align-self:stretch; width: calc(2.4 * var(--u)); margin: calc(2 * var(--u)) 0; border-radius: calc(2 * var(--u));
+  background: linear-gradient(180deg, transparent, var(--dq-hair) 12%, var(--dq-hair) 88%, transparent);
+}
+.dq-divider{
+  height: calc(2.4 * var(--u)); margin: calc(8 * var(--u)) calc(-8 * var(--u)); border-radius: calc(2 * var(--u));
+  background: linear-gradient(90deg, transparent, var(--dq-hair) 7%, var(--dq-hair) 93%, transparent);
+}
+.dq-pname{color: var(--dq-ink); letter-spacing:.05em; padding-bottom: calc(2 * var(--u))}
+.dq-header{color: var(--dq-title-ink); font-size:.8em; letter-spacing:.08em; padding-left: calc(34 * var(--u))}
+
+/* ── menus ─────────────────────────────────────────────────────────────────────────────────────────────────── */
+.dq-viewport{position:relative; overflow:visible}
+.dq-viewport.dq-scroll{overflow:hidden}
+.dq-list{
+  position:relative;
+  display:grid; grid-auto-flow:row; align-items:center;
+  column-gap: calc(22 * var(--u)); row-gap: 0;
+}
+.dq-list > .dq-divider, .dq-list > .dq-header{grid-column: 1 / -1}
+/* in a scrolling list a divider takes no row height: rows stay on one grid, so scrolling lands on whole rows */
+.dq-scroll .dq-list > .dq-divider{margin: calc(-1.2 * var(--u)) calc(-8 * var(--u)); position:relative; z-index:2}
+.dq-item{
+  position:relative; display:flex; align-items:baseline; gap: calc(18 * var(--u));
+  padding: 0 calc(4 * var(--u)) 0 calc(36 * var(--u));
+  min-height: calc(var(--dq-line, 43) * var(--u));
+  line-height: calc(var(--dq-line, 43) * var(--u));
+  white-space: nowrap;
+  border-radius: calc(8 * var(--u));
+}
+.dq-item .dq-right{margin-left:auto; padding-left: calc(18 * var(--u)); font-variant-numeric: tabular-nums}
+.dq-item.dq-disabled{color: var(--dq-dim)}
+.dq-item.dq-flash{background: color-mix(in srgb, var(--dq-ink) 16%, transparent)}
+.dq-item .dq-note{color: var(--dq-label); font-size:.72em}
+
+/* the chunky cursor (procedural SVG, drawn by window.js) */
+.dq-cursor{
+  position:absolute; left:0; top:0; z-index:3;
+  width: calc(24 * var(--u)); height: calc(28 * var(--u));
+  pointer-events:none;
+  filter: drop-shadow(0 calc(2.5 * var(--u)) 0 var(--dq-ink-shadow));
+  will-change: transform;
+}
+.dq-cursor svg, .dq-caret svg, .dq-more svg{display:block; width:100%; height:100%; overflow:visible}
+.dq-cursor .dq-fill, .dq-caret .dq-fill, .dq-more .dq-fill{fill: var(--dq-ink)}
+.dq-cursor .dq-line, .dq-caret .dq-line, .dq-more .dq-line{stroke: var(--dq-ink-shadow); fill:none}
+.dq-cursor .dq-shade, .dq-caret .dq-shade{fill: var(--dq-label); opacity:.55}
+.dq-cursor.dq-idle{opacity:.72}
+.dq-cursor.dq-hidden{visibility:hidden}
+
+/* scroll arrows on long lists */
+.dq-more{
+  position:absolute; z-index:3; left:50%; width: calc(20 * var(--u)); height: calc(13 * var(--u));
+  margin-left: calc(-10 * var(--u)); pointer-events:none; visibility:hidden;
+  filter: drop-shadow(0 calc(2 * var(--u)) 0 var(--dq-ink-shadow));
+}
+.dq-more.dq-on{visibility:visible}
+.dq-more.dq-up{top: calc(-17 * var(--u))}
+.dq-more.dq-down{bottom: calc(-17 * var(--u))}
+
+/* ── dialogue text ─────────────────────────────────────────────────────────────────────────────────────────── */
+.dq-text{position:relative; overflow:hidden}
+.dq-page{position:absolute; left:0; right:0; top:0}
+.dq-page.dq-measure{visibility:hidden}
+.dq-tline{display:block; white-space:pre; height: calc(var(--dq-lh, 48) * var(--u)); line-height: calc(var(--dq-lh, 48) * var(--u))}
+.dq-word{white-space:nowrap}
+.dq-g.dq-h{visibility:hidden}
+.dq-fx-shake, .dq-fx-wave, .dq-fx-bounce{display:inline-block; will-change:transform}
+.dq-c-gold{color: var(--dq-gold)}
+.dq-c-red{color: var(--dq-red)}
+.dq-c-green{color: var(--dq-green)}
+.dq-c-blue{color: var(--dq-blue)}
+.dq-c-pink{color: var(--dq-pink)}
+.dq-c-purple{color: var(--dq-purple)}
+.dq-c-grey{color: var(--dq-grey)}
+.dq-c-orange{color: var(--dq-orange)}
+.dq-s-big{font-size:1.3em; line-height:0}
+.dq-s-small{font-size:.8em}
+.dq-s-quiet{font-size:.84em; color: var(--dq-grey); letter-spacing:.08em}
+.dq-s-bold{text-shadow: 0 calc(2.2 * var(--u)) 0 var(--dq-ink-shadow), calc(.7 * var(--u)) 0 0 currentColor, 0 0 calc(2 * var(--u)) var(--dq-ink-shadow)}
+.dq-s-name{color: var(--dq-title-ink)}
+
+/* the ▼ "more" caret */
+.dq-caret{
+  position:absolute !important; z-index:3; left:50%;
+  bottom: calc(8 * var(--u));
+  width: calc(26 * var(--u)); height: calc(18 * var(--u)); margin-left: calc(-13 * var(--u));
+  pointer-events:none; visibility:hidden;
+  filter: drop-shadow(0 calc(2.5 * var(--u)) 0 var(--dq-ink-shadow));
+  will-change: transform;
+}
+.dq-caret.dq-on{visibility:visible}
+.dq-caret.dq-end{left:auto; right: calc(26 * var(--u))}
+
+/* reduced motion: keep the look, drop the bobbing (window.js reads this too) */
+@media (prefers-reduced-motion: reduce){
+  .dq-win{will-change:auto}
+}

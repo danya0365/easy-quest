@@ -1,0 +1,227 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>P27 — The Sound Room</title>
+<style>
+  :root{--win1:#2a3fb8;--win2:#101c66;--edge:#f4f1ff;--ink:#ffffff;--dim:#b9c4ff;--gold:#ffd66b;--rose:#ff9db4}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#050818;color:var(--ink);overflow:hidden;
+    font-family:"Trebuchet MS","Avenir Next Rounded","Arial Rounded MT Bold","Segoe UI",system-ui,sans-serif}
+  body{background:radial-gradient(1200px 700px at 70% 10%,#1d2a6e 0%,#0b1033 45%,#04060f 100%)}
+  #stars{position:fixed;inset:0;pointer-events:none}
+  .wrap{position:relative;display:grid;grid-template-columns:minmax(360px,1fr) minmax(420px,1.15fr);gap:22px;padding:22px 28px;height:100%}
+  .win{position:relative;background:linear-gradient(180deg,var(--win1) 0%,var(--win2) 100%);border:4px solid var(--edge);border-radius:14px;
+    box-shadow:inset 0 0 0 3px #0b124a,inset 0 0 0 5px rgba(255,255,255,.35),0 10px 0 rgba(0,0,0,.35),0 18px 40px rgba(0,0,0,.55);
+    padding:16px 18px;transform-origin:50% 0;animation:open .28s cubic-bezier(.2,1.4,.4,1) both}
+  @keyframes open{from{transform:scaleY(.2);opacity:0}to{transform:none;opacity:1}}
+  .win h2{position:absolute;top:-15px;left:18px;margin:0;padding:1px 12px;font-size:15px;letter-spacing:.14em;background:var(--win2);
+    border:3px solid var(--edge);border-radius:8px;color:var(--gold)}
+  .left{display:flex;flex-direction:column;min-height:0}
+  .list{overflow:auto;flex:1;margin-top:8px;padding-right:6px;scrollbar-width:thin;scrollbar-color:#8ea0ff transparent}
+  .row{display:grid;grid-template-columns:26px 1fr auto;align-items:center;gap:6px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:17px}
+  .row .arrow{color:var(--ink);opacity:0;font-size:18px;transition:opacity .08s}
+  .row.sel .arrow{opacity:1;animation:nudge .5s steps(2) infinite}
+  @keyframes nudge{50%{transform:translateX(3px)}}
+  .row.sel{background:rgba(255,255,255,.08)}
+  .row .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .t small{display:block;font-size:12px;color:var(--dim);letter-spacing:.04em}
+  .row .k{font-size:12px;color:var(--dim);text-align:right;white-space:nowrap}
+  .row.playing .t{color:var(--gold)}
+  .row.playing .t::after{content:" ♪";color:var(--gold)}
+  .right{display:grid;grid-template-rows:auto auto 1fr;gap:22px;min-height:0}
+  .now{display:grid;grid-template-columns:1fr 150px;gap:12px;min-height:230px}
+  .now .title{font-size:30px;line-height:1.15;margin:8px 0 4px;text-shadow:0 2px 0 #000a}
+  .now .meta{color:var(--dim);font-size:15px;margin-bottom:10px}
+  .counter{font-size:40px;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+  .counter span{font-size:14px;color:var(--dim);letter-spacing:.1em;margin-right:8px}
+  .bar{height:12px;border:2px solid var(--edge);border-radius:8px;overflow:hidden;margin:10px 0 6px;background:#0a1040}
+  .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffd66b,#ff9db4)}
+  .stats{font-size:13px;color:var(--dim)}
+  .stage{position:relative;display:flex;align-items:flex-end;justify-content:center}
+  .gloop{position:relative;width:96px;height:84px;margin-bottom:16px}
+  .gloop .body{position:absolute;inset:0;background:radial-gradient(60% 55% at 38% 35%,#bfe6ff 0%,#4fa7ff 38%,#2765d8 100%);
+    border-radius:50% 50% 46% 46%/62% 62% 38% 38%;box-shadow:inset -8px -10px 0 rgba(10,30,110,.35);transform-origin:50% 100%}
+  .gloop .body::before{content:"";position:absolute;left:44%;top:-16px;width:14px;height:26px;background:#4fa7ff;border-radius:50% 50% 50% 50%/70% 70% 30% 30%;transform:rotate(12deg)}
+  .gloop .eye{position:absolute;top:30px;width:11px;height:15px;background:#10194a;border-radius:50%}
+  .gloop .eye.l{left:30px}.gloop .eye.r{left:56px}
+  .gloop .mouth{position:absolute;left:36px;top:52px;width:24px;height:11px;border-bottom:4px solid #10194a;border-radius:0 0 50% 50%}
+  .gloop .shadow{position:absolute;left:10px;right:10px;bottom:-12px;height:10px;background:rgba(0,0,0,.35);border-radius:50%}
+  .stings{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px}
+  button{font:inherit;color:var(--ink);background:linear-gradient(180deg,#3a52d8,#1b2a8a);border:3px solid var(--edge);border-radius:10px;
+    padding:9px 6px;font-size:15px;cursor:pointer;box-shadow:0 4px 0 #0008}
+  button:hover{filter:brightness(1.18)} button:active{transform:translateY(3px);box-shadow:0 1px 0 #0008}
+  .ctl{display:flex;flex-direction:column;min-height:0}
+  .ctl .btns{display:flex;gap:10px;flex-wrap:wrap}
+  canvas#viz{width:100%;flex:1;min-height:80px;margin-top:12px;border-radius:8px;background:#060b2c;border:2px solid #7f8dff55}
+  .hint{position:fixed;bottom:6px;left:0;right:0;text-align:center;font-size:13px;color:var(--dim);letter-spacing:.06em}
+  #wake{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(3,5,20,.72);z-index:5;cursor:pointer}
+  #wake .win{font-size:22px;padding:26px 34px;text-align:center}
+  #wake small{display:block;margin-top:8px;color:var(--dim);font-size:14px}
+</style></head><body>
+<canvas id="stars"></canvas>
+<div class="wrap">
+  <section class="win left"><h2>THE SCORE</h2><div class="list" id="list"></div></section>
+  <div class="right">
+    <section class="win now"><h2>NOW PLAYING</h2>
+      <div>
+        <div class="title" id="title">— silence —</div>
+        <div class="meta" id="meta">Choose a piece, press Enter.</div>
+        <div class="counter" id="counter"><span>BAR</span>0 · 0</div>
+        <div class="bar"><i id="prog"></i></div>
+        <div class="stats" id="stats"></div>
+      </div>
+      <div class="stage"><div class="gloop" id="gloop"><div class="shadow"></div><div class="body" id="gbody"><div class="eye l"></div><div class="eye r"></div><div class="mouth"></div></div></div></div>
+    </section>
+    <section class="win"><h2>FANFARES &amp; STINGS</h2><div class="stings" id="stings"></div></section>
+    <section class="win ctl"><h2>THE CONDUCTOR</h2>
+      <div class="btns">
+        <button id="bstop">■ Stop (fade)</button><button id="bduck">Dialogue duck</button><button id="bsilence">Silence</button>
+        <button id="bfield">Battle → victory → field</button>
+      </div>
+      <canvas id="viz"></canvas>
+    </section>
+  </div>
+</div>
+<div class="hint">↑ ↓ choose · Enter play · 1–7 stings · Esc stop · everything you hear is synthesised live — no samples</div>
+<div id="wake"><div class="win">Tap to wake the orchestra<small>(browsers keep audio asleep until you touch something)</small></div></div>
+<script type="module">
+import { Music, createMusic } from '/src/audio/music.js';
+import { THEMES } from '/src/audio/score/index.js';
+import { checkHarmony, Theme } from '/src/audio/score/_lib.js';
+import { makeKit, VOICES } from '/src/audio/instruments.js';
+
+const errors = [];
+window.__DQ = { ready: false, errors };
+window.addEventListener('error', (e) => errors.push(String(e.message)));
+window.addEventListener('unhandledrejection', (e) => errors.push(String(e.reason)));
+
+const STINGS = [['battle_start', 'Battle!'], ['victory', 'Victory'], ['level_up', 'Level up'], ['item_get', 'Found it!'], ['join', 'New friend'], ['inn', 'Inn sleep'], ['sad_sting', 'Sad sting']];
+const HIDE = new Set(['battle_start', 'item_get', 'sad_sting', 'inn.sleep']);
+const list = Object.values(THEMES).filter((t) => !HIDE.has(t.id));
+let sel = 0, lastBeat = -1;
+const $ = (id) => document.getElementById(id);
+
+// --- list
+const rows = list.map((t, i) => {
+  const r = document.createElement('div'); r.className = 'row'; r.dataset.i = i;
+  const len = t.kind === 'loop' ? `${Math.round(t.introSec + t.loopSec)}s loop` : `${t.lengthSec.toFixed(1)}s`;
+  r.innerHTML = `<span class="arrow">▶</span><span class="t">${t.title}<small>${t.id} · ${t.key || ''}</small></span><span class="k">${len}</span>`;
+  r.onmouseenter = () => select(i); r.onclick = () => { select(i); start(list[i].id); };
+  $('list').appendChild(r); return r;
+});
+function select(i) { sel = (i + list.length) % list.length; rows.forEach((r, k) => r.classList.toggle('sel', k === sel)); rows[sel].scrollIntoView({ block: 'nearest' }); }
+select(0);
+STINGS.forEach(([id, label], k) => { const b = document.createElement('button'); b.textContent = `${k + 1} ${label}`; b.onclick = () => sting(id); $('stings').appendChild(b); });
+
+// --- audio
+let analyser = null;
+function wake() {
+  $('wake').style.display = 'none';
+  const ctx = Music.ctx || Music.init().ctx;
+  if (ctx && ctx.state !== 'running') ctx.resume();
+  if (!analyser && ctx) { analyser = ctx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.78; Music._engine().music.connect(analyser); }
+}
+$('wake').onclick = wake;
+function start(id) { wake(); Music.play(id, { fade: 1.2 }); }
+function sting(id) { wake(); Music.stinger(id); }
+$('bstop').onclick = () => { wake(); Music.stop({ fade: 1.2 }); };
+$('bduck').onclick = () => { wake(); Music.duck(0.55, 2500); };
+$('bsilence').onclick = () => { wake(); Music.play('silence', { fade: 1.2 }); };
+$('bfield').onclick = () => {
+  wake(); Music.stinger('battle_start');
+  setTimeout(() => { const r = Music.stinger('victory'); setTimeout(() => Music.play('overworld', { fade: 1.2 }), (r.duration + 0.5) * 1000); }, 9000);
+};
+addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown') { select(sel + 1); e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { select(sel - 1); e.preventDefault(); }
+  else if (e.key === 'Enter' || e.key === ' ') { start(list[sel].id); e.preventDefault(); }
+  else if (e.key === 'Escape') { wake(); Music.stop({ fade: 1.2 }); }
+  else if (/^[1-7]$/.test(e.key)) sting(STINGS[+e.key - 1][0]);
+});
+
+// --- now playing + viz + stars
+const viz = $('viz'), vg = viz.getContext('2d'), sc = $('stars'), sg = sc.getContext('2d');
+const stars = Array.from({ length: 140 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 1.4 + 0.3, p: Math.random() * 6 }));
+function frame(ts) {
+  try {
+    const s = Music.state(); const th = s.theme && THEMES[s.theme];
+    rows.forEach((r, k) => r.classList.toggle('playing', list[k].id === s.theme));
+    if (th) {
+      $('title').textContent = `“${th.title}”`;
+      const m = th.meter === 3 && [99, 108, 81].includes(th.bpm) ? '6/8' : `${th.meter}/4`;
+      $('meta').textContent = `${th.id} · ${th.key} · ♩=${th.bpm} · ${m} · ${th.kind === 'loop' ? th.bars + ' bars, loops forever' : 'one-shot'}`;
+      $('counter').innerHTML = `<span>BAR</span>${s.bar} · ${Math.floor(s.beat)}`;
+      const beatsDone = (s.bar - 1) * th.meter + (s.beat - 1);
+      $('prog').style.width = `${Math.min(100, 100 * beatsDone / th.totalBeats)}%`;
+      const bi = Math.floor(beatsDone);
+      if (bi !== lastBeat) { lastBeat = bi; const g = $('gbody'); g.animate([{ transform: 'scale(1.12,.84)' }, { transform: 'scale(.94,1.1) translateY(-14px)' }, { transform: 'none' }], { duration: Math.min(420, 60000 / th.bpm * 0.9), easing: 'ease-out' }); }
+    } else { $('title').textContent = s.theme === 'silence' ? '— silence —' : '— silence —'; $('counter').innerHTML = '<span>BAR</span>0 · 0'; $('prog').style.width = '0'; }
+    $('stats').textContent = `voices ${s.voices} · space ${s.space || '—'} · duck ${s.ducked} · ${s.ctxState} · quality ${s.quality || '—'}`;
+    // viz
+    const W = viz.width = viz.clientWidth * devicePixelRatio, H = viz.height = viz.clientHeight * devicePixelRatio;
+    vg.clearRect(0, 0, W, H);
+    if (analyser) {
+      const a = new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(a);
+      const N = 64; const bw = W / N;
+      for (let i = 0; i < N; i++) {
+        const k0 = Math.floor(Math.pow(1.105, i) + 1), k1 = Math.floor(Math.pow(1.105, i + 1) + 2); let v = 0;
+        for (let k = k0; k < Math.min(k1, a.length); k++) v = Math.max(v, a[k]);
+        const h = (v / 255) * H * 0.92;
+        const grad = vg.createLinearGradient(0, H, 0, H - h); grad.addColorStop(0, '#4f7dff'); grad.addColorStop(1, i % 5 ? '#ffd66b' : '#ff9db4');
+        vg.fillStyle = grad; vg.fillRect(i * bw + 2, H - h, bw - 4, h);
+      }
+    }
+    sc.width = innerWidth; sc.height = innerHeight;
+    for (const st of stars) { sg.globalAlpha = 0.35 + 0.35 * Math.sin(ts / 900 + st.p); sg.fillStyle = '#dfe6ff'; sg.beginPath(); sg.arc(st.x * sc.width, st.y * sc.height, st.r, 0, 7); sg.fill(); }
+  } catch (e) { errors.push(String(e)); }
+  requestAnimationFrame(frame);
+}
+
+// --- critic / probe API
+function calib(voice, note, dur = 1.5, vel = 0.78) {
+  const sr = 44100, secs = dur + 3;
+  const ctx = new OfflineAudioContext(2, Math.ceil(secs * sr), sr);
+  const K = makeKit(ctx); const bus = ctx.createGain(); bus.connect(ctx.destination);
+  const midi = typeof note === 'number' ? note : null;
+  return import('/src/audio/score/_lib.js').then(({ midi: mm, mtof }) => {
+    const m = midi ?? mm(note);
+    VOICES[voice](K, { t: 0.05, dur, m, f: mtof(m), vel, gain: 1, pan: 0, send: 0, spb: 0.5, voice }, { bus, send: null });
+    return ctx.startRendering();
+  }).then((buf) => {
+    const L = buf.getChannelData(0), R = buf.getChannelData(1); let pk = 0, ss = 0, n = 0;
+    for (let i = 0; i < buf.length; i++) { const a = Math.max(Math.abs(L[i]), Math.abs(R[i])); if (a > pk) pk = a; }
+    const i0 = Math.floor(0.05 * sr), i1 = Math.floor((0.05 + Math.max(0.1, Math.min(dur, 1.0))) * sr);
+    for (let i = i0; i < i1; i++) { ss += (L[i] * L[i] + R[i] * R[i]) / 2; n++; }
+    return { voice, note, peakDb: +(20 * Math.log10(pk + 1e-9)).toFixed(1), rmsDb: +(10 * Math.log10(ss / n + 1e-12)).toFixed(1) };
+  });
+}
+// audition: one voice alone — a phrase, a chord, staccatos, a swell (renderAudio('aud:horns', 14))
+const MEL = [['A4', 1], ['D5', 1], ['F#5', 1], ['A5', 1], ['G5', 2], ['F#5', 1], ['E5', 1], ['D5', 1.5], ['E5', 0.5], ['F#5', 1], ['D5', 1], ['E5', 3], ['R', 1]];
+const TR = { horns: 0, hornSolo: -12, strings: 0, violin: 12, flute: 12, oboe: 0, harpsi: 0, harp: -12, pizz: -24, celesta: 12, organ: -12, twinkle: 12, pad: -12, vox: -12, bell: -12 };
+function audition(voice) {
+  const id = 'aud:' + voice; if (THEMES[id]) return id;
+  const T = Theme({ id, title: 'Audition — ' + voice, key: 'D major', bpm: 100, meter: 4, space: 'HALL', kind: 'oneshot' });
+  const P = T.part('v', { voice, bus: 'melody' });
+  if (voice === 'timp') { P.hits([0, 1], [0, 2], 'D2', 1, { dyn: 'mf' }); P.hits([1], [3], 'A2', 1, { dyn: 'f' }); P.roll(8, 14, 'D2', { from: 'pp', to: 'ff' }); P.note(14, 'D2', 2, { dyn: 'ff' }); }
+  else if (voice === 'snare') { for (let k = 0; k < 16; k++) P.note(k * 0.5, 'D4', 0.25, { dyn: k % 4 ? 'mp' : 'f' }); P.roll(8, 12, 'D4', { from: 'pp', to: 'ff', perBeat: 8, alt: 0.72 }); P.note(12, 'D4', 1, { dyn: 'ff' }); }
+  else if (voice === 'cymbal') { P.note(0, 'C5', 4, { dyn: 'f' }); P.note(8, 'C5', 1, { dyn: 'mf', o: { choke: true } }); P.note(10, 'C5', 4, { dyn: 'p' }); }
+  else if (voice === 'tri') { P.note(0, 'F#6', 2, { dyn: 'mf' }); P.note(4, 'F#6', 2, { dyn: 'p' }); }
+  else {
+    const tr = TR[voice] ?? 0;
+    P.seq(0, MEL, { dyn: 'mf', tr });
+    P.chord(T.bar(4), ['D4', 'F#4', 'A4'], 3, { dyn: 'mp', tr });
+    P.seq(5, [['D5', 0.5], ['E5', 0.5], ['F#5', 0.5], ['A5', 0.5], ['R', 2]], { dyn: 'f', tr, art: 'staccato' });
+    P.seq(6, [['D5', 4]], { dyn: 'pp', tr, o: { swell: 2.2 } });
+  }
+  THEMES[id] = T.build(); return id;
+}
+
+window.__DQ = Object.assign(window.__DQ, {
+  ready: true, version: 'P27-1',
+  renderAudio: (id, s, opts) => Music.renderOffline(String(id).startsWith('aud:') ? audition(String(id).slice(4)) : id, s, opts),
+  state: () => ({ scene: 'jukebox', audio: Music.state(), selected: list[sel].id, themes: Music.themes().length, errors: errors.length }),
+  play: (id, o) => { wake(); return Music.play(id, o); }, stinger: (id) => { wake(); return Music.stinger(id); },
+  stop: (o) => Music.stop(o), duck: (a, ms) => Music.duck(a, ms), themes: () => Music.themes(),
+  harmony: () => Object.values(THEMES).map((t) => { const r = checkHarmony(t); return { id: t.id, checked: r.checked, ok: r.ok, color: r.color, app: r.app, clash: r.clash }; }),
+  calib, createMusic, select: (id) => { const i = list.findIndex((t) => t.id === id); if (i >= 0) select(i); },
+});
+requestAnimationFrame(frame);
+</script></body></html>

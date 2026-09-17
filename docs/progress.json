@@ -1,27 +1,27 @@
 {
-  "updated": "2026-09-02T16:47:47.515Z",
+  "updated": "2026-09-17T13:47:41.346Z",
   "wave": 0,
-  "waveTitle": "Foundation",
+  "waveTitle": "Foundation (attempt 2) — canon + art direction + engine + vertical slice",
   "pieces": {
     "F1": {
       "id": "F1",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "engine spine boots",
       "history": [],
       "name": "Engine core — loop, scenes, events, debug API"
     },
     "F2": {
       "id": "F2",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "Input: keys/WASD, gamepad (radial dead zones, hysteresis), DQ-style touch stick+OK/Back/Menu (auto on coarse), 300/100/66ms menu repeat, inject/sequence, blur release; demo 41 asserts pass",
       "history": [],
       "name": "Input — keyboard, gamepad, touch"
     },
@@ -38,23 +38,23 @@
     },
     "F4": {
       "id": "F4",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "DQ window/menu/typewriter shell: palette-derived blue windows, bobbing cursor, nesting, Yes/No, 35gps text w/ ticks+markup, F2-routed input; 37/37 asserts",
       "history": [],
       "name": "UI shell — the DQ command window & text engine"
     },
     "F5": {
       "id": "F5",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "Book of tales: 3 slots+autosave, subsystem registry, playtime, title summaries, page/copy/spare write-then-swap w/ CRC, v0/v1->v2 migrations, code export/import; demo survives 400 chaos mishaps, 47/47 asserts",
       "history": [],
       "name": "Save / load / slots"
     },
@@ -203,12 +203,12 @@
     },
     "P14": {
       "id": "P14",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "first build done",
       "history": [],
       "name": "Battle core"
     },
@@ -258,12 +258,12 @@
     },
     "P19": {
       "id": "P19",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "first build done: growth.js (six personalities + Lantern, templates, guests, learnsets) and formulas.js; 51 tests; sim over every area",
       "history": [],
       "name": "Stats, growth, level-up ceremony"
     },
@@ -357,13 +357,19 @@
     },
     "P28": {
       "id": "P28",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 62,
+      "best": 62,
+      "rounds": 1,
+      "gap": "Hits don't connect: sword_hit is a sub-150Hz thud (59% energy <150Hz, main energy gone in ~120ms), 3dB under battle music and level with the menu confirm on a TV speaker. Re-voice the impact family (hit/crit/hurt) with a 200-900Hz crack + 2-5kHz slash over ~250ms, and duck music ~6dB for 150ms on every hit",
+      "note": "first build done",
+      "history": [
+        {
+          "at": "2026-09-17T13:26:52.189Z",
+          "score": 62,
+          "gap": "Hits don't connect: sword_hit is a sub-150Hz thud (59% energy <150Hz, main energy gone in ~120ms), 3dB under battle music and level with the menu confirm on a TV speaker. Re-voice the impact family (h"
+        }
+      ],
       "name": "Sound effects & mixer"
     },
     "P29": {
@@ -441,6 +447,38 @@
     {
       "at": "2026-09-02T16:47:47.515Z",
       "t": "Harness online: real WebGL headless Chromium, 120fps, screenshots + console capture."
+    },
+    {
+      "at": "2026-09-17T11:58:53.095Z",
+      "t": "Wave 0 attempt 1 stopped by account session limit. Salvaged: 6 content bibles (~47k words) + render prototype."
+    },
+    {
+      "at": "2026-09-17T11:58:53.129Z",
+      "t": "— Wave 0: Foundation (attempt 2) — canon + art direction + engine + vertical slice —"
+    },
+    {
+      "at": "2026-09-17T12:36:14.652Z",
+      "t": "Art direction locked (9 shoot-look-fix rounds): warm toon village meadow, 76 draw calls, 120fps → docs/ART-DIRECTION.md"
+    },
+    {
+      "at": "2026-09-17T12:36:14.688Z",
+      "t": "Canon keeper: docs/CANON.md written (7k words), reconciling the six bibles…"
+    },
+    {
+      "at": "2026-09-17T12:39:24.193Z",
+      "t": "User asked for more sub-agents → opening a parallel wave: music, SFX+mixer, battle rules (no dependency on the engine being built)."
+    },
+    {
+      "at": "2026-09-17T12:48:50.547Z",
+      "t": "Canon pass: docs/CANON.md is the single source of truth; all six bibles reconciled (Bram, Willow, Sera, Barty, Bobble, Pip, Mortmain, Puddlewick, Cobwell Manor, Ambergarde); added DQV beats B11b sabre-cat reunion, Papa's Letter, wagon return, ship, Malgrim."
+    },
+    {
+      "at": "2026-09-17T13:47:41.301Z",
+      "t": "F1 engine spine verified (32/32 asserts). F2 input, F4 DQ window, F5 save built; F3 art foundation finishing."
+    },
+    {
+      "at": "2026-09-17T13:47:41.346Z",
+      "t": "P28 SFX first critic round: 62 — gap: sword hits are sub-150Hz thuds that vanish on laptop speakers. Builder fixing."
     }
   ]
 }

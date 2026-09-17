@@ -1,0 +1,662 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>P14 — Battle rules engine (text battle)</title>
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --win-top:#2a3fb0; --win-bot:#0d1760; --win-line:#f4f6ff; --win-inner:#0a1150; --ink:#ffffff; --dim:#8d97c8;
+  --gold:#ffd75e; --hurt:#ff9b8a; --low:#ffb35c; --ko:#6c7196; --good:#9dffb0; --chev:#ff4d4d;
+  --font: "Trebuchet MS", "Verdana", "Segoe UI", system-ui, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#050716;overflow:hidden;font-family:var(--font);color:var(--ink)}
+#stage{position:fixed;inset:0;display:grid;grid-template-columns:1fr 330px;grid-template-rows:64px 1fr;}
+/* ------------------------------------------------ the DQ window */
+.win{position:relative;background:linear-gradient(180deg,var(--win-top),var(--win-bot));border:4px solid var(--win-line);
+  border-radius:12px;box-shadow:inset 0 0 0 2px var(--win-inner),inset 0 0 0 4px rgba(255,255,255,.18),0 6px 0 rgba(0,0,0,.35),0 10px 26px rgba(0,0,0,.45);
+  padding:12px 16px;transform-origin:bottom left;animation:winIn .16s ease-out}
+@keyframes winIn{from{transform:scale(.92) translateY(10px);opacity:.2}to{transform:none;opacity:1}}
+/* ------------------------------------------------ top bar */
+#top{grid-column:1/3;display:flex;align-items:center;gap:14px;padding:8px 14px;background:linear-gradient(#0c1030,#070a20);border-bottom:2px solid #1f2a66}
+#top h1{font-size:18px;margin:0;letter-spacing:.04em;color:#cfd6ff;white-space:nowrap}
+#top .area{padding:4px 12px;font-size:17px;font-weight:bold;min-width:360px;text-align:center;animation:none}
+#top .keys{font-size:13px;color:#a8b0e0;line-height:1.35}
+#top .keys b{color:#fff;background:#26306e;border-radius:4px;padding:0 5px;margin:0 1px}
+/* ------------------------------------------------ battlefield */
+#field{position:relative;overflow:hidden}
+#backdrop{position:absolute;inset:0;transition:background .4s}
+.t-meadow{background:radial-gradient(120% 60% at 50% 110%,#5fa544 0,#4b8a3a 40%,transparent 41%),radial-gradient(80% 40% at 15% 88%,#6fb450 0,transparent 60%),linear-gradient(#7fc6ff 0,#bfe6ff 55%,#8fcf6a 56%,#5b9a44 100%)}
+.t-coast{background:radial-gradient(100% 40% at 50% 100%,#e8d49a 0,#d9c07c 45%,transparent 46%),linear-gradient(#86ceff 0,#cbeeff 50%,#4aa3c8 51%,#3b8fb5 62%,#e3cf92 63%,#cfb67a 100%)}
+.t-wood{background:radial-gradient(60% 30% at 50% 100%,#6b8f3f 0,transparent 70%),repeating-linear-gradient(90deg,rgba(40,30,20,.28) 0 18px,transparent 18px 90px),linear-gradient(#2f5a36 0,#3f7442 50%,#56733a 56%,#3d5a2a 100%)}
+.t-manor{background:radial-gradient(40% 30% at 50% 35%,rgba(255,220,140,.25),transparent 70%),repeating-linear-gradient(90deg,#2a1f3a 0 60px,#2f2443 60px 64px),linear-gradient(#1c1428,#2b2038 60%,#3a2c30 61%,#241a20 100%)}
+.t-cave{background:radial-gradient(50% 40% at 50% 45%,rgba(120,150,190,.25),transparent 70%),linear-gradient(#141018 0,#2a2230 45%,#3b3036 58%,#1d171c 100%)}
+.t-desert{background:radial-gradient(90% 30% at 30% 100%,#e9c887 0,transparent 60%),linear-gradient(#ffc98a 0,#ffe7b8 48%,#e7bf78 50%,#d19f5a 100%)}
+.t-sea{background:radial-gradient(60% 40% at 50% 60%,rgba(140,220,230,.25),transparent 70%),linear-gradient(#10303f 0,#1d5566 45%,#2c6f7a 58%,#173c47 100%)}
+.t-snow{background:radial-gradient(80% 30% at 50% 100%,#f7fbff 0,#e3eefa 50%,transparent 51%),linear-gradient(#a9c8e8 0,#dfeaf6 52%,#eef5fc 53%,#cddbe9 100%)}
+.t-ruins{background:repeating-linear-gradient(90deg,transparent 0 120px,rgba(90,90,100,.35) 120px 150px),linear-gradient(#6b7383 0,#9aa1ad 50%,#6d6a66 52%,#4c4a48 100%)}
+.t-sky{background:radial-gradient(40% 20% at 30% 40%,#fff,transparent 70%),radial-gradient(50% 25% at 75% 70%,#fff,transparent 70%),linear-gradient(#6fb6ff 0,#bfe2ff 60%,#f6fbff 100%)}
+.t-abbey{background:repeating-linear-gradient(90deg,#3a3c48 0 80px,#343642 80px 84px),linear-gradient(#262833,#3a3c48 58%,#2b2a30 59%,#1c1b20 100%)}
+.t-deep{background:radial-gradient(40% 40% at 50% 45%,rgba(120,100,180,.28),transparent 70%),linear-gradient(#0b0913,#171327 55%,#100d18 100%)}
+/* party status windows */
+#partybar{position:absolute;left:16px;right:16px;top:12px;display:flex;gap:10px;z-index:4;align-items:flex-start}
+.pm{flex:0 1 178px;min-width:140px;padding:8px 12px 10px;transition:transform .15s, filter .2s}
+.pm .nm{font-size:20px;font-weight:bold;letter-spacing:.02em;display:flex;justify-content:space-between;align-items:baseline}
+.pm .nm small{font-size:13px;color:var(--dim);font-weight:normal}
+.pm .row{display:flex;justify-content:space-between;font-size:18px;margin-top:2px}
+.pm .row span:first-child{color:#c8cff5}
+.pm .bar{height:6px;border-radius:3px;background:#0a0f3a;margin-top:3px;overflow:hidden}
+.pm .bar i{display:block;height:100%;background:linear-gradient(90deg,#78f59a,#b9ffb0);transition:width .26s ease-out}
+.pm.low .bar i{background:linear-gradient(90deg,#ffb35c,#ffd98f)} .pm.low .hpv{color:var(--low)}
+.pm.ko{filter:grayscale(.9) brightness(.7)} .pm.ko .hpv{color:var(--ko)}
+.pm.active{transform:translateY(8px) scale(1.04);box-shadow:inset 0 0 0 2px var(--win-inner),0 0 0 3px var(--gold),0 10px 26px rgba(0,0,0,.5)}
+.pm.hit{animation:pmHit .2s linear}
+@keyframes pmHit{0%,100%{translate:0}20%{translate:-6px 0;background:linear-gradient(#b3303b,#5e0f1c)}60%{translate:5px 0}}
+.pm.healed{animation:pmHeal .5s ease-out}
+@keyframes pmHeal{50%{box-shadow:inset 0 0 0 2px var(--win-inner),0 0 18px 6px rgba(140,255,170,.8)}}
+.pm .tags{font-size:12px;color:var(--gold);min-height:15px}
+.wagonbox{flex:0 0 156px;padding:6px 10px 8px;opacity:.9;background:linear-gradient(180deg,#3a4270,#1b2150)}
+.wagonbox .wl{font-size:13px;color:var(--gold);letter-spacing:.06em;margin-bottom:2px}
+.wagonbox .wr{display:flex;justify-content:space-between;gap:6px;font-size:15px;line-height:1.35}
+.wagonbox .wr small{color:var(--dim);font-size:12px;margin-left:4px}
+.wagonbox .wr.ko{color:var(--ko)} .wagonbox .wr.low .hpv{color:var(--low)}
+/* monsters */
+#enemies{position:absolute;left:0;right:0;top:170px;bottom:250px;display:flex;justify-content:center;align-items:flex-end;gap:34px;z-index:2}
+.mon{position:relative;display:flex;flex-direction:column;align-items:center;transition:opacity .3s}
+.mon .body{position:relative;width:var(--s);height:calc(var(--s)*.86);background:radial-gradient(60% 55% at 35% 30%,rgba(255,255,255,.55),transparent 60%),var(--c);
+  border-radius:50% 50% 44% 44% / 62% 62% 38% 38%;box-shadow:inset -8px -10px 0 rgba(0,0,0,.14),0 0 0 3px rgba(0,0,0,.45);animation:hop 1.15s infinite ease-in-out;transform-origin:50% 100%}
+.mon.boss .body{border-radius:46% 46% 40% 40% / 55% 55% 45% 45%}
+.mon.ghost .body{border-radius:50% 50% 18% 18% / 60% 60% 20% 20%;opacity:.85}
+.mon.box .body{border-radius:18%}
+@keyframes hop{0%,100%{transform:translateY(0) scale(1.08,.9)}45%{transform:translateY(calc(var(--s)*-.13)) scale(.96,1.06)}55%{transform:translateY(calc(var(--s)*-.13)) scale(.96,1.06)}}
+.mon .eye{position:absolute;top:34%;width:calc(var(--s)*.2);height:calc(var(--s)*.23);background:#fff;border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,.35)}
+.mon .eye::after{content:"";position:absolute;left:34%;top:34%;width:44%;height:44%;background:#1b1a22;border-radius:50%;box-shadow:inset 2px 2px 0 1px rgba(255,255,255,.9)}
+.mon .eye.l{left:24%} .mon .eye.r{right:24%}
+.mon .mouth{position:absolute;left:36%;right:36%;top:64%;height:calc(var(--s)*.09);border-bottom:4px solid #2a1e24;border-radius:0 0 50% 50%}
+.mon .shadow{width:calc(var(--s)*.8);height:12px;border-radius:50%;background:rgba(0,0,0,.28);margin-top:-6px;animation:shadow 1.15s infinite ease-in-out}
+@keyframes shadow{45%,55%{transform:scale(.66)}}
+.mon .plate{margin-top:8px;font-size:17px;font-weight:bold;text-shadow:0 2px 0 #000,0 0 6px #000;white-space:nowrap}
+.mon .dots{height:12px;display:flex;gap:5px;margin-top:3px}
+.mon .dots i{width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px #000}
+.mon .chev{position:absolute;top:-38px;font-size:30px;color:var(--chev);text-shadow:0 2px 0 #000;animation:chev .5s infinite;display:none}
+.mon.tele .chev{display:block}
+@keyframes chev{50%{transform:translateY(-8px);opacity:.55}}
+.mon .zzz{position:absolute;top:-20px;right:-10px;font-size:20px;font-weight:bold;color:#dfe8ff;text-shadow:0 2px 0 #000;display:none}
+.mon.sleep .zzz{display:block;animation:chev 1.2s infinite}
+.mon.flash .body{animation:none;filter:brightness(3) saturate(0)}
+.mon.shake .body{animation:monShake .18s linear}
+@keyframes monShake{25%{transform:translateX(-7px) scale(1.1,.86)}75%{transform:translateX(6px) scale(.9,1.1)}}
+.mon.pop{animation:pop .34s ease-in forwards} @keyframes pop{40%{transform:scale(1.25)}100%{transform:scale(.1);opacity:0}}
+.mon.gone{display:none}
+.mon.spared .body{animation:none;transform:translateY(8px) scale(1.05,.85) rotate(-6deg);filter:saturate(.6)}
+.mon.fled{animation:flee .4s ease-in forwards} @keyframes flee{to{transform:translateX(420px);opacity:0}}
+.mon.lunge .body{animation:lunge .3s ease-out}
+@keyframes lunge{40%{transform:translateY(40px) scale(1.12)}}
+.popnum{position:absolute;left:50%;top:-34px;transform:translate(-50%,0);font-size:34px;font-weight:900;color:#fff;text-shadow:0 3px 0 #000,0 0 8px #000;pointer-events:none;animation:num .9s ease-out forwards;z-index:9}
+.popnum.crit{color:var(--gold);font-size:52px}
+.popnum.heal{color:var(--good)}
+@keyframes num{0%{transform:translate(-50%,10px) scale(.4)}20%{transform:translate(-50%,-6px) scale(1.15)}35%{transform:translate(-50%,-10px) scale(1)}100%{transform:translate(-50%,-38px);opacity:0}}
+#field.shake{animation:fshake .18s linear}
+@keyframes fshake{25%{transform:translate(-6px,3px)}50%{transform:translate(5px,-2px)}75%{transform:translate(-3px,2px)}}
+#field.white::after{content:"";position:absolute;inset:0;background:#fff;opacity:.7;animation:wflash .12s forwards;z-index:20;pointer-events:none}
+@keyframes wflash{to{opacity:0}}
+#field.darken #backdrop{filter:brightness(.45)} #field.desat #backdrop{filter:saturate(.2)}
+#field.wiped::before{content:"";position:absolute;inset:0;background:#fff;opacity:.82;z-index:3;animation:wfade 1.2s}
+@keyframes wfade{from{opacity:0}}
+/* bottom windows */
+#cmd{position:absolute;left:16px;bottom:16px;width:330px;min-height:214px;z-index:6}
+#cmd .who{font-size:18px;color:var(--gold);margin-bottom:6px;font-weight:bold}
+#cmd .grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px}
+#cmd .list{display:grid;grid-template-columns:1fr;gap:2px;max-height:260px;overflow:hidden}
+.opt{position:relative;font-size:22px;padding:2px 0 2px 28px;white-space:nowrap}
+.opt .r{float:right;color:#c8cff5;font-size:18px;margin-left:10px}
+.opt.dis{color:var(--dim)}
+.opt.sel::before{content:"▶";position:absolute;left:2px;top:3px;font-size:19px;color:#fff;animation:cur .6s infinite}
+@keyframes cur{50%{transform:translateX(4px)}}
+#cmd .hint{font-size:14px;color:#aab3e6;margin-top:6px;min-height:18px}
+#msg{position:absolute;left:362px;right:16px;bottom:16px;height:214px;z-index:5;font-size:24px;line-height:1.42;padding:14px 22px;overflow:hidden}
+#lines{max-height:100%;overflow:hidden}
+#msg .ln{white-space:pre-wrap}
+#msg .ln.old{color:#d8def9}
+#msg .more{position:absolute;right:16px;bottom:8px;font-size:18px;animation:cur .6s infinite}
+/* side: event log */
+#side{grid-row:2;grid-column:2;display:flex;flex-direction:column;background:#070a20;border-left:2px solid #1f2a66;min-height:0}
+#side h2{font-size:14px;margin:10px 12px 6px;color:#9aa6e8;letter-spacing:.08em;text-transform:uppercase}
+#log{flex:1;overflow:hidden;padding:0 10px 10px;font-size:13px;line-height:1.35;display:flex;flex-direction:column;justify-content:flex-end;min-height:0}
+#log .ev{padding:2px 0;border-bottom:1px solid #121a44;color:#d8def9}
+#log .ev .t{display:inline-block;min-width:74px;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#7f8ad6}
+#log .ev.damage .t{color:#ff9b8a} #log .ev.heal .t,#log .ev.revive .t{color:#8dffae} #log .ev.telegraph .t{color:#ff5d5d}
+#log .ev.victory .t,#log .ev.levelup .t,#log .ev.recruit_offer .t{color:var(--gold)} #log .ev.status .t{color:#c3a4ff}
+#stats{font-size:12px;color:#9aa6e8;padding:8px 12px;border-top:1px solid #1f2a66;line-height:1.5}
+#stats b{color:#fff}
+</style>
+</head><body>
+<div id="stage">
+  <div id="top">
+    <h1>P14 · Battle</h1>
+    <div class="win area" id="areaWin">◀ … ▶</div>
+    <div class="keys">
+      <b>↑↓←→</b> move <b>Enter</b>/<b>Z</b> choose <b>Esc</b>/<b>X</b> back &nbsp; <b>F</b> Fight! (auto) &nbsp; <b>N</b> new fight <b>B</b> boss
+      <br><b>[</b> <b>]</b> area &nbsp; <b>L</b> level (low / mid / high) &nbsp; <b>S</b> struggle score &nbsp; <b>T</b> instant text
+    </div>
+  </div>
+  <div id="field">
+    <div id="backdrop" class="t-meadow"></div>
+    <div id="partybar"></div>
+    <div id="enemies"></div>
+    <div class="win" id="cmd" hidden></div>
+    <div class="win" id="msg"><div id="lines"></div><div class="more" id="more" hidden>▼</div></div>
+  </div>
+  <div id="side"><h2>Event log</h2><div id="log"></div><div id="stats"></div></div>
+</div>
+<script type="module">
+// P14 demo — a playable text battle driven entirely by src/battle/battle.js.
+// Data: tests/battle/data.js (fixture in the docs/DATA-SHAPES.md shapes), areas: tests/battle/areas.js.
+import { createBattle } from '/src/battle/battle.js';
+import { makeRng } from '/src/battle/formulas.js';
+import DATA from '/tests/battle/data.js';
+import { AREAS, rollEncounter } from '/tests/battle/areas.js';
+
+const errors = [];
+window.addEventListener('error', (e) => errors.push(String(e.message || e)));
+window.addEventListener('unhandledrejection', (e) => errors.push(String(e.reason && e.reason.message || e.reason)));
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+
+const TERRAIN = {
+  long_lane: 'meadow', long_lane_alone: 'meadow', saltmarrow_coast: 'coast', whispering_wood: 'wood', cobwell_manor: 'manor',
+  coddleston_downs: 'meadow', whistling_caves: 'cave', gogglestone_caves: 'cave', marbleford_downs: 'meadow', sogglemarsh: 'wood',
+  frittering_sands: 'desert', bellhollow_belfry: 'manor', sighing_grotto: 'sea', glasswing_grotto: 'snow', grey_ruins: 'ruins',
+  quiet_quarry: 'cave', highfeather: 'sky', whistfell_abbey: 'abbey', quiet_deep: 'deep',
+};
+// MONSTER-BIBLE §9 body colours (demo-only CSS blobs; the real models are P16's)
+const COLOUR = {
+  gloop: '#4C86D8', bloop: '#E88BB4', flapjack: '#7B5FA8', peckish: '#F5D467', grumpleroot: '#EFE3D0', toadstooligan: '#D3524C',
+  bumbleblunder: '#F2C230', grumbleglop: '#7E6B45', sir_gloopalot: '#5FBF7E', boohoo: '#DCE8F2', chestnut: '#8A5A32', crabbit: '#E2734A',
+  hoot_couture: '#B08A5E', batterfly: '#C8A96E', twiglet: '#6E5236', quietling: '#9aa0ac', glimmergloop: '#C9D3DC', clankworthy: '#9AA7B8',
+  boulderdash: '#8A8578', cactuddle: '#6FA65A', dune_buggy: '#4A6E8A', jinglebottom: '#D3524C', barrowmole: '#6B5A6E',
+  candelabracadabra: '#C9973C', gloopold: '#C24C6E', sir_cumference: '#9AA7B8', mirthquake: '#4A2B52', lady_mothbonnet: '#C9CFE8',
+  squidgeon: '#8E6FB8', thunderpuff: '#E8EEF6', wyrmsley: '#4E8C6A', grimalkitten: '#3A3352', hexcalibur: '#D9E2EC', vesperling: '#2E2A44',
+  mumbleroot: '#4a3a30', sunmane: '#E9A23B', bogwallop: '#6E8F52', sexton_sootbell: '#B8C0CC', tidewarden: '#3f8f9a', hoarfax: '#e6eef8',
+  iron_governess: '#7A8290', hush: '#6b6f86', hark: '#8A6A3C', mortmain: '#d4d4dc', mortmain_scripted: '#d4d4dc', mortmain_enfolded: '#7A1F2E',
+  malgrim_cocoon: '#241E33', malgrim_unravelling: '#2e2542',
+};
+const SHAPE = { boohoo: 'ghost', sexton_sootbell: 'ghost', lady_mothbonnet: 'ghost', chestnut: 'box', clankworthy: 'box', hexcalibur: 'box', twiglet: 'box' };
+const HOLD = { telegraph: 1100, victory: 650, levelup: 520, recruit_offer: 1300, wipe: 1500, defeat: 480, damage: 330, transform: 1000, phase: 900, spared: 900 };
+const CPS = 38 / 1000; // SYSTEMS §7: 38 glyphs per second
+
+const UI = {
+  areaIdx: AREAS.findIndex((a) => a.id === 'cobwell_manor'), levelIdx: 1, S: 0, rng: makeRng(20040),
+  battle: null, level: 1, isBoss: false,
+  order: { party: [], wagon: [], enemies: [] }, vm: {}, renderedKey: { party: '', enemies: '' },
+  queue: [], cur: null, typed: 0, hold: 0, lines: [], busy: false, instant: false, fast: false,
+  menu: null, pendingMenu: null, cmdIdx: {}, activeId: null,
+};
+
+// ------------------------------------------------------------------------------------------------ battle setup
+function startBattle({ areaId, boss = false, level, seed, enemies } = {}) {
+  if (areaId) UI.areaIdx = Math.max(0, AREAS.findIndex((a) => a.id === areaId));
+  if (seed != null) UI.rng = makeRng(seed);
+  const area = AREAS[UI.areaIdx];
+  const bossSpec = boss ? (boss === 2 && area.boss2 ? area.boss2 : area.boss) : null;
+  UI.isBoss = !!bossSpec;
+  UI.level = level ?? (bossSpec ? bossSpec.level : area.levels[UI.levelIdx]);
+  const foes = enemies || (bossSpec ? bossSpec.enemies : rollEncounter(area, UI.rng, DATA.monsters));
+  UI.battle = createBattle({
+    party: area.party(UI.level), enemies: foes, data: DATA, rng: UI.rng,
+    options: {
+      gold: 120, bag: { ...(area.bag || {}) }, assist: { s: UI.S },
+      wagonReachable: bossSpec ? false : (area.wagonReachable ?? true), ambush: bossSpec ? 'none' : undefined,
+      recruit: area.act >= 2 ? { enabled: true, kidMode: true } : null,
+    },
+  });
+  UI.vm = {}; UI.queue = []; UI.cur = null; UI.lines = []; UI.busy = false; UI.menu = null; UI.pendingMenu = null; UI.cmdIdx = {};
+  UI.renderedKey = { party: '', enemies: '' };
+  syncFromSnapshot();
+  $('lines').innerHTML = ''; $('log').innerHTML = '';
+  $('field').classList.remove('wiped', 'darken', 'desat');
+  $('backdrop').className = 't-' + (TERRAIN[area.id] || 'meadow');
+  hideMenu(); renderTop(); render();
+  enqueue(UI.battle.opening);
+  return UI.battle.snapshot();
+}
+
+function syncFromSnapshot() {
+  const snap = UI.battle.snapshot();
+  for (const p of snap.party.concat(snap.wagon)) UI.vm[p.id] = { ...(UI.vm[p.id] || {}), ...p, tags: new Set(p.status) };
+  for (const e of snap.enemies) {
+    const old = UI.vm[e.id] || {};
+    UI.vm[e.id] = { ...old, ...e, tele: !!e.telegraphing, asleep: e.status.includes('sleep'),
+      state: e.alive ? '' : (old.state || (e.gone === 'spared' ? 'spared' : e.gone === 'fled' ? 'fled' : 'gone')) };
+  }
+  UI.order.party = snap.party.map((p) => p.id);
+  UI.order.wagon = snap.wagon.map((p) => p.id);
+  UI.order.enemies = snap.enemies.map((e) => e.id);
+}
+
+// ------------------------------------------------------------------------------------------------ message queue
+function enqueue(events) {
+  for (const ev of events) UI.queue.push(ev);
+  if (UI.queue.length) UI.busy = true;
+  if (UI.instant) flush();
+}
+
+function beginNext() {
+  const ev = UI.queue.shift();
+  applyEvent(ev);
+  logEvent(ev);
+  const lines = ev.lines || (ev.text ? [ev.text] : []);
+  if (!lines.length) return;
+  UI.cur = { ev, lines, idx: 0, phase: 'type' };
+  UI.typed = 0;
+  pushLine('');
+}
+
+function tick(dt) {
+  const speed = UI.fast ? 5 : 1;
+  while (!UI.cur && UI.queue.length) beginNext();
+  const c = UI.cur;
+  if (!c) { if (UI.busy) { UI.busy = false; idle(); } return; }
+  if (c.phase === 'gap') {
+    UI.hold -= dt * speed;
+    if (UI.hold <= 0) { c.phase = 'type'; pushLine(''); }
+    return;
+  }
+  if (c.phase === 'type') {
+    const line = c.lines[c.idx];
+    UI.typed += dt * CPS * speed;
+    const n = Math.min(line.length, Math.floor(UI.typed));
+    setLastLine(line.slice(0, n));
+    if (n >= line.length) {
+      c.idx++; UI.typed = 0;
+      if (c.idx < c.lines.length) { c.phase = 'gap'; UI.hold = c.ev.t === 'levelup' ? 90 : 170; }
+      else { c.phase = 'hold'; UI.hold = HOLD[c.ev.t] || 300; }
+    }
+    return;
+  }
+  UI.hold -= dt * speed;
+  if (UI.hold <= 0) UI.cur = null;
+}
+
+function flush() {
+  for (;;) {
+    while (!UI.cur && UI.queue.length) beginNext();
+    if (!UI.cur) break;
+    const c = UI.cur;
+    setLastLine(c.lines[c.idx]);
+    for (let i = c.idx + 1; i < c.lines.length; i++) pushLine(c.lines[i]);
+    UI.cur = null;
+  }
+  if (UI.busy) { UI.busy = false; idle(); }
+}
+
+function pushLine(text) { UI.lines.push(text); if (UI.lines.length > 5) UI.lines.shift(); renderLines(); }
+function setLastLine(text) { UI.lines[UI.lines.length - 1] = text; renderLines(); }
+function renderLines() {
+  const box = $('lines'), limit = $('msg').clientHeight - 28;
+  const draw = () => { box.innerHTML = UI.lines.map((l, i) => `<div class="ln${i < UI.lines.length - 1 ? ' old' : ''}">${esc(l)}</div>`).join(''); };
+  draw();
+  // DQ windows fill top-down; when a new line would spill over, the oldest line scrolls away
+  while (UI.lines.length > 1 && box.scrollHeight > limit) { UI.lines.shift(); draw(); }
+}
+
+/** The queue just emptied: sync, then give the child control (or finish). */
+function idle() {
+  const b = UI.battle;
+  if (!b) return;
+  syncFromSnapshot(); UI.activeId = null; render(); renderStats();
+  if (UI.pendingMenu) { const m = UI.pendingMenu; UI.pendingMenu = null; showMenu(m); return; }
+  if (b.phase === 'command') {
+    const n = b.needsCommand();
+    if (n) openCommand(n); else enqueue(b.resolveRound());
+  } else if (b.over) openEnd();
+}
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(100, now - last); last = now;
+  try { if (!UI.instant) tick(dt); } catch (e) { errors.push(String(e && e.stack || e)); }
+  requestAnimationFrame(frame);
+}
+
+// ------------------------------------------------------------------------------------------------ events → visuals
+function el(id) { return document.querySelector(`[data-id="${CSS.escape(id)}"]`); }
+function pulse(node, cls, ms) { if (!node || UI.instant) return; node.classList.remove(cls); void node.offsetWidth; node.classList.add(cls); setTimeout(() => node.classList.remove(cls), ms); }
+function popNumber(id, text, cls = '') {
+  const node = el(id); if (!node || UI.instant) return;
+  const s = document.createElement('div'); s.className = 'popnum ' + cls; s.textContent = text; node.appendChild(s);
+  setTimeout(() => s.remove(), 900);
+}
+
+function applyEvent(ev) {
+  const vm = UI.vm;
+  switch (ev.t) {
+    case 'damage': {
+      const t = vm[ev.target]; if (!t) break;
+      if (ev.miss) { popNumber(ev.target, 'miss'); break; }
+      t.hp = ev.hp;
+      if (ev.side === 'party') pulse(el(ev.target), 'hit', 220);
+      else { pulse(el(ev.target), 'flash', 70); setTimeout(() => pulse(el(ev.target), 'shake', 190), 70); }
+      popNumber(ev.target, String(ev.amount), ev.crit ? 'crit' : '');
+      if (ev.crit) { pulse($('field'), 'shake', 190); pulse($('field'), 'white', 130); }
+      if (ev.poison) break;
+      if (t.asleep && ev.amount > 0 && ev.hp > 0) t.asleep = false;
+      break;
+    }
+    case 'heal': { const t = vm[ev.target]; if (!t) break; if (ev.mp) t.mp = Math.min(t.maxMp, t.mp + ev.amount); else { t.hp = ev.hp; popNumber(ev.target, '+' + ev.amount, 'heal'); } pulse(el(ev.target), 'healed', 500); break; }
+    case 'revive': { const t = vm[ev.target]; if (t) { t.hp = ev.hp; t.alive = true; pulse(el(ev.target), 'healed', 500); } break; }
+    case 'defeat': {
+      const t = vm[ev.target]; if (!t) break;
+      t.alive = false; t.hp = 0;
+      if (ev.side === 'enemy') { t.state = 'pop'; setTimeout(() => { if (t.state === 'pop') { t.state = 'gone'; render(); } }, UI.instant ? 0 : 340); }
+      break;
+    }
+    case 'spared': { const t = vm[ev.target]; if (t) { t.alive = false; t.state = 'spared'; t.tele = false; } break; }
+    case 'flee': if (ev.side === 'enemy' && vm[ev.actor]) { vm[ev.actor].alive = false; vm[ev.actor].state = 'fled'; } break;
+    case 'status': {
+      const t = vm[ev.target]; if (!t) break;
+      if (ev.status === 'sleep' && !ev.skip) t.asleep = !!ev.on && !ev.resisted;
+      if (t.tags) { if (ev.on && !ev.resisted) t.tags.add(ev.status); else if (!ev.on) ev.status.split(',').forEach((x) => t.tags.delete(x)); }
+      break;
+    }
+    case 'telegraph': { const t = vm[ev.actor]; if (t) t.tele = true; break; }
+    case 'act': {
+      if (ev.actor && ev.actor.startsWith('e')) { const t = vm[ev.actor]; if (t && ev.big) t.tele = false; pulse(el(ev.actor), 'lunge', 300); UI.activeId = null; }
+      else UI.activeId = ev.actor;
+      break;
+    }
+    case 'swap': {
+      const i = UI.order.party.indexOf(ev.out), j = UI.order.wagon.indexOf(ev.in);
+      if (i >= 0 && j >= 0) { UI.order.party[i] = ev.in; UI.order.wagon[j] = ev.out; }
+      break;
+    }
+    case 'summon': for (const a of ev.added) { vm[a.id] = { ...a, state: '' }; UI.order.enemies.push(a.id); } break;
+    case 'transform': { const t = vm[ev.actor]; if (t) Object.assign(t, { name: ev.name, species: ev.into, hp: ev.hp, maxHp: ev.maxHp, tele: false }); break; }
+    case 'fx': if (!UI.instant) { const cls = ev.id === 'darken' ? 'darken' : 'desat'; $('field').classList.add(cls); setTimeout(() => $('field').classList.remove(cls), 1800); } break;
+    case 'wipe': $('field').classList.add('wiped'); break;
+    case 'round': UI.activeId = null; break;
+  }
+  render();
+}
+
+function logEvent(ev) {
+  const log = $('log');
+  const d = document.createElement('div');
+  d.className = 'ev ' + ev.t;
+  d.innerHTML = `<span class="t">${esc(ev.t)}</span> ${esc(ev.lines ? ev.lines.join(' / ') : (ev.text || (ev.t === 'round' ? 'round ' + ev.n : ev.t === 'end' ? ev.outcome : '')))}`;
+  log.appendChild(d);
+  while (log.children.length > 70) log.firstChild.remove();
+}
+
+// ------------------------------------------------------------------------------------------------ rendering (in place)
+function renderTop() {
+  const a = AREAS[UI.areaIdx];
+  $('areaWin').textContent = `◀  ${a.name} · Lv ${UI.level}${UI.isBoss ? ' · BOSS' : ''}${UI.S ? ' · S ' + UI.S : ''}  ▶`;
+}
+
+function render() { renderParty(); renderEnemies(); }
+
+function renderParty() {
+  const key = UI.order.party.join(',') + '|' + UI.order.wagon.join(',');
+  const bar = $('partybar');
+  if (key !== UI.renderedKey.party) {
+    UI.renderedKey.party = key;
+    const box = (id) => `<div class="win pm" data-id="${esc(id)}">
+      <div class="nm"><span class="n"></span><small class="lv"></small></div>
+      <div class="row"><span>H</span><span class="hpv"></span></div><div class="bar"><i></i></div>
+      <div class="row"><span>M</span><span class="mpv"></span></div><div class="tags"></div></div>`;
+    const row = (id) => `<div class="wr" data-id="${esc(id)}"><span><span class="n"></span><small class="lv"></small></span><span>H <span class="hpv"></span><span class="mpv" hidden></span></span></div>`;
+    const snap = UI.battle.snapshot();
+    bar.innerHTML = UI.order.party.map(box).join('')
+      + (UI.order.wagon.length ? `<div class="win wagonbox"><div class="wl">WAGON${snap.wagonReachable ? '' : ' · waiting outside'}</div>${UI.order.wagon.map(row).join('')}</div>` : '');
+  }
+  for (const id of UI.order.party.concat(UI.order.wagon)) {
+    const m = UI.vm[id], node = el(id);
+    if (!m || !node) continue;
+    const pct = Math.max(0, Math.min(100, (100 * m.hp) / Math.max(1, m.maxHp)));
+    node.querySelector('.n').textContent = m.name;
+    node.querySelector('.lv').textContent = (node.classList.contains('wr') ? '' : 'Lv ') + m.lvl;
+    node.querySelector('.hpv').textContent = m.hp;
+    node.querySelector('.mpv').textContent = m.mp;
+    const i = node.querySelector('.bar i'); if (i) i.style.width = pct + '%';
+    const tags = node.querySelector('.tags');
+    if (tags) tags.textContent = [m.guest ? 'guest' : '', ...(m.tags ? [...m.tags] : [])].filter(Boolean).join(' · ');
+    node.classList.toggle('ko', m.hp <= 0);
+    node.classList.toggle('low', m.hp > 0 && pct < 25);
+    node.classList.toggle('active', UI.activeId === id);
+  }
+}
+
+function renderEnemies() {
+  const key = UI.order.enemies.join(',');
+  const wrap = $('enemies');
+  if (key !== UI.renderedKey.enemies) {
+    UI.renderedKey.enemies = key;
+    wrap.innerHTML = UI.order.enemies.map((id) => `<div class="mon" data-id="${esc(id)}"><div class="chev">▼</div><div class="zzz">Zzz</div>
+      <div class="body"><div class="eye l"></div><div class="eye r"></div><div class="mouth"></div></div>
+      <div class="shadow"></div><div class="plate"></div><div class="dots"></div></div>`).join('');
+  }
+  const snap = UI.battle.snapshot();
+  for (const id of UI.order.enemies) {
+    const e = UI.vm[id], node = el(id);
+    if (!e || !node) continue;
+    const se = snap.enemies.find((x) => x.id === id);
+    node.style.setProperty('--s', (e.boss ? 190 : 104) + 'px');
+    node.style.setProperty('--c', COLOUR[e.name === 'Mortmain Enfolded' ? 'mortmain_enfolded' : e.species] || '#8888aa');
+    for (const s of ['ghost', 'box']) node.classList.toggle(s, SHAPE[e.species] === s);
+    node.classList.toggle('boss', !!e.boss);
+    for (const s of ['pop', 'gone', 'spared', 'fled']) node.classList.toggle(s, e.state === s);
+    node.classList.toggle('tele', !!e.tele && e.alive !== false);
+    node.classList.toggle('sleep', !!e.asleep && e.alive !== false);
+    node.querySelector('.plate').textContent = e.name;
+    const dots = se && se.bigCooldown > 0 && se.alive ? se.bigCooldown : 0;
+    node.querySelector('.dots').innerHTML = '<i></i>'.repeat(dots);
+  }
+}
+
+function renderStats() {
+  const b = UI.battle; if (!b) return;
+  const s = b.snapshot(), r = s.result;
+  $('stats').innerHTML = `phase <b>${s.phase}</b> · round <b>${s.round}</b> · gold <b>${s.gold}</b> · assist S <b>${s.assist.s}</b> (tier ${s.assist.tier})<br>
+    bag: ${Object.entries(s.bag).map(([k, v]) => `${esc(DATA.items[k] ? DATA.items[k].name : k)} ×${v}`).join(', ') || '—'}<br>
+    ${r ? `result <b>${r.outcome}</b> · +${r.exp} EXP · +${r.gold} G · S ${r.assist.before}→${r.assist.after}${r.recruit && r.recruit.offer ? ' · <b>' + esc(r.recruit.offer.name) + ' asked to join</b>' : ''}`
+    : `wagon ${s.wagonReachable ? 'can follow' : 'waits outside'}${s.boss ? ' · boss fight' : ''}`}`;
+}
+
+// ------------------------------------------------------------------------------------------------ menus
+function hideMenu() { UI.menu = null; $('cmd').hidden = true; }
+
+function showMenu(m) {
+  UI.menu = m;
+  const node = $('cmd');
+  const wasHidden = node.hidden;
+  node.hidden = false;
+  if (wasHidden) { node.style.animation = 'none'; void node.offsetWidth; node.style.animation = ''; }
+  node.innerHTML = `<div class="who">${esc(m.title)}</div><div class="${m.grid ? 'grid' : 'list'}">${m.opts.map((o, i) =>
+    `<div class="opt${i === m.idx ? ' sel' : ''}${o.dis ? ' dis' : ''}">${esc(o.label)}${o.r != null && o.r !== '' ? `<span class="r">${esc(o.r)}</span>` : ''}</div>`).join('')}</div>
+    <div class="hint">${esc(m.hint || '')}</div>`;
+}
+
+function openCommand(actor) {
+  UI.activeId = actor.id; renderParty();
+  const bag = UI.battle.snapshot().bag;
+  const opts = [
+    { label: 'Attack', v: 'attack' }, { label: 'Spells', v: 'spells', dis: !actor.spells.some((s) => !s.field) },
+    { label: 'Defend', v: 'defend' }, { label: 'Items', v: 'items', dis: !Object.keys(bag).some((k) => DATA.items[k] && DATA.items[k].battle) },
+    { label: 'Wagon', v: 'wagon', dis: !actor.canSwap.ok }, { label: 'Flee', v: 'flee' },
+    { label: 'Fight!', v: 'fight', r: 'auto' },
+  ];
+  showMenu({ kind: 'command', actor, opts, grid: true, idx: UI.cmdIdx[actor.id] || 0,
+    title: `${actor.name}  ·  H ${actor.hp}/${actor.maxHp}  M ${actor.mp}`, hint: 'Esc goes back to the friend before' });
+}
+
+function refuse(text, back) { hideMenu(); UI.pendingMenu = back; enqueue([{ t: 'message', text }]); }
+
+function doCommand(actorId, cmd, back) {
+  const b = UI.battle;
+  const r = b.command(actorId, cmd);
+  if (!r.ok) { refuse(r.text, back); return r; }
+  hideMenu();
+  const n = b.needsCommand();
+  if (n) openCommand(n); else enqueue(b.resolveRound());
+  return r;
+}
+
+function choose() {
+  const m = UI.menu; if (!m) return;
+  const o = m.opts[m.idx]; if (!o) return;
+  const b = UI.battle, snap = b.snapshot();
+  const foes = snap.enemies.filter((e) => e.alive);
+  const actorId = m.actor && m.actor.id;
+  const targetMenu = (pending, pool, title, showHp) => showMenu({ kind: 'target', actor: m.actor, pending, prev: m, idx: 0, title,
+    opts: pool.map((p) => ({ label: p.name, v: p.id, r: showHp ? `H ${p.hp}/${p.maxHp}` : '' })) });
+  switch (m.kind) {
+    case 'command':
+      UI.cmdIdx[actorId] = m.idx;
+      if (o.v === 'attack') return foes.length === 1 ? doCommand(actorId, { type: 'attack', target: foes[0].id }, m) : targetMenu({ type: 'attack' }, foes, 'Attack which one?');
+      if (o.v === 'defend') return doCommand(actorId, { type: 'defend' }, m);
+      if (o.v === 'flee') return doCommand(actorId, { type: 'flee' }, m);
+      if (o.v === 'fight') { hideMenu(); b.autoCommands('auto'); return enqueue(b.resolveRound()); }
+      if (o.v === 'spells') {
+        if (o.dis) return refuse(`${m.actor.name} doesn't know any spells yet.`, m);
+        return showMenu({ kind: 'spell', actor: m.actor, prev: m, idx: 0, title: `${m.actor.name}'s spells · MP ${m.actor.mp}`,
+          opts: m.actor.spells.map((s) => ({ label: s.name, v: s.id, r: s.mp, dis: !s.usable, s })), hint: 'Grey: not enough MP, or it only works on the road' });
+      }
+      if (o.v === 'items') {
+        if (o.dis) return refuse('The bag has nothing useful for a fight.', m);
+        return showMenu({ kind: 'item', actor: m.actor, prev: m, idx: 0, title: 'The bag',
+          opts: Object.entries(snap.bag).filter(([k]) => DATA.items[k]).map(([k, n]) => ({ label: DATA.items[k].name, v: k, r: '×' + n, dis: !DATA.items[k].battle })) });
+      }
+      if (o.v === 'wagon') {
+        if (!m.actor.canSwap.ok) return refuse(m.actor.canSwap.text, m);
+        return showMenu({ kind: 'swap', actor: m.actor, prev: m, idx: 0, title: `Who climbs down for ${m.actor.name}?`,
+          opts: snap.wagon.filter((p) => p.alive).map((p) => ({ label: p.name, v: p.id, r: `Lv ${p.lvl}` })) });
+      }
+      return;
+    case 'spell': {
+      const s = o.s;
+      if (!s.usable) return refuse(s.field ? `${s.name} only works out on the road.` : `${m.actor.name} hasn't the puff for it.`, m);
+      const sp = DATA.spells[s.id];
+      if (sp.target === 'enemy') return foes.length === 1 ? doCommand(actorId, { type: 'spell', id: s.id, target: foes[0].id }, m) : targetMenu({ type: 'spell', id: s.id }, foes, `${s.name} on which one?`);
+      if (['ally', 'fallen', 'self'].includes(sp.target)) {
+        const pool = snap.party.filter((p) => (sp.target === 'fallen' ? !p.alive : p.alive));
+        if (!pool.length) return refuse(sp.target === 'fallen' ? 'Nobody needs rousing.' : 'There is nobody to help.', m);
+        return targetMenu({ type: 'spell', id: s.id }, pool, `${s.name} on whom?`, true);
+      }
+      return doCommand(actorId, { type: 'spell', id: s.id }, m);
+    }
+    case 'item': {
+      const it = DATA.items[o.v];
+      if (!it.battle) return refuse(`The ${it.name} won't help in a fight.`, m);
+      if (it.battle.target === 'enemies') return doCommand(actorId, { type: 'item', id: it.id }, m);
+      const pool = snap.party.filter((p) => (it.battle.effect === 'revive' ? !p.alive : p.alive));
+      if (!pool.length) return refuse('Nobody needs it right now.', m);
+      return targetMenu({ type: 'item', id: it.id }, pool, `The ${it.name} for whom?`, true);
+    }
+    case 'swap': return doCommand(actorId, { type: 'swap', target: o.v }, m.prev);
+    case 'target': return doCommand(actorId, { ...m.pending, target: o.v }, m.prev);
+    case 'end':
+      hideMenu();
+      if (o.v === 'again') return startBattle({});
+      if (o.v === 'boss') return startBattle({ boss: true });
+      if (o.v === 'boss2') return startBattle({ boss: 2 });
+      if (o.v === 'next') { UI.areaIdx = (UI.areaIdx + 1) % AREAS.length; return startBattle({}); }
+  }
+}
+
+function openEnd() {
+  const a = AREAS[UI.areaIdx], r = UI.battle.result;
+  const opts = [{ label: 'Another fight', v: 'again' }];
+  if (a.boss) opts.push({ label: 'Fight the boss', v: 'boss' });
+  if (a.boss2) opts.push({ label: 'The last boss', v: 'boss2' });
+  opts.push({ label: 'Next area', v: 'next' });
+  showMenu({ kind: 'end', actor: null, opts, idx: 0, title: r ? ({ victory: 'Victory!', defeat: 'Back at the church', fled: 'Got away!', scripted: 'That was never a fight you could win' }[r.outcome]) : 'Done' });
+}
+
+function cancel() {
+  const m = UI.menu; if (!m) return;
+  if (m.prev) return showMenu(m.prev);
+  if (m.kind === 'command') { const u = UI.battle.undoCommand(); if (u.ok && u.actor) openCommand(u.actor); }
+}
+
+function move(dx, dy) {
+  const m = UI.menu; if (!m) return;
+  const n = m.opts.length;
+  m.idx = m.grid ? Math.max(0, Math.min(n - 1, m.idx + dx + dy * 2)) : (m.idx + dy + dx + n) % n;
+  showMenu(m);
+}
+
+function press(btn) {
+  if (UI.busy) { if (btn === 'confirm') UI.fast = true; return; }
+  switch (btn) {
+    case 'up': return move(0, -1); case 'down': return move(0, 1);
+    case 'left': return move(-1, 0); case 'right': return move(1, 0);
+    case 'confirm': return choose(); case 'cancel': return cancel();
+  }
+}
+
+const KEYS = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
+  Enter: 'confirm', Space: 'confirm', KeyZ: 'confirm', Escape: 'cancel', KeyX: 'cancel', Backspace: 'cancel' };
+window.addEventListener('keydown', (e) => {
+  try {
+    if (KEYS[e.code]) { e.preventDefault(); press(KEYS[e.code]); return; }
+    switch (e.code) {
+      case 'KeyF': if (!UI.busy && UI.menu && UI.menu.kind === 'command') { UI.menu.idx = 6; choose(); } break;
+      case 'KeyN': startBattle({}); break;
+      case 'KeyB': if (AREAS[UI.areaIdx].boss) startBattle({ boss: true }); break;
+      case 'BracketRight': UI.areaIdx = (UI.areaIdx + 1) % AREAS.length; startBattle({}); break;
+      case 'BracketLeft': UI.areaIdx = (UI.areaIdx - 1 + AREAS.length) % AREAS.length; startBattle({}); break;
+      case 'KeyL': UI.levelIdx = (UI.levelIdx + 1) % 3; startBattle({}); break;
+      case 'KeyS': UI.S = [0, 30, 60, 75][([0, 30, 60, 75].indexOf(UI.S) + 1) % 4]; startBattle({}); break;
+      case 'KeyT': UI.instant = !UI.instant; if (UI.instant) flush(); break;
+    }
+  } catch (err) { errors.push(String(err && err.stack || err)); }
+});
+window.addEventListener('keyup', (e) => { if (KEYS[e.code] === 'confirm') UI.fast = false; });
+
+// ------------------------------------------------------------------------------------------------ window.__DQ
+window.__DQ = {
+  ready: false, version: 'P14-demo-2', errors,
+  state() {
+    const b = UI.battle, snap = b ? b.snapshot() : null;
+    return {
+      scene: 'battle', area: AREAS[UI.areaIdx].id, level: UI.level, boss: UI.isBoss,
+      battle: snap ? { turn: snap.round, phase: snap.phase, enemies: snap.enemies.map((e) => ({ id: e.id, name: e.name, hp: e.hp, maxHp: e.maxHp, alive: e.alive, telegraphing: !!e.telegraphing, bigCooldown: e.bigCooldown })) } : null,
+      party: snap ? snap.party.map((p) => ({ name: p.name, hp: p.hp, mhp: p.maxHp, mp: p.mp, lvl: p.lvl })) : [],
+      assist: snap ? snap.assist : null,
+      ui: { menu: UI.menu ? { kind: UI.menu.kind, options: UI.menu.opts.map((o) => o.label), idx: UI.menu.idx } : null, typing: UI.busy, lines: UI.lines.slice() },
+      snapshot: snap, errors: errors.length + (b ? b.errors.length : 0),
+    };
+  },
+  listAreas: () => AREAS.map((a) => ({ id: a.id, name: a.name, levels: a.levels, boss: a.boss ? a.boss.enemies : null })),
+  /** battle('cobwell_manor', {boss:true, level:6, seed:1, enemies:['gloop']}) */
+  battle(area, opts = {}) { startBattle({ areaId: area, ...opts }); return this.state(); },
+  /** command({type:'attack', target:'e1'}) for whoever needs one; command('hero', {...}); command('resolve'). */
+  command(a, b) {
+    const bt = UI.battle; if (!bt) return { ok: false, text: 'no battle' };
+    if (a === 'resolve') { hideMenu(); enqueue(bt.resolveRound()); return { ok: true }; }
+    const n = bt.needsCommand();
+    const id = typeof a === 'string' ? a : n && n.id;
+    const cmd = typeof a === 'string' ? b : a;
+    if (!id) return { ok: false, text: 'nobody needs a command' };
+    return doCommand(id, cmd, UI.menu);
+  },
+  /** Resolve up to n rounds with an AI policy ('smart' | 'auto' | 'mash'), instantly. */
+  autoplay(n = 99, policy = 'smart') {
+    const bt = UI.battle; if (!bt) return null;
+    const was = UI.instant; UI.instant = true; hideMenu(); flush();
+    let k = 0;
+    while (!bt.over && k++ < n) enqueue(bt.autoRound(policy));
+    flush(); UI.instant = was;
+    return { phase: bt.phase, round: bt.round, outcome: bt.result ? bt.result.outcome : null };
+  },
+  press(btn) { press(btn); return this.state().ui; },
+  instant(v = true) { UI.instant = !!v; if (UI.instant) flush(); return UI.instant; },
+  assist(s) { UI.S = Number(s) || 0; return UI.S; },
+  level(i) { UI.levelIdx = Math.max(0, Math.min(2, i)); return UI.levelIdx; },
+  seed(n) { UI.rng = makeRng(n); return n; },
+  idle: () => !UI.busy,
+};
+
+startBattle({});
+requestAnimationFrame((t) => { last = t; requestAnimationFrame(frame); window.__DQ.ready = true; });
+</script></body></html>

@@ -1,0 +1,641 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/><title>DEMO — F2 input</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>
+/* Demo-only placeholder colours (F1/P28 DQ window values) until F3 palette / F4 window widget land. */
+:root{--win-top:#2c4fb8;--win-bot:#132a78;--win-edge:#f4f1ea;--win-line:#9fb2ff;--ink:#fbf8ee;--dim:#b9c3f2;--gold:#ffd766;
+  --well:#0a1450;--ok:#8ce99a;--off:#34427e}
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+#game-canvas{display:block;width:100vw;height:100vh}
+#ui-root{position:fixed;inset:0;pointer-events:none;
+  font:700 15px/1.3 ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif;color:var(--ink);letter-spacing:.02em}
+.win{position:absolute;box-sizing:border-box;padding:16px 16px 12px;border-radius:14px;
+  background:linear-gradient(180deg,var(--win-top),var(--win-bot));border:4px solid var(--win-edge);
+  box-shadow:0 0 0 2px #0a154099,0 8px 22px #000a;animation:pop .24s cubic-bezier(.2,1.4,.4,1) both}
+.win::before{content:"";position:absolute;inset:4px;border:2px solid var(--win-line);border-radius:8px;opacity:.35;pointer-events:none}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:none;opacity:1}}
+.tag{position:absolute;top:-13px;left:14px;background:var(--win-bot);border:3px solid var(--win-edge);border-radius:8px;
+  padding:0 9px;font-size:12px;line-height:18px;color:var(--gold);letter-spacing:.1em;text-transform:uppercase}
+.dim{color:var(--dim)}
+/* buttons window */
+#w-buttons{left:14px;top:18px;width:440px}
+.brow{display:grid;grid-template-columns:16px 84px 1fr 30px 38px 38px 52px;align-items:center;gap:6px;height:25px}
+.lamp{width:14px;height:14px;border-radius:50%;background:var(--off);box-shadow:inset 0 2px 0 #0005}
+.brow.down .lamp{background:var(--gold);box-shadow:0 0 10px var(--gold)}
+.brow.flash .bname{color:var(--gold)}
+.bname{text-transform:uppercase;font-size:14px;letter-spacing:.06em}
+.bkeys{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.bpad{font-size:12px;color:var(--dim);text-align:center;border:2px solid #ffffff30;border-radius:9px;line-height:16px;font-weight:700}
+.bnum{font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+.bnum i{font-style:normal;color:var(--dim);font-size:11px;margin-right:2px}
+.bar{height:8px;border-radius:4px;background:var(--well);overflow:hidden;border:1px solid #ffffff22}
+.bar b{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ok),var(--gold))}
+.bhead{display:grid;grid-template-columns:16px 84px 1fr 30px 38px 38px 52px;gap:6px;font-size:10px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin:0 0 2px}
+.bhead span:nth-child(n+4){text-align:right}.bhead span:nth-child(4){text-align:center}
+/* status */
+#w-status{left:14px;top:296px;width:440px;padding-top:14px}
+.kv{display:grid;grid-template-columns:92px 1fr;gap:1px 10px;font-size:14px}
+.kv span:nth-child(odd){color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.08em;line-height:19px}
+/* menu repeat */
+#w-menu{left:468px;top:18px;width:440px}
+.cmd{display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;grid-template-rows:repeat(4,auto);gap:1px 10px;font-size:19px;margin:0 0 8px;padding-left:18px}
+.cmd div{position:relative;padding:1px 0 1px 26px;border-radius:6px}
+.cmd div.sel::before{content:"\25B6";position:absolute;left:4px;top:4px;font-size:15px;animation:nudge .5s steps(2) infinite}
+.cmd div.sel{color:var(--gold)}
+.cmd div.hit{background:#ffffff26}
+@keyframes nudge{50%{transform:translateX(3px)}}
+#timeline{display:block;width:100%;height:76px;border-radius:7px;background:var(--well);border:2px solid #ffffff22}
+.hint{font-size:12px;color:var(--dim);margin-top:5px;font-weight:600}
+/* stick */
+#w-stick{right:14px;top:18px;width:326px}
+#dial{display:block;width:200px;height:200px;margin:0 auto}
+.axis{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;font-size:14px;font-variant-numeric:tabular-nums;margin-top:6px}
+.axis b{display:block;font-size:10px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+/* gamepad */
+#w-pad{right:14px;top:338px;width:326px;padding-top:14px}
+.padline{font-size:13px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.padline .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--off);margin-right:6px;vertical-align:0}
+.padline.on .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.axbars{display:grid;grid-template-columns:22px 1fr 22px 1fr;gap:4px 6px;align-items:center;font-size:11px;color:var(--dim)}
+.axbar{position:relative;height:10px;border-radius:5px;background:var(--well);border:1px solid #ffffff22;overflow:hidden}
+.axbar i{position:absolute;top:0;bottom:0;background:#9fb2ff33;left:40%;width:20%}
+.axbar b{position:absolute;top:0;bottom:0;width:4px;margin-left:-2px;background:var(--gold);left:50%;border-radius:2px}
+.pbtns{display:flex;gap:3px;margin-top:8px;flex-wrap:wrap}
+.pbtns span{min-width:17px;padding:0 2px;height:17px;line-height:17px;border-radius:5px;background:var(--well);font-size:9px;text-align:center;color:var(--dim);border:1px solid #ffffff22}
+.pbtns span.on{background:var(--gold);color:var(--win-bot)}
+/* message */
+#w-msg{left:50%;transform:translateX(-50%);bottom:14px;width:min(620px,calc(100vw - 480px));min-height:92px;padding:14px 22px 10px;animation:none}
+#w-msg .line{font-size:17px;line-height:25px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.62}
+#w-msg .line:last-child{opacity:1}
+#w-msg .line b{color:var(--gold);letter-spacing:.06em}
+#w-msg .caret{position:absolute;right:16px;bottom:8px;font-size:13px;animation:blink .8s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+/* pause */
+#w-pause{left:50%;top:52%;transform:translate(-50%,-50%);width:360px;text-align:center;font-size:18px;line-height:1.45;animation:none}
+#w-pause h2{margin:0 0 6px;font-size:24px;letter-spacing:.12em;color:var(--gold)}
+/* phones / small tablets: the touch pad needs the corners, so the tester shrinks to lamps + dial + one message line */
+@media (max-width:900px),(max-height:540px){
+  #w-status,#w-pad,#w-menu,.bhead,.bkeys,.bpad,.bnum,.bar,#w-msg .caret{display:none}
+  .win{padding:10px 12px 8px;border-width:3px;border-radius:12px}
+  .tag{font-size:10px;line-height:15px;top:-11px}
+  #w-buttons{left:10px;top:14px;width:auto}
+  #brows{display:grid;grid-template-columns:repeat(3,auto);gap:0 12px}
+  .brow{grid-template-columns:12px auto;gap:5px;height:21px}
+  .lamp{width:11px;height:11px}.bname{font-size:12px}
+  #w-stick{right:10px;top:14px;width:auto;padding:10px 10px 6px}
+  #dial{width:108px;height:108px}
+  .axis{font-size:11px;margin-top:2px;gap:0 8px}.axis b{font-size:8px}.axis+.axis{display:none}
+  #w-msg{bottom:auto;top:14px;left:50%;width:min(300px,calc(100vw - 460px));min-height:0;padding:9px 12px 7px}
+  #w-msg .line{font-size:13px;line-height:18px;white-space:normal}
+  #w-msg .line:not(:last-child){display:none}
+  #w-pause{width:300px;font-size:15px}
+}
+@media (max-width:640px){#w-msg{display:none}}
+</style>
+</head><body>
+<canvas id="game-canvas"></canvas>
+<div id="ui-root">
+  <section class="win" id="w-buttons"><span class="tag">F2 · Buttons</span>
+    <div class="bhead"><span></span><span>button</span><span>keys</span><span>pad</span><span>press</span><span>rpt</span><span>held</span></div>
+    <div id="brows"></div></section>
+  <section class="win" id="w-status"><span class="tag">Status</span><div class="kv" id="kv"></div></section>
+  <section class="win" id="w-menu"><span class="tag">Menu repeat</span>
+    <div class="cmd" id="cmd"></div><canvas id="timeline"></canvas>
+    <div class="hint">hold a direction: 1 step · 300 ms pause · 10 steps/s · 15/s after ten</div></section>
+  <section class="win" id="w-stick"><span class="tag">Analog</span><canvas id="dial"></canvas>
+    <div class="axis"><div><b>x</b><span id="ax">+0.00</span></div><div><b>y</b><span id="ay">+0.00</span></div><div><b>from</b><span id="asrc">—</span></div></div>
+    <div class="axis"><div><b>|v|</b><span id="amag">0.00</span></div><div><b>angle</b><span id="aang">—</span></div><div><b>look</b><span id="alook">0, 0</span></div></div></section>
+  <section class="win" id="w-pad"><span class="tag">Gamepad</span>
+    <div class="padline" id="padline"><span class="dot"></span><span id="padtext">No pad yet: press a button on one</span></div>
+    <div class="axbars"><span>LX</span><div class="axbar" id="bLX"><i></i><b></b></div><span>RX</span><div class="axbar" id="bRX"><i></i><b></b></div>
+      <span>LY</span><div class="axbar" id="bLY"><i></i><b></b></div><span>RY</span><div class="axbar" id="bRY"><i></i><b></b></div></div>
+    <div class="pbtns" id="pbtns"></div></section>
+  <section class="win" id="w-msg"><div id="msglines"><div class="line">Welcome! Press anything. Bobble is listening.</div></div><span class="caret">&#9660;</span></section>
+  <section class="win" id="w-pause" hidden><h2>PAUSED</h2>Bobble is having a little sit-down.<br/><span class="dim">Back / Esc / Menu to carry on</span></section>
+</div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// F2 — input demo. A live tester for src/engine/input.js: every virtual button's state, the analog vector on a dial,
+// menu key-repeat on a DQ command window + timeline, gamepad status, the touch overlay, and Bobble the Gloop walking,
+// hopping and spinning on the real Input API. Colours are demo-only placeholders (ART-DIRECTION §7 values).
+import * as THREE from 'three';
+import { App } from '/src/engine/app.js';
+import { Loop } from '/src/engine/loop.js';
+import { Scenes } from '/src/engine/states.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Assets } from '/src/engine/assets.js';
+import { Input, BUTTONS } from '/src/engine/input.js';
+
+const PAL = { sky: '#9fd0ee', haze: '#cbdfe8', grass: '#62a04a', grassLight: '#86b85a', dirt: '#dcbc8a', sun: '#fff0d2',
+  hemiSky: '#c3cff0', hemiGround: '#bba374', slime: '#3b8fea', slimeHi: '#9bd2ff', mouth: '#7a1f2e', outline: '#2b1d1a',
+  eye: '#1c1418', white: '#ffffff', bush: '#467f36', leaf: '#1e3219', gold: '#ffd766', shadow: '#23301c',
+  ui: { well: '#0a1450', ring: '#f4f1ea', line: '#9fb2ff', gold: '#ffd766', dim: '#b9c3f2', off: '#34427e', ok: '#8ce99a' } };
+const C3 = (h) => new THREE.Color(h);
+const $ = (id) => document.getElementById(id);
+
+const params = new URLSearchParams(location.search);
+Input.init({ touch: params.get('touch') || 'on' });
+// ?driver=fallback boots WITHOUT beforeUpdate, to prove Input's per-frame fallback keeps a mis-wired game responsive.
+App.start(params.get('driver') === 'fallback' ? { version: '0.1.0-f2-demo' } : { version: '0.1.0-f2-demo', beforeUpdate: Input.update });
+
+// ── the field: Bobble on a little lawn ──────────────────────────────────────────────────────────────────────
+const COMMANDS = ['Talk', 'Spells', 'Items', 'Status', 'Equip', 'Tactics', 'Search', 'Misc'];
+const LINES = {
+  confirm: 'Bobble hops for joy!', cancel: 'Bobble spins round. Frankly— dizzy.', menu: 'The menu opens. Bobble sits.',
+  map: 'Bobble has no map. Bobble IS the map.', run: 'Bobble puts on a turn of speed!',
+  up: 'Up we go.', down: 'Down we go.', left: 'To the left.', right: 'To the right.',
+};
+const game = { x: 0, z: 0, vx: 0, vz: 0, y: 0, vy: 0, yaw: 0, spin: 0, squash: 0, hops: 0, spins: 0, maps: 0, idx: 0,
+  hitCmd: -1, hitT: 0, walk: 0, prev: null };
+
+function makeField() {
+  const scene = new THREE.Scene();
+  scene.background = C3(PAL.sky);
+  scene.fog = new THREE.Fog(C3(PAL.haze), 22, 70);
+  const camera = new THREE.PerspectiveCamera(42, App.aspect(), 0.3, 300);
+  let slime, body, shadow, offResize;
+  return {
+    enter() {
+      const sun = new THREE.DirectionalLight(C3(PAL.sun), 1.9);
+      sun.position.set(12, 18, 10); sun.castShadow = true;
+      sun.shadow.mapSize.set(App.tier.shadowMapSize, App.tier.shadowMapSize);
+      Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12, near: 1, far: 60 });
+      sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.04;
+      scene.add(sun, new THREE.HemisphereLight(C3(PAL.hemiSky), C3(PAL.hemiGround), 1.55));
+      const ground = new THREE.Mesh(Assets.circle(60, 64), Assets.material('f2:grass', () => new THREE.MeshToonMaterial({ color: C3(PAL.grass) })));
+      ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+      const lawn = new THREE.Mesh(Assets.circle(5.6, 64), Assets.material('f2:lawn', () => new THREE.MeshToonMaterial({ color: C3(PAL.grassLight) })));
+      lawn.rotation.x = -Math.PI / 2; lawn.position.y = 0.01; lawn.receiveShadow = true; scene.add(lawn);
+      const path = new THREE.Mesh(Assets.torus(5.9, 0.34, 8, 72), Assets.material('f2:dirt', () => new THREE.MeshToonMaterial({ color: C3(PAL.dirt) })));
+      path.rotation.x = -Math.PI / 2; path.scale.z = 0.06; path.receiveShadow = true; scene.add(path);
+      // bushes ring
+      const bushMat = Assets.material('f2:bush', () => new THREE.MeshToonMaterial({ color: C3(PAL.bush) }));
+      const hullMat = Assets.material('f2:bush-hull', () => new THREE.MeshBasicMaterial({ color: C3(PAL.leaf), side: THREE.BackSide }));
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2 + 0.2, r = 8.2 + (i % 3) * 0.9, s = 0.9 + ((i * 7) % 5) * 0.12;
+        const g = new THREE.Group();
+        for (const [ox, oy, oz, rr] of [[0, 0.7, 0, 0.9], [0.6, 0.5, 0.2, 0.62], [-0.55, 0.45, 0.15, 0.6]]) {
+          const m = new THREE.Mesh(Assets.icosa(rr, 2), bushMat); m.position.set(ox, oy, oz); m.castShadow = true;
+          const h = new THREE.Mesh(Assets.icosa(rr, 2), hullMat); h.scale.setScalar(1.06); m.add(h);
+          g.add(m);
+        }
+        g.scale.setScalar(s); g.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); g.rotation.y = a;
+        scene.add(g);
+      }
+      // Bobble
+      slime = new THREE.Group();
+      const geo = Assets.geometry('f2:slime', () => {
+        const g = new THREE.SphereGeometry(0.62, 32, 20), p = g.attributes.position;
+        for (let i = 0; i < p.count; i++) {
+          let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+          if (y < -0.25) y = -0.25 - (y + 0.25) * 0.25;
+          if (y > 0.3) { const k = (y - 0.3) / 0.32; x *= 1 - 0.55 * k; z *= 1 - 0.55 * k; y += 0.22 * k * k; }
+          p.setXYZ(i, x, y, z);
+        }
+        g.computeVertexNormals(); return g;
+      });
+      body = new THREE.Mesh(geo, Assets.material('f2:slime-body', () => new THREE.MeshToonMaterial({ color: C3(PAL.slime) })));
+      body.castShadow = true; body.position.y = 0.4;
+      const hull = new THREE.Mesh(geo, Assets.material('f2:outline', () => new THREE.MeshBasicMaterial({ color: C3(PAL.outline), side: THREE.BackSide })));
+      hull.scale.setScalar(1.045); body.add(hull);
+      const eyeW = Assets.material('f2:eye-w', () => new THREE.MeshBasicMaterial({ color: C3(PAL.white) }));
+      const eyeB = Assets.material('f2:eye-b', () => new THREE.MeshBasicMaterial({ color: C3(PAL.eye) }));
+      for (const sx of [-1, 1]) {
+        const w = new THREE.Mesh(Assets.sphere(0.13, 16, 12), eyeW); w.scale.set(1, 1.25, 0.6); w.position.set(sx * 0.2, 0.05, 0.52); body.add(w);
+        const d = new THREE.Mesh(Assets.sphere(0.07, 12, 10), eyeB); d.position.set(sx * 0.19, 0.03, 0.6); body.add(d);
+      }
+      const mono = new THREE.Mesh(Assets.torus(0.15, 0.022, 8, 24), Assets.material('f2:monocle', () => new THREE.MeshToonMaterial({ color: C3(PAL.gold) })));
+      mono.position.set(0.2, 0.05, 0.6); body.add(mono);
+      const mouth = new THREE.Mesh(Assets.circle(0.16, 20), Assets.material('f2:mouth', () => new THREE.MeshBasicMaterial({ color: C3(PAL.mouth), side: THREE.DoubleSide })));
+      mouth.scale.set(1, 0.55, 1); mouth.position.set(0, -0.2, 0.575); mouth.rotation.x = -0.25; body.add(mouth);
+      slime.add(body);
+      slime.scale.setScalar(1.35);
+      scene.add(slime);
+      shadow = new THREE.Mesh(Assets.circle(0.62, 32), Assets.material('f2:blob', () => new THREE.MeshBasicMaterial({ color: C3(PAL.shadow), transparent: true, opacity: 0.32, depthWrite: false })));
+      shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.03; scene.add(shadow);
+      offResize = App.onResize(() => { camera.aspect = App.aspect(); camera.updateProjectionMatrix(); });
+      game.prev = { x: game.x, z: game.z, y: game.y };
+    },
+    exit() { if (offResize) offResize(); },
+    onInput(btn) {
+      if (btn === 'menu') Scenes.push('pause');
+    },
+    update(dt) {
+      game.prev = { x: game.x, z: game.z, y: game.y, yaw: game.yaw, spin: game.spin };
+      const a = Input.axis();
+      const speed = Input.down('run') ? 6.2 : 3.0;
+      const tvx = a.x * speed, tvz = -a.y * speed;
+      const k = Math.min(1, dt * 12);
+      game.vx += (tvx - game.vx) * k; game.vz += (tvz - game.vz) * k;
+      game.x += game.vx * dt; game.z += game.vz * dt;
+      // stay in the clear middle of the frame: an ellipse, shallower toward the camera
+      const ex = game.x / 3.0, ez = game.z / (game.z > 0 ? 1.2 : 1.0), d = Math.hypot(ex, ez);
+      if (d > 1) { game.x /= d; game.z /= d; }
+      const sp = Math.hypot(game.vx, game.vz);
+      if (sp > 0.3) {
+        const target = Math.atan2(game.vx, game.vz);
+        let diff = target - game.yaw; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+        game.yaw += diff * Math.min(1, dt * 10);
+        game.walk += dt * (4 + sp * 1.6);
+        game.idle = 0;
+      } else {
+        game.idle = (game.idle || 0) + dt;            // idle a moment: turn back round to say hello
+        if (game.idle > 0.9) { const diff = Math.atan2(Math.sin(-game.yaw), Math.cos(-game.yaw)); game.yaw += diff * Math.min(1, dt * 3); }
+      }
+      if (Input.pressed('confirm') && game.y <= 0.001) { game.vy = 5.6; game.hops++; }
+      game.vy -= 22 * dt; game.y += game.vy * dt;
+      if (game.y < 0) { if (game.vy < -2) game.squash = 1; game.y = 0; game.vy = 0; }
+      game.squash = Math.max(0, game.squash - dt * 5);
+      if (Input.pressed('cancel')) { game.spins++; game.spin = 1; }
+      game.spin = Math.max(0, game.spin - dt * 2.2);
+      if (Input.pressed('map')) game.maps++;
+      // the command window: key repeat on directions
+      // reading order down each column; left/right jump between the two columns
+      if (Input.repeat('down')) game.idx = (game.idx + 1) % 8;
+      if (Input.repeat('up')) game.idx = (game.idx + 7) % 8;
+      if (Input.repeat('left') || Input.repeat('right')) game.idx = (game.idx + 4) % 8;
+      if (Input.pressed('confirm')) { game.hitCmd = game.idx; game.hitT = 0.25; }
+      game.hitT = Math.max(0, game.hitT - dt);
+    },
+    render(alpha) {
+      const p = game.prev || game;
+      const x = p.x + (game.x - p.x) * alpha, z = p.z + (game.z - p.z) * alpha, y = p.y + (game.y - p.y) * alpha;
+      const moving = Math.hypot(game.vx, game.vz) > 0.3;
+      const bob = moving ? Math.abs(Math.sin(game.walk)) * 0.18 : 0;
+      const breathe = Math.sin(App.clock.time * 2.4) * 0.025;
+      slime.position.set(x, y + bob, z);
+      const spinA = (1 - game.spin) * Math.PI * 2 * (game.spin > 0 ? 1 : 0);
+      slime.rotation.y = game.yaw + spinA;
+      const sq = game.squash + (moving ? (1 - Math.abs(Math.sin(game.walk))) * 0.35 : 0);
+      body.scale.set(1 + sq * 0.12 - breathe, 1 - sq * 0.14 + breathe + (y > 0.05 ? 0.08 : 0), 1 + sq * 0.12 - breathe);
+      shadow.position.set(x, 0.03, z);
+      shadow.scale.setScalar(1.35 * (1 - Math.min(0.5, (y + bob) * 0.25)));
+      camera.position.set(0, 7.2, 11.6);
+      camera.lookAt(0, 1.1, -2.6);
+      App.render(scene, camera);
+    },
+  };
+}
+
+function makePause() {
+  return {
+    enter() { $('w-pause').hidden = false; },
+    exit() { $('w-pause').hidden = true; },
+    onInput(btn) { if (btn === 'cancel' || btn === 'menu') Scenes.pop(); },
+    update() {},
+    render() {},
+  };
+}
+
+Scenes.register('field', makeField);
+Scenes.register('pause', makePause);
+Scenes.push('field');
+
+// ── panels ──────────────────────────────────────────────────────────────────────────────────────────────────
+const KEYHINT = { up: '↑  W', down: '↓  S', left: '←  A', right: '→  D', confirm: 'Enter  Space  Z', cancel: 'Esc  X  Backsp',
+  menu: 'Tab  C', run: 'Shift', map: 'M' };
+const PADHINT = { up: '↑', down: '↓', left: '←', right: '→', confirm: 'A', cancel: 'B', menu: 'Y', run: 'X', map: 'Bk' };
+const rows = {};
+for (const b of BUTTONS) {
+  const el = document.createElement('div');
+  el.className = 'brow';
+  el.innerHTML = `<span class="lamp"></span><span class="bname">${b}</span><span class="bkeys">${KEYHINT[b]}</span>` +
+    `<span class="bpad">${PADHINT[b]}</span><span class="bnum"><i>×</i><span class="np">0</span></span>` +
+    `<span class="bnum"><i>↻</i><span class="nr">0</span></span><span class="bar"><b></b></span>`;
+  $('brows').appendChild(el);
+  rows[b] = { el, np: el.querySelector('.np'), nr: el.querySelector('.nr'), bar: el.querySelector('.bar b'), flash: 0, t: '' };
+}
+const cmdEls = COMMANDS.map((c) => { const d = document.createElement('div'); d.textContent = c; $('cmd').appendChild(d); return d; });
+const PADNAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'Bk', 'St', 'LS', 'RS', '↑', '↓', '←', '→', 'H'];
+const pbEls = PADNAMES.map((n) => { const s = document.createElement('span'); s.textContent = n; $('pbtns').appendChild(s); return s; });
+
+const setText = (el, v) => { v = String(v); if (el.__t !== v) { el.__t = v; el.textContent = v; } };
+const setHTML = (el, v) => { if (el.__h !== v) { el.__h = v; el.innerHTML = v; } };
+const fmt = (v) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2);
+
+const msgs = [];
+let lastHistTick = 0;
+const DEV = { keyboard: 'the keyboard', gamepad: 'the gamepad', touch: 'the touch pad', inject: 'the harness' };
+
+function hidpi(canvas) {
+  const r = canvas.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+  const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  const ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: r.width, h: r.height };
+}
+
+const trail = [];
+function drawDial() {
+  const { ctx, w, h } = hidpi($('dial'));
+  const s = Input.describe();
+  const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 16;
+  ctx.clearRect(0, 0, w, h);
+  // well
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fillStyle = PAL.ui.well; ctx.fill();
+  const running = Input.down('run');
+  ctx.lineWidth = running ? 5 : 3; ctx.strokeStyle = running ? PAL.ui.gold : PAL.ui.ring; ctx.stroke();
+  // dead zone for the live source
+  const src = s.axis.source || (s.touch.stick.active ? 'touch' : s.gamepad.connected ? 'gamepad' : null);
+  const dz = src === 'touch' ? s.touch.deadZone.inner : src === 'gamepad' ? s.gamepad.deadZone.inner : 0;
+  if (dz) { ctx.beginPath(); ctx.arc(cx, cy, R * dz, 0, Math.PI * 2); ctx.fillStyle = 'rgba(159,178,255,0.22)'; ctx.fill(); }
+  // sector lines + rings
+  ctx.strokeStyle = 'rgba(159,178,255,0.25)'; ctx.lineWidth = 1;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+    ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * R * 0.12, cy + Math.sin(a) * R * 0.12); ctx.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, R * 0.5, 0, Math.PI * 2); ctx.stroke();
+  // direction lamps
+  const tri = (dir, ax, ay) => {
+    const on = Input.down(dir);
+    const px = cx + ax * (R + 9), py = cy + ay * (R + 9);
+    ctx.save(); ctx.translate(px, py); ctx.rotate(Math.atan2(ay, ax));
+    ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-4, -7); ctx.lineTo(-4, 7); ctx.closePath();
+    ctx.fillStyle = on ? PAL.ui.gold : PAL.ui.off; ctx.fill(); ctx.restore();
+  };
+  tri('up', 0, -1); tri('down', 0, 1); tri('left', -1, 0); tri('right', 1, 0);
+  // raw analog (before dead zone)
+  let raw = null;
+  if (s.touch.stick.active) { const m = Math.max(1, Math.hypot(s.touch.stick.rawX, s.touch.stick.rawY)); raw = [s.touch.stick.rawX / m, s.touch.stick.rawY / m]; }
+  else if (s.gamepad.connected) raw = [s.gamepad.raw.lx, -s.gamepad.raw.ly];
+  if (raw && Math.hypot(raw[0], raw[1]) > 0.01) {
+    ctx.beginPath(); ctx.arc(cx + raw[0] * R, cy - raw[1] * R, 7, 0, Math.PI * 2); ctx.strokeStyle = PAL.ui.dim; ctx.lineWidth = 2; ctx.stroke();
+  }
+  // trail + vector
+  const a = s.axis;
+  trail.push([a.x, a.y]); if (trail.length > 24) trail.shift();
+  for (let i = 0; i < trail.length; i++) {
+    const [tx, ty] = trail[i];
+    ctx.beginPath(); ctx.arc(cx + tx * R, cy - ty * R, 2 + i * 0.12, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,215,102,${(i / trail.length) * 0.35})`; ctx.fill();
+  }
+  const ex = cx + a.x * R, ey = cy - a.y * R;
+  if (a.mag > 0) {
+    ctx.strokeStyle = PAL.ui.gold; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ex, ey); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(ex, ey, 11, 0, Math.PI * 2); ctx.fillStyle = a.mag > 0 ? PAL.ui.gold : PAL.ui.ring; ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = PAL.ui.well; ctx.stroke();
+  setText($('ax'), fmt(a.x)); setText($('ay'), fmt(a.y));
+  setText($('amag'), a.mag.toFixed(2)); setText($('aang'), a.mag ? `${Math.round(a.angle)}°` : '—');
+  setText($('asrc'), a.source || '—');
+  setText($('alook'), `${s.look.x.toFixed(1)}, ${s.look.y.toFixed(1)}`);
+}
+
+function drawTimeline() {
+  const { ctx, w, h } = hidpi($('timeline'));
+  ctx.clearRect(0, 0, w, h);
+  const now = Input.tick, span = 150, left = 26, lane = (h - 8) / 4;
+  const X = (t) => left + ((t - (now - span)) / span) * (w - left - 6);
+  const hist = Input.history(64);
+  const dirs = ['up', 'down', 'left', 'right'], glyph = ['↑', '↓', '←', '→'];
+  ctx.font = '700 11px "Arial Rounded MT Bold", system-ui, sans-serif'; ctx.textBaseline = 'middle';
+  dirs.forEach((d, i) => {
+    const y0 = 4 + i * lane;
+    ctx.fillStyle = PAL.ui.dim; ctx.fillText(glyph[i], 8, y0 + lane / 2);
+    ctx.fillStyle = 'rgba(159,178,255,0.08)'; ctx.fillRect(left, y0 + 1, w - left - 6, lane - 2);
+    // held spans
+    let start = null;
+    for (const e of hist) {
+      if (e.btn !== d) continue;
+      if (e.kind === 'press') start = e.tick;
+      if (e.kind === 'release' && start !== null) { spanFill(start, e.tick); start = null; }
+    }
+    if (start !== null && Input.down(d)) spanFill(start, now);
+    function spanFill(a, b) { const xa = Math.max(left, X(a)), xb = X(b); if (xb > left) { ctx.fillStyle = 'rgba(140,233,154,0.22)'; ctx.fillRect(xa, y0 + 2, xb - xa, lane - 4); } }
+    for (const e of hist) {
+      if (e.btn !== d || e.tick < now - span) continue;
+      const x = X(e.tick);
+      if (e.kind === 'press') { ctx.fillStyle = PAL.ui.gold; ctx.fillRect(x - 1.5, y0 + 1, 3, lane - 2); }
+      else if (e.kind === 'repeat') { ctx.fillStyle = PAL.ui.ring; ctx.fillRect(x - 1, y0 + lane * 0.25, 2, lane * 0.5); }
+    }
+  });
+  ctx.fillStyle = PAL.ui.gold; ctx.fillRect(w - 6, 2, 2, h - 4);
+}
+
+function updatePanels() {
+  const s = Input.describe();
+  const counts = s.counts;
+  for (const b of BUTTONS) {
+    const r = rows[b], down = Input.down(b);
+    if (r.el.classList.contains('down') !== down) r.el.classList.toggle('down', down);
+    setText(r.np, counts[b].presses); setText(r.nr, counts[b].repeats);
+    const pct = Math.min(100, Input.heldMs(b) / 10);
+    const wv = pct.toFixed(0) + '%'; if (r.bar.style.width !== wv) r.bar.style.width = wv;
+  }
+  // log new presses
+  for (const e of Input.history(24)) {
+    if (e.tick <= lastHistTick) continue;
+    lastHistTick = Math.max(lastHistTick, e.tick);
+    if (e.kind !== 'press') continue;
+    msgs.push(`<b>${e.btn.toUpperCase()}</b> from ${DEV[e.device] || e.device} — ${LINES[e.btn]}`);
+    const r = rows[e.btn]; r.el.classList.add('flash'); clearTimeout(r.flash); r.flash = setTimeout(() => r.el.classList.remove('flash'), 220);
+  }
+  lastHistTick = Math.max(lastHistTick, Input.tick - 1);
+  while (msgs.length > 3) msgs.shift();
+  if (msgs.length) setHTML($('msglines'), msgs.map(m => `<div class="line">${m}</div>`).join(''));
+  // command window
+  const sel = game.idx;
+  cmdEls.forEach((el, i) => {
+    const on = i === sel; if (el.classList.contains('sel') !== on) el.classList.toggle('sel', on);
+    const hit = i === game.hitCmd && game.hitT > 0; if (el.classList.contains('hit') !== hit) el.classList.toggle('hit', hit);
+  });
+  // status
+  const st = __DQ.state();
+  setHTML($('kv'),
+    `<span>device</span><span>${s.device || 'none yet'}</span>` +
+    `<span>polling</span><span>${s.driver === 'tick' ? 'every 60 Hz tick' : s.driver} · tick ${s.tick}</span>` +
+    `<span>touch pad</span><span>${s.touch.mode} · ${s.touch.visible ? 'shown' : 'hidden'} · ${s.touch.coarse ? 'coarse' : 'fine'} pointer${s.touch.stick.active ? ' · stick held' : ''}</span>` +
+    `<span>scene</span><span>${st.sceneStack.join(' › ')}</span>` +
+    `<span>releases</span><span>${s.blurReleases} on blur${s.lastRelease ? ' (' + s.lastRelease + ')' : ''}${s.suppressed.length ? ' · waiting: ' + s.suppressed.join(', ') : ''}</span>` +
+    `<span>injected</span><span>${s.injected.held.length ? 'holding ' + s.injected.held.join(', ') : 'nothing held'} · ${s.injected.queued + s.injected.sequence} queued</span>`);
+  // gamepad
+  const g = s.gamepad;
+  $('padline').classList.toggle('on', g.connected);
+  setText($('padtext'), g.connected ? `${g.virtual && g.count === 1 ? 'Virtual pad (test)' : g.id} · ${g.mapping || 'raw'} mapping` : 'No pad yet: press a button on one');
+  const bar = (id, v, dz) => {
+    const el = $(id), b = el.querySelector('b'), i = el.querySelector('i');
+    const l = (50 + v * 50).toFixed(1) + '%'; if (b.style.left !== l) b.style.left = l;
+    const il = (50 - dz * 50).toFixed(1) + '%', iw = (dz * 100).toFixed(1) + '%';
+    if (i.style.left !== il) { i.style.left = il; i.style.width = iw; }
+  };
+  bar('bLX', g.raw.lx, g.deadZone.inner); bar('bLY', g.raw.ly, g.deadZone.inner);
+  bar('bRX', g.raw.rx, 0.22); bar('bRY', g.raw.ry, 0.22);
+  pbEls.forEach((el, i) => { const on = !!(g.buttons && g.buttons[i]); if (el.classList.contains('on') !== on) el.classList.toggle('on', on); });
+}
+
+Loop.onFrame(() => {
+  try { updatePanels(); drawDial(); drawTimeline(); } catch (e) { reportError('F2 demo panels', e); }
+});
+
+// ── demo controls for critics / the scenario ────────────────────────────────────────────────────────────────
+const KEYNAME = { ArrowUp: 'ArrowUp', ArrowDown: 'ArrowDown', ArrowLeft: 'ArrowLeft', ArrowRight: 'ArrowRight', Enter: 'Enter',
+  Space: ' ', Escape: 'Escape', Backspace: 'Backspace', Tab: 'Tab', ShiftLeft: 'Shift', ShiftRight: 'Shift' };
+const keyEvent = (code, down) => window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup',
+  { code, key: KEYNAME[code] || (code.startsWith('Key') ? code.slice(3).toLowerCase() : code), bubbles: true, cancelable: true }));
+Debug.expose('key', (code, down = true) => { keyEvent(String(code), !!down); return { code, down: !!down }; });
+Debug.expose('fakePad', (spec) => Input.setVirtualPad(spec));
+Debug.provide('demo', () => ({ bobble: { x: +game.x.toFixed(3), z: +game.z.toFixed(3), y: +game.y.toFixed(3), hops: game.hops, spins: game.spins, maps: game.maps },
+  menu: { index: game.idx, command: COMMANDS[game.idx] } }));
+Debug.expose('menuIndex', () => game.idx);
+Debug.expose('resetDemo', () => { Object.assign(game, { x: 0, z: 0, vx: 0, vz: 0, y: 0, vy: 0, idx: 0, hops: 0, spins: 0, maps: 0 }); Input.resetCounts(); msgs.length = 0; return true; });
+
+// synthetic pointer events through the real listeners
+let fakeId = 900;
+const stickHome = () => { const el = Input.touchElement().querySelector('.dq-stick'); return { x: el.offsetLeft + el.offsetWidth / 2, y: el.offsetTop + el.offsetHeight / 2, r: el.offsetWidth / 2 }; };
+const ptr = (type, target, x, y, id) => target.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 }));
+let stickPtr = null;
+Debug.expose('touchStick', (phase = 'down', dx = 0, dy = 0) => {
+  const h = stickHome();
+  if (phase === 'down') { stickPtr = { id: ++fakeId, x: h.x + 6, y: h.y - 4 }; const t = document.elementFromPoint(stickPtr.x, stickPtr.y) || document.body; ptr('pointerdown', t, stickPtr.x, stickPtr.y, stickPtr.id); return Input.describe().touch.stick; }
+  if (!stickPtr) return { ok: false, reason: 'call touchStick("down") first' };
+  const x = stickPtr.x + dx, y = stickPtr.y + dy;
+  if (phase === 'move') { ptr('pointermove', window, x, y, stickPtr.id); return Input.describe().touch.stick; }
+  if (phase === 'up') { ptr('pointerup', window, x, y, stickPtr.id); stickPtr = null; return Input.describe().touch.stick; }
+  return { ok: false, reason: 'phase is down|move|up' };
+});
+const btnPtr = {};
+Debug.expose('touchButton', (btn, down = true) => {
+  const el = Input.touchElement().querySelector(`.dq-tb[data-btn="${btn}"]`);
+  if (!el) return { ok: false, reason: 'no such touch button' };
+  const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+  if (down) { btnPtr[btn] = ++fakeId; ptr('pointerdown', el, x, y, btnPtr[btn]); }
+  else if (btnPtr[btn]) { ptr('pointerup', el, x, y, btnPtr[btn]); delete btnPtr[btn]; }
+  return { ok: true, held: Input.describe().touch.held };
+});
+
+/** Run fn with the sim frozen, stepping deterministically; restores the freeze state. */
+function frozen(fn) {
+  const was = Loop.frozen;
+  Loop.freeze(true);
+  Loop.resetCarry();
+  try { return fn(); } finally { Loop.freeze(was); }
+}
+const T = 1000 / 60;                     // exactly one fixed tick
+const adv = (ms) => __DQ.advance(ms);
+
+Debug.expose('repeatTest', () => frozen(() => {
+  Input.release(); adv(50);
+  const t0 = Input.tick;
+  Input.hold('down'); adv(1000);
+  const ev = Input.history(64).filter(e => e.btn === 'down' && e.tick > t0 && (e.kind === 'press' || e.kind === 'repeat'));
+  const first = ev.length ? ev[0].tick : 0;
+  Input.release('down'); adv(50);
+  // longer hold: the rate speeds up after 10 repeats
+  const t1 = Input.tick;
+  Input.hold('up'); adv(2500);
+  const ev2 = Input.history(64).filter(e => e.btn === 'up' && e.tick > t1 && e.kind !== 'release');
+  Input.release('up'); adv(50);
+  const gaps = ev2.slice(1).map((e, i) => e.tick - ev2[i].tick);
+  return { offsets: ev.map(e => e.tick - first), kinds: ev.map(e => e.kind), gapsLong: gaps };
+}));
+
+Debug.expose('tapTest', () => frozen(() => {
+  adv(2 * T);
+  const c0 = Input.counts().down.presses;
+  keyEvent('ArrowDown', true); keyEvent('ArrowDown', false);   // down+up inside one tick
+  adv(T);
+  const sawPress = Input.pressed('down');
+  adv(T);
+  const released = Input.released('down');
+  return { presses: Input.counts().down.presses - c0, sawPress, released, downAfter: Input.down('down') };
+}));
+
+Debug.expose('diagTest', () => frozen(() => {
+  keyEvent('KeyW', true); keyEvent('KeyD', true); adv(T);
+  const diag = Input.axis();
+  keyEvent('KeyA', true); adv(T);                              // opposite key: last pressed wins
+  const socd = Input.axis();
+  keyEvent('KeyW', false); keyEvent('KeyD', false); keyEvent('KeyA', false); adv(T);
+  return { diag, socd, after: Input.axis() };
+}));
+
+Debug.expose('padTest', () => frozen(() => {
+  const out = {};
+  Input.setVirtualPad({ axes: [0.15, -0.1, 0, 0], buttons: [] }); adv(T);
+  out.inDeadZone = Input.axis();
+  Input.setVirtualPad({ axes: [0.6, 0, 0, 0], buttons: [] }); adv(T);
+  out.partial = Input.axis();
+  Input.setVirtualPad({ axes: [0.7071, -0.7071, 0, 0], buttons: [] }); adv(T);
+  out.diagFull = Input.axis(); out.diagDigital = { up: Input.down('up'), right: Input.down('right') };
+  Input.setVirtualPad({ axes: [0.4, -0.4, 0, 0], buttons: [] }); adv(T);   // |v|=0.57: stays on (hysteresis off at 0.35)
+  out.hysteresisHold = { mag: Input.axis().mag, up: Input.down('up') };
+  Input.setVirtualPad({ axes: [0, 0, 0, 0], buttons: [{ pressed: true, value: 1 }] }); adv(T);
+  out.confirm = { pressed: Input.pressed('confirm'), device: Input.device };
+  window.dispatchEvent(new Event('blur')); adv(T);
+  out.afterBlur = { down: Input.down('confirm'), released: Input.released('confirm'), suppressed: Input.describe().suppressed };
+  adv(100);
+  out.stillSuppressed = { down: Input.down('confirm'), presses: Input.counts().confirm.presses };
+  Input.setVirtualPad({ axes: [0, 0, 0, 0], buttons: [] }); adv(T);
+  Input.setVirtualPad({ axes: [0, 0, 0, 0], buttons: [1] }); adv(T);
+  out.pressAgain = Input.pressed('confirm');
+  Input.setVirtualPad(null); adv(2 * T);
+  return out;
+}));
+
+Debug.expose('blurTest', () => frozen(() => {
+  keyEvent('ArrowLeft', true); keyEvent('ShiftLeft', true); Input.hold('confirm'); adv(2 * T);
+  const before = { left: Input.down('left'), run: Input.down('run'), confirm: Input.down('confirm') };
+  window.dispatchEvent(new Event('blur'));
+  const immediate = { left: Input.down('left'), run: Input.down('run'), confirm: Input.down('confirm') };
+  adv(T);
+  const edges = { left: Input.released('left'), run: Input.released('run'), confirm: Input.released('confirm'), axis: Input.axis().mag };
+  keyEvent('ArrowLeft', false); keyEvent('ShiftLeft', false); adv(T);
+  return { before, immediate, edges, anyDown: Input.anyDown() };
+}));
+
+Debug.expose('consumeTest', () => frozen(() => {
+  Input.release(); adv(50);
+  const s0 = game.spins;
+  Input.inject('cancel', 50); adv(100);
+  const spinOnField = game.spins - s0;
+  Input.inject('menu', 50); adv(100);
+  const paused = Scenes.top();
+  const s1 = game.spins;
+  Input.inject('cancel', 50); adv(100);
+  return { spinOnField, paused, back: Scenes.top(), spinWhenClosingPause: game.spins - s1 };
+}));
+
+Debug.expose('touchTest', () => frozen(() => {
+  const out = {};
+  __DQ.touchStick('down'); __DQ.touchStick('move', 16, 0); adv(T);
+  out.small = Input.axis();
+  __DQ.touchStick('move', 0, -300); adv(T);
+  out.up = { axis: Input.axis(), up: Input.down('up'), run: Input.down('run') };
+  __DQ.touchStick('up'); adv(T);
+  out.released = Input.axis();
+  __DQ.touchButton('confirm', true); adv(T);
+  out.confirm = { pressed: Input.pressed('confirm'), device: Input.device };
+  __DQ.touchButton('confirm', false); adv(T);
+  out.confirmUp = Input.released('confirm');
+  return out;
+}));
+
+Debug.expose('repeatLockTest', () => frozen(() => {
+  Input.release(); adv(50);
+  Input.hold('down'); adv(600);
+  const r0 = Input.counts().down.repeats;
+  Scenes.push('pause'); adv(600);
+  const whilePaused = Input.counts().down.repeats - r0;
+  const locked = Input.describe().repeatLocked.slice();
+  Scenes.pop(); adv(300);
+  const stillLocked = Input.counts().down.repeats - r0;
+  Input.release('down'); adv(50); Input.hold('down'); adv(600);
+  const afterRepress = Input.counts().down.repeats - r0;
+  Input.release('down'); adv(50);
+  return { heldRepeats: r0, whilePaused, locked, stillLocked, afterRepress };
+}));
+
+Debug.expose('blockTest', () => frozen(() => {
+  Input.hold('confirm'); adv(T);
+  Input.block('wipe', true); adv(T);
+  const blocked = { down: Input.down('confirm'), released: Input.released('confirm') };
+  Input.block('wipe', false); adv(2 * T);
+  const afterUnblock = { down: Input.down('confirm'), suppressed: Input.describe().suppressed.slice() };
+  Input.release('confirm'); adv(T); Input.inject('confirm', 50); adv(T);
+  return { blocked, afterUnblock, pressesAgain: Input.pressed('confirm') };
+}));
+</script></body></html>

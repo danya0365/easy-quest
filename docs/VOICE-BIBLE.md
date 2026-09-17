@@ -24,30 +24,31 @@ Owner: writing. Consumers: P12 dialogue, P22 shops, P24–P26 story, `src/data/s
 - **Punctuation.** Em dash for interruption ( — with spaces). Ellipsis is three dots, used for hesitation, once
   per page at most. No semicolons anywhere: a six-year-old has never met one. Exclamation marks are rationed
   (see Rule 3). Question marks are free.
-- **Names are capitalised as written here and never abbreviated by the system.** The hero's name is
-  player-entered (default **Ardin**, 6 characters max) and appears in system strings as `%HERO%`.
+- **Names are capitalised as written here and never abbreviated by the system.** Every name comes from
+  `docs/CANON.md`. The hero's name is player-entered (default **Bram**, 8 characters max) and appears in system
+  strings as `%HERO%`. Other tokens: `%WIFE%` (the chosen bride), `%SON%` (Rowan), `%DAUGHTER%` (Linnet), `%PIP%`.
 
 ### The cast, once, so nobody invents a second version
 | Role | Name | One line |
 |---|---|---|
-| The hero | **%HERO%** (default *Ardin*) | Silent. Speaks in choices and in what he does. |
-| The father | **Halvard Bellwether** | Enormous, dry, on a long quiet errand. |
-| Childhood friend / bride | **Wilomena "Willow" Pye** | Fearless, teasing, climbs everything. |
-| Merchant's daughter / bride | **Seraphine "Sera" Fairweather** | Painfully polite, accidentally hilarious. |
-| Her sister / bride | **Roxandra "Roxy" Vance** | Blunt as a brick, twice as loyal. |
-| The old retainer | **Tobin Marrow** | Soup, sobbing, sixty years of service. |
-| The mother | **Queen Aurelie** | Barely there, and the whole story. |
-| The twins (Act III) | **Elric** and **Ivy** | He worries, she charges. |
-| First monster friend | **Bobble** the Bloop | A pudding with opinions. |
-| The cat | **Marmalade** | Mews, subtitled. |
-| The villain | **The Reverend Ossian Vane** | Never raises his voice. Never needs to. |
+| The hero | **%HERO%** (default *Bram*) | Silent. Speaks in choices and in what he does. |
+| The father | **Sir Halvard Bellwether** | Enormous, dry, on a long quiet errand. Secretly a king. |
+| Childhood friend / bride | **Willow Pye** | Fearless, teasing, climbs everything. "Right then." |
+| Childhood friend / bride | **Sera Fairweather** (Serafina) | Painfully polite, accidentally devastating. |
+| Sera's sister (not a bride) | **Pru Fairweather** (Prudence) | Blunt as a brick, twice as loyal. "Noted." |
+| The old retainer | **Barty Marrow** (Bartleby) | Soup, sobbing, sixty years of service. "Little master." |
+| The mother | **Queen Elowen** | Barely there, and the whole story. |
+| The twins (Act III) | **Rowan** and **Linnet** | He worries, she charges. |
+| First monster friend | **Bobble**, a Gloop | "Frankly—". Third person. Wants to be called brave. |
+| The cat | **Pip**, a Sunspot Cub | Mews, subtitled. Grows into a lion; still mews. |
+| The prince | **Bertie** (Adalbert of Coddleston) | The royal "we", and a title that shrinks. |
+| The villain | **Bishop Mortmain** | Never raises his voice. Never needs to. |
 | Travelling merchant | **Fennick Quiddle** | Sells you your own hat back. |
 
-Places: **Little Nettlebed** (home village), **Cobwell Tower** (the haunted one), **Brine-on-Sea** (port),
-**Duskvale** (the rich town), **Ambergarde** (the kingdom), **Steamington** (spa town),
-**The Wintering House** (the terrible place in Act II). Where `docs/PIECES.md` still lists placeholder map ids
-from the reference game, they map straight across: home village → `nettlebed`, tower → `cobwell`,
-kingdom → `ambergarde`.
+Places (ids in CANON.md §2): **Puddlewick** (home village), **Saltmarrow** (Willow's town, the Contented Herring),
+**Cobwell Manor** (the haunted one), **Coddleston** (Bertie's castle), **Port Pelican** (the harbour),
+**Marbleford** (the rich town), **Ambergarde** (the kingdom), **Coldcomfort** (the snow village with hot springs),
+**the Quiet Quarry** (the terrible place at the start of Act II), **Whistfell Abbey** (the Bishop's).
 
 ---
 
@@ -72,7 +73,7 @@ the fanfare is doing the shouting for you.
 **R4 — A pun must love its target.**
 Monster names, shop signs and innkeepers are puns. The joke is affectionate — we are laughing *with* the world,
 never sneering at anyone in it.
-- GOOD: A shop called **Sword & Sundry**. A slime called a **Bloop**. A crab called a **Prawnbroker**.
+- GOOD: A shop called **Sword & Sundry**. A slime called a **Gloop**. A crab called a **Prawnbroker**.
 - BAD: A fat innkeeper called Mr Wobble. Punching down is not a pun, it's just unkind.
 
 **R5 — Never explain the joke. Never explain the feeling.**
@@ -137,8 +138,9 @@ never to his face. Never finishes a sentence about the boy's mother.
 4. "Your mother would have laughed at that. / She laughed at most of my ideas."
 5. "Stand behind me, lad. Not because / you're small. I want the exercise."
 
-### Wilomena "Willow" Pye — the friend
-**Fingerprint:** contractions, questions, dares. Interrupts herself. Volunteers the hero for things.
+### Willow Pye — the friend
+**Fingerprint:** contractions, questions, dares; **"Right then"** before anything brave or daft; answers a question
+with an instruction ("Are you scared?" — "Hold my hand and mind the third step."). Interrupts herself. Volunteers the hero for things.
 Deflects any kindness aimed at her within one page. Short sentences when frightened, long ones when showing off.
 **Never:** apologises in Act I. Never says "I'm scared" — she says what she'll do about it.
 1. "You're doing the thinking face. / We haven't got time for the face."
@@ -147,8 +149,9 @@ Deflects any kindness aimed at her within one page. Short sentences when frighte
 4. "Right. You take the big one. / I'll take the two behind it."
 5. "Come ON."
 
-### Seraphine "Sera" Fairweather — the merchant's daughter
-**Fingerprint:** apologises for existing, then says something devastatingly accurate. Long polite front half,
+### Sera Fairweather — the merchant's daughter
+**Fingerprint:** apologises for existing, then says something devastatingly accurate — and then **"I'm sorry,
+that was rude of me."** Long polite front half,
 tiny flat back half. Trails off with "..." then answers her own question. Notices small physical details
 because she has been indoors her whole life.
 **Never:** raises her voice. Never uses slang.
@@ -158,10 +161,10 @@ because she has been indoors her whole life.
 4. "I've never been rained on before. / It's very thorough, isn't it."
 5. "Oh — sorry — I've just remembered / that I'm frightened."
 
-### Roxandra "Roxy" Vance — her sister
+### Pru Fairweather — her younger sister (not a bride choice)
 **Fingerprint:** imperatives. Declares her feelings as decisions ("I have decided to be brave"). Keeps a mental
-ledger and mentions it. Insults that are secretly compliments. Talks about herself in the third person when
-angry.
+ledger and mentions it. Insults that are secretly compliments. (She never talks in the third person — that is
+Bobble's.)
 **Never:** says thank you plainly. She says "Noted."
 1. "I have decided to be brave. Do keep up."
 2. "That monster looked at me. At ME."
@@ -169,7 +172,7 @@ angry.
 4. "You're common, you're damp, and you'll do."
 5. "Don't die. It would ruin my entire month."
 
-### Tobin Marrow — the old retainer
+### Barty Marrow — the old retainer
 **Fingerprint:** food metaphors, always. Cheerful malapropisms ("a catastrophy of onions"). Calls the hero
 "little master" even when the hero is forty and a foot taller. Announces his own weeping and denies it in the
 same page. Repeats a word for warmth ("sit, sit").
@@ -180,44 +183,50 @@ same page. Repeats a word for warmth ("sit, sit").
 4. "Your father, he never knocked. / He arrived."
 5. "I am not weeping. It is the onions. / There are always onions."
 
-### Queen Aurelie — the mother
+### Queen Elowen — the mother
 **Fingerprint:** present tense, second person, very few words. Speaks as if she is already remembering this.
-Uses the hero's name. Never explains where she is or what is being done to her.
+Uses the hero's name. Never explains where she is or what is being done to her. Her sense of time is broken:
+at first she thinks Bram is still a baby asleep upstairs.
 **Never:** asks to be rescued.
 1. "There you are."
 2. "You have your father's way of standing."
 3. "It is not dark where I am. / It is only quiet."
 4. "Don't run. I want to look at you."
-5. "Go on, %HERO%. I'll keep."
+5. "Oh. Oh, you got so tall. / I only put you down for a minute."
 
-### Bobble the Bloop — the first monster friend
-**Fingerprint:** third person, always. No clause longer than five words. Parenthetical honest afterthoughts.
-Loves pots. Volunteers for guard duty and is bad at it.
-**Never:** understands sarcasm. Never uses a word longer than three syllables.
+### Bobble — the first monster friend (a Gloop, with a monocle)
+**Fingerprint:** third person, always. Starts about one sentence in four with **"Frankly—"**. Short clauses, with
+**one** enormous word per scene, used *almost* right ("Bobble is *magnanimous* at the big one."). Parenthetical
+honest afterthoughts. Loves pots. Volunteers for guard duty and is bad at it. Corrects anyone who gets his name
+wrong (Bubble, Wobble, Bobbin): "BOBBLE." Wants, one day, to be called "the brave one".
+**Never:** understands sarcasm. Never admits he is scared without also going first.
 1. "Bobble is here! Bobble is ALWAYS here!"
 2. "Bobble bounced at the big one. / The big one did not enjoy it."
 3. "Is that a pot? Bobble loves pots."
 4. "Bobble will guard the wagon. / Bobble is very serious now."
 5. "Bobble missed you a normal amount. / (Bobble missed you lots.)"
+6. "Frankly, Bobble is terrified. / Bobble is going in first. / These facts are related."
 
-### Marmalade — the cat
-Always two lines: the mew, then the subtitle in brackets, which is always a lie or a demand.
+### Pip — the cat (a Sunspot Cub; a great golden lion by Act III)
+Always two lines: the mew, then the subtitle in brackets, which is always a lie or a demand. When Pip is a lion
+the mew gets deeper ("Rrrowr.") and the subtitles do not change at all.
 1. "Mrrp. / (I have been abandoned for nine hours.)"
 2. "Prrrt. / (You may continue stroking. Briefly.)"
 3. "Mrow. / (There is a monster in the barn. Yours now.)"
 4. "*silence* / (She is pretending she can't hear you.)"
 5. "Mrrrrow! / (The dish. Look at the dish. LOOK AT IT.)"
 
-### The Reverend Ossian Vane — the villain
-**Fingerprint:** flawless courtesy. Calls everyone "child", including grown men. Present tense. Speaks of
-terrible things in the language of housekeeping and gardening. Uses "we". Never threatens; describes.
+### Bishop Mortmain — the villain
+**Fingerprint:** flawless courtesy, like a nurse at a bedside: **"there now", "gently", "that's better"**. Calls
+everyone "child", including grown men. Present tense. Speaks of terrible things in the language of housekeeping
+and gardening. Never says "kill" or "dead" — says "kept", "lost", "quiet". Never threatens; describes.
 Never shouts, never gloats, never monologues past three pages.
 **Never:** "fool", "pathetic", "you cannot stop me". No villain boilerplate ever.
 1. "Kneel, child. It's kinder on the knees / than pride is."
 2. "You have your father's chin. / He kept it up too long as well."
 3. "I take nothing. People hand me things."
 4. "How lovely. Hope. Bring it indoors, / it spoils in the rain."
-5. "We shall be years at this. I have years."
+5. "There now. Put it down. That's better."
 
 ### Fennick Quiddle — the travelling merchant
 **Fingerprint:** alliteration, prices, and a guarantee he immediately weakens. Speaks in threes.
@@ -228,16 +237,25 @@ Calls the hero "squire".
 4. "Best price in the province. / It is also the only price in the province."
 5. "Buy the lantern. You'll thank me / in about four minutes."
 
-### Elric and Ivy — the twins (Act III)
-Elric worries in full sentences; Ivy answers in three words. They finish each other's business.
-1. Ivy: "I fought a bat." Elric: "It was a moth." Ivy: "It was a BAT."
-2. Elric: "If we die, Grandad's book says —" Ivy: "We won't."
-3. Ivy: "Dad's crying." Elric: "Dad's *thinking*."
-4. Elric: "I've packed rope, flint, bandages —" Ivy: "I packed the sword."
+### Rowan and Linnet — the twins (Act III)
+Rowan worries in full sentences and asks questions; Linnet answers in three words. They finish each other's
+business. Rowan flattens bosses with one plain sentence ("That's very sad. Are you nearly done, though?").
+1. Linnet: "I fought a bat." Rowan: "It was a moth." Linnet: "It was a BAT."
+2. Rowan: "If we get lost, Grandad's letter says —" Linnet: "We won't."
+3. Linnet: "Dad's crying." Rowan: "Dad's *thinking*."
+4. Rowan: "I've packed rope, flint, bandages —" Linnet: "I packed a rock."
 5. Both: "We're coming. / You can be cross on the way."
 
+### Prince Bertie — the rival who becomes a friend
+**Fingerprint:** the royal **"we"**, and his full title — which gets shorter every time he recites it across the
+quarry chores, until it is just "Bertie." Pompous as a boy, decent as a man, still slightly pompous about being decent.
+1. "We are Adalbert Ludovic Fitzhugh, Ninth of Coddleston, / Keeper of the Shallow Ford—"
+2. "We are Adalbert of Coddleston. / Hand us the other end of the rock."
+3. "…Bertie. It's Bertie. / Pass me the shovel, would you."
+4. "We have brought you a fleet. / We did not bring a speech. We are growing."
+
 ### House voices (reusable)
-- **Innkeeper:** hospitable, mercenary, one beat of gossip. "Six gold the pair of you. / Seven, if the pudding snores."
+- **Innkeeper:** hospitable, mercenary, one beat of gossip. "%N% gold the pair of you. / A bit more if the pudding snores."
 - **Priest:** calm, plural, kindly formal. "Rest here a moment. The book keeps its place."
 - **Shopkeeper:** eager, chatty, invested in your purchases. "Ooh, good eye. That one's got history."
 - **Village child:** runs on, no punctuation discipline, one factual error. "My dad fought a dragon it had four heads and he *won*."
@@ -253,7 +271,7 @@ House rules for system voice: present perfect for things that happened ("has lea
 except a monster's roar, and **the fanfare does the shouting** so the words stay calm.
 
 **Ceremony**
-1. `level.up` — "%NAME% is looking rather pleased. / Level %N%."
+1. `level.up` — "%NAME% is now level %N%! / Looking rather pleased about it."
 2. `level.stats` — "Strength up by %N%. / And a bit more room for supper."
 3. `spell.learn` — "%NAME% has learnt %SPELL%! / It tingles all the way to the elbows."
 4. `spell.learn.first` — "Something new is rattling about / in %NAME%'s head. It's %SPELL%."
@@ -290,15 +308,17 @@ except a monster's roar, and **the fanfare does the shouting** so the words stay
 **Battle**
 32. `enc.start` — "%MONSTER% draws near!"
 33. `enc.group` — "A %MONSTER% and friends draw near!"
-34. `enc.ambush` — "They were waiting. Of course they were."
-35. `enc.first` — "Nobody has noticed you yet. / Go on, then."
+34. `enc.ambush` — "They came out of nowhere!"
+35. `enc.first` — "You've caught them napping!"
 36. `atk.hit` — "%NAME% hits %TARGET% for %N% damage."
-37. `atk.crit` — "A terrific blow! %N% damage!"
+37. `atk.crit` — "A terrific whack! %N% damage!"
 38. `atk.miss` — "%NAME% swings at the air. / The air is unharmed."
 39. `spell.cast` — "%NAME% casts %SPELL%!"
 40. `spell.nomp` — "%NAME% hasn't the puff for it."
 41. `spell.fizzle` — "The spell coughs, thinks better of it, / and goes out."
 42. `heal` — "%NAME% is looking much better."
+42a. `heal.full` — "%NAME% is already in the pink!"  *(spell refused, no MP spent — SYSTEMS §1.7)*
+42b. `ko` — "%NAME% is worn out."  *(never "dead", never "died" — that word is kept for the story)*
 43. `revive` — "%NAME% sits up, blinking. / 'What did I miss?'"
 44. `status.sleep` — "%NAME% is fast asleep. / Rude, mid-fight."
 45. `status.poison` — "%NAME% is looking rather green."
@@ -314,11 +334,11 @@ except a monster's roar, and **the fanfare does the shouting** so the words stay
 
 **Monsters joining, wagon, party**
 55. `recruit.ask` — "The %MONSTER% is still here. / It appears to have decided something."
-56. `recruit.join` — "%MONSTER% would like to come along! / Will you have it?"
+56. `recruit.join` — "%MONSTER% wants to be your friend! / Shall it come along?"
 57. `recruit.name` — "What will you call it?"
 58. `recruit.joined` — "%NAME% has joined the party. / %NAME% is thrilled about the wagon."
 59. `recruit.decline` — "The %MONSTER% nods, entirely fine about it, / and wanders off to tell its mother."
-60. `recruit.full` — "The wagon is full of monsters and / opinions. Something must stay behind."
+60. `recruit.full` — "The wagon is full of monsters and / opinions. %NAME% trots off to the / paddock at home to wait."
 61. `party.swap` — "%NAME% climbs down. %OTHER% climbs up."
 62. `party.wagon.no` — "No wagon down here. It's all stairs."
 
@@ -407,7 +427,7 @@ same trick: **simple sentences carrying grown-up meaning.**
 - **One hard word per scene is a gift, never an obstacle.** A hard word is allowed when the sentence around it
   makes it obvious, when it is *fun in the mouth*, and when not knowing it costs nothing.
   - GOOD: "The bridge is *derelict*. Fallen in. Don't." — the meaning arrives free with the next two words.
-  - GOOD: Tobin's "a catastrophy of onions" — a wrong word, delightful, harmless.
+  - GOOD: Barty's "a catastrophy of onions" — a wrong word, delightful, harmless.
   - BAD: "The suzerain's fealty is contingent." — three obstacles, no gift.
 - Never gloss a hard word in brackets. Let the sentence do it, or cut the word.
 - **Never require reading to survive.** Anything a player must do to progress is also shown by an arrow,
@@ -415,7 +435,7 @@ same trick: **simple sentences carrying grown-up meaning.**
 
 **Sentence length.**
 - Aim for **8–12 words per sentence**. Under 6 for action and fear. Up to 18 only for a character whose
-  long-windedness is the joke (Tobin, Quiddle) and never twice in a row.
+  long-windedness is the joke (Barty, Quiddle) and never twice in a row.
 - One clause per line where you can. Two is the ceiling.
 - Read every line aloud. If you run out of breath, or your voice flattens, it is too long.
 
@@ -432,7 +452,7 @@ same trick: **simple sentences carrying grown-up meaning.**
 
 **Fear, calibrated.**
 - Scary = dread, not gore. Dark, quiet, wrong-shaped, too polite. No blood, no cruelty shown, no animals hurt
-  on screen. The Reverend Vane is terrifying because he is *nice*.
+  on screen. Bishop Mortmain is terrifying because he is *nice*.
 - Every frightening scene is followed within two minutes by something warm — a fire, a joke, a cat.
 - The player is never told they failed. They are told what happened next.
 
@@ -440,9 +460,9 @@ same trick: **simple sentences carrying grown-up meaning.**
 Every named background NPC gets a line per act. Same person, same tic, three ages of the world.
 This is the cheapest heart in the whole game — budget one rewrite per NPC per act, minimum.
 
-**Old Mother Pell (Little Nettlebed, by the well)**
+**Old Hob (Puddlewick, by the well)**
 - Act I: "Off up the hill again with your father? / Take a coat. He never takes a coat."
-- Act II: "Well. You came back, and he didn't. / ...There's bread in the house. Go on."
+- Act II: "Well. You came back, and he didn't. / ...Barty's kept the fire in. Go on."
 - Act III: "Bring the little ones here. / I'll tell them lies about their grandad."
 
 **Bernard the blacksmith's boy**
@@ -450,12 +470,12 @@ This is the cheapest heart in the whole game — budget one rewrite per NPC per 
 - Act II: "That's my sword on your belt, that is. / Don't chip it. I'll know."
 - Act III: "My lad does the hammering now. / I do the standing about and the sighing."
 
-**The gate guard, Little Nettlebed**
+**The gate guard, Puddlewick**
 - Act I: "Nothing ever happens here. / Best job in the world."
 - Act II: "Nothing's happened here in ten years. / You'd think that'd be a comfort."
 - Act III: "Something's finally happened here. / I've decided I preferred the other thing."
 
-**The innkeeper, Brine-on-Sea**
+**The innkeeper, Coddleston** (Act I is Prince Bertie's birthday)
 - Act I: "No rooms. There's a whole *festival* on."
 - Act II: "Rooms? All of them. Take your pick. / Nobody comes any more."
 - Act III: "You'll want the big room. / I kept it. I don't know why I kept it."
@@ -467,20 +487,21 @@ This is the cheapest heart in the whole game — budget one rewrite per NPC per 
 Each `page` below is one boxful: at most three lines, at most 34 characters each.
 The ruler `|--------------------------------|` is 34 wide — never write past it.
 
-### 6.1 FUNNY — Bobble joins the party
+### 6.1 FUNNY — Bobble joins the party (Act I, B3, on the Long Lane)
 ```box
 |--------------------------------|
-The Bloop has not gone away.
+The Gloop has not gone away.
 It is sitting in the road, being
 round at you.                    ▼
 
 Bobble: "Bobble watched you fight.
 Bobble thought: those are MY
-people. Bobble has decided."     ▼
+people. Frankly, Bobble has
+decided."                        ▼
 
-Willow: "It's decided at us."
-Willow: "It's a pudding with
-a plan. I love it. Keep it."     ▼
+Papa: "It's decided at us, lad."
+Papa: "A pudding with a plan.
+Keep it, if you would."          ▼
 
 > Let it come along.
 > Not just now.
@@ -491,50 +512,50 @@ Bobble immediately gets in the
 wagon and refuses to discuss it. ▼
 ```
 
-### 6.2 TENDER — the morning after Act I ends
+### 6.2 TENDER — the first evening home (Act II, B12, Hollybank Cottage)
 ```box
 |--------------------------------|
-Tobin: "Sit, sit. Eat something.
+Barty: "Sit, sit. Eat something.
 You have been walking with your
 face like that for two days."    ▼
 
-Tobin: "Your father, he came here
+Barty: "Your father, he came here
 once, in the rain, with you
 under his coat. Very small."     ▼
 
-Tobin: "He said: mind this one,
-Tobin. I said: of course.
+Barty: "He said: mind this one,
+Barty. I said: of course.
 He said: no. Mind him."          ▼
 
 %HERO% looks at his boots.
 
-Tobin: "I am not weeping.
+Barty: "I am not weeping.
 It is the onions.
 There are always onions."        ▼
 ```
 
-### 6.3 SCARY — the Reverend Ossian Vane, first meeting
+### 6.3 SCARY — Bishop Mortmain at the coronation (Act II, B19, Ambergarde Keep)
 ```box
 |--------------------------------|
 The candles are all still lit.
 Nobody has been in this room
 for a very long time.            ▼
 
-Vane: "There you are, child.
-Do come in. You're letting
-the cold at my letters."         ▼
+Mortmain: "There you are, child.
+Do go on. I shan't be a moment.
+I only came for a feather."      ▼
 
-Vane: "Your father was here too.
-He stood exactly there.
-He was very polite about it."    ▼
+Mortmain: "Your father was here
+too, once. He stood exactly
+there. He was very polite."      ▼
 
-Willow: "Don't listen to him."
-Vane: "No, don't. Listening is
-how it starts."                  ▼
+%WIFE%: "Don't listen to him."
+Mortmain: "No, don't. Listening
+is how it starts."               ▼
 
-Vane: "Run along now.
-I'll still be here.
-I'm always still here."          ▼
+Mortmain: "There now. Gently.
+Nothing you love will ever be
+lost again. That's better."      ▼
 ```
 
 ### 6.4 MUNDANE BUT CHARMING — buying a lantern
@@ -559,26 +580,26 @@ four minutes. Everyone does.
 Mind how you go."                ▼
 ```
 
-### 6.5 HEROIC — the gate at Ambergarde, Act III
+### 6.5 HEROIC — the gate of Whistfell Abbey (Act III, B24)
 ```box
 |--------------------------------|
 The doors are twelve feet of oak
 and somebody has been knocking
-for eleven years.                ▼
+for nine years.                  ▼
 
-Ivy: "That's the door."
-Elric: "That's a *fortress*."
-Ivy: "That's the door, Elric."   ▼
+Linnet: "That's the door."
+Rowan: "That's a *fortress*."
+Linnet: "That's the door, Rowan."▼
 
-Sera: "I've never done anything
+Rowan: "I've never done anything
 brave. I'd like to start with
 something quite large."          ▼
 
 %HERO% puts his hand on the door.
 
-Behind you: a pudding, two
-children, a woman in a good coat,
-and an old man with soup.        ▼
+Behind you: a pudding, a lion,
+two children with a sword too
+big, and an old man with soup.   ▼
 
 Halvard's voice, from memory:
 "We'll walk till the light goes.

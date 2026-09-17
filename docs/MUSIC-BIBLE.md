@@ -6,6 +6,11 @@ The brief: a Sugiyama-shaped orchestral score — pomp, tenderness, punning good
 `OscillatorNode`, `BufferSource` noise, `BiquadFilterNode` and one `ConvolverNode` fed an impulse response we
 generate ourselves at boot. No network. No assets. Under 40 KB of code and under 3 MB of generated buffers.
 
+**Canon.** Theme ids are fixed by `docs/CANON.md` §9: the fourteen themes below plus the story cues in §3.15–§3.21
+(`befriend`, `lullaby`, `wedding`, `highfeather`, `quiet_hand`, `finale`, `silence`) and the variants
+`family.short`, `family.broken`, `family.whole`, `inn.sleep`. **`sad` is an alias of `family`** (ARCHITECTURE.md's
+map `music` field still says `sad`). `village` is Puddlewick only; every other town uses `town`.
+
 ---
 
 ## 0. Conventions a builder can type
@@ -223,7 +228,7 @@ timpani −0.15, snare +0.10, cymbal +0.20, organ 0 (with the 4′ rank panned �
 
 ---
 
-## 3. The score — fourteen themes
+## 3. The score — fourteen themes and seven story cues
 
 The tempo, key, form, melody, harmony, orchestration, dynamics and loop point of each. **Every melody below is
 a literal array.** Where only the A section is written out, the derived sections are specified as
@@ -282,8 +287,9 @@ Pizzicato on eighths 1 and 4 of each bar (root, then fifth). Strings enter at ba
 Celesta doubles the flute an octave up **only in the C section**. No percussion, ever — this is a place where
 nothing bad happens.
 **B section:** same rhythm, melody transposed to start on `B4` over `Em | Bm | C | D | Em | C | Am|D7 | G`.
-**C section:** flute drops out; solo oboe takes the A melody down an octave over sustained strings, then the
-flute answers the last two bars an octave up. This is the "someone is waiting for you at home" moment.
+**C section:** flute drops out; solo oboe plays **Queen Elowen's lullaby** (§3.16, the melody verbatim) over
+sustained strings, then the flute answers the last two bars an octave up. This is the "someone is waiting for you
+at home" moment — and nobody tells the player whose song it is until Act III (STORY-BIBLE T3).
 **Loop:** 32 bars, seam on the G downbeat. Harp is mid-arpeggio at the seam and simply continues — never let
 the harp resolve at the loop point or the join will click in the listener's mind.
 
@@ -613,6 +619,100 @@ figure; celesta places three notes: `E5`, `G5`, `B5`, 1.2 s apart, over the last
 **Loop:** the Coda's final `Em` is held by strings + pad; the oboe's `B4` of bar 1 enters over the top of it,
 `p`. Seam invisible. **28 bars ≈ 84 s.**
 **Cut-down variant** `family.short` = A only (8 bars, 24 s) for dialogue underscoring.
+**Story variant** `family.broken` (STORY-BIBLE T1, the father's fall): solo oboe, no reverb swell, **no other
+voice**: `[["B4",2],["E5",1],["D5",2],["Bb4",1]]` — the fourth note a semitone flat — then silence. One-shot.
+**Story variant** `family.whole` (T2, the Stone Garden): the same four notes, correct (`B4 E5 D5 B4`), on **full
+strings** (`strings` + `violin` doubling), `mf`, then straight into the B section. The first time strings carry
+the tune in the whole game.
+
+---
+
+### T15 · BEFRIENDING FANFARE — *"Room in the Wagon"* · `id: 'befriend'` (one-shot, ≈ 1.7 s)
+**Key** D major · **Tempo** ♩= 176 · **Voices:** harp glissando up on the chime (D4→D6, 14 notes), then flute
+(lead, `f`) doubled by pizzicato, over a held D-add9 in low `strings` (`D2 A2 E3 F#3`, `mp`); one `twinkle`
+triangle-ping on the last note. Spec shared with MONSTER-BIBLE §7.
+```js
+[["A4",0.5],["D5",0.5],["F#5",0.5],["A5",0.5], ["R",0.5], ["G5",0.5],["F#5",0.5],["D5",1.5]]
+```
+Must be hummable by a seven-year-old after two hearings.
+
+---
+
+### T16 · QUEEN ELOWEN'S LULLABY — *"I Only Put You Down for a Minute"* · `id: 'lullaby'`
+**The game's secret spine.** Planted three times before anyone says whose it is: the C section of `village`
+(oboe), Cobwell Manor's music boxes (`celesta` alone, slightly too slow, one stuck note on repeat), and a
+Saltmarrow fisherwoman humming it (`flute`, `pp`, no accompaniment). Heard whole, with its voice, at B24.
+**Key** G major · **Time** 6/8 (written as 3 quarter-beats per bar, like T2) · **Tempo** dotted-quarter = 54 ·
+**Form** A(8) A(8) → loop · **Dynamics** `p`.
+```js
+[["D4",1.5],["G4",1],["A4",0.5],
+ ["B4",1.5],["A4",1.5],
+ ["G4",1],["A4",0.5],["B4",1],["C5",0.5],
+ ["D5",3],
+ ["E5",1],["D5",0.5],["C5",1],["B4",0.5],
+ ["A4",1.5],["B4",1],["A4",0.5],
+ ["G4",1],["F#4",0.5],["E4",1],["F#4",0.5],
+ ["G4",3]]
+```
+**Harmony:** `G | Em | C | D | C | Am|D | C|D7 | G`. It obeys all nine laws of §4 (range D4–E5, one leap D4→G4
+in bar 1, breath at bar 4, tonic on the downbeat of bar 8).
+**The B24 version:** `pad` (the wordless "ah" voice) sings the melody, `harp` arpeggiates each chord in eighths,
+CHAPEL reverb. She starts on **bar 5** (the "third line" she was stuck on), sings to the end, then the whole
+song once through. No strings until the second A.
+
+---
+
+### T17 · WEDDING — *"Bold."* · `id: 'wedding'`
+**Key** D major · **Time** 4/4 · **Tempo** ♩= 88 · **Form** Bells(2) → A(8) → Tag(2) → loop to A.
+**Bells:** `celesta` + `cymbal` choke on `D6 A5 F#5 D5` as quarter notes, twice — a peal.
+**A:** the `village` A melody (T2) **transposed up a fifth to D major and re-barred into 4/4**: each 6/8 bar
+becomes one 4/4 bar by multiplying every duration by 4/3 (eighths become quarter-note triplets, dotted quarters
+become halves). Bar 1 becomes `[["A4",0.667],["D5",0.667],["E5",0.667],["F#5",2]]`; apply the same rule to every
+note. Melody on `organ` 8′+4′ with
+`horns` doubling at `mf`; `timp` D2/A2 on beats 1 and 3; harp glissando into bar 5.
+**Tag:** the Hearth Cell (`A4 D5 C#5 B4 A4`) on horns, `f`, held D chord. Loops under the wedding scene.
+
+---
+
+### T18 · HIGHFEATHER — *"Nobody Is Cross"* · `id: 'highfeather'`
+**Key** E major · **Time** 3/4 · **Tempo** ♩= 66 · **Form** A(8) → loop · **Voices:** `pad` choir and `harp`
+only. **No percussion, ever. The last chord never resolves.**
+```js
+[["B4",2],["E5",1], ["D#5",2],["C#5",1], ["B4",3], ["R",3],
+ ["C#5",2],["F#5",1], ["E5",2],["D#5",1], ["C#5",3], ["B4",3]]
+```
+**Harmony:** `E | B/D# | C#m | A | A | F#m | E/G# | Asus2` — the `Asus2` rolls straight back into `E` at the
+seam without ever becoming `A`. Harp: one rising 6-note arpeggio per bar, 65 ms apart. Its first four bars are
+the fanfare when the Larksteel Shield is held aloft (WORLD-BIBLE §4 B9).
+
+---
+
+### T19 · THE QUIET HAND — *"There Now"* · `id: 'quiet_hand'`
+Whistfell Abbey and the Quiet Deep (not the boss fight — that is `boss`).
+**Key** D minor · **Time** 4/4 · **Tempo** ♩= 60 · **Form** 16 bars → loop.
+**Melody:** the **Battle A melody** (T10) played at a third of its speed — every duration ×2.6, rounded to the
+nearest quarter — on `organ` 8′ alone, `p`. The villain's theme is your battle theme, ruined.
+**Under it:** `pad` holding `D3/A3`, `ppp`; a single `timp` D2 toll, `pp`, on beat 1 of every second bar. The
+stolen Bellhollow bell is that toll: raise it by 1.5 dB per floor you climb (WORLD-BIBLE §2 [16]).
+
+---
+
+### T20 · FINALE — *"Welcome Home"* · `id: 'finale'` (the ending, B27; plays once, then loops the last section)
+1. **Family B** (T14 B, G major) on full `strings`, `mf`, with **the lullaby (T16) as a countermelody** on
+   `flute` an octave up — both are three beats to the bar, so the lullaby's values fit unchanged at ♩= 60.
+2. **Family A′** with the solo horn answering (the father's voice), `mp`.
+3. A one-bar `rit.` and a held `D` from `horns`, then the **`village` A melody in full brass** (T2 melody
+   transposed to D major and re-barred into 4/4 by the ×4/3 rule in T17), `ff`, with `timp` and a cymbal on the downbeat — the
+   sky shot, "Welcome home". Loops sections 1–2 under the credits scroll.
+
+---
+
+### T21 · SILENCE · `id: 'silence'`
+A real cue that plays **nothing**: every music bus gain to 0 over 0.12 s, ambience off, and the mixer must not
+"helpfully" fade anything else in. Used at B9 (eleven seconds after Mortmain's first word), under the Stone
+Garden chipping (B20), and for the ten seconds after Mortmain Enfolded kneels (B25). It is replaced only by an
+explicit `Music.play`.
+
 
 ---
 
@@ -665,7 +765,7 @@ All fades are **equal-power** (`gain = cos(x·π/2)` out, `sin(x·π/2)` in) on 
 | **Battle start** | See stinger below. |
 | **Battle → field (after victory)** | Victory fanfare completes → 0.5 s silence → field theme fades in over 1.2 s, **starting at bar 1**, not where it left off. |
 | **Battle → field (fled)** | Battle theme cut over 0.30 s; field theme in over 0.8 s, resuming from its current loop position. |
-| **Game over** | Battle theme cut over 0.4 s, 1.0 s silence, then the Family theme A section, once, `pp`, over the black screen. |
+| **Defeat** (never called "game over") | Battle theme cut over 0.4 s, 1.0 s silence, then `family.short`, once, `pp`, over a soft white fade; the church theme when you wake. |
 | **Dialogue open** | `Music.duck(0.55)` — ramp over 0.12 s. Restore to 1.0 over 0.40 s on `dialogue.end`. |
 | **Cutscene with important lines** | `Music.duck(0.35)`, and additionally lowpass the music bus at 2.2 kHz (Q 0.5) so speech-rate text ticks read clearly over it. Restore both over 0.5 s. |
 | **Menu open** | Duck to 0.80 only. The player should still enjoy the music while shopping. |
@@ -692,9 +792,10 @@ The moment the last enemy's HP hits 0 and the pop animation begins:
 - **0.25 s of silence.**
 - Victory fanfare, from bar 1, `ff`. The EXP/gold window slides in on bar 2's downbeat, and each number tallies
   at one digit per 60 ms with a `twinkle` tick.
-- If a level-up occurs, the level-up jingle starts **0.35 s after the fanfare's reverb tail is inaudible**
-  (i.e. fanfare end + 1.2 s), and the "monster wants to join" prompt waits for *that* to finish. Ceremony is
-  serial. Never stack two fanfares.
+- Order is canon (SYSTEMS §10.1, MONSTER §7): **fanfare → EXP/gold tally → a monster asks to join (`befriend`)
+  → level-ups**. The `befriend` fanfare starts 0.4 s after the tally window closes; each level-up jingle starts
+  **0.35 s after the previous fanfare's reverb tail is inaudible** (i.e. its end + 1.2 s). Ceremony is serial.
+  Never stack two fanfares.
 
 ### 5.3 Seamless looping, mechanically
 Never use `AudioBufferSourceNode.loop` or an `ended` event. A theme is a beat-clock:

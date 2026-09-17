@@ -41,3 +41,14 @@ Exit code is non-zero if there were console/page errors or failed assertions —
   "shots":["shots/P07-r1/01-hero-front.png"],
   "selfScore":72, "knownGaps":["..."], "needs":["field.js should call Chars.build(...)"] }
 ```
+
+## Hearing it (audio pieces) — agents cannot hear, so measure and LOOK
+A page that makes sound must expose `__DQ.renderAudio(id, seconds) -> Promise<AudioBuffer>` (render with an
+OfflineAudioContext using the exact same synth graph the game uses live).
+```bash
+node tools/audio-probe.mjs --url http://localhost:8177/demos/P27.html --ids town,battle --seconds 30 --out shots/P27-audio
+```
+Writes `<id>.wav` (a human can listen), `<id>-spectrogram.png` (log-frequency + waveform — **Read it**), and
+`<id>.json` (peak/RMS dBFS, clipping %, silence %, loop-seam jump, onset density). Judge melody by reading the note
+data itself; judge timbre/mix/dynamics by the spectrogram (harmonic ladders, vibrato wiggle, reverb tails, where
+the energy sits) and the numbers.

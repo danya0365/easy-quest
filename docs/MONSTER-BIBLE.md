@@ -5,6 +5,12 @@
 Thirty-eight monsters. Every one is round. Every one has a joke in it. Every one can be built from primitives
 and lathes with no image files, and every one must be buildable from the paragraph marked **BUILD** alone.
 
+**Canon.** Names, places, Acts and flags follow `docs/CANON.md`. A monster's `Lv` below is its **danger rank**,
+not the party's level — each tier header gives the party level and Act where it is met. The mascot is the
+**Gloop**; the first monster friend, **Bobble**, is a Gloop; the designed favourite is **Cactuddle** (§8).
+Story creatures that are not in the wild roster (Quietlings, the Sunmane, Mumbleroot, the Tidewarden, Hoarfax,
+Hush & Hark) are in §6b.
+
 ---
 
 ## 0. THE CONSTRUCTION KIT (read before any BUILD paragraph)
@@ -73,7 +79,7 @@ Recruit is the base chance rolled once per battle in which the monster was defea
 
 ---
 
-## 1. TIER ONE — Puddlewick Meadows, Home Lane, the Riverbank (enemy Lv 1–5)
+## 1. TIER ONE — Puddlewick Vale, the Long Lane, the Beck (danger rank 1–5 · party Lv 1–5 · Act I)
 *Encounter rate 1 step in 26. Nothing here can kill a child who is paying no attention.*
 
 ### 1. GLOOP — the one everybody loves
@@ -81,6 +87,9 @@ Recruit is the base chance rolled once per battle in which the monster was defea
 **Where** Everywhere, forever, at every tier, always politely a little too weak.
 **Does** *Squelch* (headbutt, standard lunge).
 **Is** Cheerful, slightly damp, has never had a bad idea because it has never had an idea.
+**Bobble** (the story's first monster friend, B3) is this build plus a monocle: a `TorusGeometry(0.035, 0.006)`
+rim with a `CircleGeometry(0.035)` lens at 20% opacity over the right eye, on a thin gold chain that swings;
+every ~8 s it falls off and he catches it on the next hop.
 **Idle** Standard hop, but every fourth hop it hops *sideways* by 0.1 u and has to hop back, embarrassed.
 **Death** POP.
 **Build** One `LatheGeometry` and nothing else. Profile points, rotated 24 segments:
@@ -92,8 +101,8 @@ the single detail that makes Gloop alive.
 
 ### 2. BLOOP
 `Lv3 · HP 14 · MP 6 · ATK 8 · DEF 8 · AGI 7 · EXP 5 · Gold 4 · Recruit 1/10`
-**Where** Riverbank, meadow flowers, later in every healing-themed dungeon.
-**Does** *Mendy* (heals an ally 20 HP), *Squelch*.
+**Where** The Beck, meadow flowers, later in every healing-themed dungeon.
+**Does** *Mend* (heals an ally 20 HP), *Squelch*.
 **Is** A worrier. Heals things that are not hurt. Heals you mid-sentence.
 **Idle** Hop, then a small fretful shiver every 3 s (rotate ±3° at 14 Hz for 200 ms).
 **Death** DEFLATE — and it apologises, tiny text bubble: *"Sorry!"*
@@ -104,7 +113,7 @@ left of centre — the crookedness is the character.
 
 ### 3. FLAPJACK — the bat
 `Lv2 · HP 11 · MP 0 · ATK 12 · DEF 5 · AGI 20 · EXP 4 · Gold 5 · Recruit 1/12`
-**Where** Home Lane at dusk, every cave in the game, and the rafters of the church (non-hostile cameo).
+**Where** The Long Lane at dusk, every cave in the game, and the rafters of the church (non-hostile cameo).
 **Does** *Flittersmack* (fast lunge, two hits of half damage).
 **Is** A pancake with ambition. Loves you immediately. Has no plan for what comes after that.
 **Idle** Hovers at `y 0.55 + 0.06·sin(2πt/0.9)`; wings flap at 4.2 Hz; every 5 s it does one full barrel roll,
@@ -146,7 +155,7 @@ grin — pass a negative `h` to `Kit.mouthGrin`.
 
 ### 6. TOADSTOOLIGAN — the mushroom
 `Lv4 · HP 18 · MP 4 · ATK 14 · DEF 9 · AGI 8 · EXP 7 · Gold 6 · Recruit 1/12`
-**Where** Bramblecombe fringe, damp corners, under the inn's floorboards.
+**Where** The Whispering Wood's edge, damp corners, under the inn's floorboards.
 **Does** *Cap Bonk*, *Spore Snooze* (sleep, 35%).
 **Is** A small hooligan in a big hat. Absolutely will nick your lunch.
 **Idle** Cap rotates ±10° on Y at 0.5 Hz like a shifty look-around; hops half-height.
@@ -173,7 +182,7 @@ Antennae: two `CylinderGeometry(0.006, 0.006, 0.10)` with a `SphereGeometry(0.02
 
 ---
 
-## 2. TIER TWO — Bramblecombe Woods, Saltmarrow Coast, Hollowbell Tower (Lv 6–13)
+## 2. TIER TWO — the Whispering Wood, Saltmarrow Coast, Cobwell Manor, Coddleston Downs (danger rank 6–13 · party Lv 5–12 · Act I end, Act II start)
 
 ### 8. GRUMBLEGLOP
 `Lv8 · HP 34 · MP 0 · ATK 26 · DEF 18 · AGI 9 · EXP 15 · Gold 12 · Recruit 1/16`
@@ -189,8 +198,8 @@ half-lidded — cover the top 35% of each sclera with a thin lathe cap in the bo
 
 ### 9. SIR GLOOPALOT — the knight (part one)
 `Lv11 · HP 46 · MP 5 · ATK 38 · DEF 30 · AGI 14 · EXP 28 · Gold 24 · Recruit 1/32`
-**Where** Bramblecombe crossroads, the tourney field, later everywhere as an escort.
-**Does** *Lance Poke*, *Shielda* (raises own DEF 25%).
+**Where** Whispering Wood crossroads, the tourney field, later everywhere as an escort.
+**Does** *Lance Poke*, *Bolster* (raises own DEF 25%).
 **Is** A very small, very serious knight riding a Gloop that is not listening.
 **Idle** The Gloop hops on its own rhythm; the knight is **not** parented to the hop — he lags 90 ms behind
 and has to re-seat himself with a small correction each landing. That desync is the whole gag.
@@ -205,8 +214,8 @@ Lance: `CylinderGeometry(0.012, 0.022, 0.46)` plus a `ConeGeometry(0.03, 0.07)` 
 heater-shield `Shape`, 0.16 tall, with a raised boss `SphereGeometry(0.03)`.
 
 ### 10. BOOHOO — the ghost
-`Lv9 · HP 30 · MP 12 · ATK 24 · DEF 4 (but 40% chance to be missed entirely) · AGI 22 · EXP 22 · Gold 16 · Recruit 1/20`
-**Where** Hollowbell Tower, the old chapel, any interior after midnight.
+`Lv9 · HP 30 · MP 12 · ATK 24 · DEF 4 (evade 0.04 — slippery, but SYSTEMS §1.4 caps misses: a child never misses twice in a row) · AGI 22 · EXP 22 · Gold 16 · Recruit 1/20`
+**Where** Cobwell Manor, the Bellhollow Belfry, any interior after midnight.
 **Does** *Cold Hands* (touch damage), *Snoozle* (sleep).
 **Is** A ghost so sad about being a ghost that it keeps forgetting to be scary. Cries at nice things.
 **Idle** Floats at `y 0.35 + 0.07·sin(2πt/2.2)`, opacity oscillating 0.62↔0.85. The hem ripples: a sine wave
@@ -255,7 +264,7 @@ the standard eye rig at `r 0.05` — stalks wobble with 150 ms lag and cross whe
 
 ### 13. HOOT COUTURE
 `Lv10 · HP 33 · MP 14 · ATK 28 · DEF 20 · AGI 24 · EXP 26 · Gold 30 · Recruit 1/24`
-**Where** Bramblecombe canopy at dusk; sells nothing, judges everything.
+**Where** Whispering Wood canopy at dusk; sells nothing, judges everything.
 **Does** *Whiffle* (wind damage, all), *Muddle* (confusion).
 **Is** An owl in a small velvet cape who thinks your outfit is *fine, dear, for what it is.*
 **Idle** Head rotates 140° to one side over 1.2 s, holds 0.8 s, snaps back in 120 ms. Body does not move.
@@ -298,11 +307,11 @@ speaks, one twig lifts.
 
 ---
 
-## 3. TIER THREE — Coppergrumble Mine, Bittermoor Pass, the Frittering Sands (Lv 14–23)
+## 3. TIER THREE — the Whistling Caves, Marbleford Downs, the Frittering Sands, the Sogglemarsh (danger rank 14–23 · party Lv 12–18 · Act II)
 
 ### 16. GLIMMERGLOOP — the rare one
 `Lv16 · HP 5 · MP 0 · ATK 30 · DEF 240 · AGI 180 · EXP 1050 · Gold 90 · Recruit 1/128`
-**Where** One in 96 encounters in Bittermoor Pass and the deep mine. Flees on turn 1, 75% of the time.
+**Where** One in 96 encounters in Marbleford Downs and the deep Whistling Caves. Flees on turn 1, 75% of the time.
 **Does** *Ping* (1 damage, always), *Scarper*.
 **Is** Made of something better than you are. Not unkind about it. Simply busy.
 **Idle** Hops fast and shallow (P 0.55 s), and **glints**: a specular band sweeps the body every 2.5 s.
@@ -314,7 +323,7 @@ lozenges `#1B1A22`, 0.09 × 0.02, tilted −8°. Mouth a single flat line. Nothi
 
 ### 17. CLANKWORTHY — the knight (part two)
 `Lv18 · HP 88 · MP 0 · ATK 64 · DEF 58 · AGI 18 · EXP 70 · Gold 55 · Recruit 1/40`
-**Where** Ruined watchtowers, the mine's old guardroom, Castle Kettleblack's halls.
+**Where** Ruined watchtowers, the Whistling Caves' old guardroom, Whistfell Abbey's halls.
 **Does** *Sword Swing*, *Clatterguard* (blocks the next physical hit entirely).
 **Is** An empty suit of armour still doing the night watch. Nobody has told it. Nobody dares.
 **Idle** Stands. Breathes anyway — the chestplate expands 0.015 at 0.25 Hz, which is unsettling and correct.
@@ -331,7 +340,7 @@ is why the glow dots must be perfect.
 
 ### 18. BOULDERDASH — the golem
 `Lv21 · HP 140 · MP 0 · ATK 72 · DEF 66 · AGI 8 · EXP 95 · Gold 70 · Recruit 1/64`
-**Where** Bittermoor Pass scree, blocking the road; one specific Boulderdash blocks a bridge and must be
+**Where** Marbleford Downs scree, blocking the road; one specific Boulderdash blocks a bridge and must be
 befriended, not beaten, to pass (see DISCOVERY).
 **Does** *Rock Fall* (all party, heavy), *Sit Down Heavily* (skips turn, heals itself 20).
 **Is** Enormous, slow, and hugely embarrassed about how much space it takes up.
@@ -349,8 +358,8 @@ and a single crack-line extruded on the head opens 0.03 when it does.
 
 ### 19. CACTUDDLE ★
 `Lv17 · HP 76 · MP 0 · ATK 55 · DEF 40 · AGI 12 · EXP 58 · Gold 34 · Recruit 1/6 (the kindest odds at its tier)`
-**Where** The Frittering Sands. Also, from Chapter One, one potted Cactuddle stands in Puddlewick square
-and can be talked to for the whole game, saying something different every chapter.
+**Where** The Frittering Sands. Also, from Act I, one potted Cactuddle stands on the Puddlewick green
+and can be talked to for the whole game, saying something different every Act.
 **Does** *Cuddle* (heavy damage to one hero **and 8 damage to itself**, and it says sorry), *Sniffle*
 (does nothing at all; 12% of turns).
 **Is** A cactus that wants a hug more than it wants anything, and has never once managed one.
@@ -382,7 +391,7 @@ horns curving toward each other. Legs: six three-segment cylinder chains, tripod
 
 ### 21. JINGLEBOTTOM — the jester (part one)
 `Lv20 · HP 84 · MP 24 · ATK 58 · DEF 44 · AGI 38 · EXP 84 · Gold 66 · Recruit 1/36`
-**Where** The mine's abandoned fairground level; Castle Kettleblack's lower halls.
+**Where** The Whistling Caves' abandoned fairground level; Whistfell Abbey's lower halls.
 **Does** *Bell Bonk*, *Muddle* (confusion, all), *Swap* (switches two heroes' positions — pure mischief).
 **Is** Has one joke. Tells it constantly. It is not a good joke. He is having the time of his life.
 **Idle** Cartwheels in place every 5 s; otherwise shifts weight foot to foot at 1.2 Hz with the bells jingling
@@ -400,7 +409,7 @@ with **painted diamonds**: two extruded diamond shapes in `#D3524C` around the e
 
 ### 22. BARROWMOLE
 `Lv15 · HP 70 · MP 0 · ATK 50 · DEF 38 · AGI 14 · EXP 46 · Gold 120 · Recruit 1/22`
-**Where** Coppergrumble Mine. Carries a wheelbarrow of ore; drop scales with whether you let it keep it.
+**Where** The Whistling Caves and the Quiet Quarry (Digby, your quarry friend, is one). Carries a wheelbarrow of ore; drop scales with whether you let it keep it.
 **Does** *Shovel Swing*, *Trundle Away* (flees with the gold at 30% — chase it, it is worth it).
 **Is** A blind miner with a barrow, terribly cross about the interruption, secretly glad of the company.
 **Idle** Pushes the barrow forward 0.1 u and back, wheel squeaking; snuffles, nose twitching at 3 Hz.
@@ -415,8 +424,8 @@ Barrow: rounded-box tray + `TorusGeometry(0.10, 0.02)` wheel + two handle cylind
 
 ### 23. CANDELABRACADABRA
 `Lv22 · HP 78 · MP 40 · ATK 46 · DEF 42 · AGI 26 · EXP 88 · Gold 58 · Recruit 1/30`
-**Where** Mine chapel, Ashenvale Ruins, castle corridors.
-**Does** *Scorcha* (fire, one), *Kascorcha* (fire, all, at Lv25+), *Mendy*.
+**Where** The Whistling Caves' chapel, the Grey Ruins, abbey corridors.
+**Does** *Scorcha* (fire, one), *Kascorcha* (big fire, one, at rank 25+), *Mend*.
 **Is** A candelabra that learned magic by listening at the door and is now dangerously overqualified.
 **Idle** Floats at `y 0.4`, rotating 12°/s; flames flicker independently; wax drips (a small sphere slides
 down an arm and vanishes).
@@ -431,12 +440,12 @@ Eyes on the stem, `r 0.06, gap 0.11`, with two extruded brass "eyebrow" arcs abo
 
 ---
 
-## 4. TIER FOUR — the Drowsy Deep, Cloudmarch, Ashenvale Ruins (Lv 24–33)
+## 4. TIER FOUR — the Sighing Grotto, the Grey Ruins, the Frostbottom, Highfeather's cloud road (danger rank 24–33 · party Lv 17–25 · Act II end, Act III)
 
 ### 24. GLOOPOLD THE GRAND
 `Lv27 · HP 210 · MP 20 · ATK 92 · DEF 74 · AGI 20 · EXP 260 · Gold 150 · Recruit 1/64`
 **Where** Wherever eight Gloops have agreed on something, which is rare and therefore alarming.
-**Does** *Royal Squelch* (all), *Rally* (summons two Gloops), *Mendy* on itself.
+**Does** *Royal Squelch* (all), *Rally* (summons two Gloops), *Mend* on itself.
 **Is** Eight Gloops in a trenchcoat, except the trenchcoat is a crown and the eight of them are voting.
 **Idle** Each of the eight sub-Gloops hops on its **own** phase (offset `i·0.13 s`) so the mass ripples like a
 pot boiling. The crown stays almost level, correcting with a lag spring.
@@ -451,7 +460,7 @@ five `SphereGeometry(0.03)` jewels in `M_RUBY #C0304A`. The lower Gloops have si
 
 ### 25. SIR CUMFERENCE
 `Lv29 · HP 240 · MP 0 · ATK 104 · DEF 96 · AGI 12 · EXP 300 · Gold 180 · Recruit 1/56`
-**Where** The tourney ruin at Ashenvale; challenges you formally before combat.
+**Where** The old tourney yard in the Grey Ruins; challenges you formally before combat.
 **Does** *Grand Charge* (heavy, one; he needs a turn to turn around afterwards), *Bow Politely* (skips turn,
 raises the whole party's… nothing. He just bows. It is very charming.)
 **Is** The roundest knight in the world, unfailingly courteous, physically incapable of standing up if he falls.
@@ -469,7 +478,7 @@ three circles.
 
 ### 26. MIRTHQUAKE — the jester (part two)
 `Lv31 · HP 265 · MP 60 · ATK 110 · DEF 80 · AGI 46 · EXP 380 · Gold 220 · Recruit 1/72`
-**Where** Cloudmarch, the last hall before Castle Kettleblack.
+**Where** Highfeather's cloud road, and the last hall before Whistfell Abbey's bell tower.
 **Does** *Punchline* (heavy, one), *Kascorcha*, *Belly Laugh* (all party, damage + 30% confusion; the ground
 literally shakes — 0.3 u screen shake for 700 ms).
 **Is** Laughing at something that happened a long time ago and was not funny then either.
@@ -483,8 +492,8 @@ difference between "funny" and "wrong", and this is the one monster in the book 
 
 ### 27. LADY MOTHBONNET
 `Lv28 · HP 190 · MP 70 · ATK 84 · DEF 66 · AGI 40 · EXP 290 · Gold 165 · Recruit 1/44`
-**Where** Ashenvale Ruins ballroom, dancing alone.
-**Does** *Frostle* (ice, all), *Snoozle*, *Last Dance* (drains 30 HP from one hero to heal herself).
+**Where** The Grey Ruins' roofless ballroom, dancing alone.
+**Does** *Nipper* (ice, all), *Snoozle*, *Last Dance* (drains 30 HP from one hero to heal herself).
 **Is** Still waiting for a partner. Will absolutely settle for you. Has excellent manners and cold hands.
 **Idle** Waltzes — a slow 3/4 rotation, one-two-three, drifting in a 0.4 u circle; the dress hem trails.
 **Death** WISP, with a curtsy first. The curtsy is non-negotiable.
@@ -498,7 +507,7 @@ fan: extruded semicircle in `#DCC8D8` she raises when she casts.
 
 ### 28. SQUIDGEON
 `Lv26 · HP 175 · MP 30 · ATK 88 · DEF 60 · AGI 52 · EXP 240 · Gold 130 · Recruit 1/34`
-**Where** The Drowsy Deep and, inexplicably, the sky above it.
+**Where** The Sighing Grotto and, inexplicably, the rooftops of Marbleford.
 **Does** *Tentacle Slap* (three hits), *Inkblot* (blinds all), *Whiffle*.
 **Is** A squid that has decided it is a pigeon. Bobs its head when it swims. Coos.
 **Idle** Mantle pulses (scale `y` 1↔0.9 at 0.8 Hz) driving a slight forward drift; the eight tentacles trail in
@@ -513,7 +522,7 @@ Eyes enormous, `r 0.10, gap 0.22`, on the sides of the mantle so they nearly poi
 
 ### 29. THUNDERPUFF
 `Lv30 · HP 200 · MP 90 · ATK 78 · DEF 58 (immune to physical while "Fluffed") · AGI 44 · EXP 330 · Gold 145 · Recruit 1/48`
-**Where** Cloudmarch, the sky road.
+**Where** Highfeather's cloud road.
 **Does** *Zapple* (lightning, one, heavy), *Kazapple* (all), *Fluff Up* (immune to physical 1 turn, looks
 enormously pleased about it).
 **Is** A small cloud with a big grudge and a lovely singing voice.
@@ -531,7 +540,7 @@ flash — never a particle system; the hard-edged bolt is more DQ.
 
 ### 30. WYRMSLEY
 `Lv32 · HP 255 · MP 45 · ATK 118 · DEF 92 · AGI 34 · EXP 420 · Gold 260 · Recruit 1/60`
-**Where** Castle Kettleblack's east wing, answering the door.
+**Where** Whistfell Abbey's east wing, answering the door.
 **Does** *Tail Sweep* (all), *Scorcha*, *Serve Tea* (heals all **enemies** 40 — including, on the turn it
 joins you, your party. The tea is genuinely good.)
 **Is** A dragon the size of a butler, and a butler to his bones. Disapproves of the villain's housekeeping.
@@ -550,7 +559,7 @@ Eyes `r 0.075, gap 0.16, tilt −4°`, with heavy extruded lids at 30% closed �
 
 ### 31. GRIMALKITTEN
 `Lv25 · HP 160 · MP 36 · ATK 90 · DEF 55 · AGI 66 · EXP 230 · Gold 110 · Recruit 1/26`
-**Where** Ashenvale Ruins, rooftops, always where a shadow already is.
+**Where** The Grey Ruins, rooftops, always where a shadow already is.
 **Does** *Pounce* (crit chance 25%), *Vanish* (untargetable 1 turn), *Muddle*.
 **Is** A cat-shaped hole in the light. Purrs. Will sit on the map you are reading.
 **Idle** Sits. Tail describes a slow S at 0.4 Hz. Ears rotate independently toward sounds. Every 8 s: one
@@ -567,11 +576,11 @@ circle when it pounces. Whiskers: six 0.16 `CylinderGeometry(0.004)`, drooping, 
 
 ---
 
-## 5. TIER FIVE — Castle Kettleblack and the Unlit Vault (Lv 34–45)
+## 5. TIER FIVE — Whistfell Abbey and the Quiet Deep (danger rank 34–45 · party Lv 25–30 · Act III end)
 
 ### 32. HEXCALIBUR
 `Lv36 · HP 290 · MP 80 · ATK 152 · DEF 105 · AGI 72 · EXP 620 · Gold 300 · Recruit 1/80`
-**Where** The armoury of Castle Kettleblack, hanging in mid-air, waiting.
+**Where** The armoury of Whistfell Abbey, hanging in mid-air, waiting.
 **Does** *Rebuke* (heavy single), *Blade Storm* (four hits, random targets), *Hexed Edge* (halves one hero's
 max HP for the fight — the only genuinely nasty move in the game, and it telegraphs for a full turn).
 **Is** A sword that got tired of being held. Speaks in short, extremely rude sentences.
@@ -590,8 +599,8 @@ opacity when it moves.
 
 ### 33. VESPERLING
 `Lv35 · HP 270 · MP 120 · ATK 130 · DEF 92 · AGI 80 · EXP 580 · Gold 240 · Recruit 1/70`
-**Where** Castle Kettleblack's belfry; the Cardinal's choir.
-**Does** *Kascorcha*, *Frostle*, *Evensong* (heals all allies 60 and sounds, deliberately, beautiful).
+**Where** Whistfell Abbey's bell tower; the Bishop's choir.
+**Does** *Kascorcha*, *Nipper*, *Evensong* (heals all allies 60 and sounds, deliberately, beautiful).
 **Is** A bat that took holy orders. Sings the villain's evening prayers. Is not sure any more that it agrees.
 **Idle** Hangs **upside down** from nothing, hood down, hands folded, swaying 4° — and rights itself with a
 single wing-snap only when it acts. Nobody expects the flip. It gets a gasp every time.
@@ -605,20 +614,22 @@ motion and trails four slow smoke spheres. Eyes `r 0.075, gap 0.11` in `M_EMBER 
 
 ---
 
-## 6. THE FIVE BOSSES — escalating drama
+## 6. THE FIVE BIG BOSSES — escalating drama
+(Full boss order, with the story bosses, is CANON.md §8.)
 
-### B1. BOGWALLOP THE BULBOUS — *"the one you can beat"*
+### B1. BOGWALLOP THE BULBOUS — *"the one you can beat"* (optional)
 `Lv8 · HP 180 · MP 10 · ATK 34 · DEF 24 · AGI 8 · EXP 220 · Gold 150 · Recruit — see below`
-**Where** Marrowmarsh, Chapter One, at the end of a very short, very safe dungeon.
+**Where** Quaggerton, in the Sogglemarsh — optional in Act II, at the end of a very short, very safe boardwalk
+maze. By then the party is well above him; that is the point: this is the boss a six-year-old beats alone.
 **Does** *Belly Flop* (all, and he takes 5 recoil), *Gulp* (swallows one hero for one turn — they pop back out
 unharmed and slightly sticky), *Enormous Burp* (does nothing; wastes his turn; happens 20% of the time).
 **Two phases**: below 40% HP he stands up on his back legs, which is genuinely startling for a frog the size
 of a cottage, and his ATK goes to 46.
-**Is** Not evil. Enormous, lonely, and sitting on the village's only well.
+**Is** Not evil. Enormous, lonely, and sitting on Quaggerton's only well.
 **Idle** Breathes hugely — throat sac inflates over 1.4 s and deflates in 0.3 s. Blinks one eye at a time.
 Tongue lolls.
 **Death** DEFLATE, slowly, into a sulk. He does not vanish — he stays, defeated, and talks to you.
-**The tender bit**: after the fight he apologises. If you return in Chapter Two with a Marsh Lily, he asks to
+**The tender bit**: after the fight he apologises. If you return in Act III with a Marsh Lily, he asks to
 join, and **Bogwallop is the only boss in the game who can be recruited.** Children will tell each other about
 this. Guard it: no hint text, one NPC line in the marsh, and that is all.
 **BUILD** 3.2 wide, 2.0 tall. Body: `SphereGeometry(1.4, 24, 16)` scaled `(1.15, 0.85, 1)` in
@@ -631,9 +642,10 @@ Tongue: a 10-segment ribbon capsule chain, `#E07A8E`, that whips out 2.5 u on *G
 Legs: four thick 3-segment capsule chains, back pair much larger, with `SphereGeometry(0.22)` webbed feet
 (extrude a webbing shape between the toes). Crown of reeds: five bent cones in `M_LEAF`.
 
-### B2. SEXTON SOOTBELL — *"the one that makes it quiet"*
+### B2. SEXTON SOOTBELL — *"the one that makes it quiet"* (optional)
 `Lv15 · HP 420 · MP 90 · ATK 62 · DEF 48 · AGI 30 · EXP 700 · Gold 400 · Not recruitable`
-**Where** The top of Hollowbell Tower, where the bell has no clapper.
+**Where** The Bellhollow Belfry, optional in Act II — the empty frame the Order stole the abbey's bell from.
+He rings a ghost of it. Reward: the **Charm Bell** (§7).
 **Does** *Toll* (all, sound damage, and the screen desaturates for 400 ms), *Snoozle* (all), *Summon Boohoo*
 (two, once), *Dust of Years* (lowers all party AGI 20%).
 **Phases**: at 50% he rings the bell and the room's candles go out one by one — the light rig drops to a
@@ -641,7 +653,7 @@ single cold key. At 20% he stops fighting for one full turn and simply says: *"I
 **Is** The bellringer who kept ringing after everyone had gone, and is very tired, and is very polite about it.
 **Idle** Floats, pulling on a rope that is not there — arms haul down in a slow 3 s cycle, and the great bell
 above him swings **silently** in time.
-**Death** WISP, and as he goes the bell rings once, properly, for the first time in a century. Hold the camera
+**Death** WISP, and as he goes the ghost bell rings once, properly, for the first time since it was taken. Hold the camera
 on the empty tower for 2.5 s before the victory fanfare. That silence is worth more than the fight.
 **BUILD** Boohoo (#10) at 3.2×, colour `M_GHOST_GREY #B8C0CC`, plus: a rope of 12 capsule segments with real
 verlet sag; a **bell** above him, `LatheGeometry` `(0,0.9) (0.30,0.85) (0.55,0.35) (0.62,0.05) (0.68,0)` in
@@ -650,11 +662,12 @@ shoulders in `M_STOLE #4A3A5A`; and hands — the only ghost with hands — two 
 gripping the rope. Eyes: the standard hole-eyes at `r 0.16`, but with **two** glints each so he looks
 watery-eyed. Around him, 30 slow dust motes: `SphereGeometry(0.012)` `MeshBasicMaterial` drifting on noise.
 
-### B3. MISTRESS FERRILYN, THE IRON GOVERNESS — *"the one that scares them"*
+### B3. THE IRON GOVERNESS (Mistress Ferrilyn) — *"the one that scares them"*
 `Lv26 · HP 900 · MP 120 · ATK 118 · DEF 104 · AGI 42 · EXP 2400 · Gold 1200 · Not recruitable`
-**Where** The overseer's gantry above the Coppergrumble slave works. She has a list. You are on it.
+**Where** The overseer's gantry above the Quiet Quarry works, Act III (B22): you have come back to set the
+workers free. She has a list. You are on it. (Never say "slave" anywhere in the build — they are *workers*.)
 **Does** *Ruler Rap* (single, heavy, and she says the number of the strike aloud), *Wind the Key* (buffs her
-own AGI and ATK 30%, twice per fight), *Kanipper* (ice, all), *Inspection* (targets the party member with the
+own AGI and ATK 30%, twice per fight), *Kanip* (ice, all), *Inspection* (targets the party member with the
 lowest HP — kids learn to heal *before* they need to).
 **Phases**: three, marked by her key unwinding. Her clockwork **visibly** slows as she loses HP — the idle
 frequency drops from 1.0× to 0.7× to 0.45×, and the ticking sound slows with it. When the ticking stops, so
@@ -676,20 +689,26 @@ claws. Ruler: an extruded bar 1.2 long in `M_DARKWOOD #3A2A22`. Key: a `TorusGeo
 shaft, in her back, rotating. Eyes: `r 0.09, gap 0.20`, painted-doll style — sclera pure white, pupil a flat
 `CircleGeometry` in `M_ICEBLUE #7FA8D8`, **no highlight, no blink, ever**. The absence of the blink is the horror.
 
-### B4. CARDINAL VESPERTINE — *"the one who took your father"*
+### B4. BISHOP MORTMAIN → MORTMAIN ENFOLDED — *"the one who took your father"*
 `Lv38 · HP 2400 · MP 300 · ATK 158 · DEF 128 · AGI 76 · EXP 9000 · Gold 3000 · Not recruitable`
-**Where** He appears, unbeatable and scripted, at the end of Chapter One. You fight him for real in the
-Cathedral of Ash, twenty hours later, and the music that plays is the Chapter One music, slowed.
+**Where** Bishop Mortmain (a human: the P07 character model — thin, kind-faced, dove-grey, glass lantern at his
+belt) appears, unbeatable and scripted, at the Grey Ruins (B9) and at Ambergarde's coronation (B19). You fight
+him for real in the Quiet Deep (B25), to `boss`, after walking through Whistfell Abbey to `quiet_hand` (the
+battle melody slowed on organ). **Phase 1 is the Bishop himself, on the human model. At 60% Malgrim's dream
+wraps round him like a coat, and he becomes the Enfolded build below.**
 **Does** *Vespers* (all, dark, heavy), *Kascorcha*, *Silence the Choir* (seals one hero's spells 3 turns),
 *Two actions per turn* from 60% HP, *Benediction* (heals himself 300 — punish it, he telegraphs by folding
 his hands for a full turn).
-**Phases**: (1) hooded, calm, hands folded; (2) at 60% the hood comes back — he is a bat, and beautiful, and
-that is worse; (3) at 25% the wings unfurl to their full 6 u span and he stops speaking entirely.
+**Phases**: (1) the Bishop, calm, hands folded; (2) at 60% the dream wraps him — a hood of dark comes up and
+back, and it has given him a bat's face, and it is beautiful, and that is worse; (3) at 25% the dream's wings
+unfurl to their full 6 u span and he stops speaking entirely. Between (1) and (2) he sits on a step and tells you
+about his son Tobin (STORY-BIBLE §7).
 **Is** Gentle-voiced, unhurried, and absolutely certain he is doing you a kindness. Never gloats. Says your
 father's name once, correctly, and that is the cruellest thing in the game.
 **Idle** Hovers 0.6 off the ground, cassock hanging still. Only the censer moves.
-**Death** WISP, upward and slow, wings folding in, and the last thing to fade is his hands, still folded.
-**Then** the game gives you a full ten seconds with no music before the fanfare.
+**Death** Not a death. The dream-coat WISPs upward and slow, wings folding in, and what is left kneeling is an
+ordinary, very old man with his hands still folded. He is not killed and he is not hurt.
+**Then** ten seconds with no music — and the floor opens: **Malgrim the Unlit** (B5). No fanfare until it lets go.
 **BUILD** 4.4 tall. Vesperling (#33) rebuilt at 3× with: cassock `M_CARDINAL #7A1F2E` (deep red) with
 `M_DARKGOLD` extruded trim running the full hem and centre seam; a mitre — a `Shape` extrusion of a pointed
 arch, 0.9 tall, in `M_CARDINAL` with a gold cross; wings that are **six** scallops per side, span 6.0 at full
@@ -699,9 +718,10 @@ with a spiral built from a 24-segment tube curve; and a face: a long muzzle
 `M_EMBER #FF9E5E` with **highlights present** — he is the only monster in the book whose eyes are both kind
 and terrible, and the highlight is why. Around him at all times: 40 dark motes falling *upward*.
 
-### B5. NYXIL THE UNLIT — *"the end"*
+### B5. MALGRIM THE UNLIT — *"the end"*
 `Lv45 · HP 4500 (two forms: 1800 / 2700) · MP ∞ · ATK 175 · DEF 140 · AGI 90 · EXP 0 · Gold 0 · Not recruitable`
-**Where** The Unlit Vault, under everything, where colour stops.
+**Where** The bottom of the Quiet Deep, under everything, where colour stops. The thing that has been granting
+Mortmain's wish for forty years; it rises out of the floor the moment he kneels.
 **Form One — The Cocoon.** A vast smooth ovoid, eight closed eyes on its surface, four tendrils.
 *Does* **Unlight** (all, and the screen's saturation drops 25% permanently until the fight ends),
 *Lash* (three hits), *Open One Eye* (a new attack unlocks for each eye it opens — four total).
@@ -709,8 +729,10 @@ and terrible, and the highlight is why. Around him at all times: 40 dark motes f
 folded darkness, and it is *this* that is frightening.
 *Does* **Nothing At All** (all, and the damage is exactly equal to each hero's current HP minus 1 — nobody
 dies, and every child at this point screams), *Kascorcha*, *Undo* (removes all party buffs), and, at 10% HP,
-**Ask** — it asks the hero a question, and the party's answer (the game's one real choice) determines whether
-the last phase is a fight or a conversation.
+**Ask** — it whispers: *"Wouldn't it be kinder if everything were quiet?"* The hero cannot speak, so the menu
+offers the twins' two answers — Rowan's *"No. People are supposed to be loud."* or Linnet's *"We LIKE loud."*
+Either one wins: Rowan's makes the last phase a short conversation, Linnet's a short, easy fight. Then the
+Larksteel Sword cuts the dream away.
 **Is** Never speaks above a whisper. Is not angry. Wants, simply, for things to stop being so *loud*.
 **Idle** Form One: rotates 3°/s, tendrils drifting; the closed eyes twitch under their lids.
 Form Two: perfectly still, floating, head slightly tilted, as if listening.
@@ -729,6 +751,54 @@ skipped — its hands are small, and its fingers are the only fingers on any mon
 
 ---
 
+## 6b. STORY CREATURES — the bosses and friends the plot needs
+*Added by the canon pass so every boss in CANON.md §8 has a body. Same kit, same rules: round, readable, no gore.*
+
+### QUIETLING — the Order's footsoldier
+`Lv10 · HP 30 · MP 6 · ATK 22 · DEF 16 · AGI 14 · EXP 18 · Gold 20 · Not recruitable`
+**Where** Coddleston Moor (Act I), the Stone Garden, Whistfell Abbey. **Does** *Shush* (silences one hero 2 turns),
+*Poke*. **Is** A small hooded figure in a grey mask with a finger to its lips; more sleepy than cruel. Yawns.
+**Death** FOLD — the robe folds itself neatly and the mask sits on top. **BUILD** A 0.9-tall `LatheGeometry` robe
+`(0,0) (0.26,0.02) (0.20,0.50) (0.12,0.78) (0,0.86)` in `M_GHOST_GREY`; a hood dome over a `CircleGeometry(0.13)`
+mask in `M_PORCELAIN` with two small dark eye-slits and one raised extruded finger across the mouth; mitten hands.
+
+### MUMBLEROOT THE GRUDGE — Cobwell Manor's belfry (Act I)
+`Lv7 · HP 180 · MP 0 · ATK 26 · DEF 18 · AGI 9 · EXP 160 · Gold 400 (in the coat pockets) · Not recruitable`
+**Does** *Bind* (one hero skips a turn), *Cold Draught* (blows out the candle; the backdrop darkens one round).
+Never targets Willow. **Is** Grief that grew roots, wearing a groom's coat. **Death** UNWIND into a plain black
+coat lying on the floor. **BUILD** A knot of eight tapered `TubeGeometry` roots in `M_BARK` rising to 1.8 u, a
+lathe tail-coat in `#2A2A36` with two `M_GOLD` buttons, and two glowing `M_GLOWSTONE` eyes deep in the knot.
+
+### THE SUNMANE — Pip, grown wild (Act II, B11b)
+`Lv14 · HP 420 · MP 0 · ATK 60 · DEF 40 · AGI 50 · EXP 600 · Gold 0 · Joins by story`
+**Does** *Pounce*, *Roar* (lowers party AGI one turn). On its **second turn** it sees the ribbon and the fight ends:
+it sits, sniffs Bram's wrist, and lies down. It cannot lose you and you cannot hurt it below 50% HP.
+**Is** Pip. **BUILD (kitten, Act I)** a 0.35-tall ginger cat: `SphereGeometry(0.13)` head, capsule body in
+`M_SUNSPOT #E8A04A`, two tiny `ConeGeometry(0.012, 0.05)` sabre teeth in `#FFF6EF`, a `SphereGeometry(0.025)`
+brass bell on a ribbon collar. **BUILD (Sunmane, Act II–III)** the same rig at 4.5×, with a mane of twelve
+extruded flame-shaped petals in `M_GOLD` and the teeth at 0.25 u. Eyes always have highlights: he was never bad.
+
+### THE TIDEWARDEN — the Sighing Grotto (Act II, B15)
+`Lv18 · HP 900 · MP 40 · ATK 70 · DEF 55 · AGI 20 · EXP 1500 · Gold 600 · Not recruitable`
+**Does** *High Tide* (all, water; its **Big Attack**, telegraphed by the water level rising a full turn),
+*Clamp*, *Undertow* (pulls one hero to the back row). **Is** A huge old hermit crab wearing a lighthouse as a
+shell, grumpy about visitors, proud of the pearl. **Death** It does not die: it shuts its door and sulks; the
+**Tide Pearl** rolls out. **BUILD** Crabbit (#12) at 4× without the ears, plus a lathe lighthouse shell striped
+`#FFF6EF`/`M_CAP` with a lit `M_FLAME` lamp-room.
+
+### HOARFAX THE NINEFOLD — the Glasswing Grotto (Act III) — specified in WORLD-BIBLE §4 room B8
+`Lv28 · HP 900 · MP 60 · ATK 96 · DEF 70 · AGI 60 · EXP 2400 · Gold 800 · Recruit 1/8 after it sits down`
+**BUILD** A nine-tailed frost-fox: Grimalkitten's rig (#31) at 3.5× in `#E8F2FA` with a two-band toon and a
+cyan rim; nine tapering tail-chains that each vanish with a sparkle as it loses a move. Default name **Foxglove**.
+
+### HUSH & HARK, THE QUIET TWINS — Whistfell Abbey (Act III)
+`Lv34 · HP 1100 each · MP 120 · ATK 120 · DEF 90 · AGI 70 · EXP 3000 · Gold 900 · Not recruitable`
+**Does** Hush: *Silence All* (seals spells 2 turns). Hark: *Echo* (repeats Hush's last move). Beat one and the
+other gives up and sits down. **Is** Two tall Quietlings who finish each other's sentences, badly — a mirror of
+Rowan and Linnet. **BUILD** Quietling at 2.4×, one mask with the finger to its lips, one with a hand cupped to its ear.
+
+---
+
 ## 7. THE RECRUITMENT MOMENT
 *Owner: P17. This is the signature of the whole game. Get it wrong and nothing else matters.*
 
@@ -738,11 +808,15 @@ battle. Roll once per eligible defeated monster, highest-rarity first, and stop 
 **Chance.** `p = base × kindness × levelGap × charm`, where
 `base` = the entry's Recruit value; `kindness` = 2.0 in Kid Mode (default ON for a new save), 1.0 otherwise;
 `levelGap` = `clamp(1 + 0.04 × (heroLv − monsterLv), 0.6, 1.8)`; `charm` = 1.5 if the party carries the
-**Charm Bell** (a Chapter Two treasure), 1.0 otherwise. Cap at 1/2. A monster that has *already* joined has
+**Charm Bell** (an Act II treasure, guarded by Sexton Sootbell), 1.0 otherwise. (`monsterLv` is the danger rank; the
+clamp keeps late tiers fair.) Cap at 1/2. A monster that has *already* joined has
 its base halved for duplicates. If the wagon is full (8 in the wagon, 4 in the party), it still asks — and
-you get the line *"…but there's no room in the wagon. Come back for me?"* and a map marker where it waits.
+you get the line *"…the wagon's full? I'll wait in the paddock at Puddlewick!"* and it goes to the Hollybank
+Cottage paddock (SYSTEMS §8), where it can be visited and swapped in. **No wild monster can join before the
+wagon is back (`ch2.wagon`, B12)**; Bobble, Pip and Digby join by story.
 **Pity rule (never tell the player):** after 30 battles with no recruit, multiply by 3 until one lands. No
-child should watch a sibling get a monster and go home with nothing.
+child should watch a sibling get a monster and go home with nothing. **And** a species defeated 12 times without
+joining is guaranteed to ask on the 13th (SYSTEMS §10.3).
 
 **The beat, exactly.**
 1. Victory tally window closes with its *thunk*. **0.4 s of nothing.** The pause is the ceremony.
@@ -751,11 +825,11 @@ child should watch a sibling get a monster and go home with nothing.
 3. It does its **join hop**: two big bounces (0.35 u, 320 ms each), landing on beat two of the jingle.
    `Kit.mouthOh` for the first bounce, its normal grin for the second.
 4. Three white sparkle quads spin outward from it and fade (400 ms). Camera pushes in 12% over 500 ms.
-5. **The Befriending Fanfare** (P27 owns it; this is the spec): 1.7 s, D major, harp gliss up on the chime,
+5. **The Befriending Fanfare** (P27 owns it, music id `befriend`; this is the spec): 1.7 s, D major, harp gliss up on the chime,
    then flute + pizzicato strings: **A4 – D5 – F#5 – A5** (each 1/8, brightly) — beat — **G5 – F#5 – D5**
    (the last held 3/8) over a held D-add9 in low strings, with a single triangle ping on the final note.
    It must be hummable by a seven-year-old after two hearings. If it isn't, rewrite it.
-6. The DQ window slides up: **"‹Monster› wants to be your friend!"** typed at 38 glyphs/sec.
+6. The DQ window slides up with VOICE-BIBLE string `recruit.join`: **"‹Monster› wants to be your friend!"** typed at 38 glyphs/sec.
    Then the monster's own line (see below), then: **"Shall ‹it› come along?"  ▸ Yes / No."**
    *No* is never punished: **"‹Monster› waves you off cheerfully and wanders home."**
 
@@ -769,24 +843,24 @@ child should watch a sibling get a monster and go home with nothing.
 - **Boohoo** — *"You heard me. …Sorry. You heard me, and you didn't run. Sniff."*
 - **Clankworthy** — *"…"* then, after a two-second pause, *"…yes."* (An empty helmet, deciding.)
 - **Boulderdash** — *"I am very heavy and I break bridges. Will that be a problem? …It usually is."*
-- **Wyrmsley** — *"His lordship's tea has been undrinkable for years. I shall require a new employer."*
+- **Wyrmsley** — *"His Grace's tea has been undrinkable for years. I shall require a new employer."*
 - **Bogwallop** — *"Room in that wagon for a big lad?"*
 
 **Naming.** A window with the monster's model spinning slowly on the left and the name field on the right.
-- The field is **pre-filled with a good default** (Gloop → "Bloopy", Flapjack → "Pancake", Cactuddle →
+- The field is **pre-filled with a good default** (Gloop → "Dollop", Flapjack → "Pancake", Cactuddle →
   "Prickle", Chestnut → "Nutty", Boulderdash → "Pebbles", Wyrmsley → "Jenkins"). Confirm accepts it instantly:
   a six-year-old presses A twice and gets a monster with a lovely name.
 - Below: a **wheel of eight suggestions** generated from a per-species list, re-rollable with the Menu button.
 - Below that: an on-screen alphabet grid, 8 characters max, plus a shuffle-suggest button. Touch and keyboard
   both work. Backspace is always visible.
-- Duplicates auto-suffix: a second Bloopy becomes **Bloopy II**, then **Bloopy III**. Kids find this hilarious
+- Duplicates auto-suffix: a second Dollop becomes **Dollop II**, then **Dollop III**. Kids find this hilarious
   and will farm it deliberately. Let them.
 - Confirm → the monster bows/hops/salutes (per-species `joinPose`, 900 ms) → **"‹Name› joined the party!"**
   → the party jingle → back to the field.
 
 **Afterwards (this is what makes it stick).** Recruited monsters walk in a trailing line behind the hero on
 the field, hopping in their own idle rhythm, each one 0.55 u behind the last on a recorded path. Pressing
-Confirm on one gets a line of dialogue that **changes by chapter**. They pile into the wagon on the world map.
+Confirm on one gets a line of dialogue that **changes by Act**. They pile into the wagon on the world map.
 In the party menu their portrait is their actual 3D model on a small turntable. And when a monster is in the
 wagon and you enter its home region, it says something about home.
 
@@ -804,8 +878,8 @@ one moving expressive part is a flower that droops when it is losing. It has the
 its entire tier (1/6) because it is *desperate*, and the game should reward a child for being the first person
 ever to say yes to it.
 
-Then the long game: a potted Cactuddle stands in the village square from Chapter One, four hours before the
-player can ever meet a wild one, saying something new each chapter. So when the desert finally coughs one up,
+Then the long game: a potted Cactuddle stands on the Puddlewick green from Act I, hours before the
+player can ever meet a wild one, saying something new each Act. So when the desert finally coughs one up,
 the child does not meet a monster — they meet **that one from home**. And when their Cactuddle is walking
 behind them across the world map, arms permanently open, never once managing to reach them, that is the whole
 game in one silhouette.
@@ -830,18 +904,21 @@ M_JEST_GOLD #C9973C  M_SKIN_PALE #F2D9C4  M_MOLE #6B5A6E  M_FLAME #FFB13B  M_SQU
 M_CLOUD #E8EEF6  M_CLOUDDARK #A8B4C8  M_BOLT #FFF08A  M_DRAGON #4E8C6A  M_BELLY #E4D2A8
 M_BELLY_C #D8D2A0  M_SHADOW #3A3352  M_CATEYE #7FE8B0  M_CASSOCK #2E2A44  M_EMBER #FF9E5E
 M_CARDINAL #7A1F2E  M_WINGDARK #2A2038  M_TOAD #6E8F52  M_STOLE #4A3A5A  M_PORCELAIN #F0E6DC
-M_ICEBLUE #7FA8D8  M_RUBY #C0304A  M_VOID #241E33  M_VOIDEYE #E8E0FF
+M_ICEBLUE #7FA8D8  M_RUBY #C0304A  M_VOID #241E33  M_VOIDEYE #E8E0FF  M_SUNSPOT #E8A04A
 ```
 
 ## 10. NEEDS (other owners)
-- **P20 / spells**: `Mendy, Mendyall, Scorcha, Kascorcha, Frostle, Kanipper, Whiffle, Zapple, Kazapple,
-  Snoozle, Muddle, Shielda, Wobble, Scarper, Wakey` — names, tiers and VFX per the usages above.
-- **P27 / music**: the Befriending Fanfare (§7 step 5), a slowed reprise of the Chapter One theme for B4,
+- **P20 / spells**: monsters use the player spell names from SYSTEMS §3 / CANON §7 (`Mend, Mendall, Scorcha,
+  Kascorcha, Nip, Nipper, Kanip, Whiffle, Zapple, Kazapple, Snoozle, Bolster, Wobble, Scarper, Wakey`) plus the
+  monster-only move `Muddle` (confusion).
+- **P27 / music**: the Befriending Fanfare (§7 step 5), `quiet_hand` (the battle melody slowed on organ) for Whistfell and `boss` for B4,
   and ten seconds of scored silence after B4's death.
 - **P15 / battle presentation**: the 0.4 s dead beat before a recruit, the 2.5 s held camera after B2, and the
   saturation ramp for B5.
 - **P30 / treasure**: Chestnut must be able to *be* a chest on the field map — one chest in nine, never the
   first chest of a new save, never in a story-critical room.
-- **P23 / maps**: place names used here — Puddlewick, Bramblecombe Woods, Saltmarrow Coast, Hollowbell Tower,
-  Marrowmarsh, Coppergrumble Mine, Bittermoor Pass, the Frittering Sands, the Drowsy Deep, Cloudmarch,
-  Ashenvale Ruins, Castle Kettleblack, the Unlit Vault.
+- **P23 / maps**: place names used here (all from CANON.md §2) — Puddlewick Vale, the Long Lane, the Beck, the
+  Whispering Wood, Saltmarrow Coast, Cobwell Manor, Coddleston Downs, the Bellhollow Belfry, Quaggerton and the
+  Sogglemarsh, the Whistling Caves, Marbleford Downs, the Frittering Sands, the Quiet Quarry, the Sighing Grotto,
+  the Grey Ruins, the Frostbottom, Highfeather's cloud road, Whistfell Abbey, the Quiet Deep.
+- **F3 / palette**: `M_SUNSPOT #E8A04A` (Pip) is included in §9.

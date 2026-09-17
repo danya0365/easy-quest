@@ -1,0 +1,1061 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>DEMO — F5 the book of tales (save / load)</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>
+/* Demo-only placeholder colours, copied from docs/ART-DIRECTION.md §7 (PAL) until src/ui/window.js + palette.js land. */
+html,body{margin:0;height:100%;background:#9cc7e6;overflow:hidden}
+#game-canvas{display:block;width:100vw;height:100vh}
+#ui-root{position:fixed;inset:0;pointer-events:none}
+#stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;transform-origin:0 0;
+  font-family:"Arial Rounded MT Bold","Trebuchet MS",ui-rounded,"Nunito",system-ui,sans-serif;color:#fff;
+  -webkit-font-smoothing:antialiased;user-select:none}
+
+/* ── the DQ window ─────────────────────────────────────────────────────────────── */
+.dqw{position:absolute;box-sizing:border-box;border-radius:14px;padding:12px 18px;pointer-events:auto;
+  background:linear-gradient(180deg,rgba(40,74,186,.95) 0%,rgba(22,46,136,.96) 48%,rgba(11,27,92,.97) 100%);
+  border:3px solid #f6f1e4;
+  box-shadow:0 0 0 2px rgba(10,18,56,.9),inset 0 0 0 3px rgba(10,22,70,.75),inset 0 0 0 4.5px rgba(255,255,255,.34),
+    inset 0 22px 26px -18px rgba(255,255,255,.22),0 9px 16px rgba(10,20,60,.38);
+  text-shadow:0 2px 0 rgba(4,10,40,.55);animation:dqw-open .18s cubic-bezier(.2,1.45,.45,1) both}
+.dqw .tab{position:absolute;top:-12px;left:18px;padding:1px 12px 2px;border-radius:9px;font-size:15px;letter-spacing:.06em;
+  background:linear-gradient(#1f3c9c,#122a78);border:2px solid #f6f1e4;box-shadow:0 0 0 2px rgba(10,18,56,.9);color:#ffe9a8}
+@keyframes dqw-open{from{transform:scale(.92,.6);opacity:0}to{transform:none;opacity:1}}
+@keyframes dqw-flash{0%{box-shadow:0 0 0 2px rgba(10,18,56,.9),inset 0 0 0 200px rgba(255,248,214,.55),0 0 26px 6px rgba(255,236,160,.8)}100%{}}
+@keyframes dqw-shake{0%,100%{translate:0 0}20%{translate:-7px 0}40%{translate:6px 0}60%{translate:-4px 0}80%{translate:3px 0}}
+.dqw.opened{animation:none}
+.dqw.opened.flash{animation:dqw-flash .7s ease-out}
+.dqw.opened.shake{animation:dqw-shake .38s ease-out}
+
+/* cursor: a chunky white arrow that nudges */
+.cur{position:absolute;width:0;height:0;border-top:10px solid transparent;border-bottom:10px solid transparent;border-left:15px solid #fff;
+  filter:drop-shadow(0 2px 0 rgba(4,10,40,.6));animation:nudge .7s ease-in-out infinite;visibility:hidden}
+.sel>.cur,.opt.sel>.cur{visibility:visible}
+.dim .cur{opacity:.45;animation:none}
+@keyframes nudge{0%,100%{translate:0 0}50%{translate:4px 0}}
+
+/* header */
+#hdr{left:36px;top:22px;width:640px;height:58px;display:flex;align-items:center;gap:14px}
+#hdr .t{font-size:27px;letter-spacing:.02em}
+#hdr .shelf{margin-left:auto;font-size:14px;color:#cfe0ff;text-align:right;line-height:1.25}
+#hdr .shelf b{color:#fff;font-weight:normal}
+#hdr .warn{color:#ffd64a}
+
+/* slot cards */
+.slot{left:36px;width:640px;height:100px;padding:8px 18px 6px 44px;cursor:pointer}
+.slot>.cur{left:15px;top:14px}
+.slot .r1{display:flex;align-items:baseline;gap:12px;height:35px;white-space:nowrap}
+.slot .lab{font-size:15px;color:#ffe9a8;letter-spacing:.05em;min-width:66px}
+.slot .hero{font-size:29px}
+.slot .lv{font-size:21px;color:#e8f0ff}
+.slot .r2,.slot .r3{display:flex;align-items:baseline;gap:10px;white-space:nowrap}
+.slot .r2{font-size:18px;height:25px;color:#e6eeff}
+.slot .r3{font-size:15px;height:22px;color:#b9cbf2}
+.slot .grow{flex:1;overflow:hidden;text-overflow:ellipsis}
+.slot .time{color:#fff}
+.slot .empty{font-size:24px;color:#9fb3e6}
+.badge{margin-left:auto;align-self:center;font-size:14px;padding:3px 10px 3px 8px;border-radius:10px;background:rgba(4,12,50,.55);
+  border:1.5px solid rgba(255,255,255,.28);text-shadow:none;display:flex;align-items:center;gap:6px}
+.badge i{display:inline-block;width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(255,255,255,.7)}
+.s-ok i{background:#86b85a}.s-copy i,.s-backup i,.s-mended i{background:#ffd64a}.s-broken i{background:#e8535a}
+.s-empty i{background:#6d7fae}.s-future i{background:#8fb0ff}
+.s-copy,.s-backup,.s-mended{color:#ffe9a8}.s-broken{color:#ffc2c4}
+.pips{display:flex;gap:5px;margin-left:auto}
+.pips span{font-size:12px;padding:0 7px;border-radius:7px;border:1.5px solid rgba(255,255,255,.35);color:#7f93c6;text-shadow:none;line-height:17px}
+.pips span.on{background:rgba(134,184,90,.28);border-color:#a6d273;color:#eaffd6}
+.pips span.bad{background:rgba(232,83,90,.25);border-color:#f59bbd;color:#ffd6de}
+
+/* right column */
+#tale{left:700px;top:22px;width:544px;height:170px;padding:16px 20px 10px}
+#tale .r{display:flex;align-items:baseline;gap:12px;white-space:nowrap}
+#tale .hero{font-size:30px}#tale .lv{font-size:22px}
+#tale .gold{margin-left:auto;font-size:20px;color:#ffe9a8}
+#tale .where{font-size:19px;color:#e6eeff;height:30px;align-items:center}
+#tale .time{margin-left:auto;font-size:19px}
+#tale .party{font-size:16px;color:#b9cbf2;height:26px}
+#tale .sync{font-size:15px;margin-top:4px;color:#b9cbf2}
+#tale .sync.dirty{color:#ffd64a}
+
+.menu{display:grid;grid-template-columns:1fr 1fr;column-gap:10px}
+.opt{position:relative;padding:3px 0 3px 30px;font-size:19px;line-height:24px;white-space:nowrap;cursor:pointer;border-radius:6px}
+.opt>.cur{left:7px;top:5px;border-top-width:8px;border-bottom-width:8px;border-left-width:12px}
+.opt.off{color:#7f93c6}
+#cmd{left:700px;top:208px;width:544px;height:146px;padding:16px 16px 8px}
+#mis{left:700px;top:372px;width:544px;height:206px;padding:16px 16px 8px}
+#mis .opt{font-size:17px;line-height:21px}
+#mis .opt.on{color:#ffd64a}
+
+/* message window */
+#msg{left:36px;top:542px;width:640px;height:156px;padding:16px 24px;font-size:23px;line-height:34px;white-space:pre-line}
+#msg .ghost{visibility:hidden}
+#msg .more{position:absolute;right:20px;bottom:10px;font-size:18px;animation:blink .8s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* modals */
+#veil{position:absolute;inset:0;background:rgba(6,12,40,.35);pointer-events:auto}
+#confirm{left:210px;top:300px;width:470px;padding:18px 22px 12px}
+#confirm .q{font-size:22px;line-height:32px;white-space:pre-line;margin-bottom:8px}
+#confirm .opts{display:flex;gap:30px}
+#code{left:190px;top:150px;width:900px;height:360px;padding:22px 26px 14px}
+#code .q{font-size:21px;line-height:30px;white-space:pre-line;height:62px}
+#code textarea{box-sizing:border-box;width:100%;height:180px;border-radius:10px;border:2px solid rgba(255,255,255,.5);resize:none;
+  background:rgba(4,10,44,.6);color:#eaffd6;font:15px/1.35 ui-monospace,Menlo,Consolas,monospace;padding:10px 12px;word-break:break-all;outline:none;pointer-events:auto}
+#code .opts{display:flex;gap:40px;margin-top:10px}
+#report{left:230px;top:120px;width:820px;height:420px;padding:22px 30px}
+#report h2{margin:0 0 8px;font-size:26px;font-weight:normal;color:#ffe9a8}
+#report .grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 30px;font-size:20px;line-height:30px}
+#report .grid b{float:right;font-weight:normal;color:#fff}
+#report .grid span{color:#cfe0ff}
+#report .ops{margin-top:12px;font-size:15px;line-height:21px;color:#b9cbf2;height:84px;overflow:hidden}
+#report .verdict{margin-top:10px;font-size:22px;color:#a6d273}
+#report .verdict.bad{color:#ffc2c4}
+</style>
+</head><body>
+<canvas id="game-canvas"></canvas>
+<div id="ui-root"><div id="stage"></div></div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// F5 — the book of tales. Proves: three slots + autosave, a registry of subsystems, playtime, slot summaries,
+// write-then-swap with a second copy and a spare, recovery from every kind of damage, versioned migrations,
+// the export/import escape hatch, and that nothing — not even 200 random mishaps — throws.
+import * as THREE from 'three';
+import { App } from '/src/engine/app.js';
+import { Scenes } from '/src/engine/states.js';
+import { Bus } from '/src/engine/events.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Assets } from '/src/engine/assets.js';
+import { makeRng } from '/src/engine/rng.js';
+import { Save, formatPlaytime } from '/src/engine/save.js';
+
+const PAL = { zenith: '#2a74d0', upper: '#4f9ae2', horizon: '#bfe2f2', cloudLit: '#fffdf6', cloudMid: '#e9edf6', cloudShade: '#b8c3dd',
+  sun: '#fff0d2', hemiSky: '#c3cff0', hemiGround: '#bba374', hillFar: '#bccde4', hillFarLow: '#86a6cc', hillMid: '#86b088',
+  hillMidLow: '#4e8868', hillNear: '#76a852', hillNearLow: '#4f8c40', grass: '#62a04a', grassDeep: '#3f7a3a', slime: '#3b8fea',
+  slimeLight: '#9bd2ff', mouth: '#7a1f2e', tongue: '#f07a8a', eye: '#1c1418', white: '#ffffff', outline: '#2b1d1a',
+  leafOutline: '#1e3219', page: '#fdf4e0', pageShade: '#dcc7a2', leather: '#7a4c2c', leatherDark: '#523622', contact: '#23301c', ribbon: '#d8483b' };
+const C3 = (h) => new THREE.Color(h);
+
+// ── audio (P28), optional: never required for the page to work ───────────────────────────────────────────────
+let Sfx = null, AudioM = null;
+import('/src/audio/sfx.js').then(m => { Sfx = m.Sfx || m.default || null; }).catch(() => {});
+import('/src/audio/audio.js').then(m => { AudioM = m.Audio || m.default || null; }).catch(() => {});
+const snd = (id, o) => { try { if (Sfx && AudioM && AudioM.ready) Sfx.play(id, o); } catch (_) {} };
+const unlockAudio = () => { try { if (AudioM) AudioM.unlock(); } catch (_) {} };
+addEventListener('pointerdown', unlockAudio); addEventListener('keydown', unlockAudio);
+
+// ── the pretend game that the book writes down ──────────────────────────────────────────────────────────────
+const STOPS = [
+  [1, 'hollybank', 1], [1, 'puddlewick', 2], [1, 'aldenmoor', 3], [1, 'saltmarrow', 4], [1, 'cobwell_manor', 6], [1, 'coddleston', 7], [1, 'grey_ruins', 8],
+  [2, 'quiet_quarry', 9], [2, 'whistling_caves', 10], [2, 'parchmouth', 11], [2, 'gogglestone_caves', 12], [2, 'puddlewick', 13], [2, 'port_pelican', 14],
+  [2, 'marbleford', 16], [2, 'sighing_grotto', 18], [2, 'marbleford_chapel', 19], [2, 'ambergarde_keep', 20],
+  [3, 'stone_garden', 20], [3, 'ambergarde_keep', 21], [3, 'coldcomfort', 23], [3, 'glasswing_grotto', 24], [3, 'highfeather', 25], [3, 'whistfell_abbey', 26], [3, 'quiet_deep', 28],
+].map(([chapter, map, lvl]) => ({ chapter, map, lvl }));
+const FLAG_AT = { hollybank: 'ch1.awake', puddlewick: 'ch1.left_home', cobwell_manor: 'ch1.manor_cleared', coddleston: 'ch1.pass_open',
+  grey_ruins: 'ch1.halvard_fallen', quiet_quarry: 'ch2.quarry_escape', gogglestone_caves: 'ch2.pip_return', port_pelican: 'ch2.sera_grown',
+  sighing_grotto: 'ch2.pearl', marbleford_chapel: 'ch2.married', ambergarde_keep: 'ch2.ambergarde', stone_garden: 'ch3.awake',
+  coldcomfort: 'item.wolfscarf', glasswing_grotto: 'ch3.shield', highfeather: 'ch3.sunlark', whistfell_abbey: 'ch3.elowen', quiet_deep: 'ch3.mortmain_fallen' };
+
+function companions(stop) {
+  const s = STOPS[stop], L = s.lvl;
+  const m = (id, name, d) => ({ id, name, lvl: Math.max(1, L - d) });
+  if (s.chapter === 1) return [stop >= 2 && m('bobble', 'Bobble', 1), stop >= 4 && m('pip', 'Pip', 2)].filter(Boolean);
+  if (s.chapter === 2) return [m('bobble', 'Bobble', 2), stop >= 10 && m('pip', 'Pip', 1), stop >= 11 && m('barty', 'Barty', 3), m('digby', 'Digby', 4)].filter(Boolean).slice(0, 3);
+  return [m('rowan', 'Rowan', 5), m('linnet', 'Linnet', 5), m('bobble', 'Bobble', 3)];
+}
+
+const fresh = (hero = 'Bram') => ({ hero, stop: 0, lvl: 1, gold: 0, flags: { 'ch1.awake': true }, inventory: [{ id: 'herb', n: 1 }], pos: { x: 12, z: 8, facing: 0 }, textSpeed: 'normal', extra: [] });
+let game = fresh();
+const hp = (lvl) => 14 + lvl * 9;
+
+function jumpTo(stop, hero) {
+  game = fresh(hero || game.hero);
+  game.stop = stop;
+  const s = STOPS[stop];
+  game.lvl = s.lvl; game.gold = 30 + stop * 137 % 900 + stop * 60;
+  for (let i = 0; i <= stop; i++) { const f = FLAG_AT[STOPS[i].map]; if (f) game.flags[f] = true; }
+  game.inventory = [{ id: 'herb', n: 2 + (stop % 4) }, { id: 'homing_feather', n: 1 + (stop % 2) }];
+  game.extra = companions(stop);
+}
+function playStep(rng) {
+  const next = Math.min(STOPS.length - 1, game.stop + 1);
+  const hero = game.hero, gold = game.gold, extraGold = rng ? rng.int(40, 160) : 90;
+  jumpTo(next === game.stop ? game.stop : next, hero);
+  game.gold = Math.min(9999999, gold + extraGold);
+  Save.addPlaytime(rng ? rng.int(900, 2100) : 1380);
+}
+
+// The subsystems. In the real game these live in their owners' modules; here they share one object.
+const findStop = (chapter, map, lvl) => {
+  let best = -1, bestD = 1e9;
+  STOPS.forEach((s, i) => { if (s.chapter === chapter && s.map === map) { const d = Math.abs(s.lvl - lvl); if (d < bestD) { best = i; bestD = d; } } });
+  if (best < 0) STOPS.forEach((s, i) => { const d = (s.chapter !== chapter ? 50 : 0) + Math.abs(s.lvl - lvl); if (d < bestD) { best = i; bestD = d; } });
+  return Math.max(0, best);
+};
+let pend = {};
+const settle = () => { if (pend.chapter != null || pend.map != null || pend.lvl != null) { game.stop = findStop(pend.chapter ?? STOPS[game.stop].chapter, pend.map ?? STOPS[game.stop].map, pend.lvl ?? game.lvl); } };
+Save.register('chapter', { save: () => STOPS[game.stop].chapter, load: (d) => { pend.chapter = d; }, reset: () => { pend = {}; } });
+Save.register('flags', { save: () => game.flags, load: (d) => { game.flags = d || {}; }, reset: () => { game.flags = {}; } });
+Save.register('gold', { save: () => game.gold, load: (d) => { game.gold = Number(d) || 0; }, reset: () => { game.gold = 0; } });
+Save.register('inventory', { save: () => game.inventory, load: (d) => { game.inventory = Array.isArray(d) ? d : []; }, reset: () => { game.inventory = []; } });
+Save.register('party', {
+  save: () => [{ id: 'hero', name: game.hero, lvl: game.lvl, hp: hp(game.lvl), mhp: hp(game.lvl), mp: game.lvl * 3 }, ...game.extra],
+  load: (d) => {
+    const list = Array.isArray(d) ? d : [];
+    const h = list.find(m => m && m.id === 'hero') || list[0] || {};
+    game.hero = typeof h.name === 'string' ? h.name : 'Bram';
+    game.lvl = Number(h.lvl ?? h.level) || 1; pend.lvl = game.lvl;
+    game.extra = list.filter(m => m && m !== h).map(m => ({ id: m.id, name: m.name, lvl: m.lvl }));
+  },
+  reset: () => { game.hero = 'Bram'; game.lvl = 1; game.extra = []; },
+});
+Save.register('map', { save: () => STOPS[game.stop].map, load: (d) => { pend.map = d; }, reset: () => { game.stop = 0; } });
+Save.register('pos', { save: () => game.pos, load: (d) => { game.pos = d || { x: 0, z: 0 }; settle(); pend = {}; }, reset: () => { game.pos = { x: 12, z: 8, facing: 0 }; } });
+Save.register('settings', { save: () => ({ textSpeed: game.textSpeed }), load: (d) => { game.textSpeed = (d && d.textSpeed) || 'normal'; }, reset: () => { game.textSpeed = 'normal'; } });
+
+let grumpyOff = null;
+function setGrumpy(on) {
+  if (on && !grumpyOff) {
+    grumpyOff = Save.register('grumpy', {
+      save() { throw new Error('deliberate: the grumpy helper refuses to be written down'); },
+      load() { throw new Error('deliberate: the grumpy helper refuses to be read'); },
+    });
+  } else if (!on && grumpyOff) { grumpyOff(); grumpyOff = null; }
+  return !!grumpyOff;
+}
+
+// ── book helpers ─────────────────────────────────────────────────────────────────────────────────────────────
+const SLOTS = [1, 2, 3, 'auto'];
+const gameSig = () => JSON.stringify([game.hero, game.stop, game.lvl, game.gold, game.flags, game.extra]);
+let syncedSig = null, syncedWith = null;
+
+function seedBook() {
+  Save.newGame();
+  jumpTo(19, 'Toffee'); Save.setPlaytime(6 * 3600 + 40 * 60 + 2); Save.write(3, { reason: 'seed' });
+  jumpTo(4, 'Bram'); Save.setPlaytime(1 * 3600 + 12 * 60 + 9); Save.write(1, { reason: 'seed' });
+  jumpTo(5, 'Bram'); Save.setPlaytime(1 * 3600 + 31 * 60 + 40); Save.write('auto', { reason: 'seed' });
+}
+function wipeBook() {
+  for (const k of Save.rawKeys()) if (k.startsWith('dqv.save.') || k.startsWith('dqv.demo.junk.')) Save.rawDel(k);
+  try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.startsWith('dqv.demo.junk.')) localStorage.removeItem(k); } } catch (_) {}
+}
+
+// ── DOM ─────────────────────────────────────────────────────────────────────────────────────────────────────
+const stage = document.getElementById('stage');
+const el = (tag, cls, parent, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; if (parent) parent.appendChild(e); return e; };
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let uiKit = 'own';
+
+function win(id, tab) {
+  const w = el('div', 'dqw', stage); if (id) w.id = id;
+  // once it has opened, a window stays settled: shake/flash must not replay the opening
+  w.addEventListener('animationend', (ev) => { if (ev.target === w && ev.animationName === 'dqw-open') w.classList.add('opened'); });
+  if (tab) el('div', 'tab', w, esc(tab));
+  return w;
+}
+function fitStage() {
+  const s = Math.min(innerWidth / 1280, innerHeight / 720);
+  stage.style.transformOrigin = '50% 50%';
+  stage.style.transform = `translate(-50%,-50%) scale(${s})`;
+}
+addEventListener('resize', fitStage); fitStage();
+
+const hdr = win('hdr');
+const slotEls = SLOTS.map((s, i) => {
+  const w = win(null); w.classList.add('slot'); if (s === 'auto') w.classList.add('auto');
+  w.style.top = (92 + i * 110) + 'px';
+  w.addEventListener('pointerenter', () => { if (!ui.modal) { setFocus('slots', i); } });
+  w.addEventListener('click', () => { if (!ui.modal) { setFocus('slots', i); press('right'); } });
+  return w;
+});
+const tale = win('tale', 'The tale so far');
+const CMDS = [
+  ['write', 'Write it down'], ['read', 'Read it back'],
+  ['play', 'Play a while'], ['new', 'Start a new tale'],
+  ['export', 'Copy the code'], ['import', 'Paste a code'],
+  ['clear', 'Tear out page'], ['undo', 'Put it back'],
+];
+const MIS = [
+  ['ink', 'Spill ink'], ['inkBoth', 'Smudge both copies'],
+  ['ruin', 'Ruin all three'], ['tear', 'Tear it in half'],
+  ['midwrite', 'Stop mid-write'], ['stuff', 'Stuff the bag'],
+  ['old', 'A very old book'], ['future', 'Book from the future'],
+  ['grumpy', 'Grumpy helper'], ['lock', 'Lock the shelf'],
+  ['chaos', 'Chaos x200'], ['tidy', 'Tidy up the book'],
+];
+const cmdWin = win('cmd', 'What now?');
+const cmdGrid = el('div', 'menu', cmdWin);
+const cmdEls = CMDS.map(([id, label], i) => menuOpt(cmdGrid, label, () => setFocus('cmd', i), () => { setFocus('cmd', i); press('confirm'); }));
+const misWin = win('mis', 'Mischief, to test the book');
+const misGrid = el('div', 'menu', misWin);
+const misEls = MIS.map(([id, label], i) => menuOpt(misGrid, label, () => setFocus('mis', i), () => { setFocus('mis', i); press('confirm'); }));
+const msgWin = win('msg');
+function menuOpt(parent, label, hover, click) {
+  const o = el('div', 'opt', parent, `<div class="cur"></div><span>${esc(label)}</span>`);
+  o.addEventListener('pointerenter', () => { if (!ui.modal) hover(); });
+  o.addEventListener('click', () => { if (!ui.modal) click(); });
+  return o;
+}
+
+// Borrow F4's window widget if it has landed (checked via the progress ledger first, so a missing file is never
+// requested: a 404 would be a console error). Any surprise -> keep our own windows.
+(async () => {
+  try {
+    if (new URLSearchParams(location.search).get('ui') === 'own') return;
+    const prog = await fetch('/docs/progress.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null);
+    const f4 = prog && prog.pieces && prog.pieces.F4;
+    if (!f4 || f4.status === 'todo') return;
+    const mod = await import('/src/ui/window.js');
+    const make = mod.createWindow || mod.makeWindow || (mod.UIWindow && mod.UIWindow.create) || (mod.Window && mod.Window.create) || (mod.default && (mod.default.createWindow || mod.default.create));
+    const probe = typeof make === 'function' ? make({ title: 'probe' }) : null;
+    const node = probe && (probe instanceof HTMLElement ? probe : probe.el instanceof HTMLElement ? probe.el : null);
+    if (!node || !node.className) return;
+    for (const w of stage.querySelectorAll('.dqw')) w.classList.add(...String(node.className).split(/\s+/).filter(Boolean));
+    uiKit = 'window.js';
+  } catch (_) { uiKit = 'own'; }
+})();
+
+// ── UI state + rendering ─────────────────────────────────────────────────────────────────────────────────────
+const ui = { focus: 'slots', slot: 0, cmd: 0, mis: 0, modal: null, locked: false, stuffed: false, lastReport: null, busy: false };
+const selSlot = () => SLOTS[ui.slot];
+
+function badge(sum) { return `<span class="badge s-${sum.status}"><i></i>${esc(sum.words)}</span>`; }
+function pips(sum) {
+  const c = sum.copies || {};
+  const cls = (on, exists) => on ? 'on' : exists ? 'bad' : '';
+  const k = Save.keys(sum.slot);
+  const has = (key) => Save.rawGet(key) != null;
+  return `<span class="pips"><span class="${cls(c.page, has(k.page))}">page</span><span class="${cls(c.copy, has(k.copy))}">copy</span><span class="${cls(c.spare, has(k.bak))}">spare</span></span>`;
+}
+function partyLine(sum) {
+  const rest = (sum.party || []).slice(1).map(m => `${esc(m.name)}${m.lvl != null ? ' Lv ' + m.lvl : ''}`);
+  return rest.length ? 'with ' + rest.join(' · ') : 'travelling alone';
+}
+let slotHtmlCache = ['', '', '', ''];
+function renderSlots() {
+  const sums = Save.slots();
+  sums.forEach((sum, i) => {
+    const w = slotEls[i];
+    const lab = `<span class="lab">${esc(sum.label)}</span>`;
+    let r1, r2, r3;
+    if (sum.status === 'empty') {
+      r1 = `${lab}<span class="empty">${esc(sum.words)}</span>`;
+      r2 = `<span class="grow" style="color:#9fb3e6">${sum.slot === 'auto' ? 'It fills itself in whenever you arrive somewhere new.' : 'Write a tale here to keep it.'}</span>`;
+      r3 = `<span class="grow">${Save.canUndoClear(sum.slot) ? 'A torn-out page is waiting. Put it back?' : ''}</span>${pips(sum)}`;
+    } else if (sum.status === 'broken') {
+      r1 = `${lab}<span class="hero" style="color:#ffc2c4">? ? ?</span>${badge(sum)}`;
+      r2 = `<span class="grow">Paste a code to bring a tale back.</span>`;
+      r3 = `<span class="grow">The ink is kept, in case it can be rescued.</span>${pips(sum)}`;
+    } else {
+      r1 = `${lab}<span class="hero">${esc(sum.hero || '???')}</span>${sum.level != null ? `<span class="lv">Lv ${sum.level}</span>` : ''}${badge(sum)}`;
+      r2 = `<span class="grow">${esc((sum.act ? sum.act + ' · ' : '') + (sum.placeName || 'Somewhere'))}</span><span class="time">Time ${esc(sum.playtimeText || '0:00')}</span>`;
+      r3 = `<span class="grow">${partyLine(sum)}${sum.migratedFrom != null ? ' · from an older book' : ''}</span>${pips(sum)}`;
+    }
+    const html = `<div class="cur"></div><div class="r1">${r1}</div><div class="r2">${r2}</div><div class="r3">${r3}</div>`;
+    if (html !== slotHtmlCache[i]) { w.innerHTML = html; slotHtmlCache[i] = html; }
+  });
+  return sums;
+}
+
+function renderTale() {
+  const s = STOPS[game.stop];
+  const place = Save.PLACE_NAMES[s.map] || s.map;
+  const party = game.extra.length ? 'with ' + game.extra.map(m => `${m.name} Lv ${m.lvl}`).join(' · ') : 'travelling alone';
+  const dirty = syncedSig !== gameSig();
+  const sync = dirty ? `Not written down yet${syncedWith ? ` (last kept in ${Save.words.label[syncedWith]})` : ''}.` : `Everything is written down in ${Save.words.label[syncedWith] || 'the book'}.`;
+  const html = `<div class="r"><span class="hero">${esc(game.hero)}</span><span class="lv">Lv ${game.lvl}</span><span class="gold">${game.gold.toLocaleString('en-GB')} G</span></div>` +
+    `<div class="r where"><span>${esc(Save.ACT_NAMES[s.chapter])} · ${esc(place)}</span><span class="time">Time ${formatPlaytime(Save.playtime())}</span></div>` +
+    `<div class="r party"><span>${esc(party)}</span></div>` +
+    `<div class="sync${dirty ? ' dirty' : ''}">${esc(sync)}</div>`;
+  if (tale._html !== html) { tale.innerHTML = '<div class="tab">The tale so far</div>' + html; tale._html = html; }
+}
+
+function renderHeader() {
+  const st = Save.state();
+  const shelf = st.backend === 'localStorage' ? 'kept on this computer' : st.backend === 'memory' ? '<span class="warn">forgets when closed</span>' : '<span class="warn">a borrowed shelf</span>';
+  const html = `<span class="t">Your Tales</span><span class="shelf">Shelf: <b>${shelf}</b> · book v${st.version}<br>written ${st.writes} · rescued ${st.recovered}${ui.stuffed ? ' · <span class="warn">bag stuffed</span>' : ''}${ui.grumpy ? ' · <span class="warn">grumpy helper</span>' : ''}</span>`;
+  if (hdr._html !== html) { hdr.innerHTML = html; hdr._html = html; }
+}
+
+function renderFocus() {
+  slotEls.forEach((w, i) => { w.classList.toggle('sel', i === ui.slot); w.classList.toggle('dim', ui.focus !== 'slots'); });
+  cmdEls.forEach((o, i) => { o.classList.toggle('sel', ui.focus === 'cmd' && i === ui.cmd); });
+  misEls.forEach((o, i) => { o.classList.toggle('sel', ui.focus === 'mis' && i === ui.mis); });
+  const undoable = Save.canUndoClear(selSlot());
+  const sum = Save.summary(selSlot());
+  cmdEls[1].classList.toggle('off', !sum.loadable);
+  cmdEls[4].classList.toggle('off', !(sum.status !== 'empty' && sum.status !== 'broken'));
+  cmdEls[6].classList.toggle('off', sum.status === 'empty');
+  cmdEls[7].classList.toggle('off', !undoable);
+  misEls[5].classList.toggle('on', ui.stuffed);
+  misEls[8].classList.toggle('on', !!grumpyOff);
+  misEls[9].classList.toggle('on', ui.locked);
+}
+
+function refresh() { try { renderSlots(); renderTale(); renderHeader(); renderFocus(); } catch (e) { reportError('F5 demo refresh', e); } }
+
+// typewriter message window
+const msg = { text: '', t0: 0, shown: 0, done: true };
+function say(text) {
+  msg.text = String(text).replace(/\s*\/\s*/g, '\n'); msg.t0 = performance.now(); msg.shown = 0; msg.done = false;
+  drawMsg();
+}
+function drawMsg() {
+  const shown = msg.text.slice(0, msg.shown), rest = msg.text.slice(msg.shown);
+  msgWin.innerHTML = `${esc(shown)}<span class="ghost">${esc(rest)}</span>${msg.done ? '<span class="more">▼</span>' : ''}`;
+}
+function tickMsg() {
+  if (msg.done) return;
+  const n = Math.min(msg.text.length, Math.floor((performance.now() - msg.t0) * 42 / 1000));
+  if (n !== msg.shown) {
+    if (Sfx && /\S/.test(msg.text.slice(msg.shown, n))) { try { if (AudioM && AudioM.ready) Sfx.glyph('narrator'); } catch (_) {} }
+    msg.shown = n;
+    if (n >= msg.text.length) msg.done = true;
+    drawMsg();
+  }
+}
+function finishText() { msg.shown = msg.text.length; msg.done = true; drawMsg(); }
+
+function flash(slot) {
+  const w = slotEls[SLOTS.indexOf(slot)]; if (!w) return;
+  w.classList.remove('flash'); void w.offsetWidth; w.classList.add('flash');
+  setTimeout(() => w.classList.remove('flash'), 800);
+}
+function shake(slot) {
+  const w = slot == null ? msgWin : slotEls[SLOTS.indexOf(slot)]; if (!w) return;
+  w.classList.remove('shake'); void w.offsetWidth; w.classList.add('shake');
+  setTimeout(() => w.classList.remove('shake'), 450);
+}
+const midSentence = (place) => String(place || 'somewhere').replace(/^The /, 'the ');
+const describe = (sum) => sum && sum.hero ? `${sum.hero}, Lv ${sum.level ?? '?'}, at ${midSentence(sum.placeName)}.` : '';
+
+// ── modals ──────────────────────────────────────────────────────────────────────────────────────────────────
+let modalEls = [];
+function closeModal() { for (const e of modalEls) e.remove(); modalEls = []; ui.modal = null; refresh(); }
+function openConfirm(text, onYes, onNo) {
+  closeModal();
+  const veil = el('div', null, stage); veil.id = 'veil';
+  const w = win('confirm');
+  el('div', 'q', w, esc(text.replace(/\s*\/\s*/g, '\n')));
+  const row = el('div', 'opts', w);
+  const opts = ['Yes', 'No'].map((l, i) => { const o = el('div', 'opt', row, `<div class="cur"></div><span>${l}</span>`); o.addEventListener('pointerenter', () => { ui.modal.sel = i; drawSel(); }); o.addEventListener('click', () => { ui.modal.sel = i; modalInput('confirm'); }); return o; });
+  const drawSel = () => opts.forEach((o, i) => o.classList.toggle('sel', i === ui.modal.sel));
+  modalEls = [veil, w];
+  ui.modal = { type: 'confirm', sel: 0, opts: [onYes, onNo || (() => {})], drawSel };
+  drawSel();
+  snd('confirm');
+}
+function openCode(mode, slot, code) {
+  closeModal();
+  const veil = el('div', null, stage); veil.id = 'veil';
+  const w = win('code', mode === 'export' ? `${Save.words.label[slot]} as a secret code` : `Paste a code into ${Save.words.label[slot]}`);
+  const q = el('div', 'q', w, esc(mode === 'export' ? Save.words.exported.replace(/\s*\/\s*/g, '\n') : "Paste a tale's code below.\nThe page already here goes in the spare drawer first."));
+  const ta = el('textarea', null, w);
+  ta.spellcheck = false;
+  if (mode === 'export') { ta.readOnly = true; ta.value = code || ''; } else { ta.placeholder = 'DQV-TALE:...'; }
+  const row = el('div', 'opts', w);
+  const labels = mode === 'export' ? ['All done'] : ['Use this code', 'Never mind'];
+  const acts = mode === 'export' ? [() => closeModal()] : [() => { const r = doImport(slot, ta.value); if (r.ok) closeModal(); }, () => { closeModal(); say('Nothing was changed.'); }];
+  const opts = labels.map((l, i) => { const o = el('div', 'opt', row, `<div class="cur"></div><span>${l}</span>`); o.addEventListener('pointerenter', () => { ui.modal.sel = i; drawSel(); }); o.addEventListener('click', () => { ui.modal.sel = i; modalInput('confirm'); }); return o; });
+  const drawSel = () => opts.forEach((o, i) => o.classList.toggle('sel', i === ui.modal.sel));
+  modalEls = [veil, w];
+  ui.modal = { type: 'code', mode, slot, sel: 0, opts: acts, drawSel, textarea: ta, q };
+  drawSel();
+  if (mode === 'import') setTimeout(() => { try { ta.focus(); } catch (_) {} }, 30);
+  else { try { ta.select(); } catch (_) {} }
+}
+function openReport(rep) {
+  closeModal();
+  const veil = el('div', null, stage); veil.id = 'veil';
+  const w = win('report');
+  const slotsNow = Save.slots();
+  const intact = slotsNow.filter(s => s.status !== 'broken').length;
+  const top = Object.entries(rep.byOp).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ');
+  w.innerHTML = `<h2>Two hundred mishaps later...</h2>
+    <div class="grid">
+      <div><span>Mishaps tried</span><b>${rep.ops}</b></div><div><span>Times the game fell over</span><b>${rep.throws}</b></div>
+      <div><span>Tales written</span><b>${rep.writes}</b></div><div><span>Broken rules</span><b>${rep.violations.length}</b></div>
+      <div><span>Pages rescued</span><b>${rep.rescued}</b></div><div><span>Pages readable now</span><b>${intact} of 4</b></div>
+      <div><span>Codes swapped</span><b>${rep.byOp.exportImport || 0}</b></div><div><span>Took</span><b>${rep.ms} ms</b></div>
+    </div>
+    <div class="ops">${esc(top)}${rep.violations.length ? '<br>' + esc(rep.violations.slice(0, 3).join(' | ')) : ''}</div>
+    <div class="verdict${rep.ok ? '' : ' bad'}">${rep.ok ? 'Not one crash. The book is still in one piece.' : 'Something slipped. See __DQ.state().demo.report.'}</div>
+    <div class="opts" style="display:flex;margin-top:8px"><div class="opt sel"><div class="cur"></div><span>Lovely</span></div></div>`;
+  w.querySelector('.opt').addEventListener('click', () => closeModal());
+  modalEls = [veil, w];
+  ui.modal = { type: 'report', sel: 0, opts: [() => closeModal()], drawSel: () => {} };
+}
+function modalInput(btn) {
+  const m = ui.modal; if (!m) return;
+  const n = m.opts.length;
+  if (btn === 'left' || btn === 'up') { m.sel = (m.sel + n - 1) % n; m.drawSel(); snd('cursor'); }
+  else if (btn === 'right' || btn === 'down') { m.sel = (m.sel + 1) % n; m.drawSel(); snd('cursor'); }
+  else if (btn === 'confirm') { const f = m.opts[m.sel]; if (m.type !== 'code') closeModal(); snd('confirm'); try { f(); } catch (e) { reportError('F5 modal', e); } }
+  else if (btn === 'cancel') { snd('cancel'); const wasConfirm = m.type === 'confirm'; const no = wasConfirm ? m.opts[1] : null; closeModal(); if (no) no(); }
+}
+
+// ── actions (UI and __DQ share these) ───────────────────────────────────────────────────────────────────────
+function afterWrite(r, slot) {
+  if (r.ok) {
+    syncedSig = gameSig(); syncedWith = slot;
+    const extra = r.partial && r.partial.length ? ' / One helper sulked, but the rest is safe.' : r.backup ? ' / The old page went in the spare drawer.' : '';
+    say(Save.words.done + extra); flash(slot); gloop.hop(); snd('save_church_bell');
+  } else {
+    say(r.words || (r.reason === 'crashed' ? 'The candle went out mid-write!' : 'The page would not take the ink.')); shake(slot); gloop.worry(); snd('buzzer');
+  }
+  refresh();
+  return r;
+}
+function doWrite(slot, { ask = false } = {}) {
+  const sum = Save.summary(slot);
+  if (ask && sum.status !== 'empty') {
+    openConfirm(sum.status === 'future' ? 'This page is from a newer book. / Write over it? It goes in the spare drawer.' : Save.words.over, () => doWrite(slot), () => say('Right you are. The page stays as it is.'));
+    return { ok: false, reason: 'asking' };
+  }
+  return afterWrite(Save.write(slot, { reason: 'manual' }), slot);
+}
+function doRead(slot) {
+  const r = Save.load(slot);
+  if (r.ok) {
+    syncedSig = gameSig(); syncedWith = slot === 'auto' ? 'auto' : slot;
+    const lead = r.status === 'ok' ? 'Read back, word for word.' : r.status === 'copy' ? 'The page was smudged, / but the second copy had every word.' :
+      r.status === 'backup' ? 'Both copies were smudged. / The spare page from before is fine.' : 'A bit torn, but we patched it up.';
+    say(`${lead} / ${describe(r.summary)}${r.failed.length ? ' One helper sulked.' : ''}`);
+    if (r.status === 'ok') gloop.hop(); else gloop.relief();
+    snd(r.status === 'ok' ? 'confirm' : 'save_church_bell');
+  } else { say(r.words || 'Nothing to read here.'); shake(slot); gloop.worry(); snd('buzzer'); }
+  refresh();
+  return r;
+}
+function doExport(slot) {
+  const ex = Save.exportCode(slot);
+  if (!ex.ok) { say(ex.words || 'There is nothing here to copy.'); shake(slot); snd('buzzer'); return ex; }
+  openCode('export', slot, ex.code);
+  Save.copyCode(slot).then(r => { if (ui.modal && ui.modal.type === 'code' && ui.modal.q) ui.modal.q.textContent = r.method === 'manual' ? "Here is the tale's secret code.\nSelect it and copy it somewhere safe." : Save.words.exported.replace(/\s*\/\s*/g, '\n'); }).catch(() => {});
+  snd('confirm');
+  return ex;
+}
+function doImport(slot, text) {
+  const r = Save.importCode(slot, text);
+  if (r.ok) { say(`${Save.words.imported} / ${describe(r.summary)}`); flash(slot); gloop.hop(); snd('save_church_bell'); }
+  else { say(r.words || Save.words.badCode); if (ui.modal && ui.modal.q) ui.modal.q.textContent = Save.words.badCode.replace(/\s*\/\s*/g, '\n'); shake(slot); gloop.worry(); snd('buzzer'); }
+  refresh();
+  return r;
+}
+function doClear(slot, { ask = false } = {}) {
+  const sum = Save.summary(slot);
+  if (sum.status === 'empty') { say('This page is already empty.'); snd('buzzer'); return { ok: false, reason: 'empty' }; }
+  if (ask) { openConfirm('Tear this page out of the book?', () => doClear(slot), () => say('Good. It is a nice page.')); return { ok: false, reason: 'asking' }; }
+  const r = Save.clear(slot); say(Save.words.cleared); shake(slot); gloop.worry(); snd('cancel'); refresh(); return r;
+}
+function doUndo(slot) {
+  const r = Save.undoClear(slot);
+  if (r.ok) { say(Save.words.undone); flash(slot); gloop.hop(); snd('confirm'); }
+  else { say(r.reason === 'occupied' ? 'There is already a tale on this page.' : 'There is no torn-out page to put back.'); snd('buzzer'); }
+  refresh(); return r;
+}
+function doPlay() {
+  const before = game.lvl;
+  playStep(null);
+  const s = STOPS[game.stop];
+  say(`${game.hero} wandered on to ${midSentence(Save.PLACE_NAMES[s.map])}. / ${game.lvl > before ? `Now Lv ${game.lvl}. ` : ''}Better write it down.`);
+  snd('confirm'); refresh();
+  return { ok: true, stop: game.stop, lvl: game.lvl, map: s.map };
+}
+function doNew() {
+  Save.newGame(); game = fresh('Bram'); syncedSig = null; syncedWith = null;
+  say('A new tale begins, / in a loft bed in Hollybank Cottage.'); snd('confirm'); refresh();
+  return { ok: true };
+}
+
+// mischief ─────────────────────────────────────────────────────────────────────────────────────────────────
+let mischiefN = 0;
+function blot(raw, rng) {
+  const r = rng || makeRng('ink:' + (++mischiefN));
+  const at = Math.min(raw.length - 1, Math.max(1, Math.floor(raw.length * r.float(0.05, 0.6))));
+  return raw.slice(0, at) + '▓▒░ink░▒▓' + raw.slice(at + 9);
+}
+const GARBAGE = ['', 'null', '[]', '42', '"hello"', '{"v":"two"}', '{"game":"tetris","v":2}', '{"v":2,"party":"nope","gold":-5,"pos":7', '\u0000\u0001\u0002', '{'.repeat(3000), '[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]'];
+function legacyRaw(v = 1) {
+  if (v === 0) return JSON.stringify({ name: 'Bram', level: 3, gold: 45, time: 2700000, location: 'saltmarrow', flags: { 'ch1.awake': true } });
+  return JSON.stringify({ v: 1, at: Date.now() - 86400000 * 30, playtime: 2700, chapter: 1, flags: { 'ch1.awake': true, 'ch1.left_home': true },
+    party: [{ id: 'hero', name: 'Bram', lvl: 3, hp: 41, mhp: 41, mp: 9 }, { id: 'bobble', name: 'Bobble', lvl: 2 }], inventory: [{ id: 'herb', n: 2 }], gold: 45, map: 'aldenmoor', pos: { x: 12, z: 8 } });
+}
+function futureRaw() {
+  return Save.serializeForTest({ v: 99, game: 'dqv', at: Date.now(), seq: 999, playtime: 123456, hovercraft: { fuel: 3 },
+    meta: { hero: 'Bram', level: 41, chapter: 3, place: 'moon', placeName: 'The Moon (a new place)', party: [{ name: 'Bram', lvl: 41 }], playtime: 123456 } });
+}
+function stuffBag(on) {
+  if (on) {
+    // the book frees its rescue drawers (.broken / .undo) when full; empty them first so the bag is REALLY full
+    for (const k of Save.rawKeys()) if (/^dqv\.save\..*\.(broken|undo)$/.test(k)) Save.rawDel(k);
+    let i = 0;
+    for (const size of [1 << 20, 1 << 18, 1 << 16, 1 << 13, 1 << 10, 1 << 7, 12, 1]) {
+      const chunk = 'x'.repeat(size);
+      for (let tries = 0; tries < (size < 64 ? 400 : 64); tries++) { try { localStorage.setItem('dqv.demo.junk.' + (i++), chunk); } catch (_) { break; } }
+    }
+    ui.stuffed = true;
+  } else {
+    try { for (let k = localStorage.length - 1; k >= 0; k--) { const key = localStorage.key(k); if (key && key.startsWith('dqv.demo.junk.')) localStorage.removeItem(key); } } catch (_) {}
+    ui.stuffed = false;
+  }
+  return ui.stuffed;
+}
+const throwingShelf = { getItem() { throw new Error('shelf locked'); }, setItem() { throw new Error('shelf locked'); }, removeItem() { throw new Error('shelf locked'); }, key() { throw new Error('shelf locked'); }, get length() { throw new Error('shelf locked'); } };
+
+function mischief(kind, slot = selSlot()) {
+  const k = Save.keys(slot);
+  const label = Save.words.label[slot];
+  const before = Save.summary(slot);
+  let line = '';
+  switch (kind) {
+    case 'ink': {
+      const raw = Save.rawGet(k.page);
+      if (raw == null) { line = `There is no page in ${label} to spill ink on.`; break; }
+      Save.rawSet(k.page, blot(raw)); line = `Oops. Ink all over ${label}. / Try reading it back.`; break;
+    }
+    case 'inkBoth': {
+      let n = 0;
+      for (const key of [k.page, k.copy]) { const raw = Save.rawGet(key); if (raw != null) { Save.rawSet(key, blot(raw)); n++; } }
+      line = n ? `Both copies of ${label} are smudged. / Is the spare page still there?` : `There is nothing in ${label} to smudge.`; break;
+    }
+    case 'ruin': {
+      [k.page, k.copy, k.bak].forEach((key, i) => Save.rawSet(key, GARBAGE[(mischiefN++ + i * 3) % GARBAGE.length]));
+      line = `${label} is ruined: page, copy and spare. / Nothing will crash. A code can bring it back.`; break;
+    }
+    case 'tear': {
+      let n = 0;
+      for (const key of [k.page, k.copy]) { const raw = Save.rawGet(key); if (raw != null) { Save.rawSet(key, raw.slice(0, Math.floor(raw.length * 0.55))); n++; } }
+      line = n ? `${label} got torn in half, both copies. / The spare drawer should have it.` : `Nothing in ${label} to tear.`; break;
+    }
+    case 'midwrite': {
+      playStep(null);
+      const r = Save.write(slot, { simulateCrash: 'copy' });
+      line = `${game.hero} reached ${midSentence(Save.PLACE_NAMES[STOPS[game.stop].map])}, / then the candle went out mid-write!`; break;
+    }
+    case 'stuff': {
+      stuffBag(!ui.stuffed);
+      line = ui.stuffed ? 'The bag is stuffed with junk, right to the top. / Play a while, then try writing it down.' : 'The junk is gone. There is room again.'; break;
+    }
+    case 'old': {
+      Save.rawSet(k.page, legacyRaw(slot === 'auto' ? 0 : 1)); Save.rawDel(k.copy);
+      line = `An old book from the attic, in ${label}. / Written before the pages had checks.`; break;
+    }
+    case 'future': {
+      const raw = futureRaw(); Save.rawSet(k.page, raw); Save.rawSet(k.copy, raw);
+      line = `${label} now holds a page from a newer book. / We can look, but we won't scribble on it.`; break;
+    }
+    case 'grumpy': {
+      ui.grumpy = setGrumpy(!grumpyOff);
+      line = ui.grumpy ? 'A grumpy helper refuses to be written down. / Try writing anyway.' : 'The grumpy helper has gone for a nap.'; break;
+    }
+    case 'lock': {
+      ui.locked = !ui.locked;
+      Save.useStorage(ui.locked ? Save.memoryStorage() : null);
+      line = ui.locked ? Save.words.memory : 'The shelf is unlocked. Your tales are back.'; break;
+    }
+    case 'chaos': { const rep = chaos(200); openReport(rep); refresh(); return rep; }
+    case 'tidy': {
+      if (ui.locked) { ui.locked = false; Save.useStorage(null); }
+      stuffBag(false); setGrumpy(false); ui.grumpy = false; closeModal();
+      wipeBook(); seedBook(); Save.load(1); syncedSig = gameSig(); syncedWith = 1;
+      line = 'The book is tidied. / Two tales and an autosave, fresh as bread.'; break;
+    }
+    default: return { ok: false, reason: 'unknown mischief' };
+  }
+  const after = Save.summary(slot);
+  if (kind !== 'grumpy' && kind !== 'stuff' && kind !== 'lock' && kind !== 'tidy') { shake(slot); gloop.worry(); snd('buzzer'); }
+  else snd('confirm');
+  say(line); refresh();
+  return { ok: true, kind, slot, before: before.status, after: after.status };
+}
+
+// chaos: random mishaps with the book's promises checked after every single one ────────────────────────────
+function chaos(n = 200, seed = 5) {
+  const t0 = performance.now();
+  const rng = makeRng('chaos:' + seed);
+  const rep = { ops: 0, throws: 0, violations: [], byOp: {}, writes: 0, rescued: 0, ms: 0, ok: false };
+  const wasLocked = ui.locked;
+  if (wasLocked) { Save.useStorage(null); ui.locked = false; }
+  const check = (c, m) => { if (!c) rep.violations.push(`#${rep.ops} ${m}`); };
+  const inspect = (key) => { const raw = Save.rawGet(key); return raw == null ? null : Save.inspect(raw); };
+  const good = (i) => i && (i.grade === 'A' || i.grade === 'B');
+  const ops = {
+    write(s) { const r = Save.write(s, { reason: 'chaos' }); check(r.ok, `write ${s}: ${r.reason}`); if (r.ok) { rep.writes++; const a = Save.summary(s); check(a.status === 'ok' && a.seq === r.seq, `write ${s} not read back (${a.status})`); } },
+    play() { playStep(rng); },
+    load(s) { const b = Save.summary(s); const r = Save.load(s); check(!!r.ok === !!b.loadable, `load ${s} disagreed with summary (${b.status})`); if (r.ok && r.status !== 'ok') rep.rescued++; },
+    ink(s) {
+      const k = Save.keys(s), b = Save.summary(s), raw = Save.rawGet(k.page); if (raw == null) return;
+      const cp = inspect(k.copy), pg = inspect(k.page);
+      Save.rawSet(k.page, blot(raw, rng));
+      const a = Save.summary(s);
+      if (b.status === 'ok' && good(cp) && good(pg) && cp.seq === pg.seq) check(a.loadable && a.seq === b.seq, `ink ${s}: lost the latest page (${a.status})`);
+    },
+    inkBoth(s) {
+      const k = Save.keys(s), b = Save.summary(s), bk = inspect(k.bak);
+      const fresher = [inspect(k.page), inspect(k.copy)].some(i => i && i.grade === 'F');
+      for (const key of [k.page, k.copy]) { const raw = Save.rawGet(key); if (raw != null) Save.rawSet(key, blot(raw, rng)); }
+      const a = Save.summary(s);
+      if (b.loadable && good(bk) && !fresher) check(a.loadable, `inkBoth ${s}: spare not used (${a.status})`);
+    },
+    tear(s) {
+      const k = Save.keys(s), raw = Save.rawGet(k.page), b = Save.summary(s); if (raw == null) return;
+      const cp = inspect(k.copy), pg = inspect(k.page);
+      Save.rawSet(k.page, raw.slice(0, rng.int(0, raw.length - 1)));
+      const a = Save.summary(s);
+      if (b.status === 'ok' && good(cp) && good(pg) && cp.seq === pg.seq) check(a.loadable && a.seq === b.seq, `tear ${s}: lost the latest page (${a.status})`);
+    },
+    digit(s) {
+      const k = Save.keys(s), raw = Save.rawGet(k.page); if (raw == null) return;
+      const i = raw.search(/"gold":\d/); if (i < 0) return;
+      const j = i + 7; Save.rawSet(k.page, raw.slice(0, j) + String((Number(raw[j]) + 1) % 10) + raw.slice(j + 1));
+      const a = Save.summary(s); check(a && typeof a.status === 'string', 'digit: no summary');
+    },
+    ruin(s) { const k = Save.keys(s); [k.page, k.copy, k.bak].forEach(key => Save.rawSet(key, rng.pick(GARBAGE))); const a = Save.summary(s); check(a && !a.loadable || a.status === 'ok' || a.status === 'mended', `ruin ${s}: odd status ${a && a.status}`); },
+    stale(s) {
+      const k = Save.keys(s), bak = Save.rawGet(k.bak), b = Save.summary(s); if (bak == null) return;
+      const pg = inspect(k.page), bk = Save.inspect(bak);
+      Save.rawSet(k.copy, bak);
+      const a = Save.summary(s);
+      if (good(pg) && good(bk) && pg.seq > bk.seq && b.source === 'page') check(a.seq === b.seq, `stale copy ${s} won over a newer page`);
+    },
+    midwrite(s) {
+      const b = Save.summary(s); const how = rng.pick(['backup', 'copy']);
+      playStep(rng);
+      const r = Save.write(s, { simulateCrash: how });
+      const a = Save.summary(s);
+      if (how === 'copy') check(a.loadable && (!b.loadable || a.seq > b.seq), `midwrite(copy) ${s}: new words lost (${a.status})`);
+      else if (b.loadable && b.status !== 'mended') check(a.loadable && a.seq === b.seq, `midwrite(backup) ${s}: slot changed (${a.status})`);
+      check(r.ok === false && r.reason === 'crashed', 'simulated crash not reported');
+    },
+    exportImport(s) {
+      const b = Save.summary(s); if (!b.loadable) return;
+      const e = Save.exportCode(s); check(e.ok, `export ${s} failed`); if (!e.ok) return;
+      const t = rng.pick(SLOTS.filter(x => x !== s));
+      const r = Save.importCode(t, rng.chance(0.5) ? e.code : '  ' + e.code.replace(/(.{60})/g, '$1\n') + '\n');
+      check(r.ok, `import ${s}->${t}: ${r.reason}`);
+      const a = Save.summary(t); check(a.hero === b.hero && a.level === b.level, `import ${s}->${t} changed the tale`);
+    },
+    badCode(s) {
+      const b = Save.summary(s); const sig = `${b.status}|${b.seq}`;
+      const code = rng.pick(['', 'hello', 'DQV-TALE:!!!!', 'DQV-TALE:' + btoa('{"v":2'), '{"nope":true', '{"nope":true}', '{"game":"tetris","v":2,"gold":5}', '[]', 'DQV-TALE:' + btoa('null'), 'DQV-TALE:' + btoa(futureRaw()), 'DQV-TALE:' + btoa('{"v":1.5}')]);
+      const r = Save.importCode(s, code); check(!r.ok, `garbage code accepted: ${code.slice(0, 20)}`);
+      const a = Save.summary(s); check(`${a.status}|${a.seq}` === sig, 'garbage code changed the slot');
+    },
+    clearUndo(s) {
+      const b = Save.summary(s); Save.clear(s);
+      check(Save.summary(s).status === 'empty', `clear ${s} left something`);
+      if (b.loadable) { const u = Save.undoClear(s); const a = Save.summary(s); check(u.ok && a.seq === b.seq, `undo ${s} lost the page (${u.reason})`); }
+    },
+    future(s) {
+      const k = Save.keys(s), raw = futureRaw(); Save.rawSet(k.page, raw); Save.rawSet(k.copy, raw);
+      check(Save.summary(s).status === 'future', 'future page not recognised');
+      check(!Save.load(s).ok, 'future page was loaded');
+      const w = Save.write(s, { reason: 'chaos' }); check(w.ok, 'could not write over a future page');
+      if (w.ok) { rep.writes++; check(Save.inspect(Save.rawGet(k.bak)).grade === 'F', 'future page not kept as the spare'); }
+    },
+    legacy(s) {
+      const k = Save.keys(s); Save.rawSet(k.page, legacyRaw(rng.int(0, 1))); Save.rawDel(k.copy);
+      const a = Save.summary(s); check(a.loadable && (a.migratedFrom === 0 || a.migratedFrom === 1), `legacy ${s} not migrated (${a.status})`);
+    },
+    locked() {
+      Save.useStorage(throwingShelf);
+      const sl = Save.slots(); check(sl.length === 4, 'locked: no summaries');
+      const w = Save.write(1); check(!w.ok, 'locked: write claimed success');
+      Save.load(2); Save.exportCode(3); Save.clear('auto'); Save.importCode(1, 'x');
+      Save.useStorage(null);
+    },
+    grumpy() { ui.grumpy = setGrumpy(!grumpyOff); },
+    full(s) {
+      const b = Save.summary(s); stuffBag(true);
+      const r = Save.write(s, { reason: 'chaos' });
+      const a = Save.summary(s);
+      if (!r.ok) check(`${a.status}|${a.seq}` === `${b.status}|${b.seq}` || !b.loadable, `full disk damaged ${s} (${a.status})`);
+      stuffBag(false);
+    },
+  };
+  const table = [['write', 6], ['play', 3], ['load', 3], ['ink', 3], ['inkBoth', 2], ['tear', 2], ['digit', 2], ['ruin', 1], ['stale', 1],
+    ['midwrite', 2], ['exportImport', 2], ['badCode', 2], ['clearUndo', 2], ['future', 1], ['legacy', 1], ['locked', 1], ['grumpy', 1], ['full', 0.25]];
+  for (let i = 0; i < n; i++) {
+    const op = i === Math.floor(n / 2) ? 'full' : rng.weighted(table), s = rng.pick(SLOTS); // the slow one, at least once
+    rep.ops++; rep.byOp[op] = (rep.byOp[op] || 0) + 1;
+    try { ops[op](s); }
+    catch (e) { rep.throws++; rep.violations.push(`#${rep.ops} ${op}(${s}) threw ${e && e.message}`); }
+  }
+  // put the room back as the critic left it (except the book's contents)
+  try { Save.useStorage(null); } catch (e) { rep.throws++; }
+  ui.locked = false;
+  if (wasLocked) { ui.locked = true; Save.useStorage(Save.memoryStorage()); }
+  stuffBag(false); ui.grumpy = setGrumpy(false);
+  for (const s of SLOTS) { try { const x = Save.summary(s); check(x && typeof x.status === 'string', `slot ${s} unreadable after chaos`); } catch (e) { rep.throws++; } }
+  rep.ms = Math.round(performance.now() - t0);
+  rep.ok = rep.throws === 0 && rep.violations.length === 0;
+  ui.lastReport = rep;
+  syncedSig = null;
+  return rep;
+}
+
+// ── input ───────────────────────────────────────────────────────────────────────────────────────────────────
+function setFocus(zone, idx) {
+  const changed = ui.focus !== zone || (zone === 'slots' ? ui.slot : zone === 'cmd' ? ui.cmd : ui.mis) !== idx;
+  ui.focus = zone;
+  if (zone === 'slots') ui.slot = idx; else if (zone === 'cmd') ui.cmd = idx; else ui.mis = idx;
+  if (changed) snd('cursor');
+  renderFocus();
+}
+function runCommand(id) {
+  const slot = selSlot();
+  switch (id) {
+    case 'write': return doWrite(slot, { ask: true });
+    case 'read': return doRead(slot);
+    case 'play': return doPlay();
+    case 'new': return doNew();
+    case 'export': return doExport(slot);
+    case 'import': openCode('import', slot); return { ok: true };
+    case 'clear': return doClear(slot, { ask: true });
+    case 'undo': return doUndo(slot);
+  }
+  return null;
+}
+function uiInput(btn) {
+  if (!msg.done && btn === 'confirm' && ui.focus === 'slots') { finishText(); return true; }
+  if (ui.modal) { modalInput(btn); return true; }
+  const grid = (count, idx, cols = 2) => {
+    if (btn === 'up') return idx - cols >= 0 ? idx - cols : idx;
+    if (btn === 'down') return idx + cols < count ? idx + cols : idx;
+    return idx;
+  };
+  if (ui.focus === 'slots') {
+    if (btn === 'up') setFocus('slots', Math.max(0, ui.slot - 1));
+    else if (btn === 'down') setFocus('slots', Math.min(SLOTS.length - 1, ui.slot + 1));
+    else if (btn === 'right' || btn === 'confirm' || btn === 'menu') { setFocus('cmd', ui.cmd); snd('confirm'); }
+    else if (btn === 'cancel') { snd('cancel'); say('Pick a page, then choose what to do with it.'); }
+    return true;
+  }
+  const isCmd = ui.focus === 'cmd';
+  const list = isCmd ? CMDS : MIS, idx = isCmd ? ui.cmd : ui.mis;
+  if (btn === 'up' || btn === 'down') {
+    const next = grid(list.length, idx);
+    if (next === idx && btn === 'down' && isCmd) setFocus('mis', idx % 2);
+    else if (next === idx && btn === 'up' && !isCmd) setFocus('cmd', CMDS.length - 2 + (idx % 2));
+    else setFocus(ui.focus, next);
+  } else if (btn === 'left') { if (idx % 2 === 1) setFocus(ui.focus, idx - 1); else { setFocus('slots', ui.slot); snd('cancel'); } }
+  else if (btn === 'right') { if (idx % 2 === 0 && idx + 1 < list.length) setFocus(ui.focus, idx + 1); }
+  else if (btn === 'cancel') { snd('cancel'); setFocus('slots', ui.slot); }
+  else if (btn === 'confirm') {
+    const id = list[idx][0];
+    if (isCmd) { if (cmdEls[idx].classList.contains('off')) { snd('buzzer'); say(id === 'undo' ? 'There is no torn-out page to put back.' : id === 'read' ? 'There is nothing here to read yet.' : 'There is nothing here for that.'); shake(selSlot()); } else { snd('confirm'); runCommand(id); } }
+    else { snd('confirm'); mischief(id, selSlot()); }
+  }
+  return true;
+}
+const press = (btn) => Scenes.input(btn);
+const KEYMAP = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right',
+  Enter: 'confirm', Space: 'confirm', KeyZ: 'confirm', Escape: 'cancel', KeyX: 'cancel', Backspace: 'cancel', Tab: 'menu', KeyC: 'menu' };
+addEventListener('keydown', (ev) => {
+  const typing = ev.target && ev.target.tagName === 'TEXTAREA';
+  if (typing && ev.code !== 'Escape' && !(ev.code === 'Enter' && (ev.metaKey || ev.ctrlKey))) return;
+  const btn = KEYMAP[ev.code]; if (!btn) return;
+  ev.preventDefault();
+  if (typing && ev.code === 'Enter' && ui.modal) { ui.modal.sel = 0; ui.modal.drawSel(); }
+  press(btn);
+});
+
+// ── the backdrop: sky, clouds, hills, and a Gloop minding the book ─────────────────────────────────────────
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, App.aspect(), 0.3, 1400);
+camera.position.set(0, 2, 14); camera.lookAt(0, 2.3, 0);
+App.onResize(() => { camera.aspect = App.aspect(); camera.updateProjectionMatrix(); });
+
+scene.background = Assets.canvasTexture('f5:sky', { w: 8, h: 512, wrap: 'clamp', mipmaps: false, draw(ctx, w, h) {
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, PAL.zenith); g.addColorStop(0.45, PAL.upper); g.addColorStop(0.78, PAL.horizon); g.addColorStop(1, PAL.horizon);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+} });
+
+const cloudTex = Assets.canvasTexture('f5:cloud', { w: 512, h: 256, wrap: 'clamp', draw(ctx, w, h) {
+  const r = makeRng('f5-cloud'); const base = h * 0.74;
+  const puffs = [];
+  for (let i = 0; i < 9; i++) { const x = w * (0.16 + 0.68 * (i / 8)) + r.float(-14, 14); const rad = 34 + Math.sin((i / 8) * Math.PI) * 58 + r.float(-8, 8); puffs.push([x, base - rad * 0.55, rad]); }
+  for (let i = 0; i < 4; i++) { const x = w * r.float(0.32, 0.68); const rad = r.float(40, 62); puffs.push([x, base - 70 - rad * 0.5, rad]); }
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, w, base); ctx.clip();
+  for (const [x, y, rad] of puffs) { ctx.fillStyle = PAL.cloudShade; ctx.beginPath(); ctx.arc(x, y + 8, rad, 0, Math.PI * 2); ctx.fill(); }
+  for (const [x, y, rad] of puffs) {
+    const g = ctx.createRadialGradient(x - rad * 0.3, y - rad * 0.45, rad * 0.1, x, y, rad);
+    g.addColorStop(0, PAL.cloudLit); g.addColorStop(0.7, PAL.cloudLit); g.addColorStop(1, PAL.cloudMid);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rad * 0.93, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+  ctx.fillStyle = PAL.cloudShade; ctx.fillRect(w * 0.16 - 20, base - 7, w * 0.68 + 40, 7);
+} });
+const cloudMat = Assets.material('f5:cloud', () => new THREE.MeshBasicMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false }));
+const clouds = [[-60, 58, 1.0], [8, 72, 0.8], [70, 50, 1.25], [-18, 40, 0.6], [115, 68, 0.9], [-120, 64, 1.1]].map(([x, y, s], i) => {
+  const m = new THREE.Mesh(Assets.plane(90, 45), cloudMat); m.position.set(x, y, -260 - i * 6); m.scale.setScalar(s); m.userData.x0 = x; scene.add(m); return m;
+});
+
+function hillLayer(key, z, baseY, amp, freq, top, low, seed) {
+  const geo = Assets.geometry('f5:hill:' + key, () => {
+    const r = makeRng(seed), W = 900, pts = [], N = 120;
+    const ph = [r.float(0, 6), r.float(0, 6), r.float(0, 6)];
+    for (let i = 0; i <= N; i++) {
+      const x = -W / 2 + (W * i) / N;
+      const y = baseY + amp * (0.6 * Math.sin(x * freq + ph[0]) + 0.3 * Math.sin(x * freq * 2.3 + ph[1]) + 0.15 * Math.sin(x * freq * 5.1 + ph[2]));
+      pts.push(new THREE.Vector2(x, y));
+    }
+    const shape = new THREE.Shape([new THREE.Vector2(-W / 2, baseY - 260), ...pts, new THREE.Vector2(W / 2, baseY - 260)]);
+    const g = new THREE.ShapeGeometry(shape, 1);
+    const pos = g.attributes.position, cols = new Float32Array(pos.count * 3), ct = C3(top), cl = C3(low), c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) { const t = Math.max(0, Math.min(1, (baseY + amp - pos.getY(i)) / (amp * 2 + 40))); c.copy(ct).lerp(cl, t); cols.set([c.r, c.g, c.b], i * 3); }
+    g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+    return g;
+  });
+  const m = new THREE.Mesh(geo, Assets.material('f5:hillmat', () => new THREE.MeshBasicMaterial({ vertexColors: true, fog: false })));
+  m.position.z = z; scene.add(m); return m;
+}
+hillLayer('far', -330, -8, 26, 0.012, PAL.hillFar, PAL.hillFarLow, 'far');
+hillLayer('mid', -170, -24, 12, 0.03, PAL.hillMid, PAL.hillMidLow, 'mid');
+hillLayer('near', -70, -18, 5, 0.06, PAL.hillNear, PAL.hillNearLow, 'near');
+
+const toonRamp = (() => { const t = new THREE.DataTexture(new Uint8Array([96, 184, 255]), 3, 1, THREE.RedFormat); t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true; return t; })();
+const toon = (key, col) => Assets.material('f5:toon:' + key, () => new THREE.MeshToonMaterial({ color: C3(col), gradientMap: toonRamp }));
+const basic = (key, col) => Assets.material('f5:basic:' + key, () => new THREE.MeshBasicMaterial({ color: C3(col) }));
+const hull = (key, col) => Assets.material('f5:hull:' + key, () => new THREE.MeshBasicMaterial({ color: C3(col), side: THREE.BackSide }));
+
+const sun = new THREE.DirectionalLight(C3(PAL.sun), 1.9); sun.position.set(-6, 10, 12); scene.add(sun);
+scene.add(new THREE.HemisphereLight(C3(PAL.hemiSky), C3(PAL.hemiGround), 1.55));
+
+const nook = new THREE.Group(); scene.add(nook);
+nook.position.set(6.5, -3.1, 0);
+const mound = new THREE.Mesh(Assets.sphere(1, 40, 24), toon('grass', PAL.grass)); mound.scale.set(3.6, 1.15, 2.2); mound.position.set(0.3, -0.95, -0.4); nook.add(mound);
+const mound2 = new THREE.Mesh(Assets.sphere(1, 32, 20), toon('grassDeep', PAL.grassDeep)); mound2.scale.set(2.4, 0.9, 1.6); mound2.position.set(-2.6, -1.05, -1.2); nook.add(mound2);
+
+const shadowTex = Assets.canvasTexture('f5:blob', { w: 128, h: 128, wrap: 'clamp', draw(ctx, w, h) {
+  const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); g.addColorStop(0, 'rgba(35,48,28,0.55)'); g.addColorStop(1, 'rgba(35,48,28,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+} });
+const blobMat = Assets.material('f5:blobmat', () => new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
+
+// the Gloop
+const gloopGeo = Assets.geometry('f5:gloop', () => {
+  const g = new THREE.SphereGeometry(0.5, 40, 28), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    if (y < -0.18) y = -0.18 - (y + 0.18) * 0.22;
+    if (y > 0.2) { const k = (y - 0.2) / 0.3; x *= 1 - 0.62 * k; z *= 1 - 0.62 * k; y += 0.26 * k * k; x += 0.07 * k * k * k; }
+    p.setXYZ(i, x * 1.08, y, z);
+  }
+  g.computeVertexNormals(); return g;
+});
+const gloop = new THREE.Group(); nook.add(gloop); gloop.position.set(-0.55, 0.12, 0.35);
+const body = new THREE.Group(); gloop.add(body);
+const bodyMesh = new THREE.Mesh(gloopGeo, toon('slime', PAL.slime)); bodyMesh.scale.setScalar(1.55); bodyMesh.position.y = 0.3; body.add(bodyMesh);
+const bodyHull = new THREE.Mesh(gloopGeo, hull('char', PAL.outline)); bodyHull.scale.setScalar(1.55 * 1.045); bodyHull.position.y = 0.3; body.add(bodyHull);
+const shine = new THREE.Mesh(Assets.sphere(0.1, 12, 8), basic('shine', PAL.slimeLight)); shine.scale.set(1.2, 0.7, 0.5); shine.position.set(-0.36, 0.62, 0.52); body.add(shine);
+for (const sx of [-1, 1]) {
+  const w = new THREE.Mesh(Assets.sphere(0.13, 16, 12), basic('white', PAL.white)); w.scale.set(0.9, 1.25, 0.55); w.position.set(sx * 0.22, 0.34, 0.7); body.add(w);
+  const d = new THREE.Mesh(Assets.sphere(0.075, 12, 10), basic('eye', PAL.eye)); d.position.set(sx * 0.2, 0.31, 0.77); body.add(d);
+  const glint = new THREE.Mesh(Assets.sphere(0.024, 8, 6), basic('white', PAL.white)); glint.position.set(sx * 0.2 - 0.025, 0.35, 0.83); body.add(glint);
+}
+const mouth = new THREE.Mesh(Assets.sphere(0.14, 16, 10, ), basic('mouth', PAL.mouth)); mouth.scale.set(1.5, 0.7, 0.4); mouth.position.set(0, 0.06, 0.74); body.add(mouth);
+const tongue = new THREE.Mesh(Assets.sphere(0.08, 12, 8), basic('tongue', PAL.tongue)); tongue.scale.set(1.3, 0.5, 0.4); tongue.position.set(0.02, 0.01, 0.8); body.add(tongue);
+const gShadow = new THREE.Mesh(Assets.plane(1.9, 1.3), blobMat); gShadow.rotation.x = -Math.PI / 2; gShadow.position.set(-0.55, 0.13, 0.35); nook.add(gShadow);
+
+// the book of tales, open on the grass
+const book = new THREE.Group(); nook.add(book); book.position.set(1.15, 0.2, 0.55); book.rotation.set(0.62, -0.35, 0);
+const cover = new THREE.Mesh(Assets.box(1.9, 0.08, 1.3), toon('leather', PAL.leather)); book.add(cover);
+for (const sx of [-1, 1]) {
+  const pages = new THREE.Mesh(Assets.box(0.86, 0.1, 1.18), toon('page', PAL.page)); pages.position.set(sx * 0.46, 0.09, 0); pages.rotation.z = -sx * 0.1; book.add(pages);
+  for (let l = 0; l < 4; l++) { const line = new THREE.Mesh(Assets.box(0.62, 0.012, 0.035), basic('ink', PAL.pageShade)); line.position.set(sx * 0.47, 0.145 + (sx < 0 ? 0.02 : 0.02), -0.35 + l * 0.22); line.rotation.z = -sx * 0.1; book.add(line); }
+}
+const ribbon = new THREE.Mesh(Assets.box(0.07, 0.02, 0.9), basic('ribbon', PAL.ribbon)); ribbon.position.set(0.02, 0.16, 0.5); book.add(ribbon);
+const leaf = new THREE.Group(); leaf.position.set(0, 0.16, 0); book.add(leaf);
+const leafPage = new THREE.Mesh(Assets.box(0.84, 0.012, 1.14), toon('page', PAL.page)); leafPage.position.x = 0.44; leaf.add(leafPage);
+const bShadow = new THREE.Mesh(Assets.plane(2.8, 1.8), blobMat); bShadow.rotation.x = -Math.PI / 2; bShadow.position.set(1.15, 0.06, 0.55); nook.add(bShadow);
+
+// tiny animation state machine (driven from the deterministic clock)
+const anim = { hopT: -9, worryT: -9, reliefT: -9, pageT: -9 };
+Object.assign(gloop, {
+  hop() { anim.hopT = App.clock.time; anim.pageT = App.clock.time; },
+  worry() { anim.worryT = App.clock.time; },
+  relief() { anim.reliefT = App.clock.time; anim.pageT = App.clock.time; },
+});
+
+function animate(t) {
+  const breathe = Math.sin(t * 2.4);
+  let y = 0, sx = 1 + breathe * 0.03, sy = 1 - breathe * 0.035, rz = 0, rx = 0;
+  const h = t - anim.hopT;
+  if (h >= 0 && h < 0.9) {
+    const k = h / 0.9;
+    if (k < 0.18) { const q = k / 0.18; sy -= 0.22 * Math.sin(q * Math.PI / 2); sx += 0.16 * Math.sin(q * Math.PI / 2); }
+    else if (k < 0.78) { const q = (k - 0.18) / 0.6; y = Math.sin(q * Math.PI) * 0.3; sy += 0.12 * Math.sin(q * Math.PI); sx -= 0.07 * Math.sin(q * Math.PI); }
+    else { const q = (k - 0.78) / 0.22; sy -= 0.18 * Math.sin(q * Math.PI); sx += 0.12 * Math.sin(q * Math.PI); }
+  }
+  const w = t - anim.worryT;
+  if (w >= 0 && w < 0.8) rz = Math.sin(w * 38) * 0.14 * (1 - w / 0.8);
+  const r = t - anim.reliefT;
+  if (r >= 0 && r < 1.2) { rx = -Math.sin(Math.min(1, r / 1.2) * Math.PI) * 0.18; sy -= Math.sin(Math.min(1, r / 1.2) * Math.PI) * 0.06; }
+  body.position.y = y; body.scale.set(sx, sy, sx); body.rotation.set(rx, Math.sin(t * 0.7) * 0.18 - 0.25, rz);
+  gShadow.scale.setScalar(1 - Math.min(0.45, y * 0.45));
+  const p = t - anim.pageT;
+  leaf.rotation.z = p >= 0 && p < 0.5 ? Math.PI * (p / 0.5) : 0;
+  leaf.visible = p >= 0 && p < 0.5;
+  for (const c of clouds) c.position.x = (((c.userData.x0 + 260 + t * 1.1) % 520) + 520) % 520 - 260;
+}
+
+// ── scene + boot ────────────────────────────────────────────────────────────────────────────────────────────
+Scenes.register('book', {
+  opaque: true,
+  enter() {},
+  update() {},
+  render() {
+    try { animate(App.clock.time); } catch (e) { reportError('F5 animate', e); }
+    App.render(scene, camera);
+    tickMsg();
+    if (!render._t || performance.now() - render._t > 200) { render._t = performance.now(); refresh(); }
+  },
+  onInput(btn) { return uiInput(btn); },
+});
+const render = {};
+
+App.start({ version: '0.1.0-f5-demo' });
+Scenes.push('book');
+
+Save.init();
+if (!Save.hasAny() && !Save.slots().some(s => s.status !== 'empty')) seedBook();
+{
+  const latest = Save.latest();
+  const r = latest ? Save.load(latest.slot) : (Save.newGame(), null);
+  syncedSig = gameSig(); syncedWith = latest ? latest.slot : null;
+  ui.slot = latest ? Math.max(0, SLOTS.indexOf(latest.slot)) : 0;
+}
+Save.enableAutosave({ events: ['map.enter'], minGapMs: 800 });
+refresh();
+say(`Welcome back. Which tale shall we carry on? / Pick a page, then choose what to do with it.`);
+
+// ── __DQ controls for critics ───────────────────────────────────────────────────────────────────────────────
+Debug.provide('demo', () => ({
+  uiKit, focus: ui.focus, selected: selSlot(), command: CMDS[ui.cmd][0], mischief: MIS[ui.mis][0], modal: ui.modal ? ui.modal.type : null,
+  message: msg.text, messageDone: msg.done, locked: ui.locked, stuffed: ui.stuffed, grumpy: !!grumpyOff,
+  game: { hero: game.hero, lvl: game.lvl, gold: game.gold, chapter: STOPS[game.stop].chapter, map: STOPS[game.stop].map, party: game.extra.map(m => m.name), writtenDown: syncedSig === gameSig() },
+  report: ui.lastReport,
+}));
+Debug.expose('write', (slot = selSlot()) => doWrite(slot));
+Debug.expose('read', (slot = selSlot()) => doRead(slot));
+Debug.expose('play', (n = 1) => { let r; for (let i = 0; i < n; i++) r = doPlay(); return r; });
+Debug.expose('newTale', () => doNew());
+Debug.expose('exportCode', (slot = selSlot()) => { const e = doExport(slot); return e.ok ? e.code : e; });
+Debug.expose('importCode', (slot, code) => { closeModal(); return doImport(slot, code); });
+Debug.expose('clear', (slot = selSlot()) => doClear(slot));
+Debug.expose('undo', (slot = selSlot()) => doUndo(slot));
+Debug.expose('mischief', (kind, slot = selSlot()) => mischief(kind, slot));
+Debug.expose('chaos', (n = 200, seed = 5) => { const rep = chaos(n, seed); openReport(rep); refresh(); return rep; });
+Debug.expose('select', (slot) => { const i = SLOTS.indexOf(slot === 'auto' ? 'auto' : Number(slot)); if (i >= 0) setFocus('slots', i); return selSlot(); });
+Debug.expose('focus', (zone, idx = 0) => { setFocus(zone, idx); return { focus: ui.focus, idx }; });
+Debug.expose('finishText', () => { finishText(); return msg.text; });
+Debug.expose('closeModal', () => { closeModal(); return true; });
+Debug.expose('openCode', (mode = 'import', slot = selSlot()) => { if (mode === 'export') return doExport(slot); openCode('import', slot); return true; });
+Debug.expose('confirmAsk', (slot = selSlot()) => doWrite(slot, { ask: true }));
+Debug.expose('game', () => JSON.parse(JSON.stringify(game)));
+Debug.expose('raw', (slot = selSlot()) => { const k = Save.keys(slot); const o = {}; for (const [n, key] of Object.entries(k)) { const raw = Save.rawGet(key); o[n] = raw == null ? null : { chars: raw.length, ...Save.inspect(raw) }; } return o; });
+Debug.expose('enter', (mapId = 'saltmarrow') => { Bus.emit('map.enter', { id: mapId }); return Save.state().autosave; });
+Debug.expose('refresh', () => { refresh(); return true; });
+</script></body></html>

@@ -1,0 +1,19 @@
+{ "name": "critic P28 sfx board live", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000},
+  {"wait": 600}, {"shot": "board-boot"},
+  {"eval": "__DQ.unlock()"}, {"wait": 300},
+  {"press": "ArrowDown", "times": 3, "delay": 140},
+  {"eval": "(__DQ.select('sword_hit'), __DQ.play('sword_hit'))"}, {"wait": 60}, {"shot": "live-sword-hit"},
+  {"eval": "__DQ.play('monster_defeat')"}, {"wait": 80},
+  {"eval": "(__DQ.select('item_get'), __DQ.play('item_get'))"}, {"wait": 250}, {"shot": "live-item-get-duck"},
+  {"eval": "__DQ.play('level_up_sparkle')"}, {"wait": 300}, {"shot": "live-levelup"},
+  {"eval": "__DQ.ambience('amb_town')"}, {"wait": 2200},
+  {"eval": "__DQ.talk('barty')"}, {"wait": 900}, {"shot": "live-talk-over-town"},
+  {"press": "Escape"}, {"wait": 400},
+  {"eval": "(async()=>{ for (const id of __DQ.list()) __DQ.play(id); })()"}, {"wait": 200}, {"shot": "live-everything-at-once"},
+  {"wait": 2500},
+  {"assert": "__DQ.state().sfx.voices <= 40", "msg": "voice cap holds"},
+  {"eval": "__DQ.selfTest()"}, {"wait": 500},
+  {"assert": "__DQ.selfTestResult() && __DQ.selfTestResult().ok", "msg": "selfTest ok"},
+  {"assert": "__DQ.errors.length===0", "msg": "no runtime errors"}
+]}

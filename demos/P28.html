@@ -1,0 +1,409 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>P28 — Sound Board</title>
+<style>
+:root{
+  --win-top:#1d2f8f; --win-bot:#0a1450; --win-edge:#f4f1e6; --win-inner:#8fa3ff; --ink:#fbf8ee; --dim:#b9c3f2;
+  --gold:#ffd766; --sel:#ffe9a3; --bg1:#141a3a; --bg2:#050818; --good:#8ce99a; --warn:#ff9f7a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:radial-gradient(ellipse at 50% 0%,var(--bg1),var(--bg2) 70%);color:var(--ink);
+  font:600 17px/1.35 "Trebuchet MS","Avenir Next","Segoe UI",system-ui,sans-serif;letter-spacing:.02em}
+body{padding:18px 20px 90px}
+.win{position:relative;background:linear-gradient(180deg,var(--win-top),var(--win-bot));border:4px solid var(--win-edge);
+  border-radius:12px;box-shadow:0 0 0 2px #0008 inset,0 0 0 5px #0003,0 8px 22px #000a;padding:14px 16px 12px;
+  animation:pop .22s cubic-bezier(.2,1.4,.4,1) both}
+.win::before{content:"";position:absolute;inset:4px;border:2px solid var(--win-inner);border-radius:7px;opacity:.35;pointer-events:none}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:none;opacity:1}}
+.tag{position:absolute;top:-14px;left:16px;background:var(--win-bot);border:3px solid var(--win-edge);border-radius:8px;
+  padding:0 10px;font-size:14px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase}
+h1{margin:0;font-size:30px;letter-spacing:.06em;color:var(--ink);text-shadow:0 3px 0 #0007}
+h1 small{display:block;font-size:14px;color:var(--dim);letter-spacing:.04em;font-weight:600}
+.top{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:26px;align-items:stretch;margin-bottom:26px}
+.outwin{display:grid;grid-template-columns:1fr;gap:6px;padding:12px 14px 10px}
+.outwin canvas{height:62px}
+.status{font-size:13px;color:var(--dim);line-height:1.4}
+.status b{color:var(--ink)}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:26px;align-items:start}
+.groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:26px 20px}
+.side{display:grid;gap:26px}
+.entries{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:1px}
+.entry{position:relative;display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink);font:inherit;
+  padding:3px 8px 3px 26px;border-radius:6px;cursor:pointer}
+.entry::before{content:"\25B6";position:absolute;left:6px;top:5px;font-size:13px;color:var(--ink);opacity:0;transform:translateX(-4px);transition:.08s}
+.entry.sel::before{opacity:1;transform:none;animation:nudge .5s steps(2) infinite}
+@keyframes nudge{50%{transform:translateX(3px)}}
+.entry.sel{color:var(--sel)}
+.entry.on{color:var(--good)}
+.entry.flash{background:#ffffff1f}
+.entry .id{font-size:12px;color:var(--dim);font-weight:500;margin-left:6px}
+.row{display:grid;grid-template-columns:90px 1fr 46px;gap:10px;align-items:center;margin:7px 0}
+.row label{font-size:15px}
+.row output{font-size:14px;color:var(--dim);text-align:right}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:14px;border-radius:7px;background:#0a0f33;border:2px solid var(--win-inner);outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--gold);border:3px solid var(--win-edge);box-shadow:0 2px 0 #0008}
+.btns{display:flex;flex-wrap:wrap;gap:4px 2px;margin-top:4px}
+.btns .entry{width:auto}
+canvas{display:block;width:100%;height:62px;border-radius:6px;background:#050a2a;border:2px solid #ffffff22}
+.msg{position:fixed;left:0;right:0;margin:0 auto;bottom:14px;width:min(880px,calc(100% - 40px));min-height:62px;font-size:19px;z-index:5}
+.msg .caret{display:inline-block;margin-left:6px;animation:blink .8s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.hint{font-size:13px;color:var(--dim);margin-top:6px}
+.meter{height:10px;border-radius:5px;background:#050a2a;border:2px solid #ffffff22;overflow:hidden;margin-top:8px}
+.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--good),var(--gold) 75%,var(--warn));transition:width .05s}
+#unlock{position:fixed;inset:0;display:grid;place-items:center;background:#0009;z-index:9}
+#unlock[hidden]{display:none}
+#unlock .win{max-width:520px;text-align:center;font-size:20px}
+@media (max-width:1000px){.layout{grid-template-columns:1fr}}
+</style>
+</head><body>
+<div class="top">
+  <div class="win"><span class="tag">P28</span><h1>The Sound Board<small>every effect in the game, made from nothing — arrows to choose, Enter to play, Esc to hush</small></h1></div>
+  <div class="win outwin"><span class="tag">Output</span><canvas id="scope" width="720" height="124"></canvas><div class="status" id="status">starting…</div></div>
+</div>
+<div class="layout">
+  <div class="groups" id="groups"></div>
+  <div class="side">
+    <div class="win"><span class="tag">Mixer</span><div id="mixer"></div>
+      <div class="btns" id="spaces"></div>
+      <div class="btns"><button class="entry" data-music="battle">Battle theme</button><button class="entry" data-music="town">Town theme</button><button class="entry" data-music="">Music off</button><button class="entry" data-act="duck">Duck music (0.35)</button></div>
+      <div class="meter"><i id="meterbar"></i></div>
+      <div class="hint">The real score (P27) plays through this mixer's music bus, so every duck and every hit's dip acts on it.</div>
+    </div>
+    <div class="win"><span class="tag">Battle test</span><div class="btns"><button class="entry" data-act="fight">Fight! (hits over the battle theme)</button></div>
+      <div class="hint">Starts the battle theme, then: slash, smack, a terrific whack, the poof, the party gets hit, a spell. Each impact dips the music by about 6 dB for 150 ms.</div></div>
+    <div class="win"><span class="tag">Ambience</span><div class="btns" id="amb"></div><div class="hint">Seamless loops, crossfaded. Only one bed at a time.</div></div>
+    <div class="win"><span class="tag">Talk</span><div class="btns" id="talk"></div><div class="hint">Types a line at 38 glyphs a second, one tick per glyph, in that speaker's voice.</div></div>
+    <div class="win"><span class="tag">Walk</span><div class="btns" id="walk"></div><div class="hint">Footsteps at a walking pace. Every step is a little different.</div></div>
+  </div>
+</div>
+<div class="win msg" id="msg"><span id="msgtext">Choose a sound.</span><span class="caret">&#9660;</span></div>
+<div id="unlock" hidden><div class="win">The sound is asleep.<br/>Press any key or click to wake it.</div></div>
+
+<script type="module">
+import { Audio } from '/src/audio/audio.js';
+import { Sfx } from '/src/audio/sfx.js';
+
+let MusicMod = null, musicReady = null;
+/** The real score, on THIS mixer: Music.init({ctx: Audio.ctx, output: Audio.bus('music'), reverbSend: Audio.reverbSend}). */
+function ensureMusic() {
+  if (!musicReady) musicReady = import('/src/audio/music.js').then((m) => {
+    MusicMod = m;
+    m.Music.init({ ctx: Audio.ctx, output: Audio.bus('music'), reverbSend: Audio.reverbSend });
+    return m.Music;
+  }).catch((e) => { __DQ.errors.push('music unavailable: ' + e); return null; });
+  return musicReady;
+}
+
+window.__DQ = { ready: false, errors: [], version: 'P28-r2' };
+const $ = (s) => document.querySelector(s);
+const pretty = (id) => id.replace(/^amb_/, '').replace(/^footstep_/, '').replace(/^text_/, 'text: ').replace(/_/g, ' ');
+
+Audio.init();
+let selected = null, lastPlayed = null, walking = null, walkTimer = 0, typing = 0, selfTest = null, talkRelease = null, musicTheme = null, fightTimers = [], hitCheckResult = null;
+const allEntries = () => [...document.querySelectorAll('.entry')];
+
+function say(t) { $('#msgtext').textContent = t; }
+function flash(el) { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 140); }
+function select(el, silent) {
+  if (!el || el === selected) return;
+  if (selected) selected.classList.remove('sel');
+  selected = el; el.classList.add('sel');
+  if (!silent) Sfx.play('cursor');
+  el.scrollIntoView({ block: 'nearest' });
+  if (el.dataset.id) say(`${pretty(el.dataset.id)} — ${Sfx.info(el.dataset.id).desc}`);
+}
+
+// ---- sound groups ------------------------------------------------------------------------------------------------
+for (const g of Sfx.groups()) {
+  if (g.group === 'Ambience') continue;
+  const w = document.createElement('div'); w.className = 'win';
+  w.innerHTML = `<span class="tag">${g.group}</span><ul class="entries"></ul>`;
+  for (const i of g.ids) {
+    const li = document.createElement('li');
+    li.innerHTML = `<button class="entry" data-id="${i.id}" title="${i.desc}">${pretty(i.id)}</button>`;
+    w.querySelector('ul').appendChild(li);
+  }
+  $('#groups').appendChild(w);
+}
+for (const i of Sfx.groups().find(g => g.group === 'Ambience').ids) {
+  $('#amb').insertAdjacentHTML('beforeend', `<button class="entry" data-amb="${i.id}" title="${i.desc}">${pretty(i.id)}</button>`);
+}
+
+// ---- mixer ---------------------------------------------------------------------------------------------------------
+for (const bus of ['master', 'music', 'sfx', 'ui', 'voice', 'ambience']) {
+  const v = Audio.getVolume(bus);
+  $('#mixer').insertAdjacentHTML('beforeend', `<div class="row"><label for="v-${bus}">${bus}</label><input id="v-${bus}" type="range" min="0" max="100" value="${Math.round(v * 100)}"/><output id="o-${bus}">${Math.round(v * 100)}</output></div>`);
+  $('#v-' + bus).addEventListener('input', (e) => { const x = e.target.value / 100; Audio.setVolume(bus, x); $('#o-' + bus).textContent = e.target.value; });
+}
+for (const sp of ['hall', 'room', 'chapel', 'cave', 'open']) $('#spaces').insertAdjacentHTML('beforeend', `<button class="entry" data-space="${sp}">${sp}</button>`);
+
+// ---- talk & walk ---------------------------------------------------------------------------------------------------
+const LINES = {
+  halvard: 'A spot of bother, lad. Hold the lantern, if you would.',
+  willow: 'Right then. Come ON, it is only a haunted house.',
+  sera: "I'm sorry, that was rude of me. It was also true.",
+  barty: 'I am not weeping, little master. It is the onions.',
+  bobble: 'Frankly, Bobble has decided. BOBBLE. Not Bubble.',
+  pip: 'Mrrp. (I have been abandoned for nine hours.)',
+  mortmain: 'There now, child. Gently. That is much better.',
+};
+for (const k of Object.keys(LINES)) $('#talk').insertAdjacentHTML('beforeend', `<button class="entry" data-talk="${k}">${k[0].toUpperCase() + k.slice(1)}</button>`);
+for (const m of ['grass', 'dirt', 'stone', 'wood', 'snow']) $('#walk').insertAdjacentHTML('beforeend', `<button class="entry" data-walk="${m}">${m}</button>`);
+$('#walk').insertAdjacentHTML('beforeend', `<button class="entry" data-walk="">stop</button>`);
+
+function endTalk() { if (talkRelease) { talkRelease(400); talkRelease = null; } }
+function talk(who) {
+  const line = LINES[who], my = ++typing;
+  let i = 0;
+  endTalk();
+  talkRelease = Audio.duck('music', 0.55, 120); // dialogue open: MUSIC-BIBLE §5
+  const step = () => {
+    if (my !== typing) return; // cancelled or replaced: whoever cancelled already released the duck
+    i++;
+    $('#msgtext').textContent = `${who[0].toUpperCase() + who.slice(1)}: ` + line.slice(0, i);
+    const ch = line[i - 1];
+    if (ch && ch.trim() && !/[.,!?()]/.test(ch)) Sfx.glyph(who);
+    if (i < line.length) setTimeout(step, /[.,!?]/.test(ch) ? 180 : 1000 / 38);
+    else endTalk();
+  };
+  step();
+}
+function walk(mat) {
+  clearTimeout(walkTimer); walking = mat || null;
+  document.querySelectorAll('[data-walk]').forEach(b => b.classList.toggle('on', !!mat && b.dataset.walk === mat));
+  if (!mat) return;
+  let foot = 0;
+  const step = () => { if (walking !== mat) return; Sfx.play('footstep_' + mat, { pan: foot++ % 2 ? 0.12 : -0.12 }); walkTimer = setTimeout(step, 400 + Math.random() * 30); };
+  step();
+}
+async function setMusic(theme) {
+  const M = await ensureMusic();
+  musicTheme = theme || null;
+  document.querySelectorAll('[data-music]').forEach(b => b.classList.toggle('on', !!theme && b.dataset.music === theme));
+  if (!M) { say('The score is not available on this page.'); return; }
+  if (theme) M.play(theme, { fade: theme === 'battle' ? 0 : 1.2 }); else M.stop({ fade: 1.0 });
+}
+const FIGHT = [[0, 'sword_hit', 'Bram attacks! Zubash!'], [950, 'monster_hurt', 'The Gloop takes 6 damage!'], [1900, 'sword_crit', 'A terrific whack!'],
+  [2350, 'monster_defeat', 'The Gloop is defeated!'], [3400, 'player_hurt', 'The Cactuddle attacks! Bram takes 5 damage!'], [4500, 'spell_cast', 'Willow casts Scorcha!'],
+  [4950, 'fire', ''], [6300, 'miss', 'The Cactuddle dodges!'], [7100, 'sword_hit', 'Bram attacks!'], [7400, 'monster_hurt', '']];
+async function fight() {
+  fightTimers.forEach(clearTimeout); fightTimers = [];
+  Audio.unlock();
+  const lead = musicTheme === 'battle' ? 0 : 700;
+  if (musicTheme !== 'battle') await setMusic('battle');
+  for (const [ms, id, text] of FIGHT) fightTimers.push(setTimeout(() => { Sfx.play(id); lastPlayed = id; if (text) say(text); }, lead + ms));
+  return true;
+}
+
+function activate(el) {
+  if (!el) return;
+  Audio.unlock();
+  flash(el);
+  try {
+    if (el.dataset.id) { Sfx.play(el.dataset.id); lastPlayed = el.dataset.id; }
+    else if (el.dataset.amb) {
+      const cur = Sfx.state().ambience, id = cur === el.dataset.amb ? null : el.dataset.amb;
+      Sfx.ambience(id);
+      document.querySelectorAll('[data-amb]').forEach(b => b.classList.toggle('on', b.dataset.amb === id));
+      say(id ? `${pretty(id)} — ${Sfx.info(id).desc}` : 'Ambience fades away.');
+    } else if (el.dataset.space) {
+      Audio.setSpace(el.dataset.space); Sfx.play('confirm');
+      document.querySelectorAll('[data-space]').forEach(b => b.classList.toggle('on', b === el));
+      say(`Reverb space: ${el.dataset.space}.`);
+    } else if (el.dataset.talk) talk(el.dataset.talk);
+    else if (el.dataset.walk != null) { walk(el.dataset.walk); say(el.dataset.walk ? `Walking on ${el.dataset.walk}.` : 'Standing still.'); }
+    else if (el.dataset.music != null) { Sfx.play('confirm'); setMusic(el.dataset.music); say(el.dataset.music ? `Music: ${el.dataset.music} theme, on the music bus.` : 'Music fades out.'); }
+    else if (el.dataset.act === 'fight') { fight(); }
+    else if (el.dataset.act === 'duck') { Sfx.play('confirm'); Audio.duck('music', 0.35, 120, 1500); say('Music ducked to 0.35 for a moment and eased back.'); }
+  } catch (e) { __DQ.errors.push(String(e)); }
+}
+
+document.addEventListener('click', (e) => { const el = e.target.closest('.entry'); if (el) { select(el, true); activate(el); } });
+document.addEventListener('mousemove', (e) => { const el = e.target.closest('.entry'); if (el && el !== selected) select(el, false); });
+
+function nearest(dir) {
+  const els = allEntries(); if (!selected) return els[0];
+  const a = selected.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+  let best = null, bd = Infinity;
+  for (const el of els) {
+    if (el === selected) continue;
+    const b = el.getBoundingClientRect(), dx = b.left + b.width / 2 - ax, dy = b.top + b.height / 2 - ay;
+    const along = dir === 'up' ? -dy : dir === 'down' ? dy : dir === 'left' ? -dx : dx;
+    const across = dir === 'up' || dir === 'down' ? Math.abs(dx) : Math.abs(dy);
+    if (along <= 2) continue;
+    const score = along + across * 2.5;
+    if (score < bd) { bd = score; best = el; }
+  }
+  return best;
+}
+document.addEventListener('keydown', (e) => {
+  const k = e.key, map = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', w: 'up', s: 'down', a: 'left', d: 'right' };
+  if (e.target.tagName === 'INPUT') return;
+  if (map[k]) { e.preventDefault(); const n = nearest(map[k]); if (n) select(n); else Sfx.play('bump_wall'); }
+  else if (k === 'Enter' || k === ' ' || k === 'z' || k === 'Z') { e.preventDefault(); activate(selected); }
+  else if (k === 'Escape' || k === 'x' || k === 'X' || k === 'Backspace') {
+    e.preventDefault(); Sfx.play('cancel'); walk(null); typing++; endTalk(); Sfx.ambience(null); fightTimers.forEach(clearTimeout); fightTimers = [];
+    document.querySelectorAll('[data-amb]').forEach(b => b.classList.remove('on')); say('Hush.');
+  }
+});
+
+// ---- scope & status ------------------------------------------------------------------------------------------------
+const cv = $('#scope'), g2 = cv.getContext('2d');
+function draw() {
+  try {
+    const an = Audio.analyser; const W = cv.width, H = cv.height;
+    g2.fillStyle = '#050a2a'; g2.fillRect(0, 0, W, H);
+    if (an) {
+      const f = new Uint8Array(an.frequencyBinCount); an.getByteFrequencyData(f);
+      const bars = 64;
+      for (let i = 0; i < bars; i++) {
+        const k0 = Math.floor(Math.pow(f.length, i / bars)), k1 = Math.max(k0 + 1, Math.floor(Math.pow(f.length, (i + 1) / bars)));
+        let m = 0; for (let k = k0; k < k1 && k < f.length; k++) m = Math.max(m, f[k]);
+        const h = (m / 255) * H * 0.95;
+        g2.fillStyle = `hsl(${220 - i * 2.6},85%,${45 + (m / 255) * 25}%)`;
+        g2.fillRect(i * (W / bars) + 1, H - h, W / bars - 2, h);
+      }
+      const t = new Float32Array(an.fftSize); an.getFloatTimeDomainData(t);
+      g2.strokeStyle = '#fbf8ee'; g2.lineWidth = 2; g2.beginPath();
+      for (let i = 0; i < t.length; i++) { const x = (i / t.length) * W, y = H / 2 - t[i] * H * 0.9; i ? g2.lineTo(x, y) : g2.moveTo(x, y); }
+      g2.stroke();
+      const pk = Audio.peakDb();
+      $('#meterbar').style.width = Math.max(0, Math.min(100, (pk + 60) / 60 * 100)) + '%';
+    }
+    const a = Audio.state(), s = Sfx.state();
+    $('#status').innerHTML = `context <b>${a.ctxState}</b> · voices <b>${s.voices}</b> · played <b>${s.played}</b> · space <b>${a.space}</b><br/>music <b>${musicTheme || '—'}</b> · duck <b>${a.ducks.music.toFixed(2)}</b> · hit dip <b>${(a.pulses.music ?? 1).toFixed(2)}</b> · ambience <b>${s.ambience || '—'}</b> · peak <b>${a.peakDb > -99 ? a.peakDb : '—'}</b> dB`;
+    $('#unlock').hidden = a.ctxState === 'running';
+  } catch (e) { if (__DQ.errors.length < 50) __DQ.errors.push(String(e)); }
+  requestAnimationFrame(draw);
+}
+
+// ---- measurement ------------------------------------------------------------------------------------------------------
+const IMPACTS = ['sword_hit', 'sword_crit', 'monster_hurt', 'player_hurt'];
+function biquad(x, b0, b1, b2, a0, a1, a2) {
+  const y = new Float32Array(x.length); let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
+  for (let i = 0; i < x.length; i++) { const v = b0 * x[i] + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v; }
+  return y;
+}
+function shelfK(x, fs) { const A = Math.pow(10, 3.9998 / 40), w = 2 * Math.PI * 1681.97 / fs, al = Math.sin(w) / (2 * 0.7072), c = Math.cos(w), q = 2 * Math.sqrt(A) * al;
+  return biquad(x, A * ((A + 1) + (A - 1) * c + q), -2 * A * ((A - 1) + (A + 1) * c), A * ((A + 1) + (A - 1) * c - q), (A + 1) - (A - 1) * c + q, 2 * ((A - 1) - (A + 1) * c), (A + 1) - (A - 1) * c - q); }
+function hpf(x, fs, fc, Q) { const w = 2 * Math.PI * fc / fs, al = Math.sin(w) / (2 * Q), c = Math.cos(w); return biquad(x, (1 + c) / 2, -(1 + c), (1 + c) / 2, 1 + al, -2 * c, 1 - al); }
+/** 100 ms K-weighted loudness windows (10 ms hop) over [a, b) samples; tv = 4th-order 200 Hz high-pass first. */
+function loud100(buf, tv, a = 0, b = buf.length) {
+  const fs = buf.sampleRate, out = [];
+  const ch = [0, Math.min(1, buf.numberOfChannels - 1)].map((c) => { let x = buf.getChannelData(c).slice(a, b); if (tv) x = hpf(hpf(x, fs, 200, 0.5412), fs, 200, 1.3066); return hpf(shelfK(x, fs), fs, 38.13, 0.5003); });
+  const n = ch[0].length, W = Math.round(0.1 * fs), H = Math.round(0.01 * fs), cs = new Float64Array(n + 1);
+  for (let i = 0; i < n; i++) cs[i + 1] = cs[i] + ch[0][i] * ch[0][i] + ch[1][i] * ch[1][i];
+  for (let s = 0; s + W <= n; s += H) out.push(-0.691 + 10 * Math.log10((cs[s + W] - cs[s]) / W + 1e-12));
+  return out;
+}
+const maxOf = (a) => a.reduce((m, v) => Math.max(m, v), -Infinity);
+const medianOf = (a) => { const q = a.slice().sort((x, y) => x - y); return q[Math.floor(q.length / 2)]; };
+const r1 = (v) => Math.round(v * 10) / 10;
+
+async function renderMix(theme, ids, seconds, times) {
+  const M = await import('/src/audio/music.js');
+  return Audio.renderOffline((octx, dest) => {
+    const m = M.createMusic();
+    m.init({ ctx: octx, output: dest.bus('music'), reverbSend: dest.reverbSend, quality: 'high' });
+    for (let k = 1; k * 0.2 < seconds + 0.4; k++) octx.suspend(k * 0.2).then(() => { try { m._pump(); } catch (_) {} octx.resume(); });
+    if (theme) m.play(theme, { fade: 0, at: 0.02 });
+    m._pump();
+    if (ids.length) (times || []).concat(times ? [] : Array.from({ length: Math.max(0, Math.floor((seconds - 1.5) / 0.9) + 1) }, (_, i) => 1 + i * 0.9))
+      .forEach((t, i) => Sfx.renderInto(ids[i % ids.length], dest, t, { variant: i + 1 }));
+    return m;
+  }, seconds, { sampleRate: 48000 });
+}
+
+async function hitCheck(ids) {
+  const M = await import('/src/audio/music.js');
+  const SECS = 8, T0 = [1.0, 2.1, 3.3, 4.4, 5.6, 6.7];
+  const ref = await M.createMusic().renderOffline('battle', SECS, { sampleRate: 48000 });
+  const battleMedian = r1(medianOf(loud100(ref, false)));
+  const bus = await renderMix('battle', [], SECS);
+  const busMedian = r1(medianOf(loud100(bus, false)));
+  const rows = [];
+  for (const id of ids) {
+    const variants = [];
+    for (let v = 1; v <= 4; v++) { const b = await Sfx.render(id, 1.2, { variant: v, sampleRate: 48000 }); variants.push({ full: maxOf(loud100(b, false)), tv: maxOf(loud100(b, true)) }); }
+    const tvMin = Math.min(...variants.map(x => x.tv)), full = variants[0].full;
+    const mix = await renderMix('battle', [id], SECS, T0), fs = 48000, lifts = [];
+    for (const t of T0) { const a = Math.round((t - 0.1) * fs), e = Math.round((t + 0.45) * fs); lifts.push(maxOf(loud100(mix, true, a, e)) - maxOf(loud100(bus, true, a, e))); }
+    rows.push({ id, loud: r1(full), loudTV: r1(tvMin), tvLoss: r1(full - variants[0].tv), overBattleTV: r1(tvMin - battleMedian), mixLiftTV: r1(lifts.reduce((x, y) => x + y, 0) / lifts.length), mixLiftTVMin: r1(Math.min(...lifts)) });
+  }
+  hitCheckResult = { ok: rows.every(r => r.overBattleTV >= 6 && r.mixLiftTVMin >= 6), battleMedian, busMedian, rows };
+  return hitCheckResult;
+}
+
+// ---- the critic API ------------------------------------------------------------------------------------------------
+const SEQ = { text_high: 1 / 38, text_low: 1 / 38, text_monster: 1 / 38, cursor: 0.12, footstep_grass: 0.42, footstep_dirt: 0.42, footstep_stone: 0.42, footstep_wood: 0.42, footstep_snow: 0.42, gold_coins: 0.9, sword_hit: 0.7 };
+Object.assign(window.__DQ, {
+  list: () => Sfx.list(),
+  groups: () => Sfx.groups(),
+  play: (id, o) => { Audio.unlock(); return !!Sfx.play(id, o); },
+  ambience: (id) => { Audio.unlock(); return !!Sfx.ambience(id); },
+  unlock: () => Audio.unlock(),
+  select: (id) => { const el = document.querySelector(`[data-id="${id}"],[data-amb="${id}"]`); select(el, true); return !!el; },
+  talk: (who) => talk(who), walk: (m) => walk(m),
+  setVolume: (b, v) => { Audio.setVolume(b, v); const el = $('#v-' + b); if (el) { el.value = Math.round(v * 100); $('#o-' + b).textContent = el.value; } },
+  fight: () => fight(),
+  music: (theme) => { Audio.unlock(); return setMusic(theme); },
+  /**
+   * 'seq:<id>'  the effect repeated as the game uses it (text at 38/s, footsteps at a walk)
+   * 'var:<id>:<n>'  a specific random variation
+   * 'mix:<theme>+<id>,<id>'  the TRUE mix: P27's theme on this mixer's music bus with the effects landing on it
+   *               every 0.9 s from 1.0 s (music dips included). 'mix:battle' alone = the music bus with no effects.
+   */
+  renderAudio: (id, seconds) => {
+    if (id.startsWith('seq:')) { const real = id.slice(4); return Sfx.render(real, seconds, { every: SEQ[real] || 0.5 }); }
+    if (id.startsWith('var:')) { const [, real, v] = id.split(':'); return Sfx.render(real, seconds, { variant: Number(v) }); }
+    if (id.startsWith('mix:')) { const [theme, fx = ''] = id.slice(4).split('+'); return renderMix(theme, fx.split(',').filter(Boolean), seconds || 8); }
+    return Sfx.render(id, seconds);
+  },
+  /**
+   * Do the impacts cut through the battle theme? K-weighted 100 ms loudness (BS.1770 filters, channel sum), with and
+   * without a telly-speaker cut (4th-order high-pass at 200 Hz), against P27's battle theme (its own standalone render,
+   * median of 100 ms windows) and inside the true mix (lift of the loudest 100 ms around each hit, dips included).
+   */
+  hitCheck: (ids = IMPACTS) => hitCheck(ids),
+  hitCheckResult: () => hitCheckResult,
+  /** Render every effect offline; check level, clipping, NaNs and that a one-shot really ends. */
+  selfTest: async () => {
+    const rows = [], failures = [];
+    for (const id of Sfx.list()) {
+      const info = Sfx.info(id), secs = info.loop ? info.loopSeconds : 6;
+      const b = await Sfx.render(id, secs);
+      let pk = 0, nan = 0, last = 0, clip = 0;
+      for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); for (let i = 0; i < d.length; i++) { const v = d[i]; if (v !== v) nan++; const x = Math.abs(v); if (x > pk) pk = x; if (x >= 0.999) clip++; if (x > 0.001) last = Math.max(last, i); } }
+      const row = { id, peakDb: +(20 * Math.log10(pk + 1e-9)).toFixed(1), tail: +(last / b.sampleRate).toFixed(2), nan, clip };
+      if (info.loop) { // seam: jump across the wrap vs the typical sample-to-sample step
+        const buf = await Sfx.render(id, secs * 2);
+        const d = buf.getChannelData(0), n = Math.round(secs * buf.sampleRate);
+        let step = 0; for (let i = n - 2000; i < n - 1; i++) step += Math.abs(d[i + 1] - d[i]);
+        row.seamJump = +Math.abs(d[n] - d[n - 1]).toFixed(5); row.avgStep = +(step / 1999).toFixed(5);
+        if (row.seamJump > row.avgStep * 6 + 0.002) failures.push(`${id}: loop seam jump ${row.seamJump}`);
+      }
+      if (nan) failures.push(`${id}: NaN`);
+      if (clip || pk > 0.95) failures.push(`${id}: too hot (${row.peakDb} dBFS)`);
+      if (pk < 0.004) failures.push(`${id}: silent`);
+      if (!info.loop && row.tail > 5.5) failures.push(`${id}: never ends`);
+      rows.push(row);
+    }
+    selfTest = { ok: failures.length === 0, count: rows.length, failures, rows };
+    return { ok: selfTest.ok, count: selfTest.count, failures };
+  },
+  selfTestResult: () => selfTest,
+  state: () => ({
+    scene: 'P28-soundboard', audio: Audio.state(), sfx: Sfx.state(), ids: Sfx.list().length,
+    selected: selected ? (selected.dataset.id || selected.dataset.amb || selected.textContent) : null,
+    lastPlayed, walking, music: musicTheme, musicEngine: MusicMod ? MusicMod.Music.state() : null, errors: __DQ.errors.length,
+    selfTest: selfTest ? { ok: selfTest.ok, count: selfTest.count, failures: selfTest.failures.length } : null,
+    hitCheck: hitCheckResult ? { ok: hitCheckResult.ok, battleMedian: hitCheckResult.battleMedian, rows: hitCheckResult.rows.map(r => [r.id, r.overBattleTV, r.mixLiftTV]) } : null,
+  }),
+});
+
+select(document.querySelector('[data-id="confirm"]'), true);
+say('Choose a sound. Arrows move the cursor; Enter plays it.');
+Sfx.preload();
+requestAnimationFrame(() => { draw(); window.__DQ.ready = true; });
+</script></body></html>

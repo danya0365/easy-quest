@@ -1,0 +1,483 @@
+{
+ "name": "F4 UI shell — message window, command window, Yes/No",
+ "steps": [
+  {
+   "waitFor": "window.__DQ && __DQ.ready && __DQ.state().ui",
+   "timeout": 30000
+  },
+  {
+   "assert": "typeof __DQ.showcase === 'function' && typeof __DQ.selfTest === 'function'",
+   "msg": "demo controls exposed"
+  },
+  {
+   "note": "1. the message window opens with a quick unroll (frames captured deterministically under freeze/advance)"
+  },
+  {
+   "eval": "(() => { __DQ.freeze(true); return __DQ.showcase('dialogue'); })()"
+  },
+  {
+   "eval": "__DQ.advance(380)"
+  },
+  {
+   "eval": "__DQ.advance(34)"
+  },
+  {
+   "shot": "message-opening"
+  },
+  {
+   "assert": "__DQ.state().ui.windows.some(w => w.kind === 'message' && w.state === 'opening')",
+   "msg": "message window animates open, not instant"
+  },
+  {
+   "eval": "__DQ.advance(200)"
+  },
+  {
+   "assert": "__DQ.state().ui.windows.some(w => w.kind === 'message' && w.state === 'open')",
+   "msg": "...and settles open within ~150 ms"
+  },
+  {
+   "note": "2. typewriter: glyph by glyph at reading pace, with a tick per glyph"
+  },
+  {
+   "eval": "__DQ.advance(650)"
+  },
+  {
+   "shot": "typing"
+  },
+  {
+   "assert": "(() => { const t = __DQ.state().ui.text; return t && t.typing && t.shown > 8 && t.shown < t.total; })()",
+   "msg": "text is mid-type: partly shown"
+  },
+  {
+   "eval": "(() => { const a = __DQ.state().ui.text.shown; __DQ.advance(1000); const b = __DQ.state().ui.text.shown; window.__gps = b - a; return {a, b, perSecond: b - a}; })()"
+  },
+  {
+   "assert": "window.__gps >= 24 && window.__gps <= 46",
+   "msg": "about 35 glyphs per second (spaces cheap, punctuation pauses)"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "waitFor": "__DQ.state().ui.text?.pageDone",
+   "timeout": 8000
+  },
+  {
+   "wait": 450
+  },
+  {
+   "shot": "page1-with-caret"
+  },
+  {
+   "assert": "(() => { const t = __DQ.state().ui.text; return t.caret === true && t.page === 1 && t.pages === 2 && t.lines <= 3; })()",
+   "msg": "the ▼ caret bobs when a page is done and more follows"
+  },
+  {
+   "note": "3. confirm turns the page; confirm while typing completes it at once"
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "eval": "(() => { window.__snd1 = __DQ.state().ui.sounds.count; return window.__snd1; })()"
+  },
+  {
+   "wait": 450
+  },
+  {
+   "assert": "(() => { const t = __DQ.state().ui.text; return t.page === 2 && t.typing; })()",
+   "msg": "Enter turns to page 2, which starts typing"
+  },
+  {
+   "assert": "__DQ.state().ui.sounds.count - window.__snd1 >= 7",
+   "msg": "a text tick per typed letter, in real time"
+  },
+  {
+   "eval": "__DQ.press('confirm')"
+  },
+  {
+   "wait": 60
+  },
+  {
+   "assert": "(() => { const t = __DQ.state().ui.text; return t.pageDone && t.skipped && t.shown === t.total; })()",
+   "msg": "confirm while typing reveals the whole page (__DQ.press -> F2 Input -> Scenes.input -> UI.input)"
+  },
+  {
+   "shot": "page2-completed-on-confirm"
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "waitFor": "__DQ.state().ui.text?.text.includes('punctuated') && __DQ.state().ui.text.pageDone",
+   "timeout": 9000
+  },
+  {
+   "wait": 250
+  },
+  {
+   "shot": "bobble-wave-markup"
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "waitFor": "__DQ.state().ui.text?.text.includes('Mind the step') && __DQ.state().ui.text.pageDone",
+   "timeout": 9000
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "waitFor": "__DQ.state().ui.text?.text.includes('BOBBLE') && __DQ.state().ui.text.pageDone",
+   "timeout": 9000
+  },
+  {
+   "burst": {
+    "name": "bobble-shake",
+    "count": 2,
+    "interval": 70
+   }
+  },
+  {
+   "assert": "__DQ.state().ui.text.voice === 'bobble'",
+   "msg": "per-speaker glyph voice"
+  },
+  {
+   "note": "4. the command window: cascade open, cursor, 2-column navigation with wrap"
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.press('confirm')"
+  },
+  {
+   "eval": "__DQ.advanceUntil(\"__DQ.state().ui.windows.some(w => w.id === 'command' && w.state === 'opening')\")"
+  },
+  {
+   "eval": "__DQ.advance(48)"
+  },
+  {
+   "eval": "__DQ.advance(40)"
+  },
+  {
+   "eval": "__DQ.advance(30)"
+  },
+  {
+   "eval": "__DQ.advance(40)"
+  },
+  {
+   "shot": "command-cascade-opening"
+  },
+  {
+   "assert": "(() => { const w = __DQ.state().ui.windows; return w.some(x => x.id === 'command') && w.some(x => ['party','gold'].includes(x.id) && x.state === 'opening'); })()",
+   "msg": "command, party and gold windows cascade open"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "waitFor": "__DQ.state().ui.focus === 'command' && __DQ.state().ui.animating === 0",
+   "timeout": 6000
+  },
+  {
+   "wait": 350
+  },
+  {
+   "shot": "command-window"
+  },
+  {
+   "assert": "(() => { const w = __DQ.state().ui.windows; const ids = w.filter(x => x.state === 'open').map(x => x.id); return ['command','party','gold'].every(i => ids.includes(i)); })()",
+   "msg": "command, party and gold windows open"
+  },
+  {
+   "assert": "(() => { const c = __DQ.state().ui.windows.find(w => w.id === 'command'); return c.selected === 'talk' && c.items.join() === 'Talk,Spells,Status,Items,Equip,Search'; })()",
+   "msg": "cursor starts on Talk"
+  },
+  {
+   "eval": "(async () => { const a = __DQ.cursorTransform('command'); await new Promise(r => setTimeout(r, 170)); const b = __DQ.cursorTransform('command'); window.__bob = {a, b}; return window.__bob; })()"
+  },
+  {
+   "assert": "window.__bob.a && window.__bob.b && window.__bob.a !== window.__bob.b",
+   "msg": "the focused cursor is alive (bobs)"
+  },
+  {
+   "press": "ArrowDown"
+  },
+  {
+   "wait": 30
+  },
+  {
+   "shot": "cursor-sliding"
+  },
+  {
+   "assert": "__DQ.state().ui.windows.find(w => w.id === 'command').selected === 'status' && __DQ.state().ui.sounds.last.includes('cursor')",
+   "msg": "down moves to Status with a blip"
+  },
+  {
+   "press": "ArrowRight",
+   "delay": 120
+  },
+  {
+   "assert": "__DQ.state().ui.windows.find(w => w.id === 'command').selected === 'items'",
+   "msg": "right moves across the row"
+  },
+  {
+   "press": "ArrowRight",
+   "delay": 120
+  },
+  {
+   "assert": "__DQ.state().ui.windows.find(w => w.id === 'command').selected === 'status'",
+   "msg": "right wraps within the row"
+  },
+  {
+   "press": "ArrowUp",
+   "times": 2,
+   "delay": 120
+  },
+  {
+   "assert": "__DQ.state().ui.windows.find(w => w.id === 'command').selected === 'equip'",
+   "msg": "up wraps from the top of the column to the bottom"
+  },
+  {
+   "press": "ArrowDown",
+   "delay": 120
+  },
+  {
+   "press": "ArrowRight",
+   "delay": 120
+  },
+  {
+   "press": "ArrowDown",
+   "delay": 120
+  },
+  {
+   "assert": "__DQ.state().ui.windows.find(w => w.id === 'command').selected === 'items'",
+   "msg": "back to Items"
+  },
+  {
+   "note": "5. nesting: Items opens a titled, scrolling bag over the command window; the parent cursor rests"
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "shot": "items-nested"
+  },
+  {
+   "assert": "(() => { const s = __DQ.state().ui; const c = s.windows.find(w => w.id === 'command'); const b = s.windows.find(w => w.id === 'items'); return s.focus === 'items' && c.state === 'open' && !c.focused && b.title === 'Bram' && s.sounds.last.includes('confirm'); })()",
+   "msg": "bag has focus, command stays open underneath, confirm thunk played"
+  },
+  {
+   "eval": "(async () => { const a = __DQ.cursorTransform('command'); await new Promise(r => setTimeout(r, 170)); const b = __DQ.cursorTransform('command'); window.__rest = {a, b}; return window.__rest; })()"
+  },
+  {
+   "assert": "window.__rest.a === window.__rest.b",
+   "msg": "the parent's cursor rests while a child window has focus"
+  },
+  {
+   "assert": "__DQ.state().ui.input.source === 'input.js' && __DQ.state().input",
+   "msg": "keys are coming through F2 (input.js); the raw fallback stood down"
+  },
+  {
+   "key": "ArrowDown",
+   "hold": 640
+  },
+  {
+   "wait": 250
+  },
+  {
+   "shot": "items-held-repeat-scrolled"
+  },
+  {
+   "assert": "(() => { const b = __DQ.state().ui.windows.find(w => w.id === 'items'); return b.index >= 4 && (b.scroll > 0 || b.index === 4); })()",
+   "msg": "holding down repeats the cursor (F2 menu repeat) and the list scrolls to keep it in view"
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "wait": 350
+  },
+  {
+   "shot": "three-deep"
+  },
+  {
+   "assert": "__DQ.state().ui.focus === 'item-use' && __DQ.state().ui.focusStack.length >= 3",
+   "msg": "a third window nests on top"
+  },
+  {
+   "press": "Escape"
+  },
+  {
+   "wait": 250
+  },
+  {
+   "assert": "__DQ.state().ui.focus === 'items' && !__DQ.state().ui.windows.some(w => w.id === 'item-use') && __DQ.state().ui.sounds.last.includes('cancel')",
+   "msg": "cancel closes the child, focus returns to the bag"
+  },
+  {
+   "press": "Escape"
+  },
+  {
+   "wait": 250
+  },
+  {
+   "assert": "__DQ.state().ui.focus === 'command' && !__DQ.state().ui.windows.some(w => w.id === 'items')",
+   "msg": "cancel again returns to the command window"
+  },
+  {
+   "shot": "back-to-command"
+  },
+  {
+   "note": "6. every menu can be left: cancel closes the command window; the inn asks Yes/No"
+  },
+  {
+   "press": "Escape"
+  },
+  {
+   "waitFor": "__DQ.state().ui.focus === 'yesno'",
+   "timeout": 9000
+  },
+  {
+   "wait": 350
+  },
+  {
+   "shot": "yes-no-prompt"
+  },
+  {
+   "assert": "(() => { const s = __DQ.state().ui; const y = s.windows.find(w => w.id === 'yesno'); const m = s.windows.find(w => w.kind === 'message'); return !s.windows.some(w => ['command','party','gold'].includes(w.id)) && y.selected === 'yes' && s.text.text.includes('Eight gold') && y.rect.y + y.rect.h <= m.rect.y && m.rect.y - (y.rect.y + y.rect.h) < 30; })()",
+   "msg": "Yes/No sits just above the message window, cursor on Yes"
+  },
+  {
+   "press": "ArrowDown"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "assert": "__DQ.state().ui.windows.find(w => w.id === 'yesno').selected === 'no'",
+   "msg": "down selects No"
+  },
+  {
+   "shot": "yes-no-on-no"
+  },
+  {
+   "press": "ArrowUp"
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "waitFor": "__DQ.state().ui.text?.text.includes('third stair') && __DQ.state().ui.text.pageDone",
+   "timeout": 9000
+  },
+  {
+   "wait": 300
+  },
+  {
+   "shot": "inn-yes"
+  },
+  {
+   "assert": "__DQ.state().demo.gold === 22 && !__DQ.state().ui.windows.some(w => w.id === 'yesno')",
+   "msg": "Yes pays 8 gold; the prompt closed"
+  },
+  {
+   "note": "7. arbitrary content (columns, dividers, labels) and canvas text in 3D"
+  },
+  {
+   "eval": "__DQ.showcase('status')"
+  },
+  {
+   "wait": 1000
+  },
+  {
+   "shot": "status-window"
+  },
+  {
+   "assert": "__DQ.state().ui.focus === 'status' && __DQ.state().ui.windows.find(w => w.id === 'status').title === 'Status'",
+   "msg": "a content window takes input"
+  },
+  {
+   "press": "Escape"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "assert": "__DQ.state().ui.focus === 'command'",
+   "msg": "and hands focus back when dismissed"
+  },
+  {
+   "eval": "__DQ.showcase('text3d')"
+  },
+  {
+   "wait": 1700
+  },
+  {
+   "shot": "canvas-text-in-3d"
+  },
+  {
+   "assert": "__DQ.state().demo.fonts.textures >= 4",
+   "msg": "font.js sprites built"
+  },
+  {
+   "note": "8. layout guarantees and health"
+  },
+  {
+   "eval": "__DQ.selfTest()"
+  },
+  {
+   "assert": "__DQ.selfTest().ok === true",
+   "msg": "pagination never exceeds 3 lines or overflows; parser, wrap and 34-char rule behave"
+  },
+  {
+   "eval": "__DQ.showcase('dialogue')"
+  },
+  {
+   "waitFor": "__DQ.state().ui.text?.pageDone",
+   "timeout": 8000
+  },
+  {
+   "eval": "__DQ.uiScale(1.18)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "kid-mode-scale-1.18"
+  },
+  {
+   "assert": "(() => { const s = __DQ.state().ui; const m = s.windows.find(w => w.kind === 'message'); return s.unit > 1.1 && s.text.lines <= 3 && m.rect.x >= 0 && m.rect.x + m.rect.w <= 1280 && m.rect.y + m.rect.h <= 720; })()",
+   "msg": "UI.setScale re-lays the text: still <= 3 lines, window still on screen"
+  },
+  {
+   "eval": "__DQ.uiScale(1)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "shot": "loop-back-to-dialogue"
+  },
+  {
+   "assert": "__DQ.screenshotReady() === true",
+   "msg": "screenshotReady when nothing is mid-animation"
+  },
+  {
+   "assert": "__DQ.state().fps >= 50",
+   "msg": "fps"
+  },
+  {
+   "assert": "__DQ.errors.length === 0",
+   "msg": "no runtime errors"
+  },
+  {
+   "eval": "__DQ.state().ui"
+  }
+ ]
+}

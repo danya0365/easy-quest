@@ -5,9 +5,10 @@
 `src/data/shops.js`, `src/world/encounter.js`, `src/battle/*`. Everything here is a real number. If a builder
 finds themselves inventing a value, that is a bug in this document — report it under `NEEDS:`.
 
-**Original world note.** Every name below is ours. Our cast is Alder, Wynn, Nettle, Bosco, Tam and Ellie; our
-places are Havenbrook, Barleymow, Port Pelican, Castle Marrowgate, Coldkettle Peaks, Grandhollow Keep; our
-monsters are Puddleslime, Munchroom, Hobbleghast and friends. Nothing is transcribed from Square Enix.
+**Original world note.** Every name below is ours and follows `docs/CANON.md`. Our cast is Bram, Willow, Sera,
+Barty, Rowan, Linnet and Queen Elowen; our places are Puddlewick, Saltmarrow, Port Pelican, Marbleford,
+Coldcomfort, Highfeather and Whistfell Abbey; our monsters are Gloop, Toadstooligan, Boohoo and friends
+(MONSTER-BIBLE). Nothing is transcribed from Square Enix.
 
 **The two children this is tuned for.** *Rosie, 6* — cannot reliably read a long sentence, presses Confirm
 because it makes a nice noise, will not understand "your attack missed", cries at a Game Over screen. *Ivo, 12* —
@@ -49,8 +50,8 @@ dmg   = max(1, round(dmg))
 The chip floor exists so that a six-year-old attacking a boss she should not be attacking still sees a number
 pop and a monster flinch. **Zero is never printed in this game.**
 
-**Worked example.** Alder at Lv 5: Might 20, Copper Sword (+11) → ATK 31. A Munchroom has DEF 9.
-`raw = 31 - 4.5 = 26.5`; `26.5 * 0.60 = 15.9`; variance roll 1.04 → 16.5 → **17 damage**. Munchroom has 26 HP,
+**Worked example.** Bram at Lv 5: Might 20, Copper Sword (+11) → ATK 31. A Toadstooligan has DEF 9.
+`raw = 31 - 4.5 = 26.5`; `26.5 * 0.60 = 15.9`; variance roll 1.04 → 16.5 → **17 damage**. Toadstooligan has 18 HP,
 so it dies in two hits. That is the target shape for ordinary encounters all game: **two to three hits per
 common monster, four to six turns per battle.**
 
@@ -61,13 +62,13 @@ missChance = enemy.evade + (attacker.blinded ? 0.25 : 0)      // enemy.evade is 
 missChance -= min(0.03, Luck / 1000)
 if lastActionWasAMiss(attacker): missChance = 0                // never two misses in a row, ever
 ```
-Only four monsters in the whole game have `evade > 0` (Flitterbug 0.06, Pickpocket Imp 0.05, Hobbleghast 0.04,
-Old Grumbletusk 0.03). A miss prints **"Alder swishes through thin air!"** with a comedy *whiff* — it reads as a
+Only four monsters in the whole game have `evade > 0` (Flapjack 0.06, Grimalkitten 0.05, Boohoo 0.04,
+Bogwallop 0.03). A miss prints VOICE-BIBLE `atk.miss` (**"Bram swings at the air. / The air is unharmed."**) with a comedy *whiff* — it reads as a
 joke, not a punishment. Enemies miss the player on the same maths using the player's Nimbleness/1000.
 
 ### 1.5 Critical hits ("**A terrific whack!**")
 ```
-critChance = 0.031 + Luck / 512          // Lv1 ≈ 4.6%, Lv30 Alder ≈ 15.6%
+critChance = 0.031 + Luck / 512          // Lv1 ≈ 4.6%, Lv30 Bram ≈ 15.6%
 critChance = min(critChance, 0.16)
 critChance += 0.03  if the hidden struggle score S >= 40   (see §6.4)
 critDmg = ATK * 0.90 * rng.float(0.95, 1.15)     // ignores DEF entirely
@@ -87,10 +88,10 @@ dmg    = max(1, round(dmg))
 "It has no effect at all!"** and refunds half the MP (Rosie insurance). Group spells apply to each target
 independently; there is **no** damage reduction for hitting several enemies — big spells are meant to feel big.
 
-**Worked example.** Ellie at Lv 20: Wisdom 116. She casts *Kanip* (base 40, k = 0.55, ice, all enemies).
-`base = 40 + 116*0.55 = 103.8`. A Frostnip is ice-resistant (×0.5), MDEF 30: `103.8 * 0.5 * (1-0.15) = 44.1`,
-roll 1.02 → **45**. A Munchroom next to it takes `103.8 * 1.0 * (1-0.05) * 0.99 = 97.6` → **98**. Ellie feels
-enormous, which is the point of Ellie.
+**Worked example.** Linnet at Lv 20: Wisdom 116. She casts *Kanip* (base 40, k = 0.55, ice, all enemies).
+`base = 40 + 116*0.55 = 103.8`. A Lady Mothbonnet is ice-resistant (×0.5), MDEF 30: `103.8 * 0.5 * (1-0.15) = 44.1`,
+roll 1.02 → **45**. A Toadstooligan next to it takes `103.8 * 1.0 * (1-0.05) * 0.99 = 97.6` → **98**. Linnet feels
+enormous, which is the point of Linnet.
 
 ### 1.7 Healing
 ```
@@ -99,10 +100,10 @@ heal = round(heal * rng.float(0.95, 1.10))
 heal = min(heal, target.maxHP - target.HP)      // never print an overheal number
 ```
 If the target is already at full HP the spell is **not consumed**: the cursor refuses with a soft *bonk* and
-"Nettle is already in the pink!" No MP lost, no turn lost. (Rosie will do this at least forty times.)
+"Sera is already in the pink!" No MP lost, no turn lost. (Rosie will do this at least forty times.)
 
-**Worked example.** Nettle at Lv 20: Wisdom 80. *Mendmore* (base 45, k = 0.45): `45 + 36 = 81`, roll 1.03 → 83.
-Alder at Lv 20 has 182 max HP, so one Mendmore is 46% of his bar — always worth a turn, never a full top-up.
+**Worked example.** Sera at Lv 20: Wisdom 80. *Mendmore* (base 45, k = 0.45): `45 + 36 = 81`, roll 1.03 → 83.
+Bram at Lv 20 has 182 max HP, so one Mendmore is 46% of his bar — always worth a turn, never a full top-up.
 
 ### 1.8 Turn order
 Rolled fresh every round:
@@ -123,12 +124,12 @@ p += 0.25 * failedFleeAttemptsThisBattle
 if failedFleeAttemptsThisBattle >= 2: p = 1.0        // the third try ALWAYS works
 ```
 A failed flee costs the party's turn but the enemy attacks at **×0.75 damage** that round ("you were already
-half out of the door"). Bosses refuse flight with a joke rather than a rule ("*Grandhollow plants himself in the
+half out of the door"). Bosses refuse flight with a joke rather than a rule ("*Bogwallop plants himself in the
 doorway with the calm of a man who has nowhere else to be.*") — and every boss room has a **Retreat Bell** on a
 plinth outside it, a free reusable item that walks you back to the church. **No child is ever locked in a room
 with a boss they cannot beat.**
 
-**Worked example.** Party avg Agi 26 vs. two Bogling (Agi 11). `p = 0.55 + 0.40*(26/37) = 0.83`. Fails once →
+**Worked example.** Party avg Agi 26 vs. two Grumbleglops (Agi 9). `p = 0.55 + 0.40*(26/35) = 0.85`. Fails once →
 next attempt 1.00. Practically: *running away always works within two tries*.
 
 ---
@@ -136,7 +137,7 @@ next attempt 1.00. Practically: *running away always works within two tries*.
 ## 2. Levels 1 to 30 — the curve and six growth personalities
 
 ### 2.1 One shared EXP table
-All six characters share **one** table. This is a deliberate departure from the reference: separate tables
+Every family member (Bram, Willow, Sera, Barty, Rowan, Linnet, Queen Elowen) shares **one** table. This is a deliberate departure from the reference: separate tables
 produce a lagging character, and a lagging character produces a stuck child.
 
 | Lv | Total EXP | To next | Lv | Total EXP | To next | Lv | Total EXP | To next |
@@ -153,14 +154,14 @@ produce a lagging character, and a lagging character produces a stuck child.
 | 10 | 840 | 330 | 20 | 10,950 | 2,350 | 30 | 59,000 | — |
 
 **The catch-up rule (invisible, essential).** A party member whose level is 3+ below the party's highest earns
-**×2 EXP**; 6+ below earns **×3**. This is what lets Tam and Ellie join late and be useful in one dungeon, and
+**×2 EXP**; 6+ below earns **×3**. This is what lets Rowan and Linnet join late and be useful in one dungeon, and
 what stops "the character Rosie never puts in the front line" from becoming dead weight.
 
 **Level 30 is the ceiling for the main story.** The final boss is tuned for a party at **Lv 26–28**. Reaching 30
 is a reward for the curious, not a requirement.
 
 ### 2.2 How to read the growth tables
-Each character is defined by **anchor stats** at levels 1, 5, 10, 15, 20, 25, 30 (Nettle also at 18).
+Each character is defined by **anchor stats** at levels 1, 5, 10, 15, 20, 25, 30 (Sera also at 18).
 ```
 stat(L) = round( lerp(anchorBelow, anchorAbove, t) )     // t = (L - Lbelow)/(Labove - Lbelow)
 gainAtLevel(L) = stat(L) - stat(L-1)                     // this is what the level-up window prints
@@ -168,7 +169,7 @@ gainAtLevel(L) = stat(L) - stat(L-1)                     // this is what the lev
 Half rounds up. This is deterministic — **no random stat gains**, because a child who rolls badly and a child
 who rolls well must not end up with different games. What varies is *which* stats jump, and that is authored.
 
-### 2.3 Alder — *the Steady Oak* (the hero)
+### 2.3 Bram — *the Steady Oak* (the hero)
 Balanced, no bad levels, no offensive magic, the best HP-to-usefulness ratio in the game, and a real power
 spike from 24 onward when his Might curve steepens. Sword and shield. He heals; he does not blast.
 
@@ -193,9 +194,9 @@ spike from 24 onward when his Might curve steepens. Sword and shield. He heals; 
 | 15 | 128 | 40 | 52 | 38 | 49 | 32 | 31 || 30 | 320 | 118 | 124 | 80 | 112 | 80 | 64 |
 
 ### 2.4 The other five — anchors
-**Wynn Applegarth — *the Firecracker*.** Childhood friend, red plaits, whip and boomerang, fire magic and one
-heal. Front-loaded: for the whole of chapter one she is *better than you*, and she never quite stops being
-proud of that. Flattens hard after 20 — she stays the fastest, but Tam overtakes her damage at 22.
+**Willow Pye — *the Firecracker*.** Childhood friend, straw-blonde plait, whip and boomerang, fire magic and one
+heal. Front-loaded: from the moment she joins she is *better than you*, and she never quite stops being
+proud of that. Flattens hard after 20 — she stays the fastest, but Rowan overtakes her damage at 22.
 
 | Lv | 1 | 5 | 10 | 15 | 20 | 25 | 30 |
 |---|---|---|---|---|---|---|---|
@@ -207,7 +208,7 @@ proud of that. Flattens hard after 20 — she stays the fastest, but Tam overtak
 | Wis | 9 | 22 | 40 | 55 | 67 | 77 | 85 |
 | Luck | 10 | 18 | 27 | 34 | 40 | 45 | 49 |
 
-**Nettle Quillon — *the Slow Bloom*.** The quiet noblewoman with the sharp tongue. Nearly useless until 15,
+**Sera Fairweather — *the Slow Bloom*.** The polite merchant's daughter who says the true thing nobody else will. Nearly useless until 15,
 then the best healer and the luckiest creature alive. Extra anchor at 18 to make the bloom feel like an event.
 
 | Lv | 1 | 5 | 10 | 15 | **18** | 20 | 25 | 30 |
@@ -220,7 +221,7 @@ then the best healer and the luckiest creature alive. Extra anchor at 18 to make
 | Wis | 11 | 22 | 36 | 54 | **66** | 80 | 106 | 132 |
 | Luck | 14 | 26 | 44 | 64 | **76** | 86 | 105 | 120 |
 
-**Bosco Pentola — *the Boulder*.** The family cook who is somehow also seven feet of retired guardsman. Axes
+**Barty Marrow — *the Boulder*.** The family cook who is somehow also a retired palace guard of Ambergarde: four foot eleven and made of granite. Axes
 and clubs, zero magic forever, the highest HP and Defence in the game, and the slowest turn. He is the
 character Rosie will pick, and he is designed so that picking him is never wrong.
 
@@ -234,7 +235,7 @@ character Rosie will pick, and he is designed so that picking him is never wrong
 | Wis | 2 | 3 | 5 | 7 | 9 | 11 | 13 |
 | Luck | 5 | 8 | 12 | 16 | 20 | 24 | 28 |
 
-**Tam — *the Prodigy*.** Your son. Joins at Lv 1 in chapter three and, with the catch-up rule, is level-parity
+**Rowan — *the Prodigy*.** Your son; the only one who can draw the Larksteel Sword. Joins at Lv 1 in Act III (B20) and, with the catch-up rule, is level-parity
 inside one dungeon. Grows fast in *everything* — the deliberately overpowered character Ivo will find and love.
 His only weakness is that he grows into it late enough not to trivialise the middle game.
 
@@ -248,7 +249,7 @@ His only weakness is that he grows into it late enough not to trivialise the mid
 | Wis | 8 | 21 | 40 | 60 | 82 | 105 | 128 |
 | Luck | 9 | 16 | 25 | 34 | 43 | 52 | 61 |
 
-**Elowen "Ellie" — *the Kite*.** Your daughter. Made of paper and lightning. Biggest MP and Wisdom in the game
+**Linnet — *the Kite*.** Your daughter. Made of paper and lightning. Biggest MP and Wisdom in the game
 by a distance; HP so low that one bad turn worries you. She is where the *tactics* live for a twelve-year-old.
 
 | Lv | 1 | 5 | 10 | 15 | 20 | 25 | 30 |
@@ -261,80 +262,103 @@ by a distance; HP so low that one bad turn worries you. She is where the *tactic
 | Wis | 14 | 32 | 58 | 86 | 116 | 148 | 182 |
 | Luck | 11 | 19 | 29 | 38 | 47 | 55 | 63 |
 
-**Guest: Sir Corin Oakenshaw** (Alder's father, chapter one). Does not level and cannot be equipped. Fixed:
-HP 260, MP 40, Might 78, Nimble 40, Resil 70, Wis 45, Luck 30. He one-shots everything in chapter one on
-purpose — chapter one is about walking beside someone enormous and safe, and about what it costs when he goes.
+**Guest: Sir Halvard Bellwether** (Bram's father, Act I, B3–B9). Does not level and cannot be equipped. Fixed:
+HP 260, MP 40, Might 78, Nimble 40, Resil 70, Wis 45, Luck 30. He one-shots everything in Act I on
+purpose — Act I is about walking beside someone enormous and safe, and about what it costs when he goes.
+
+**Other guests** (fight, never level, cannot be equipped): **Willow** and **Sera as children** in Cobwell Manor
+(B6) use their own Lv 3 row; **Prince Bertie** (B10–B11) is fixed at HP 90, MP 0, Might 30, Nimble 12, Resil 34,
+Wis 8, Luck 40 and mostly hides behind his shield; **Willow** grown is a guest for the Sighing Grotto (B15) at the
+party's level.
+
+**Queen Elowen** (joins B24 at the party's level) — *the Lantern*. Sera-shaped but steeper: Lv 20 anchors HP 110,
+MP 150, Might 20, Nimble 50, Resil 40, Wis 120, Luck 70; Lv 30 anchors HP 170, MP 240, Might 28, Nimble 66, Resil
+56, Wis 170, Luck 90. Learns every healing spell on joining.
+
+**The bride.** Only the chosen bride (`ch2.bride`) is a full party member, from B17 to B19 and again after B26.
+Both brides' tables stay in the build because the player picks one. **Mother's gift to the twins:** Willow's
+children learn the Scorcha line 3 levels earlier and Rowan learns Whistle Down at 10; Sera's children learn the
+Mend line 3 levels earlier and Linnet learns Rouse at 16.
+
+**Monster friends by story:** Bobble (Plodder template, joins B3 at Lv 1, rejoins B11 at the party's level),
+Pip (Sprite, joins B6, rejoins B11b), Digby (Brute, B10). The quarry keeps nobody's things: the Order locks the
+party's bag in a strongbox that Digby digs up on the way out (B10), so nothing a child earned in Act I is lost.
 
 ### 2.5 Monster companions
-Recruited monsters (piece P17) use one of four growth templates — **Brute** (Bosco-shaped), **Sprite**
-(Wynn-shaped), **Wisp** (Ellie-shaped), **Plodder** (flat, huge HP). Each recruit gets `anchors = template ×
+Recruited monsters (piece P17) use one of four growth templates — **Brute** (Barty-shaped), **Sprite**
+(Willow-shaped), **Wisp** (Linnet-shaped), **Plodder** (flat, huge HP). Each recruit gets `anchors = template ×
 species multiplier (0.7–1.3)` and a personal cap between Lv 20 and Lv 30. Full roster lives in P17's own doc;
 the rule that matters here is: **a recruited monster is never better than the family member it displaces.**
 
 ---
 
-## 3. Spells — 26 of them
+## 3. Spells — 28 of them (names are canon: CANON.md §7)
 
 Notation: **MP** cost, **T** tier, target, learner and level. `k` is the Wisdom coefficient from §1.6/§1.7.
 
 ### Attack
 | Spell | MP | T | Effect | Target | Learned by |
 |---|---|---|---|---|---|
-| **Flick** | 2 | 1 | Fire. base 8, k 0.35 | 1 enemy | Wynn 3, Ellie 2, Tam 6 |
-| **Flicker** | 4 | 2 | Fire. base 22, k 0.42 | 1 enemy | Wynn 11, Ellie 9, Tam 13 |
-| **Kaflick** | 10 | 3 | Fire. base 55, k 0.60 | 1 enemy | Ellie 19, Tam 24 |
-| **Whiffle** | 3 | 1 | Wind. base 6, k 0.28 | all enemies | Wynn 7, Ellie 5 |
-| **Whiffler** | 6 | 2 | Wind. base 16, k 0.36 | all enemies | Wynn 16, Ellie 14 |
-| **Kawhiffle** | 14 | 3 | Wind. base 34, k 0.48 | all enemies | Ellie 23, Tam 27 |
-| **Nip** | 3 | 1 | Ice. base 10, k 0.30 | 1 enemy | Ellie 7, Tam 10 |
-| **Nipper** | 8 | 2 | Ice. base 20, k 0.42 | all enemies | Ellie 15, Tam 19 |
-| **Kanip** | 16 | 3 | Ice. base 40, k 0.55 | all enemies | Ellie 22, Tam 29 |
-| **Zizzle** | 20 | 4 | Lightning, ignores half of MDEF. base 60, k 0.70 | all enemies | Ellie 28 |
+| **Scorcha** | 2 | 1 | Fire. base 8, k 0.35 | 1 enemy | Willow 3, Linnet 2, Rowan 6 |
+| **Scorchalot** | 4 | 2 | Fire. base 22, k 0.42 | 1 enemy | Willow 11, Linnet 9, Rowan 13 |
+| **Kascorcha** | 10 | 3 | Fire. base 55, k 0.60 | 1 enemy | Linnet 19, Rowan 24 |
+| **Whiffle** | 3 | 1 | Wind. base 6, k 0.28 | all enemies | Willow 7, Linnet 5 |
+| **Whiffler** | 6 | 2 | Wind. base 16, k 0.36 | all enemies | Willow 16, Linnet 14 |
+| **Kawhiffle** | 14 | 3 | Wind. base 34, k 0.48 | all enemies | Linnet 23, Rowan 27 |
+| **Nip** | 3 | 1 | Ice. base 10, k 0.30 | 1 enemy | Linnet 7, Rowan 10 |
+| **Nipper** | 8 | 2 | Ice. base 20, k 0.42 | all enemies | Linnet 15, Rowan 19 |
+| **Kanip** | 16 | 3 | Ice. base 40, k 0.55 | all enemies | Linnet 22, Rowan 29 |
+| **Zapple** | 8 | 3 | Lightning, ignores half of MDEF. base 45, k 0.55 | 1 enemy | Rowan 18 |
+| **Kazapple** | 20 | 4 | Lightning, ignores half of MDEF. base 60, k 0.70 | all enemies | Rowan 27, Linnet 28 |
 
 ### Healing
 | Spell | MP | T | Effect | Target | Learned by |
 |---|---|---|---|---|---|
-| **Mend** | 2 | 1 | Heal. base 18, k 0.30 | 1 ally | Alder 4, Nettle 1, Wynn 8, Tam 4 |
-| **Mendmore** | 5 | 2 | Heal. base 45, k 0.45 | 1 ally | Alder 14, Nettle 9, Tam 15 |
-| **Mendall** | 12 | 3 | Heal. base 35, k 0.35 | all allies | Nettle 20, Alder 26 |
-| **Fullmend** | 9 | 3 | Restore to full HP | 1 ally | Nettle 24 |
-| **Rouse** | 8 | 3 | Revive a worn-out ally at 50% HP. **Always works.** | 1 fallen ally | Alder 18, Nettle 16 |
+| **Mend** | 2 | 1 | Heal. base 18, k 0.30 | 1 ally | Bram 4, Sera 1, Willow 8, Rowan 4 |
+| **Mendmore** | 5 | 2 | Heal. base 45, k 0.45 | 1 ally | Bram 14, Sera 9, Rowan 15 |
+| **Mendall** | 12 | 3 | Heal. base 35, k 0.35 | all allies | Sera 20, Bram 26 |
+| **Fullmend** | 9 | 3 | Restore to full HP | 1 ally | Sera 24 |
+| **Rouse** | 8 | 3 | Revive a worn-out ally at 50% HP. **Always works.** | 1 fallen ally | Bram 18, Sera 16 |
 
 ### Support
 | Spell | MP | T | Effect | Target | Learned by |
 |---|---|---|---|---|---|
-| **Sweeten** | 2 | 1 | Cures poison. Usable on the field. | 1 ally | Nettle 3, Alder 7 |
-| **Unbind** | 4 | 2 | Cures sleep, dazzle, paralysis, confusion | 1 ally | Nettle 11, Wynn 13 |
-| **Bolster** | 4 | 2 | DEF ×1.25, 5 rounds, stacks twice (×1.5 max) | all allies | Nettle 6, Alder 12 |
-| **Bluster** | 5 | 2 | ATK ×1.25, 5 rounds, stacks twice | all allies | Alder 16, Bosco *(as a shout, no MP — Lv 20)* |
-| **Dither** | 3 | 1 | DEF ×0.75 on one enemy, 6 rounds. Lands 90% on normals, 55% on bosses | 1 enemy | Wynn 5, Ellie 11 |
+| **Sweeten** | 2 | 1 | Cures poison. Usable on the field. | 1 ally | Sera 3, Bram 7 |
+| **Wakey** | 4 | 2 | Cures sleep, dazzle, paralysis, confusion | 1 ally | Sera 11, Willow 13 |
+| **Bolster** | 4 | 2 | DEF ×1.25, 5 rounds, stacks twice (×1.5 max) | all allies | Sera 6, Bram 12 |
+| **Bluster** | 5 | 2 | ATK ×1.25, 5 rounds, stacks twice | all allies | Bram 16, Barty *(as a shout, no MP — Lv 20)* |
+| **Wobble** | 3 | 1 | DEF ×0.75 on one enemy, 6 rounds. Lands 90% on normals, 55% on bosses | 1 enemy | Willow 5, Linnet 11 |
 
 ### Control
 | Spell | MP | T | Effect | Target | Learned by |
 |---|---|---|---|---|---|
-| **Lullaby** | 4 | 2 | Sleep 2–4 rounds. Land = `0.55 + (caster.Luck - target.Res)/120`, clamp 0.15–0.85. Wakes on damage. | all enemies | Nettle 13, Wynn 18 |
-| **Tanglefoot** | 5 | 2 | Roots one enemy: it cannot act 1–3 rounds. Bosses: 1 round, max once per battle. | 1 enemy | Wynn 21, Tam 17 |
+| **Snoozle** | 4 | 2 | Sleep 2–4 rounds. Land = `0.55 + (caster.Luck - target.Res)/120`, clamp 0.15–0.85. Wakes on damage. | all enemies | Sera 13, Willow 18 |
+| **Tanglefoot** | 5 | 2 | Roots one enemy: it cannot act 1–3 rounds. Bosses: 1 round, max once per battle. | 1 enemy | Willow 21, Rowan 17 |
 
 ### Field & utility
 | Spell | MP | T | Effect | Target | Learned by |
 |---|---|---|---|---|---|
-| **Scarper** | 4 | 2 | Leave a normal battle instantly, no roll | party | Wynn 15, Ellie 17 |
-| **Homeward** | 8 | 3 | Field only. Warp to any church already visited (pick from a list). | party | Alder 21, Nettle 22 |
-| **Lanternlight** | 3 | 1 | Field only. Lights a dark cave for 250 steps; the light dims visibly at 50 steps left. | party | Wynn 9, Ellie 6 |
-| **Sniff** | 2 | 1 | Field only. A little gold arrow points at the nearest unopened container within 40 tiles for 8 s. | party | Nettle 8, Tam 12 |
+| **Scarper** | 4 | 2 | Leave a normal battle instantly, no roll | party | Willow 15, Linnet 17 |
+| **Homeward** | 8 | 3 | Field only. Warp to any church already visited (pick from a list). | party | Bram 21, Sera 22 |
+| **Lanternlight** | 3 | 1 | Field only. Lights a dark cave for 250 steps; the light dims visibly at 50 steps left. | party | Willow 9, Linnet 6 |
+| **Sniff** | 2 | 1 | Field only. A little gold arrow points at the nearest unopened container within 40 tiles for 8 s. | party | Sera 8, Rowan 12 |
+| **Whistle Down** | 3 | 2 | Field only. Willow whistles and the monsters keep their heads down: encounter counter ×0.5 for 200 steps (does not stack with Whiff Powder). | party | Willow 10; Rowan 10 if his mother is Willow |
+
+**Mother's gift** (see §2.4): Willow's children learn Scorcha, Scorchalot and Kascorcha 3 levels earlier than listed;
+Sera's children learn Mend, Mendmore and Mendall 3 levels earlier, and Linnet learns Rouse at 16.
 
 ### 3.1 VFX and sound briefs (for P20 / `src/art/fx.js`)
-- **Flick / Flicker / Kaflick.** A tiny orange pip flies from the caster's palm and *pops* into a flat, hand-drawn
+- **Scorcha / Scorchalot / Kascorcha.** A tiny orange pip flies from the caster's palm and *pops* into a flat, hand-drawn
   flame cluster on the target — 3 keyframes of billboarded flame with a black cel outline, 260/380/520 ms per
-  tier. Kaflick adds a full-screen warm orange wash at 25% for 120 ms and a 4 px shake. Sound: a rising
-  filtered-noise *whoosh* into a low resonant *whump*; Kaflick adds a brass stab.
+  tier. Kascorcha adds a full-screen warm orange wash at 25% for 120 ms and a 4 px shake. Sound: a rising
+  filtered-noise *whoosh* into a low resonant *whump*; Kascorcha adds a brass stab.
 - **Whiffle line.** Curved white speed-crescents sweep across the whole enemy line left→right, 5 arcs staggered
   60 ms. The backdrop scrolls 12 px against the sweep. Sound: airy noise sweep with a pitch bend up, plus paper
   rustle. Kawhiffle tears three visible slashes in the air that hang for 200 ms before snapping shut.
 - **Nip line.** Six-pointed flat snow-crystals bloom outward and shatter into shards that fall and fade. Palette
   goes 8% blue for 200 ms. Sound: glass chime + a crisp *crack*. Kanip freezes the whole backdrop pale blue for
   300 ms with frost creeping in from the screen corners.
-- **Zizzle.** Screen goes white for 60 ms, then three jagged 4 px-wide lightning polylines drawn top-to-bottom
+- **Zapple / Kazapple.** Screen goes white for 60 ms, then three jagged 4 px-wide lightning polylines drawn top-to-bottom
   in 90 ms each, thunder rolling underneath. The only spell that stops the music for one bar.
 - **Mend / Mendmore / Mendall / Fullmend.** Soft green motes spiral *upward* around the target and a warm ring
   expands from their feet. Number pops green with a `+`. Sound: a rising harp arpeggio (3, 5, 7 notes by tier);
@@ -343,9 +367,9 @@ Notation: **MP** cost, **T** tier, target, learner and level. `k` is the Wisdom 
   stretch, and look embarrassed. Sound: a single struck bell, then the family theme's first four notes.
 - **Bolster / Bluster.** A translucent shield-shape (Bolster, blue) or a clenched fist glyph (Bluster, orange)
   flashes over each ally and shrinks into their chest. Sound: two-note ascending brass.
-- **Dither.** A grey wash drips down the enemy sprite; it visibly slumps 3 px. Sound: a descending trombone
+- **Wobble.** A grey wash drips down the enemy sprite; it visibly slumps 3 px. Sound: a descending trombone
   *wah-wah*. Ivo will use this on every boss; that is correct.
-- **Lullaby.** Pink musical notes drift up; sleeping enemies get "Zzz" that bob. Sound: a music-box lullaby, 4
+- **Snoozle.** Pink musical notes drift up; sleeping enemies get "Zzz" that bob. Sound: a music-box tinkle, 4
   bars. **Tanglefoot.** Green vines whip up from the battle floor and knot round the target's feet.
 - **Lanternlight.** A warm circular gradient mask over the dark-cave shader, radius 6 tiles, flickering ±4%.
 - **Homeward.** The party rises off the ground spinning, compresses to a point of light, *pop*. 1,400 ms.
@@ -361,71 +385,77 @@ Prices are the **buy** price. Sell price is `floor(buy * 0.5)`. Nothing in the g
 |---|---|---|---|
 | Herb | 8 | Heal 30 HP | Everywhere, all game. Common drop (18%). |
 | Strong Herb | 32 | Heal 80 HP | Port Pelican onward |
-| Fresh Herb | 110 | Heal 200 HP | Coldkettle onward |
-| Nutcake | 14 | Restore 12 MP | Barleymow onward. Bosco eats one if you leave it in the bag too long — a joke, no loss. |
-| Honeycake | 60 | Restore 40 MP | Marrowgate onward |
+| Fresh Herb | 110 | Heal 200 HP | Coldcomfort onward |
+| Nutcake | 14 | Restore 12 MP | Saltmarrow onward. Barty eats one if you leave it in the bag too long — a joke, no loss. |
+| Honeycake | 60 | Restore 40 MP | Marbleford onward |
 | Antidote Drop | 10 | Cures poison | Everywhere |
-| Wake-me-up | 12 | Cures sleep/dazzle | Havenbrook onward |
-| Angel's Kiss | 180 | Revives one ally at half HP | Churches and Marrowgate |
+| Wake-me-up | 12 | Cures sleep/dazzle | Puddlewick onward |
+| Angel's Kiss | 180 | Revives one ally at half HP | Churches and Marbleford |
 | Retreat Bell | — | Reusable. Leave any dungeon, including a boss room. **Cannot be lost or sold.** | One outside every boss door |
-| Chimaera Feather | 40 | Field: warp to the last church visited | Port Pelican onward |
-| Whiff Powder | 25 | Halves the encounter counter rate for 200 steps | Shops from Saltmarsh onward |
-| Sunbottle | 90 | Battle: 60 fire damage to all enemies. Anyone can use it. | Chests; sold in Grandhollow's black-market stall |
+| Homing Feather | 40 | Field: warp to the last church visited | Port Pelican onward |
+| Whiff Powder | 25 | Halves the encounter counter rate for 200 steps | Shops from Port Pelican onward |
+| Sunbottle | 90 | Battle: 60 fire damage to all enemies. Anyone can use it. | Chests; sold out of a sack by a runaway Quietling in Whistfell Abbey |
 
 ### 4.2 Weapons (13)
 | Weapon | Power | Buy | Who | Where |
 |---|---|---|---|---|
-| Cypress Stick | +4 | 10 | anyone | Havenbrook |
-| Sling | +7 | 55 | Wynn, Ellie | Havenbrook |
-| Copper Sword | +11 | 70 | Alder, Tam | Havenbrook |
-| Kitchen Cleaver | +14 | 120 | Bosco | Barleymow *(he is delighted)* |
-| Oak Boomerang | +16, **hits all enemies at 65% power** | 220 | Wynn | Barleymow |
-| Chain Whip | +22, hits all at 75% | 300 | Wynn, Nettle | Port Pelican |
-| Iron Lance | +28 | 480 | Alder, Tam, Bosco | Port Pelican |
-| Steel Sword | +35 | 900 | Alder, Tam | Castle Marrowgate |
-| Woodcutter's Axe | +41, −4 Nimble | 1,150 | Bosco | Castle Marrowgate |
-| Ash Staff | +18, **+12 Wisdom** | 700 | Nettle, Ellie | Marrowgate |
-| Frostbite Sabre | +48, ice damage +25% | 2,400 | Alder, Tam | Coldkettle Peaks |
-| Thunderfork | +54, 12% chance to stun 1 round | 3,600 | Bosco, Alder | Sunken Abbey |
-| **Heirloom Blade** | +66 | — | Alder only | Chapter three, the vault under Havenbrook. The story weapon. |
+| Cypress Stick | +4 | 10 | anyone | Puddlewick |
+| Sling | +7 | 55 | Willow, Linnet | Puddlewick |
+| Copper Sword | +11 | 70 | Bram, Rowan | Puddlewick |
+| Kitchen Cleaver | +14 | 120 | Barty | Saltmarrow *(he is delighted)* |
+| Oak Boomerang | +16, **hits all enemies at 65% power** | 220 | Willow | Saltmarrow |
+| Chain Whip | +22, hits all at 75% | 300 | Willow, Sera | Port Pelican |
+| Iron Lance | +28 | 480 | Bram, Rowan, Barty | Port Pelican |
+| Steel Sword | +35 | 900 | Bram, Rowan | Marbleford |
+| Woodcutter's Axe | +41, −4 Nimble | 1,150 | Barty | Marbleford |
+| Ash Staff | +18, **+12 Wisdom** | 700 | Sera, Linnet | Marbleford |
+| Frostbite Sabre | +48, ice damage +25% | 2,400 | Bram, Rowan | Coldcomfort |
+| Thunderfork | +54, 12% chance to stun 1 round | 3,600 | Barty, Bram | Highfeather |
+| **Halvard's Greatsword** | +66 | — | Bram only | Act III, B20, by the plinth in the Stone Garden. Bram's story weapon. |
+| **Larksteel Sword** | +74, lightning damage +25% | — | Rowan only | Act III, B21, drawn from the stone in Ambergarde Keep. |
 
 ### 4.3 Armour (10)
 | Armour | DEF | Buy | Notes | Where |
 |---|---|---|---|---|
-| Wayfarer's Clothes | +4 | 20 | starting gear | Havenbrook |
-| Quilted Coat | +9 | 90 | +2 Resilience | Barleymow |
-| Leather Jerkin | +15 | 210 | | Barleymow |
-| Cook's Apron | +18 | 260 | Bosco only; +10 max HP | Port Pelican |
+| Wayfarer's Clothes | +4 | 20 | starting gear | Puddlewick |
+| Quilted Coat | +9 | 90 | +2 Resilience | Saltmarrow |
+| Leather Jerkin | +15 | 210 | | Saltmarrow |
+| Cook's Apron | +18 | 260 | Barty only; +10 max HP | Port Pelican |
 | Chain Mail | +24 | 560 | −2 Nimble | Port Pelican |
-| Silk Robe | +19 | 640 | +8 MDEF; mages only | Marrowgate |
-| Iron Armour | +33 | 1,100 | −4 Nimble | Marrowgate |
-| Fur Cloak | +38 | 1,900 | Halves ice damage | Coldkettle |
-| Gleaming Plate | +47 | 3,200 | −5 Nimble | Sunken Abbey |
-| **Mother's Shawl** | +30 | — | +20 MDEF, immune to fear. Given, not bought. | Chapter three |
+| Silk Robe | +19 | 640 | +8 MDEF; mages only | Marbleford |
+| Iron Armour | +33 | 1,100 | −4 Nimble | Marbleford |
+| Fur Cloak | +38 | 1,900 | Halves ice damage | Coldcomfort |
+| Gleaming Plate | +47 | 3,200 | −5 Nimble | Highfeather |
+| **Elowen's Shawl** | +30 | — | +20 MDEF, immune to fear. Given, not bought. | Act III, B24 |
+| **Larkweave Cloak** | +40 | — | +30 MDEF, halves all spell damage. Linnet only. | Act III, B23, Highfeather |
 
 ### 4.4 Shields (5) and Helms (4)
 | Piece | DEF | Buy | Where |
 |---|---|---|---|
-| Pot Lid | +3 | 25 | Havenbrook (it is a pot lid; Bosco wants it back) |
-| Leather Shield | +8 | 130 | Barleymow |
+| Pot Lid | +3 | 25 | Puddlewick (it is a pot lid; Barty wants it back) |
+| Leather Shield | +8 | 130 | Saltmarrow |
 | Iron Shield | +16 | 480 | Port Pelican |
-| Mirror Shield | +25 | 1,700 | Marrowgate; reflects Dither and Lullaby back at the caster |
-| Dragon-scale Shield | +34 | 4,000 | Sunken Abbey; halves fire |
-| Straw Hat | +2 | 18 | Havenbrook |
-| Leather Cap | +6 | 95 | Barleymow |
-| Iron Helm | +14 | 620 | Marrowgate |
-| Crown of Quiet | +21 | 2,600 | Coldkettle; immune to sleep |
+| Mirror Shield | +25 | 1,700 | Marbleford; reflects Wobble and Snoozle back at the caster |
+| Dragon-scale Shield | +34 | 4,000 | Highfeather; halves fire |
+| Straw Hat | +2 | 18 | Puddlewick |
+| Leather Cap | +6 | 95 | Saltmarrow |
+| Iron Helm | +14 | 620 | Marbleford |
+| Wide-Awake Crown | +21 | 2,600 | Coldcomfort; immune to sleep |
+| **Larksteel Shield** | +38 | — | Rowan only; halves fire and ice. Act III, Glasswing Grotto |
+| **Larksteel Helm** | +26 | — | Rowan only; immune to confusion. Wedding gift, B17 |
 
 ### 4.5 Accessories (4)
 | Piece | Effect | Buy | Where |
 |---|---|---|---|
-| Lucky Acorn | +8 Luck | 300 | Barleymow's odd little shop |
+| Lucky Acorn | +8 Luck | 300 | Saltmarrow's odd little shop |
 | Swiftfoot Anklet | +10 Nimble | 900 | Port Pelican |
-| Ring of Patience | MP regen +2 per round in battle | 2,200 | Marrowgate |
-| Kitten's Bell | Encounter rate ×0.65. **A gift from the kitten you saved in chapter one.** | — | Story |
+| Ring of Patience | MP regen +2 per round in battle | 2,200 | Marbleford |
+| Pip's Bell | Encounter rate ×0.65. **Pip's outgrown kitten bell, dropped at Bram's feet when Pip comes home (B11b).** | — | Story |
+| Charm Bell | Monster befriending ×1.5 (MONSTER §7) | — | Optional, Bellhollow Belfry (Act II) |
+| Sock of Considerable Power | +12 Luck, +6 Nimble, and the wearer hums | — | Find all eleven socks |
 
-The Kitten's Bell is the single most important item in the build. It is the "I want to look at the pretty world
-without fighting" button, and a child earns it by being kind to an animal in the first hour.
+Pip's Bell is the single most important item in the build. It is the "I want to look at the pretty world
+without fighting" button, and a child earns it by saving a kitten in the first hour and being remembered for it.
 
 ---
 
@@ -434,26 +464,27 @@ without fighting" button, and a child earns it by being kind to an animal in the
 **The contract:** *walking through an area once, opening the chests you happen across, and losing no battles
 leaves you able to buy the next area's best weapon plus a full set of Herbs, with 20–40% left over.*
 Grinding is therefore never required, and the game never rewards it much either: monster gold has a hard
-per-species cap, so re-fighting Puddleslimes at Lv 20 is boring by design.
+per-species cap, so re-fighting Gloops at Lv 20 is boring by design.
 
 | Leg | Area | Battles walking through | Gold/battle | Battle gold | Chest gold | Running purse | Big buy at the end | Price | Left over |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | Havenbrook meadows | 10 | 4–8 (6) | 60 | 25 | 115 *(start 30)* | Copper Sword | 70 | 45 |
-| 2 | The Hollowing Wood | 12 | 8–14 (11) | 132 | 80 | 257 | Quilted Coat + Herbs | 90+24 | 143 |
-| 3 | Widdershin Tower | 14 | 14–22 (18) | 252 | 150 | 545 | Oak Boomerang | 220 | 325 |
-| 4 | Coast Road → Port Pelican | 13 | 22–34 (28) | 364 | 180 | 869 | Chain Whip | 300 | 569 |
-| 5 | Saltmarsh Caves | 15 | 34–50 (42) | 630 | 320 | 1,519 | Iron Lance + Iron Shield | 480+480 | 559 |
-| 6 | Marrowgate Downs | 14 | 55–80 (66) | 924 | 400 | 1,883 | Steel Sword | 900 | 983 |
-| 7 | Glimmering Wastes | 16 | 90–130 (108) | 1,728 | 700 | 3,411 | Iron Armour + Mirror Shield | 1,100+1,700 | 611 |
-| 8 | Coldkettle Peaks | 15 | 140–200 (168) | 2,520 | 1,100 | 4,231 | Frostbite Sabre | 2,400 | 1,831 |
-| 9 | The Sunken Abbey | 16 | 210–290 (248) | 3,968 | 1,600 | 7,399 | Gleaming Plate + Thunderfork | 3,200+3,600 | 599 |
-| 10 | Grandhollow Keep | 18 | 300–420 (355) | 6,390 | 2,400 | 9,389 | Dragon-scale Shield, spares | 4,000 | 5,389 |
+| 1 | Puddlewick Vale & the Long Lane (Act I) | 10 | 4–8 (6) | 60 | 25 | 115 *(start 30)* | Copper Sword | 70 | 45 |
+| 2 | Saltmarrow Coast & the Whispering Wood | 12 | 8–14 (11) | 132 | 80 | 257 | Quilted Coat + Herbs | 90+24 | 143 |
+| 3 | Cobwell Manor & Coddleston Downs | 14 | 14–22 (18) | 252 | 150 | 545 | Oak Boomerang | 220 | 325 |
+| 4 | The Whistling Caves & the Frittering Sands (Act II) | 13 | 22–34 (28) | 364 | 180 | 869 | Chain Whip | 300 | 569 |
+| 5 | Pelican Coast → Port Pelican | 15 | 34–50 (42) | 630 | 320 | 1,519 | Iron Lance + Iron Shield | 480+480 | 559 |
+| 6 | Marbleford Downs | 14 | 55–80 (66) | 924 | 400 | 1,883 | Steel Sword | 900 | 983 |
+| 7 | The Sighing Grotto & the road to Ambergarde | 16 | 90–130 (108) | 1,728 | 700 | 3,411 | Iron Armour + Mirror Shield | 1,100+1,700 | 611 |
+| 8 | The Frostbottom & the Glasswing Grotto (Act III) | 15 | 140–200 (168) | 2,520 | 1,100 | 4,231 | Frostbite Sabre | 2,400 | 1,831 |
+| 9 | Highfeather | 16 | 210–290 (248) | 3,968 | 1,600 | 7,399 | Gleaming Plate + Thunderfork | 3,200+3,600 | 599 |
+| 10 | Whistfell Abbey & the Quiet Deep | 18 | 300–420 (355) | 6,390 | 2,400 | 9,389 | Dragon-scale Shield, spares | 4,000 | 5,389 |
 
 Supporting rules:
 - **Inns cost `12 × partyLevel` gold**, rounded to the nearest 5. Always affordable, always a real decision
   early, never a real decision late. **Church healing and revival are free.** (The reference charges; children
   should not be taxed for a mistake.)
-- **The Bank of Barleymow** stores gold in units of 100 and is unaffected by defeat. Ivo will discover this and
+- **The Bank** (counters in Saltmarrow, Port Pelican, Marbleford and Ambergarde) stores gold in units of 100 and is
+  unaffected by defeat. Ivo will discover this and
   feel like a genius; that is the intended lesson, not a punishment for Rosie who never uses it.
 - **Sell-back is generous on outgrown gear only**: any weapon or armour two tiers below your current best sells
   at 65% instead of 50%, so upgrading never feels like burning money.
@@ -491,10 +522,10 @@ text anywhere in the build. The word does not appear in `src/data/strings.js`.
 ### 6.3 Bosses telegraph
 Every boss has exactly one **Big Attack**, and it always arrives with a full round of warning:
 - **The wind-up turn.** The boss spends its action on a visible tell: it rears up / draws breath / the sky
-  darkens / its weapon starts to glow. A line of text names it plainly — *"Old Grumbletusk hauls in a breath
-  that rattles the whole cave."* A red chevron appears above its head and pulses at 2 Hz. The battle music
+  darkens / its weapon starts to glow. A line of text names it plainly — *"The Tidewarden hauls in a breath
+  that rattles the whole grotto."* A red chevron appears above its head and pulses at 2 Hz. The battle music
   drops to just percussion for that round.
-- **The payoff turn.** The Big Attack resolves. Damage is capped: `min(rolled, 0.55 * expectedMaxHPForChapter)`
+- **The payoff turn.** The Big Attack resolves. Damage is capped: `min(rolled, 0.55 * expectedMaxHPForAct)`
   and, the *first* time a given boss uses it in a given battle, additionally `min(rolled, 0.80 * currentHP)` per
   target — so the first Big Attack of any fight cannot knock anyone out.
 - After it fires, the boss cannot use it again for **3 rounds**, and the counter is visible as three small dots
@@ -534,7 +565,7 @@ never in any player-facing surface.**
 - Nothing in a normal encounter can deal more than **40% of a character's max HP** in one hit at the intended
   level for that area. Two hits in a row can hurt; three cannot happen without a warning round.
 - **Ivo's ceiling:** an optional monster arena in Port Pelican with five ranked challenges, no rubber band, no
-  telegraphs shortened, real difficulty, and a cosmetic prize (a hat for the wagon donkey). Optional difficulty
+  telegraphs shortened, real difficulty, and a cosmetic prize (a hat for Parsnip the cart-horse). Optional difficulty
   lives *outside* the story, never inside it.
 
 ---
@@ -552,7 +583,7 @@ Brisk is what Ivo will pick in hour three).
 | 120 | Field music ducks to 0 over 200 ms. |
 | 300 | Battle theme starts on the downbeat — it *never* fades in mid-bar. |
 | 520 | Backdrop for the current terrain is on screen. Monsters drop in from above with a 90 ms stagger and a small dust puff each, landing with an ease-out bounce. |
-| 760 | "**Two Puddleslimes and a Munchroom draw near!**" types into the message window at 38 glyphs/sec. |
+| 760 | "**Two Gloops and a Toadstooligan draw near!**" types into the message window at 38 glyphs/sec. |
 | 1,180 | Command window slides up from the bottom-left over 160 ms with a *thunk*. Cursor lands on **Attack** with a blip. **Player has control.** |
 
 Total: **1.2 s from bump to first input.** Anything slower and a child taps buttons into the void.
@@ -567,7 +598,7 @@ Total: **1.2 s from bump to first input.** Anything slower and a child taps butt
 | 320 | **The wind-up.** Weapon raises through 40° over 200 ms. Anticipation squash on the actor: 1.0 → 0.92 vertical. | cloth rustle |
 | 520 | **Contact.** Weapon arc completes in 90 ms. On the contact frame: white flash on the target at 70% alpha for 60 ms; a 3-frame hand-drawn slash streak; screen shake 4 px (crit: 6 px) for 180 ms; the target squashes to 0.85 and recoils 0.25 units. | *thwack* (crit: *shing–crunch*) |
 | 560 | **The number.** Damage pops at the target's head at 0.4× scale, springs to 1.15× over 120 ms, settles to 1.0×, floats up 22 px, holds, fades from 900 ms. Gold and 1.6× size on a crit. Target HP bar animates down over 260 ms, easing — never a snap. | — |
-| 620 | Message window prints "**Alder attacks! 17 damage to the Munchroom!**" at 38 glyphs/sec. Fully typed by ~1,180 ms. | per-glyph tick, ≤1 per 26 ms |
+| 620 | Message window prints "**Bram attacks! 17 damage to the Toadstooligan!**" at 38 glyphs/sec. Fully typed by ~1,180 ms. | per-glyph tick, ≤1 per 26 ms |
 | 700 | Actor steps back to their mark over 240 ms. Camera returns to neutral over 260 ms. | — |
 | 1,000 | If the target is at 0 HP: it flashes white, squashes flat, and *pops* into a puff of 8 soft particles over 320 ms. | *pop*, a little descending three-note flourish |
 | 1,400 | Hold. This pause is not dead time — it is where the hit lands emotionally. Do not remove it. | — |
@@ -591,8 +622,10 @@ resolves in about **10–12 seconds** on Normal.
 
 ## 8. Party and wagon rules
 
-- **Front line: 4.** Wagon: **up to 8 more**, family and monsters together. Anyone over 12 goes to the pen at
-  Barleymow farm, where they are visibly happy and can be visited.
+- **Front line: 4.** Wagon: **up to 8 more**, family and monsters together. Anyone over 12 goes to the paddock
+  at Hollybank Cottage in Puddlewick, where they are visibly happy and can be visited. **No wagon, no wild
+  friends:** before `ch2.wagon` (B12) the party is at most 4 and wild monsters cannot join (MONSTER §7). In Act I
+  Papa's wagon carries only the story party.
 - **Everyone in the wagon earns full EXP.** No benched character ever falls behind — combined with the catch-up
   rule in §2.1, the party is always within a couple of levels of itself.
 - **Swapping.** On the field: free, instant, from the party menu, with a satisfying shuffle animation of the
@@ -606,7 +639,7 @@ resolves in about **10–12 seconds** on Normal.
   whole strange family standing there looking at them.
 - **A knocked-out character** is carried (a small slumped follower model) and revives automatically to 1 HP on
   a map transition to any town, plus free full heal at any church. **Nobody stays broken.**
-- **Order matters mildly:** position 1 draws 35% of enemy attacks, positions 2–4 draw ~22% each. Put Bosco in
+- **Order matters mildly:** position 1 draws 35% of enemy attacks, positions 2–4 draw ~22% each. Put Barty in
   front and the game notices.
 
 ---
@@ -615,7 +648,7 @@ resolves in about **10–12 seconds** on Normal.
 
 Step-counter model, not per-step dice:
 ```
-counter += 1 * (running ? 1.15 : 1.00) * (KittensBell ? 0.65 : 1.00) * (WhiffPowder ? 0.5 : 1.0)
+counter += 1 * (running ? 1.15 : 1.00) * (PipsBell ? 0.65 : 1.00) * (WhiffPowder ? 0.5 : 1.0)
 threshold = triangular(min, mode, max) drawn fresh after every battle
 if counter >= threshold: encounter, counter = 0
 ```
@@ -652,7 +685,7 @@ vanishingly rare.
 |---|---|
 | 0.0 s | The last monster pops. Battle music cuts on the beat — a hard stop, not a fade. 200 ms of silence. |
 | 0.2 s | **Victory fanfare** begins: 7 bars of brass, the same 8 notes the game will use for every good thing that ever happens to this family. |
-| 0.4 s | Party members play `celebrate` — Alder raises the sword, Wynn punches the air, Bosco puts his hands on his hips and laughs, Nettle claps twice, Ellie does a small twirl, Tam copies whoever is next to him. |
+| 0.4 s | Party members play `celebrate` — Bram raises the sword, Willow punches the air, Barty puts his hands on his hips and laughs, Sera claps twice, Linnet does a small twirl, Rowan copies whoever is next to him. |
 | 0.9 s | Message window: "**Victory!**" |
 | 1.4 s | "**The party gains 84 experience points.**" The EXP number counts up rather than appearing. |
 | 2.0 s | "**...and 27 gold coins.**" A small pile of coins bounces in the window with a *chink*. |
@@ -670,7 +703,7 @@ first 900 ms and **not** through a level-up. Some moments belong to the game.
 | 0.00 s | The level-up jingle stings over the victory fanfare — four rising notes, bright, unmistakable. |
 | 0.05 s | A ring of gold light expands from the character's feet to over their head in 350 ms. Sparkles rise. |
 | 0.35 s | The character plays `level_up`: a small jump on the spot, landing with both fists down. |
-| 0.50 s | "**Alder's level has gone up to 13!**" types out. |
+| 0.50 s | "**Bram's level has gone up to 13!**" types out. |
 | 1.10 s | The stat panel slides in from the right over 180 ms. Stats list in fixed order: Max HP, Max MP, Might, Nimbleness, Resilience, Wisdom, Luck. |
 | 1.30 s | Gains reveal **one per 220 ms**, each as `+3` in bright yellow next to the new value, each with its own small *tick*. A gain of 5 or more gets a slightly bigger tick and a tiny star — so a child learns to look forward to particular levels. A gain of 0 prints `—` in grey, quietly. |
 | ~2.9 s | Panel holds for 700 ms. |
@@ -683,14 +716,17 @@ the small kindness that lets a struggling child push one room further.
 ### 10.3 A monster asks to join
 | Time | Beat |
 |---|---|
-| 0.0 s | Music switches to a curious 4-bar woodwind phrase. |
-| 0.3 s | The monster hops in from the right and lands centre-frame, larger than it was in battle, blinking. |
-| 0.9 s | "**The Puddleslime is bouncing after you, hopeful as anything. Shall it come along?**" — **Yes / No**, cursor defaulting to **Yes**. |
-| on Yes | Confetti of soft shapes, the join fanfare (the victory motif, played sweetly on flute), and "**Name your new friend:**" with a default name already filled in (*Puddle*) so a six-year-old can simply press Confirm. Eight characters, big on-screen keyboard, and the default is always something a child would be happy with. |
+*The full beat — the 0.4 s pause, the pop-in, the join hop, the `befriend` fanfare, naming — is law in MONSTER-BIBLE
+§7. This is the timing summary.*
+
+| 0.0 s | 0.4 s of nothing after the tally window's *thunk*. The pause is the ceremony. |
+| 0.4 s | A soft chime; the monster pops back in where it fell, larger than it was in battle, blinking, and does two join hops. |
+| 1.0 s | The `befriend` fanfare; VOICE `recruit.join`: "**The Gloop wants to be your friend! / Shall it come along?**" — **Yes / No**, cursor defaulting to **Yes**. |
+| on Yes | Confetti of soft shapes and "**Name your new friend:**" with a default name already filled in (*Dollop* for a Gloop) so a six-year-old can simply press Confirm. Eight characters, big on-screen keyboard, and the default is always something a child would be happy with. |
 | on No | The monster's ears droop for 400 ms, then it shrugs and bounces off cheerfully. **No guilt, no permanent loss** — the same species will ask again. |
 
-Join chance is `species.joinRate` (1/8 for commons down to 1/64 for rares), **but** a species that has been
-refused or missed 12 times is guaranteed to ask on the 13th. Nobody's collection stalls on bad luck.
+Join chance is MONSTER §7's formula (base 1/6 for the friendliest down to 1/128 for the rarest, doubled in Kid
+Mode), **and** a species that has been refused or missed 12 times is guaranteed to ask on the 13th. Nobody's collection stalls on bad luck.
 
 ### 10.4 Chests and searching (for completeness, since the economy leans on it)
 Chest opening: 200 ms lid rise → the item floats up out of it, held aloft, spinning once over 700 ms →
