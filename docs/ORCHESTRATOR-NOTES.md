@@ -7,3 +7,6 @@
 - Smoother report: demos/P27.html times out waiting for sampled instruments; demos/P28.html fails its own
   hit-envelope assertion (audio agents were mid-edit). Re-check both at the next smoothing pass.
 - Smoother report: walking straight up the lane stops ~2.3 from the signpost, just outside its 2.2 reach.
+- 2026-09-18 01:21 — shots/P05-r1/01-01-the-whole-kit.png: the church's front gable is BRIGHT MAGENTA (#ff00ff-ish).
+  That is the classic missing-material/placeholder colour, or a stained-glass material gone wrong. It is not in
+  docs/ART-DIRECTION.md's palette. P05 must fix: the church gable should be plaster with a rose window.

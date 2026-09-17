@@ -17,13 +17,14 @@
  * Every play re-rolls small pitch / level / filter / timing offsets from `variant` (or Math.random when
  * omitted) so repeats never sound robotic. Aliases: gold, whoosh, search, footstep {material}, text {voice}.
  *
- * Menu blips (cursor, confirm, cancel, buzzer) sit at music level, 5+ LU under a hit, and dip the music ~3 dB for 15 ms;
- * glyph ticks a little under them. See MENU & TEXT.
+ * Menu blips (cursor, confirm, cancel, buzzer) sit at music level, 5+ LU under a hit; confirm / cancel / buzzer dip the
+ * music ~3 dB for 15 ms, but the cursor pip never does — it is the one a child rattles, and the score must not wobble
+ * under it. Glyph ticks sit a little under the blips. See MENU & TEXT.
  *
  * Impacts (sword_hit, sword_crit, monster_hurt, player_hurt) open on a sharp, flat-topped snap that peaks 1 ms in,
- * ~9-10 dB over a body that is each one's own pitched sound and falls 10 dB within ~25-37 ms; see BATTLE below. Each
- * schedules a sample-accurate dip on the music bus (`pulse`: ~9 dB for 20 ms, back over 150 ms) so it lands ~6 LU on
- * top of the battle theme.
+ * ~8-10 dB over a body that is each one's own pitched sound with real weight under it (a low "dosh"), and falls 10 dB
+ * within ~25-45 ms; see BATTLE below. Each schedules a sample-accurate dip on the music bus (`pulse`: 6-9 dB for ~20 ms)
+ * so it lands ~6 LU on top of the battle theme, and fills the bass that dip takes away (+8-10 dB at 60-250 Hz).
  */
 import { Audio, mulberry32, clamp, reportError, makeIR, retainNodes, _rendering } from './audio.js';
 
@@ -43,6 +44,7 @@ const CELESTA = [[1, 1, 1], [4.02, 0.3, 0.33], [10.1, 0.08, 0.2]];
 const GLINT = [[1, 1, 1], [2.76, 0.5, 0.6], [5.4, 0.25, 0.4]];
 const MUSICBOX = [[1, 1, 1], [2, 0.12, 0.5], [3.98, 0.22, 0.3], [6.1, 0.05, 0.2]];
 const COIN = [[1, 1, 1], [2.76, 0.55, 0.7], [5.4, 0.3, 0.45], [8.93, 0.12, 0.3]];
+const GLOCK = [[1, 1, 1], [3.01, 0.42, 0.45], [5.96, 0.16, 0.3], [9.2, 0.06, 0.2]]; // a struck metal bar: 1 : 3 : 6 : 9
 
 // ---------------------------------------------------------------------------------------------------------------
 // per-context caches: noise buffers and band-limited pulse waves
@@ -303,7 +305,9 @@ export function noise(E, o) {
   if (bed) { amp.gain.value = o.g ?? 0.3; end = T + E.W + E.L; }
   else end = envelope(amp.gain, T, o, o.g ?? 0.5);
   for (const am of ams) lfoInto(E, am._node.gain, T, end, am.rate, am._depth / 2, am.type || 'sine');
-  src.start(T, bed ? 0 : E.r() * (src.buffer.duration - 0.6));
+  // a different slice of the noise buffer every play, so repeats never sound stamped out... unless `off` pins it
+  // (the cursor pip must be byte-identical every press: see its note)
+  src.start(T, bed ? 0 : (o.off != null ? o.off : E.r() * (src.buffer.duration - 0.6)));
   src.stop(end + 0.01);
   track(E, src, end + 0.01);
   return end;
@@ -398,19 +402,29 @@ function resolve(id, opts = {}) {
 // LEVEL: a child presses these hundreds of times, over the music, so they sit right up AT music level: cursor, confirm,
 // cancel and buzzer peak at about -18 LUFS over 100 ms (the town / battle themes' median is -17 to -19.5), 5+ LU
 // under a sword hit (-12.8), with their energy packed into the first 50 ms so each one is a clear "tick" on top of the
-// score, not a smear. Each dips the music ~3 dB for 15 ms under its attack (`pulse`), like the hits. A glyph tick sits
+// score, not a smear. Confirm, cancel and buzzer dip the music ~3 dB for 15 ms under the attack (`pulse`), like the
+// hits; the cursor pip does NOT — see its own note. A glyph tick sits
 // a little under a blip (a line types 35 of them a second, so the running stream lands at about music level), and
 // while text types the music ducks (Sfx.glyph), so the chatter always reads. `__DQ.uiCheck()` on the P28 page measures it.
 // PITCH: blips and ticks sit a third of a semitone off the tempered scale (`detune`). Too short to hear as out of tune,
 // but a tick exactly on a note the score is holding (a G6 tick under a town theme in D) partly cancels against it:
 // measured, the same tick lifted the town theme 1.0-1.6 LU on G6 and 2.9-3.6 LU 3% either side.
 const BLIP_DIP = [0.7, 0.002, 0.015, 0.05], OFF_SCALE = 35;
-S('cursor', { group: 'Menu & text', bus: 'ui', detune: OFF_SCALE, gain: 1.7, pj: 0.08, vj: 0.05, fj: 0.03, minGap: 0.022, poly: 3, pulse: BLIP_DIP, desc: 'menu cursor blip' }, (E) => {
-  tone(E, { type: 'pulse25', f: 1318.5, f1: 1245, ft: 0.025, a: 0.001, d: 0.06, g: 0.24, filter: { type: 'lowpass', f: 4400, f1: 2000, ft: 0.04, Q: 0.6 } });
-  tone(E, { type: 'sine', f: 1318.5, f1: 1260, ft: 0.025, a: 0.001, d: 0.07, g: 0.34 });
-  tone(E, { type: 'triangle', f: 659.3, a: 0.001, d: 0.035, g: 0.2 });
-  // a hair of "tk" on the front, so the blip lands like a key, not a whistle
-  noise(E, { a: 0.0005, d: 0.006, g: 0.08, filters: [{ type: 'bandpass', f: 3200, Q: 1.2, nojit: true }] });
+// THE CURSOR PIP is the one sound a child rattles: down the item list, ten in a second. Blind A/B, critic a3r1:
+// DQV PS2's is a dry, soft, almost wooden "pip" around a kilohertz, ~30 ms, no reverb, no pitch slide, identical every
+// time — "and the music does not move underneath it; you can rattle down the item list and the strings stay rock
+// steady." Ours was 64 ms, slid its pitch down a semitone, re-rolled pitch and level on every press, and dipped the
+// music 3 dB under each one, which at scroll speed is a 3 dB wobble on the score at ~8 Hz.
+// So: ONE fixed pitch (C6 + its octave and the wood under it), ~30 ms, no `pulse`, no jitter at all — the only thing
+// off-square is the fixed 35-cent `detune` that keeps a tick from cancelling against a note the score is holding.
+// It still reads over the music because all of its energy is inside the first 20 ms (P28's uiCheck measures the lift).
+S('cursor', { group: 'Menu & text', bus: 'ui', detune: OFF_SCALE, gain: 2.45, pj: 0, vj: 0, fj: 0, minGap: 0.022, poly: 3, desc: 'menu cursor pip — dry, wooden, the same every time' }, (E) => {
+  tone(E, { type: 'sine', f: 1046.5, a: 0.001, d: 0.028, g: 0.4 });
+  tone(E, { type: 'pulse25', f: 1046.5, a: 0.001, d: 0.014, g: 0.13, filter: { type: 'lowpass', f: 3000, Q: 0.5, nojit: true } });
+  tone(E, { type: 'triangle', f: 2093, a: 0.001, d: 0.01, g: 0.09 });
+  // the wood under it, and a hair of "tk" on the front, so the pip lands like a key, not a whistle
+  tone(E, { type: 'sine', f: 523.3, a: 0.001, d: 0.018, g: 0.16 });
+  noise(E, { off: 0.37, a: 0.0005, d: 0.005, g: 0.07, filters: [{ type: 'bandpass', f: 2400, Q: 1.2, nojit: true }] });
 });
 
 S('confirm', { group: 'Menu & text', bus: 'ui', detune: OFF_SCALE, gain: 1.1, pj: 0.08, vj: 0.05, fj: 0.03, minGap: 0.04, poly: 2, pulse: BLIP_DIP, desc: 'pick it! (with a thunk)' }, (E) => {
@@ -588,10 +602,19 @@ S('wagon_rattle', { group: 'Field', gain: 1.12, send: 0.08, pj: 0.5, desc: "Papa
 // =================================================================================================================
 // FOOTSTEPS — quiet, varied every single step
 const STEP = { group: 'Footsteps', bus: 'sfx', pj: 1.2, vj: 0.15, panj: 0.06, fj: 0.12, minGap: 0.05, poly: 4 };
+// Three steps, picked per footfall: a soft brush through the blades, a crisper one where the grass is dry, and a scuff
+// that drags a second little "shf" behind it. A child walks for minutes at a time, and one waveform with jitter on it
+// turns into a shf-shf-shf pattern the ear locks onto (critic a2r2 measured our repeats at 0.996 identical).
 S('footstep_grass', { ...STEP, gain: 0.62, desc: 'shff' }, (E) => {
-  noise(E, { a: 0.006, d: 0.11, g: 0.5, filters: [{ type: 'highpass', f: 900 }, { type: 'lowpass', f: 5200, f1: 2600, ft: 0.08 }] });
-  grains(E, { t: 0.004, span: 0.05, count: 5, fLo: 3000, fHi: 7000, Q: 1.2, dLo: 0.003, dHi: 0.008, gLo: 0.05, gHi: 0.15 });
-  tone(E, { type: 'sine', f: 95, f1: 60, ft: 0.04, d: 0.05, g: 0.2 });
+  const [d1, lp, gr, gn, lowg, scuff] = E.pick([
+    [0.110, 5200, 5, 0.15, 0.20, 0],
+    [0.075, 6400, 8, 0.20, 0.14, 0],
+    [0.095, 4600, 4, 0.11, 0.24, 1],
+  ]);
+  noise(E, { a: 0.006, d: d1, g: 0.5, filters: [{ type: 'highpass', f: 900 }, { type: 'lowpass', f: lp, f1: 2600, ft: 0.08 }] });
+  grains(E, { t: 0.004, span: 0.05, count: gr, fLo: 3000, fHi: 7000, Q: 1.2, dLo: 0.003, dHi: 0.008, gLo: 0.05, gHi: gn });
+  tone(E, { type: 'sine', f: 95, f1: 60, ft: 0.04, d: 0.05, g: lowg });
+  if (scuff) noise(E, { t: E.rr(0.05, 0.075), a: 0.004, d: 0.06, g: 0.22, filters: [{ type: 'highpass', f: 1200, nojit: true }, { type: 'lowpass', f: 4200, f1: 2200, ft: 0.05 }] });
 });
 S('footstep_dirt', { ...STEP, gain: 0.7, desc: 'thup, gritty' }, (E) => {
   tone(E, { type: 'sine', f: 115, f1: 62, ft: 0.05, d: 0.07, g: 0.3 });
@@ -610,6 +633,10 @@ S('footstep_wood', { ...STEP, gain: 0.37, send: 0.05, desc: 'tonk, hollow boards
   tone(E, { type: 'triangle', f: 330, f1: 300, ft: 0.03, d: 0.07, g: 0.3 });
   tone(E, { type: 'sine', f: 610 * E.rr(0.96, 1.04), a: 0.001, d: 0.06, g: 0.2 });
   noise(E, { a: 0.0008, d: 0.03, g: 0.3, filters: [{ type: 'bandpass', f: 1100, Q: 3 }] });
+  // sole on board: the little dry "tk" of the front of the shoe landing. Critic a2r2 measured this step falling 37 dB
+  // from its low band to 3-6 kHz — a hollow thud with no shoe in it, the one footstep you could not place.
+  noise(E, { a: 0.0004, d: 0.008, g: 0.22, filters: [{ type: 'bandpass', f: 3400 * E.rr(0.92, 1.1), Q: 1.1, nojit: true }] });
+  noise(E, { t: 0.004, a: 0.0006, d: 0.016, g: 0.1, filters: [{ type: 'bandpass', f: 5200, Q: 0.9, nojit: true }] });
   if (E.r() < 0.25) creak(E, { t: 0.02, dur: 0.09, f: 70, f1: 90, g: 0.08, res: [1250], Q: 9 });
 });
 S('footstep_snow', { ...STEP, gain: 1.0, desc: 'crunch' }, (E) => {
@@ -674,27 +701,34 @@ S('gold_coins', { group: 'Treasure', gain: 1.0, send: 0.08, pj: 0.5, desc: 'a li
 
 // =================================================================================================================
 // BATTLE
-// Every impact is SNAP -> BODY -> TAIL, and each has its own pitched body.
+// Every impact is SNAP -> BODY -> TAIL, and each has its own pitched body with weight under it.
 //   snap  a tick and a flick of noise clipped together into a dense burst 3.5-4.5 ms long, its top shaved flat (crest
 //         ~0.4 dB: the headroom goes on loudness, not on one spike). It slides ~2 dB down while it lasts, so its loudest
 //         millisecond is the first, and it is gone a millisecond after it ends.
 //   body  starts exactly as the snap ends (the two never pile their peaks on each other), swells in over 1.5 ms and
-//         then only falls: -10 dB 25-40 ms after its peak. No hold, no sustain. The body layers meet in a gentle tanh
-//         shaper that takes the body's crest down, so the snap stands ~9-10 dB over it in 1 ms RMS and ~5-7 dB in
-//         1 ms peaks.
-//         sword_hit    a bright driven swish falling 3.0 -> 1.3 kHz over a "kn" thwack (720 -> 290 Hz)
-//         monster_hurt a rubbery pulse "bop" (~600 -> 210 Hz) with a smack of hide
+//         then falls: -10 dB 25-45 ms after its peak. The bright layers meet in a gentle tanh shaper that takes their
+//         crest down, so the snap stands ~8-10 dB over the whole body in 1 ms RMS.
+//         sword_hit    a bright driven swish falling 3.0 -> 1.3 kHz over a "kn" thwack (720 -> 290 Hz), and DOSH: a
+//                      softly driven sine sliding 122 -> 61 Hz (~100 ms) with a 380 -> 260 Hz knock
+//         monster_hurt a rubbery pulse "bop" (~600 -> 210 Hz) with a smack of hide, and BOF: 150 -> 75 Hz with a
+//                      longer rubbery knock (300 -> 204 Hz)
 //         player_hurt  a heavy square-ish thud (~260 -> 88 Hz, harmonics up to 3.5 kHz so a telly plays it) and a crunch
-//   tail  each one's own shape afterwards: the blade's air trailing across the field; the monster's little "pyu"
-//         (~70-200 ms); the rattle that holds under the screen shake and then fades. (Their dB envelopes correlate
-//         0.79-0.84 with each other, where one shared noise block correlated 0.95-0.975.)
+//         WHY the low body: under every hit the music dips, and critic a2r1 measured that dip taking 3-4 dB OUT of the
+//         battle mix's 60-250 Hz at the moment of contact on the plain hit and the monster's hurt: they clicked but
+//         did not connect. Now each adds ~+8-10 dB there (true mix minus music alone, 30 ms after contact).
+//   tail  each one's own shape afterwards: the blade's air crossing the field, dark and gone inside ~100 ms (30 dB
+//         under its snap by ~50, its 3-6 kHz back under the battle theme by ~60); the monster's jiggly little
+//         "pyu-u-u" (~50-250 ms); the rattle that holds under the screen shake and then fades. (Their dB envelopes
+//         correlate 0.72-0.86 with each other, where one shared noise block correlated 0.95-0.975.)
+//         NO TAIL MAY LINGER AT 3-6 kHz. That band is where the ear is harshest, and a tail that holds there turns a
+//         connected hit into a swipe at air: see the note on the air behind the blade, and P28's hitCheck bars.
 // Level: each peaks about -3.5 to -4 dBFS on its own and lifts the true mix over the battle theme by about 6 LU
 // (K-weighted 100 ms windows) against P27's sampled battle theme, whose 100 ms median sits near -19.5 LUFS on this
 // mixer. If the theme is re-levelled, retrim the impacts' `gain`s by the same amount. Under each one the music dips
-// ~9 dB for the first 20 ms and comes back over 150 ms; audio.js keeps that dip sample-aligned with the snap (the
-// effects wait out the glue compressor's 6 ms look-ahead).
+// for the first ~20 ms (sword_hit / monster_hurt: 6 dB, back over 90 ms, and their body fills it; player_hurt: 9 dB,
+// back over 150 ms); audio.js keeps that dip sample-aligned with the snap (the effects wait out the glue's look-ahead).
 const IMPACT = { group: 'Battle', gain: 0.85, send: 0.035, vj: 0.05, fj: 0.08, pulse: [0.35, 0.003, 0.02, 0.15] };
-const BODY_A = 0.0015; // a body swells in over 1.5 ms, from the moment its snap ends, and then only falls
+const BODY_A = 0.0015; // a body swells in over 1.5 ms, from the moment its snap ends
 
 /**
  * The snap. `g` level, `len` how long it stays up (seconds), `f` the tick (falls an octave while the snap lasts),
@@ -729,10 +763,12 @@ function bodyBus(E, drive, inGain, outGain, lpHz = 8000) {
 }
 
 /** The sword's body into `bus` (swish, thwack, a faint ring of the blade), plus the air it drags behind it.
- *  `tail` > 0: the plain hit's long "shaaa" at that level (the air hangs on ~300 ms instead of ~120); `sw` scales the swish. */
-function blade(E, t, bus, k = 1, dir = 1, lo = 1, tail = 0, sw = 1) {
-  // every swing a little different: brightness, how long the swish and the air hang on
-  const br = E.rr(0.93, 1.08) * lo, a = BODY_A, sd = E.rr(0.15, 0.19), air = E.rr(0.8, 1.1);
+ *  `tail` > 0: the plain hit's stereo "shff" at that level — two bands sweeping dark and gone inside ~100 ms
+ *  (the crit uses `tail` 0: one pink band that thins away instead); `sw` scales the swish. */
+function blade(E, t, bus, k = 1, dir = 1, lo = 1, tail = 0, sw = 1, o = {}) {
+  // every swing a little different: brightness, how long the swish and the air hang on.
+  // `o.sdK` / `o.tailK` let a caller stretch the swish and the air in TIME as well (sword_hit's three takes do).
+  const br = E.rr(0.93, 1.08) * lo, a = BODY_A, sd = E.rr(0.15, 0.19) * (o.sdK ?? 1), air = E.rr(0.8, 1.1);
   noise(E, { to: bus, t, a, d: sd, g: 0.42 * k * sw, filters: [{ type: 'bandpass', f: 3000 * br, fp: [[0.03, 2100 * br], [0.15, 1300 * br]], Q: 2 }],
     drive: 2.2, driveIn: 5, os: 'none', post: [{ type: 'lowpass', f: 5000, nojit: true }], panSweep: [-0.25 * dir, 0.25 * dir, 0.12] });
   tone(E, { to: bus, t, type: 'triangle', f: 720 * lo, f1: 290 * lo, ft: 0.05, a, d: sd * 0.78, g: 0.17 * k });
@@ -741,13 +777,22 @@ function blade(E, t, bus, k = 1, dir = 1, lo = 1, tail = 0, sw = 1) {
     noise(E, { t: t + 0.0265, color: 'pink', a: 0.015, d: 0.5 * air, g: 0.26 * k * air, filters: [{ type: 'bandpass', f: 2600 * br, f1: 1000, ft: 0.25, Q: 1.6 }], panSweep: [0.2 * dir, 0.5 * dir, 0.25] });
     return;
   }
-  // the long air: two broad bands of white noise, one each side and one a little higher (dense, so it thins away smoothly
-  // rather than in grains), falling as it trails off across the field: ~-3 dB by 150 ms, ~-4 dB by 250 ms, gone by ~420 ms
-  const pts = [[0.05, 0.8], [0.14, 0.7], [0.24, 0.68], [0.3, 0.4], [0.37, 0.08]];
+  // THE AIR BEHIND THE BLADE. It must get out of the ear's way: critic a3r1 measured the old held envelope
+  // ([[0.05,0.8],[0.14,0.7],[0.24,0.68],[0.3,0.4],[0.37,0.08]] — 68-80% of peak from 50 to 240 ms) sitting +17.9 LU
+  // over the battle theme at 3-6 kHz at contact and STILL +16.5 LU at 150 ms, so a connected hit ended in a quarter
+  // second of bright hiss and read as a swipe at air — brighter and longer than `miss` itself.
+  // Now: two broad bands (one each side, one a little higher, dense so it thins smoothly rather than in grains) on a
+  // fast exponential decay — -10 dB by ~20 ms, -30 dB by ~55 ms, gone by ~100 — under a lowpass sweeping 6 kHz down to
+  // 1.5 kHz over the first 60 ms, so what is left of the swish is dark air, not fizz. The snap and the low "dosh" keep
+  // all the weight. Measured after (solo, 3-6 kHz, from contact): -21 dBFS at 10 ms, -38 at 60 ms, -55 by 150 ms; in
+  // the true battle mix the 3-6 kHz residual is +20 dB at contact and back under the bed by ~90 ms, like monster_hurt.
+  const tk = o.tailK ?? 1;
+  const pts = [[0.02 * tk, 0.28], [0.045 * tk, 0.06], [0.072 * tk, 0.012]];
   for (const side of [-1, 1]) {
     const hi = side > 0 ? 1.2 : 1;
-    noise(E, { t: t + 0.008, a: 0.012, pts, r: 0.06, g: 0.5 * tail * (0.6 + air * 0.4),
-      filters: [{ type: 'bandpass', f: 2400 * br * hi, fp: [[0.1, 1600 * br * hi], [0.32, 900 * br * hi]], Q: 0.6 }, { type: 'lowpass', f: 5000, nojit: true }], panSweep: [0.15 * dir + 0.45 * side, 0.45 * dir + 0.35 * side, 0.3] });
+    noise(E, { t: t + 0.008, a: 0.008, pts, r: 0.022, g: 0.72 * tail * (0.6 + air * 0.4),
+      filters: [{ type: 'bandpass', f: 2300 * br * hi, fp: [[0.03, 1500 * br * hi], [0.07, 950 * br * hi]], Q: 0.6 }, { type: 'lowpass', f: 6000, fp: [[0.06, 1500]], nojit: true }],
+      panSweep: [0.15 * dir + 0.45 * side, 0.45 * dir + 0.35 * side, 0.09] });
   }
 }
 
@@ -767,12 +812,32 @@ function dosh(E, t, o = {}) {
   }
 }
 
-S('sword_hit', { ...IMPACT, gain: 0.62, pulse: [0.5, 0.003, 0.018, 0.09], pj: 0.5, poly: 4, desc: 'zubash! a sharp snap, a thick "dosh" body, a bright swish that trails away' }, (E) => {
+// gain: 0.665, not the old 0.62 — shortening the air took 0.6 LU off the whole hit, and a hit must stay a full 5 LU
+// over a menu blip (P28's uiCheck measures that gap; the blips are trimmed to sit at music level and must not move).
+S('sword_hit', { ...IMPACT, gain: 0.665, pulse: [0.5, 0.003, 0.018, 0.09], pj: 0.5, poly: 4, desc: 'zubash! a sharp snap, a thick "dosh" body, a swish that sweeps dark and is gone' }, (E) => {
   const dir = E.r() < 0.5 ? -1 : 1, len = 0.0035;
-  snap(E, 0, { g: 1.03, len, f: 1800 * E.rr(0.94, 1.06), hp: 1500, nlp: 7000, lp: 12000 });
-  blade(E, len, bodyBus(E, 2.5, 1.8, 0.28, 6000), 1, dir, 1, 1, 0.52);
-  const w = E.rr(0.94, 1.07);
-  dosh(E, len, { f: 122 * w, slide: 0.09, g: 0.21, h: 0.012, d: 0.22, k: 380 * w, kg: 0.19, kd: 0.08 });
+  // THREE SWINGS, one picked per play. Critic a2r2 measured our variants as 0.999 spectro-temporally identical —
+  // "jitter on one waveform, not alternate takes" — and this is the sound a child hears hundreds of times an hour.
+  // Each take moves the whole blade together (`lo` scales the swish band, the "kn" thwack, the blade's ring and the
+  // air behind it), plus its snap's tick, how much swish it carries and how deep its "dosh" lands: a low meaty cut,
+  // the plain one, and a fast bright flick. Obviously the same sword, never the same recording; matched in level.
+  //          lo    sw    snapF  hp    doshF  tail  sdK   tailK doshD
+  const [lo, sw, sf, hp, df, tl, sdK, tailK, dd] = E.pick([
+    [1.00, 0.52, 1800, 1500, 122, 1.00, 1.00, 1.00, 0.22],   // the plain cut
+    [0.87, 0.60, 1560, 1250, 113, 1.05, 1.30, 1.25, 0.26],   // a low, meaty one: longer swish, the air hangs a touch
+    [1.15, 0.45, 2040, 1700, 131, 0.90, 0.78, 0.80, 0.18],   // a fast bright flick, gone at once
+  ]);
+  snap(E, 0, { g: 1.03, len, f: sf * E.rr(0.94, 1.06), hp, nlp: 7000, lp: 12000 });
+  blade(E, len, bodyBus(E, 2.5, 1.8, 0.28, 6000), 1, dir, lo, tl, sw, { sdK, tailK });
+  const w = E.rr(0.94, 1.07) * (df / 122);
+  dosh(E, len, { f: 122 * w, slide: 0.09, g: 0.21, h: 0.012, d: dd, k: 380 * w, kg: 0.19, kd: 0.08 });
+  // one swing in three catches: a short dry "chik" of edge on hide or armour. Dark and over inside 25 ms, so it
+  // colours the contact without putting anything back in the 3-6 kHz band that the tail just gave up.
+  if (E.r() < 0.34) {
+    const cf = E.rr(1500, 2300);
+    noise(E, { t: len + 0.011, a: 0.0008, d: 0.016, g: 0.2, filters: [{ type: 'bandpass', f: cf, Q: 2.2, nojit: true }, { type: 'lowpass', f: 4200, f1: 1800, ft: 0.02, nojit: true }], pan: 0.2 * dir });
+    tone(E, { t: len + 0.011, type: 'triangle', f: cf * 0.5, f1: cf * 0.34, ft: 0.02, a: 0.001, d: 0.03, g: 0.1 });
+  }
 });
 
 S('sword_crit', { ...IMPACT, send: 0.07, pj: 0.35, poly: 3, pulse: [0.3, 0.003, 0.12, 0.25],
@@ -989,16 +1054,28 @@ S('poison', { group: 'Magic', gain: 0.72, send: 0.15, pj: 0.8, desc: 'bloop-bloo
 
 // =================================================================================================================
 // CEREMONY
-S('level_up_sparkle', { group: 'Ceremony', gain: 1.6, send: 0.45, pj: 0.1, vj: 0.03, desc: 'harp sweep and tumbling stars' }, (E) => {
-  ['D5', 'E5', 'F#5', 'A5', 'B5', 'D6', 'E6', 'F#6', 'A6', 'B6', 'D7', 'E7'].forEach((n, i) => {
-    tone(E, { t: i * 0.028, type: 'triangle', f: nf(n), a: 0.002, d: 0.32, g: 0.13, pan: -0.3 + 0.05 * i });
+// LEVEL UP. P27's fanfare carries the moment; this is the strike on the front of it, so the moment lands like
+// "you got stronger" and not like a spell being cast. Critic a2r1 heard the old one as a lullaby with spell_cast's
+// pentatonic run on top, its loudest 50 ms (-16.0 LUFS) quieter than a cursor blip: now it opens on a struck bell with
+// a drum's weight under it, climbs the D major triad (a fanfare call, nothing like spell_cast's run), and sits with
+// item_get and the church bell at the top of the friendly sounds (-12 LUFS over 100 ms).
+S('level_up_sparkle', { group: 'Ceremony', gain: 0.75, send: 0.4, pj: 0.08, vj: 0.03, desc: 'TING! you got stronger — a struck bell with weight, up the triad, then stars' }, (E) => {
+  // the strike: the mallet's tick, a bright glockenspiel TING on D6 with its fifth, and a soft drum underneath
+  noise(E, { a: 0.0006, d: 0.03, g: 0.3, filters: [{ type: 'bandpass', f: 4200, Q: 1, nojit: true }] });
+  bell(E, { f: nf('D6'), g: 0.32, d: 1.2, a: 0.001, partials: GLOCK });
+  bell(E, { f: nf('A6'), g: 0.16, d: 1.0, a: 0.001, partials: GLOCK, pan: 0.12 });
+  tone(E, { type: 'sine', f: 147, f1: 73, ft: 0.09, a: 0.002, d: 0.34, g: 0.28, drive: 1.6, driveIn: 1, os: 'none', post: [{ type: 'lowpass', f: 700, nojit: true }] });
+  // the bloom: a bright shimmer opening under the fanfare
+  noise(E, { color: 'pink', a: 0.02, d: 0.85, g: 0.28, filters: [{ type: 'highpass', f: 3500, nojit: true }, { type: 'lowpass', f: 9500, nojit: true }] });
+  // and up the triad: D6 - F#6 - A6 - D7
+  [['F#6', 0.12], ['A6', 0.23], ['D7', 0.35]].forEach(([n, t], i) => {
+    const pan = -0.2 + 0.13 * i;
+    bell(E, { t, f: nf(n), g: 0.2 + 0.02 * i, d: 0.95, a: 0.001, partials: GLOCK, pan });
+    tone(E, { t, type: 'triangle', f: nf(n), a: 0.002, d: 0.15, g: 0.1, pan });
   });
-  const pent = ['D6', 'E6', 'F#6', 'A6', 'B6', 'D7', 'E7', 'F#7', 'A7', 'B7'];
-  for (let i = 0; i < 16; i++) {
-    const idx = clamp(Math.floor((i * pent.length) / 16 + E.rr(-1, 1)), 0, pent.length - 1);
-    bell(E, { t: 0.3 + i * 0.055 + E.rr(-0.012, 0.012), f: nf(pent[idx]), g: 0.1, d: E.rr(0.25, 0.5), pan: E.rr(-0.6, 0.6), partials: CELESTA });
-  }
-  noise(E, { t: 0.2, a: 0.3, h: 0.2, d: 0.6, g: 0.03, filters: [{ type: 'highpass', f: 6500 }, { type: 'lowpass', f: 11000 }] });
+  // then the stars tumble after it
+  bell(E, { t: 0.46, f: nf('D7'), g: 0.1, d: 1.4, a: 0.001, partials: CELESTA, pan: 0.2 });
+  sparkle(E, { t: 0.5, n: 10, span: 0.55, fLo: 3000, fHi: 7000, g: 0.06 });
 });
 
 function churchBell(E, t, f, g) {
@@ -1069,11 +1146,14 @@ function murmurVoice(E, v) {
   osc.start(0); osc.stop(total + 0.01); track(E, osc, total);
   let s = E.rr(0, 1.5);
   while (s < E.L - 0.5) {
-    const phraseEnd = Math.min(E.L - 0.4, s + E.rr(1.2, 3.5));
+    const phraseEnd = Math.min(E.L - 0.4, s + E.rr(...(v.phrase || [1.2, 3.5])));
     while (s < phraseEnd) {
       const u = E.rr(0.11, 0.24);
       const p0 = v.f0 * E.rr(0.9, 1.18), p1 = p0 * E.rr(0.85, 1.05);
       const a1 = E.rr(380, 850), b1 = E.rr(380, 850), a2 = E.rr(1000, 2100), b2 = E.rr(1000, 2100), g = v.g * E.rr(0.55, 1);
+      // One oscillator talks the whole loop, so its phase at the loop's start (W) and at its end (W + L) differ: a syllable
+      // sounding across W would jump there. The voice draws breath instead.
+      if (s < E.W + 0.01 && s + u > E.W - 0.01) { s += u + E.rr(0.005, 0.05); continue; }
       E.every(s, (tt) => {
         osc.frequency.setValueAtTime(p0, tt); osc.frequency.exponentialRampToValueAtTime(p1, tt + u);
         f1.frequency.setValueAtTime(a1, tt); f1.frequency.linearRampToValueAtTime(b1, tt + u);
@@ -1083,7 +1163,7 @@ function murmurVoice(E, v) {
       });
       s += u + E.rr(0.005, 0.05);
     }
-    s += E.rr(0.6, 2.4);
+    s += E.rr(...(v.gap || [0.6, 2.4]));
   }
 }
 
@@ -1138,14 +1218,16 @@ S('amb_meadow', { ...AMB, gain: 1.5, send: 0.25, loop: { len: 16, warm: 4, space
 
 S('amb_town', { ...AMB, gain: 2.2, send: 0.35, loop: { len: 16, warm: 4, space: 'room' }, desc: 'town square: murmur, the smithy, footsteps, sparrows' }, (E) => {
   noise(E, { bed: true, color: 'pink', g: 0.12, to: E.dry, filters: [{ type: 'lowpass', f: 700, nojit: true }, { type: 'highpass', f: 120, nojit: true }], am: [{ rate: E.loopRate(0.19), depth: 0.35 }] });
-  const pitches = [112, 128, 145, 178, 205, 232];
-  for (let i = 0; i < 6; i++) murmurVoice(E, { f0: pitches[i] * E.rr(0.95, 1.05), pan: -0.7 + (1.4 * i) / 5, g: E.rr(0.03, 0.045) });
+  // five people, each talking about a third of the time with real gaps: a town square breathes (one voice alone, then
+  // three at once) instead of being one flat wash. (Critic a2r1: its 400 ms loudness p90 was only 1.3 LU over the median.)
+  const pitches = [112, 132, 152, 190, 226];
+  for (let i = 0; i < 5; i++) murmurVoice(E, { f0: pitches[i] * E.rr(0.95, 1.05), pan: -0.7 + (1.4 * i) / 4, g: E.rr(0.04, 0.06), phrase: [0.9, 2.4], gap: [1.8, 5] });
   for (const t0 of [E.rr(0.6, 2.5), E.rr(5.8, 7.8), E.rr(11.2, 12.8)]) {
     if (E.r() < 0.2) continue; // the smith stops for a sip now and then
     E.every(t0, (t) => {
       for (let i = 0; i < 3; i++) {
-        bell(E, { t: t + i * 0.42, f: 1850, fixed: true, g: 0.03, d: 0.5, pan: -0.6, partials: [[1, 1, 1], [2.63, 0.6, 0.6], [4.1, 0.4, 0.4], [5.9, 0.2, 0.3]] });
-        tone(E, { t: t + i * 0.42, type: 'sine', f: 220, f1: 140, ft: 0.03, fixed: true, d: 0.06, g: 0.03, pan: -0.6 });
+        bell(E, { t: t + i * 0.42, f: 1850, fixed: true, g: 0.045, d: 0.5, pan: -0.6, partials: [[1, 1, 1], [2.63, 0.6, 0.6], [4.1, 0.4, 0.4], [5.9, 0.2, 0.3]] });
+        tone(E, { t: t + i * 0.42, type: 'sine', f: 220, f1: 140, ft: 0.03, fixed: true, d: 0.06, g: 0.04, pan: -0.6 });
       }
     });
   }
@@ -1158,7 +1240,7 @@ S('amb_town', { ...AMB, gain: 2.2, send: 0.35, loop: { len: 16, warm: 4, space: 
       }
     });
   }
-  for (const t0 of [E.rr(0.3, 1.5), E.rr(7.5, 9), E.rr(13.5, 14.3)]) E.every(t0, (t) => birdCall(E, { kind: 'tweet', f: 4200 * E.rr(0.92, 1.08), pan: E.rr(0.3, 0.7), g: 0.7 }, t));
+  for (const t0 of [E.rr(0.3, 1.5), E.rr(7.5, 9), E.rr(13.5, 14.3)]) E.every(t0, (t) => birdCall(E, { kind: 'tweet', f: 4200 * E.rr(0.92, 1.08), pan: E.rr(0.3, 0.7), g: 1.1 }, t));
   E.every(E.rr(4.4, 6), (t) => {
     noise(E, { t, color: 'brown', a: 1.2, h: 0.5, d: 1.2, g: 0.12, panSweep: [-0.8, 0.8, 2.9], filters: [{ type: 'lowpass', f: 180, nojit: true }] });
     grains(E, { t: t + 0.6, span: 1.6, count: 14, fLo: 900, fHi: 2000, Q: 4, dLo: 0.006, dHi: 0.018, gLo: 0.01, gHi: 0.03 });
@@ -1231,7 +1313,20 @@ function renderLoop(d, sr, variant = 0) {
     const rng = mulberry32(hashStr(d.id) + variant * 7919);
     const E = makeEnv(octx, out, verbIn, { ...d, gain: 1 }, {}, rng, 0);
     E.L = L; E.W = W;
-    E.every = (e, fn) => { fn(e); if (e < W) fn(e + L); };
+    E.every = (e, fn) => {
+      if (e >= W) { fn(e); return; }
+      // An event inside the warm-up plays twice, at e and at e + L. Both plays must draw the SAME random numbers (a
+      // footstep's noise grain, a tweet's notes): the copy that ends the loop and the original that starts it are then
+      // one sound, and the join is seamless. (Drawing afresh for the copy put a click on amb_town's join.)
+      const main = { r: E.r, rr: E.rr, pick: E.pick }, drawn = [];
+      const withRng = (src, x) => {
+        E.r = src; E.rr = (a, b) => a + (b - a) * src(); E.pick = (arr) => arr[Math.floor(src() * arr.length) % arr.length];
+        try { fn(x); } finally { E.r = main.r; E.rr = main.rr; E.pick = main.pick; }
+      };
+      withRng(() => { const v = main.r(); drawn.push(v); return v; }, e);
+      let i = 0;
+      withRng(() => (i < drawn.length ? drawn[i++] : main.r()), e + L);
+    };
     E.loopRate = (hz) => Math.max(1, Math.round(hz * L)) / L;
     const beds = {};
     E.loopNoise = (color) => beds[color] || (beds[color] = makeNoise(octx, color, Math.round(L * sr), hashStr(d.id + color) + variant));

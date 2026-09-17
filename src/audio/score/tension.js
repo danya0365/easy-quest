@@ -10,8 +10,8 @@ const VIOLIN = [['R', 3], ['G4', 1], ['Ab4', 2], ['G4', 2],
 const HARM = ['Cm', 'Abmaj7', 'Cm', 'Bdim7', 'Cm', 'Db(N6)', 'Ddim7', 'G7b9'];
 
 export function build() {
-  const T = Theme({ id: 'tension', title: 'Something in the Trees', key: 'C minor', bpm: 104, meter: 4, pulse: [0, 2], loop: 8, space: 'HALL', gain: 1.82,
-    loopDb: { per: 3, max: 6 }, enter: { fade: 0.25 } });
+  const T = Theme({ id: 'tension', title: 'Something in the Trees', key: 'C minor', bpm: 104, meter: 4, pulse: [0, 2], loop: 8, space: 'HALL', gain: 1.18,
+    loopDb: { per: 2.5, max: 4 }, enter: { fade: 0.25 } });
   const celli = T.part('celli', { voice: 'strings', bus: 'bass', pan: -0.3, o: { attack: 0.03, rel: 0.12 } });
   T.part('trem', { voice: 'strings', bus: 'harmony', o: { trem: 60 / 104 / 4 } });
   const vn = T.part('violin', { voice: 'violin', bus: 'melody' });

@@ -1,0 +1,202 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>DEMO — P12/P11 dialogue &amp; NPC life · Puddlewick Vale</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:var(--pal-sky-page)}
+#game-canvas{display:block;width:100vw;height:100vh}
+#ui-root{position:fixed;inset:0;pointer-events:none;font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif}
+.dqwin{position:absolute;background:linear-gradient(var(--pal-ui-win-top),var(--pal-ui-win-bottom));border:3px solid var(--pal-ui-border);
+  border-radius:12px;box-shadow:0 0 0 2px var(--pal-ui-border-shade),0 6px 18px var(--p12-shadow);color:var(--pal-ui-text)}
+.dqwin::after{content:"";position:absolute;inset:4px;border:1px solid var(--p12-inner);border-radius:8px;pointer-events:none}
+#title{left:16px;top:14px;padding:8px 16px 10px;max-width:560px}
+#title h1{margin:0;font-size:20px;letter-spacing:.3px;font-weight:800;text-shadow:0 2px 0 var(--pal-ui-border-shade)}
+#title h1 b{color:var(--pal-ui-gold)}
+#title p{margin:3px 0 0;font-size:12.5px;color:var(--pal-ui-text-dim);font-weight:600;line-height:1.4}
+#keys{right:16px;top:14px;padding:8px 14px;font-size:12.5px;font-weight:700;line-height:1.55;color:var(--pal-ui-text-dim)}
+#keys b{color:var(--pal-ui-cursor)}
+#live{left:16px;bottom:14px;padding:7px 14px;font-size:12.5px;font-weight:700;color:var(--pal-ui-text-dim)}
+#live b{color:var(--pal-ui-gold)}
+</style>
+</head><body>
+<canvas id="game-canvas"></canvas>
+<div id="ui-root">
+  <div id="title" class="dqwin"><h1>P12 <b>dialogue</b> &middot; P11 <b>NPC life</b></h1>
+    <p id="sub">Puddlewick Vale, nine in the morning: a sweeper, a fisherman, a child, a cat, a dog, three hens,
+      and two men arguing about a pan.</p></div>
+  <div id="keys" class="dqwin"><b>Z</b> talk &middot; <b>arrows</b> walk &middot; <b>Q/E</b> orbit<br/>
+    <b>1</b> choices &middot; <b>2</b> two speakers &middot; <b>3</b> flags &middot; <b>4</b> tokens<br/>
+    <b>5</b> the Puddlewick cast &middot; <b>8</b> the village itself<br/><b>6</b> evening &middot; <b>7</b> morning</div>
+  <div id="live" class="dqwin">booting…</div>
+</div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// P12 + P11 — the dialogue scene and the NPC system, installed into the REAL field exactly as src/main.js does it,
+// so what you see here is what the game does. Everything below the two install(ctx) calls is demo scaffolding.
+import { App } from '/src/engine/app.js';
+import { Loop } from '/src/engine/loop.js';
+import { Scenes } from '/src/engine/states.js';
+import { Bus } from '/src/engine/events.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { Save } from '/src/engine/save.js';
+import { applyCssVars, css, PAL } from '/src/art/palette.js';
+import { UI } from '/src/ui/window.js';
+import { Text } from '/src/ui/text.js';
+import { Audio } from '/src/audio/audio.js';
+import { Sfx } from '/src/audio/sfx.js';
+import { Maps } from '/src/world/map.js';
+import { Field } from '/src/world/field.js';
+import { preloadHero } from '/src/world/player.js';
+
+applyCssVars();
+document.documentElement.style.setProperty('--p12-shadow', css(PAL.ui.shadow, 0.45));
+document.documentElement.style.setProperty('--p12-inner', css(PAL.ui.border, 0.35));
+Input.init();
+App.start({ canvas: document.getElementById('game-canvas'), version: '0.3.0-P12', beforeUpdate: Input.update });
+Audio.init();
+Audio.bindEvents(Bus);
+
+const ctx = {
+  version: '0.3.0-P12', App, Loop, Scenes, Bus, Debug, reportError, Input, UI, Text, Save, Audio, Sfx, Field, Maps,
+  Music: () => Promise.resolve(null),
+  vars: { HERO: 'Bram' },
+  boot: { scene: 'field', ctx: { map: 'meadow' }, newGame: false },
+};
+
+const sub = document.getElementById('sub');
+const live = document.getElementById('live');
+
+await Maps.loadAll();
+await preloadHero().catch(() => false);
+Field.install();
+for (const [name, path] of [['dialogue', '/src/ui/dialogue.js'], ['npc', '/src/world/npc.js']]) {
+  try { (await import(path)).install(ctx); } catch (e) { reportError('demo install ' + name, e); }
+}
+Scenes.push('field', { map: 'meadow' });
+
+// ── the dialogue showcases (every feature of src/ui/dialogue.js, in one place) ───────────────────────────────
+const SHOWS = {
+  choices: {
+    name: 'Fennick Quiddle', voice: 'low:1.3',
+    script: [
+      'Pots, pans, potions and portable\npity! What will it be, squire?',
+      'The lantern. Take the lantern.\nGuaranteed unbreakable.{p}Guaranteed-ish.',
+      { choice: ['Buy the lantern. (35 gold)', 'Ask what happened to the last one.', 'Just looking.'], cancel: 2, then: [
+        [{ narrate: '%HERO% has no gold at all.{n}He shows Quiddle his empty hands.' },
+          'Ah. A boy of substance, then.\nI shall put it by for you.{p}For about forty years.'],
+        ['It went out.\nThat is all a lantern can do\nto you, squire. It went out.'],
+        [{ narrate: '%HERO% looks at the lantern for\na long moment.' },
+          'Looking is free. It is the only\nthing I have never priced.'],
+      ] },
+    ],
+  },
+  pair: {
+    name: 'Mrs Pell', voice: 'high:0.92',
+    script: [
+      { as: 'pell', name: 'Mrs Pell', voice: 'high:0.92', say: 'Mind the wet step.' },
+      { name: 'Mr Budge', voice: 'low:1.02', say: 'I minded it.{p}I minded it sitting down,\nbut I minded it.' },
+      { name: 'Mrs Pell', voice: 'high:0.92', emote: 'happy', say: 'You have been minding that step\nsince breakfast.' },
+      { narrate: 'Somewhere indoors, a kettle is\nbeing sung to.' },
+      { name: 'Crumpet', voice: 'monster:1.05', say: 'Whuff.\n(He agrees with whoever spoke\nlast.)' },
+    ],
+  },
+  flags: {
+    name: 'Old Hob', voice: 'low:0.74',
+    script: [
+      { act: {
+        1: ['Off up the hill again with your\nfather?{p}Take a coat. He never takes\na coat.'],
+        2: ['Well. You came back, and he\ndidn\'t.{p}Barty has kept the fire in.\nGo on.'],
+        3: ['Bring the little ones here.\nI will tell them lies about\ntheir grandad.'],
+      } },
+      { narrate: 'The same man, three Acts apart.\nPress {gold}3{/gold} again after a flag\nchanges, and he changes with it.' },
+      { yesNo: ['Set the Act on', 'Leave it'], yes: [
+        { do: (api) => { const a = api.act(); api.flag('ch2.start', a >= 2 ? null : true); api.flag('ch3.start', a === 2 ? true : null); } },
+        'There. Ask me again.',
+      ], no: ['Suit yourself. The bench\noutside is free, and very\nhonest about it.'] },
+    ],
+  },
+  tokens: {
+    name: 'Barty Marrow', voice: 'barty',
+    script: [
+      'Little master! You are grown\nlike a marrow in a wet July.',
+      '%HERO%. %WIFE%. %SON% and\n%DAUGHTER%. And %PIP%, who is\nsitting on the soup.',
+      { narrate: '%HERO% looks at his boots.' },
+      'I am not weeping.\nIt is the onions.\nThere are always onions.',
+    ],
+  },
+};
+Debug.expose('demo', (which = 'choices') => {
+  const s = SHOWS[which];
+  if (!s) return { ok: false, shows: Object.keys(SHOWS) };
+  Scenes.push('dialogue', Object.assign({}, s, { who: (id) => (id === 'pell' ? { name: 'Mrs Pell', voice: 'high:0.92' } : null) }));
+  sub.textContent = 'Showing: ' + which;
+  return { ok: true, which };
+});
+
+// ── the Puddlewick cast, out on the meadow (until P23's puddlewick.js exists to hold them) ──────────────────
+let castOn = false;
+Debug.expose('cast', async (on = true) => {
+  if (!on) {
+    castOn = false;
+    Field.teleport('meadow');
+    sub.textContent = 'Puddlewick Vale, nine in the morning.';
+    return { cast: false };
+  }
+  const [mod, dlg] = await Promise.all([import('/src/world/maps/puddlewick.npcs.js'), import('/src/ui/dialogue.js')]);
+  const layer = mod.default;
+  // __DQ.cast('village') walks the whole cast into P23's real Puddlewick, once that map is in maps/index.js
+  let base = null;
+  if (on === 'village') { try { base = (await import('/src/world/maps/puddlewick.js')).default; } catch (e) { base = null; } }
+  if (base && base.id) {
+    Maps.register(base);
+    Maps.addLayer('puddlewick', 'npcs', layer);
+    castOn = true;
+    const r = Field.teleport('puddlewick');
+    sub.textContent = 'Puddlewick itself (P23\u2019s map), with everybody who lives in it.';
+    return { cast: true, map: 'puddlewick', ok: !!(r && r.ok) };
+  }
+  // ...otherwise stand the Act I cast out in the vale, keeping their own behaviours and words
+  const part = typeof layer === 'function' ? layer({ id: 'puddlewick', size: [40, 34], origin: [-20, -17] }) : layer;
+  const actOne = { flag: () => null, gold: () => 0, hour: () => 9, act: () => 1, talks: 0 };
+  const people = (part.npcs || []).filter(n => dlg.cond(n.when, actOne));
+  const cols = 5, gap = 2.6;
+  const placed = people.map((n, i) => Object.assign({}, n, {
+    x: -5.2 + (i % cols) * gap, z: 13.0 + Math.floor(i / cols) * gap * 1.15,
+    schedule: null, radius: Math.min(n.radius || 1.2, 1.6), idle: n.idle === 'tag' || n.idle === 'chase' ? 'stand' : n.idle,
+  }));
+  Maps.addLayer('meadow', 'p12cast', { npcs: placed, lines: part.lines || {} });
+  castOn = true;
+  Field.teleport('meadow');
+  sub.textContent = 'The Puddlewick cast (Act I), standing in the vale: ' + placed.map(p => p.name || p.id).join(', ');
+  return { cast: true, people: placed.length };
+});
+
+// ── keys ────────────────────────────────────────────────────────────────────────────────────────────────────
+addEventListener('keydown', (e) => {
+  const k = e.key;
+  if (k === '1') window.__DQ.demo('choices');
+  else if (k === '2') window.__DQ.demo('pair');
+  else if (k === '3') window.__DQ.demo('flags');
+  else if (k === '4') window.__DQ.demo('tokens');
+  else if (k === '5') window.__DQ.cast(!castOn);
+  else if (k === '6') window.__DQ.timeOfDay(18.5);
+  else if (k === '7') window.__DQ.timeOfDay(9);
+  else if (k === '8') window.__DQ.cast('village');
+});
+
+Debug.provide('demo', () => ({ piece: 'P12', cast: castOn, shows: Object.keys(SHOWS) }));
+
+// the live readout: who is out, who is speaking, what time it is
+UI.onUpdate(() => {
+  try {
+    const s = window.__DQ.state();
+    const npcs = s.npcs || [];
+    const d = s.dialogue;
+    live.innerHTML = `<b>${npcs.length}</b> out · ${npcs.filter(n => n.talking).length ? 'talking to <b>' + npcs.filter(n => n.talking).map(n => n.name || n.id).join(', ') + '</b>' : 'nobody talking'}`
+      + ` · ${Math.floor(s.timeOfDay)}:00 · fps <b>${Math.round(s.fps)}</b>`
+      + (d ? ` · box: ${d.name ? '<b>' + d.name + '</b> ' : ''}${d.choice ? 'choosing' : d.typing ? 'typing' : 'waiting'}` : '');
+  } catch (_) {}
+});
+</script></body></html>

@@ -23,6 +23,7 @@ import * as finale from './finale.js';
 import * as battleStart from './battle_start.js';
 import * as itemGet from './item_get.js';
 import * as sadSting from './sad_sting.js';
+import { counterpointOf } from './_lib.js';
 
 const BUILDERS = [title, village, overworld, castle, town, church, inn, dungeon, tension, battle, boss, victory, levelup,
   befriend, family, lullaby, wedding, highfeather, quietHand, finale, battleStart, itemGet, sadSting];
@@ -36,6 +37,11 @@ for (const mod of BUILDERS) {
     try { (globalThis.__DQ ||= {}).errors ||= []; globalThis.__DQ.errors.push('[music] score build failed: ' + e.message); } catch (_) { /* ignore */ }
     console.warn('[music] score build failed', e);
   }
+}
+
+/** counterpoint report for the named themes (see _lib.counterpointOf) — the demo and the harness assert on this */
+export function counterpoint(ids = ['village', 'overworld', 'battle']) {
+  return ids.map((id) => THEMES[id]).filter(Boolean).map((th) => counterpointOf(th));
 }
 
 /** map.music aliases (ARCHITECTURE.md uses 'sad') */

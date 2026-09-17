@@ -4,8 +4,15 @@
 
 The score (composed for this game; see `docs/MUSIC-BIBLE.md`) is performed by real recorded, multisampled
 instruments. The samples are vendored under `vendor/samples/` (≈25 MB), cut and looped by `tools/samples/`
-(`fetch.mjs` → `build.mjs`, sources pinned in `tools/samples/spec.mjs`), and listed zone by zone in
+(`fetch.mjs` → `build.mjs` → `flatten.mjs`, sources pinned in `tools/samples/spec.mjs`), and listed zone by zone in
 `vendor/samples/manifest.json`. Every library's own licence file is copied next to its samples.
+
+Processing, in order: trim to the attack · measure the real root (harmonic sieve + guided YIN) · find a loop by
+normalised cross-correlation and bake a crossfade into the file · **flatten the slow swell inside every loop with a
+periodic gain curve** (a bow swell or a breath dip caught inside a 1-2 s loop turns into a mechanical wobble on
+repeat; `flatten.mjs` takes 82 loops that swelled more than 3 dB down to 2) · normalise each zone to a common
+loudness · encode (FLAC for loops so the loop points stay sample-accurate, MP3 for one-shots).
+`tools/samples/loopcheck.mjs` audits the result, and the players load only the zones a cue actually plays.
 
 | Library | Author | Licence | Used for |
 |---|---|---|---|

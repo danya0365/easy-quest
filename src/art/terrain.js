@@ -6,18 +6,23 @@
  * Moved verbatim out of src/world/scenery.js (the vertical slice's kit); signatures are a contract maps rely on.
  *
  *   curvePoints(pts, step)                      dense [[x, z]] along a Catmull-Rom (lanes, streams)
- *   paintMasks({N, span, center, strokes, discs}) -> {sample(ch, x, z), texture(), rect, ...}   R = path, G = water
+ *   paintMasks({N, span, center, strokes, discs}) -> {sample(ch, x, z), texture(), rect, ...}
+ *        channel 0 = worn path / lane · 1 = water + banks · 2 = stone or cobble paving (a village green, a quay, a yard)
  *   distanceGrid({N, span, center, lines, discs, maxR}) -> {sample(x, z)}            exact distance, for shaping
- *   buildGround(scene, {heightAt, masks, ao, shade, inner, step, outer, rings}) -> Mesh   one draw call
+ *   buildGround(scene, {heightAt, masks, ao, shade, inner, step, outer, rings, tone, ruts}) -> Mesh   one draw call
  *   terrainRecipes(kit)                          adds kit.water({stream, width, ponds, y, joinPonds, shoreDepth})
+ *
+ * The ground follows the sky: src/art/weather.js ENV gives it the hour's light through wet lanes, puddles that mirror
+ * the sky, and a settling of snow, so __DQ.timeOfDay / __DQ.weather change the ground with no map edit.
  *
  * Kit contract used here (src/art/props.js createPropsKit): kit.scene, kit.heightAt, kit.animators.push(fn(t, dt, cam)).
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { PAL, C3, lerp, smooth, clamp01 } from './palette.js';
+import { PAL, C3, lerp, smooth, clamp01, mixHex } from './palette.js';
 import { Tex } from './tex.js';
 import { makeToon, worldPlanar, aoPatch } from './toon.js';
+import { ENV } from './weather.js';
 
 /** Dense points along a Catmull-Rom through [[x, z], ...], spaced about `step` world units apart. */
 export function curvePoints(pts, step = 0.4) {
@@ -30,13 +35,14 @@ export function curvePoints(pts, step = 0.4) {
 // masks: exact distance fields painted into float grids (path / water), sampled by the CPU and the ground shader
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 /**
- * strokes: [{pts: dense [[x,z]], w: width, falloff?, channel: 0|1}]   discs: [{x, z, r, falloff?, channel}]
+ * strokes: [{pts: dense [[x,z]], w: width, falloff?, channel: 0|1|2}]   discs: [{x, z, r, falloff?, channel}]
  * value = clamp01(0.5 + (halfWidth - distance) / (2 * falloff)) -> exactly 0.5 on the edge, max over strokes.
- * Returns {N, span, center, ch: [Float32Array, Float32Array], sample(ch, x, z), texture()}
+ * Channels: 0 path, 1 water, 2 stone/cobble paving.
+ * Returns {N, span, center, ch: [Float32Array x3], sample(ch, x, z), texture()}
  */
 export function paintMasks({ N = 1024, span = 96, center = [0, 0], strokes = [], discs = [] } = {}) {
   const pxu = N / span, ox = center[0] - span / 2, oz = center[1] - span / 2;
-  const ch = [new Float32Array(N * N), new Float32Array(N * N)];
+  const ch = [new Float32Array(N * N), new Float32Array(N * N), new Float32Array(N * N)];
   const put = (c, k, v) => { if (v > ch[c][k]) ch[c][k] = v; };
   for (const s of strokes) {
     const hw = s.w / 2, fo = s.falloff ?? 1.2, reach = hw + fo, c = s.channel | 0, P = s.pts;
@@ -81,7 +87,7 @@ export function paintMasks({ N = 1024, span = 96, center = [0, 0], strokes = [],
     texture() {
       if (tex) return tex;
       const data = new Uint8Array(N * N * 4);
-      for (let k = 0; k < N * N; k++) { data[k * 4] = ch[0][k] * 255; data[k * 4 + 1] = ch[1][k] * 255; data[k * 4 + 3] = 255; }
+      for (let k = 0; k < N * N; k++) { data[k * 4] = ch[0][k] * 255; data[k * 4 + 1] = ch[1][k] * 255; data[k * 4 + 2] = ch[2][k] * 255; data[k * 4 + 3] = 255; }
       tex = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
       tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter; tex.generateMipmaps = false;
       tex.colorSpace = THREE.NoColorSpace; tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping; tex.needsUpdate = true; tex.name = 'groundMask';
@@ -137,7 +143,7 @@ export function distanceGrid({ N = 320, span = 96, center = [0, 0], lines = [], 
 // ground: fine grid over the playable square + a square-to-round annulus out to the hills, one draw call.
 // Grass = Tex.grass world-planar; path + stream banks from the mask (R path, G water); contact AO from the AO mask.
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
-export function buildGround(scene, { heightAt, masks, ao, shade = null, inner = 40, step = 0.8, outer = 128, rings = 16 } = {}) {
+export function buildGround(scene, { heightAt, masks, ao, shade = null, inner = 40, step = 0.8, outer = 128, rings = 16, tone = 0.38, ruts = 0.55, cobbleScale = 5.0 } = {}) {
   const n = Math.round((inner * 2) / step);
   const pos = [], idx = [];
   const vtx = (x, z) => { pos.push(x, heightAt(x, z), z); return pos.length / 3 - 1; };
@@ -189,13 +195,31 @@ export function buildGround(scene, { heightAt, masks, ao, shade = null, inner = 
     sh.uniforms.uDry = { value: C3(PAL.grass.dry) }; sh.uniforms.uLip = { value: C3(PAL.dirt.dark) };
     sh.uniforms.uCrown = { value: C3(PAL.dirt.light) }; sh.uniforms.uBank = { value: C3(PAL.dirt.bank) };
     sh.uniforms.uLush = { value: C3(PAL.grass.deep) }; sh.uniforms.uClump = { value: C3(PAL.grass.clump) };
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D tGMask, tDirtMap, tDqShade; uniform vec4 uGMaskRect, uDqShadeRect; uniform float uDqShadeOn; uniform vec3 uDry, uLip, uCrown, uBank, uLush, uClump, uDqShadeCol;')
+    // painterly tone: the big four-green macro mix of ART-DIRECTION §10, laid over the tuned grass texture as TONE
+    // only (the texture keeps its own light and shade), so the lawn drifts between greens and never tiles
+    sh.uniforms.uGDeep = { value: C3(PAL.grass.deep) }; sh.uniforms.uGMid = { value: C3(PAL.grass.mid) };
+    sh.uniforms.uGLight = { value: C3(PAL.grass.light) }; sh.uniforms.uGSun = { value: C3(PAL.grass.sun) };
+    sh.uniforms.uTone = { value: tone }; sh.uniforms.uRuts = { value: ruts };
+    sh.uniforms.tCobbleMap = { value: Tex.cobble() }; sh.uniforms.uCobbleScale = { value: 1 / cobbleScale };
+    sh.uniforms.uKerb = { value: C3(PAL.stone.dark) }; sh.uniforms.uSnowLit = { value: C3(PAL.snow.light) };
+    sh.uniforms.uSnowShade = { value: C3(PAL.snow.shade) }; sh.uniforms.uPuddle = { value: C3(PAL.water.mid) };
+    for (const k of ['uEnvWet', 'uEnvSnow', 'uEnvPrecip', 'uEnvTime', 'uEnvNight']) sh.uniforms[k] = ENV.u[k];
+    sh.uniforms.uEnvHorizon = ENV.u.uEnvHorizon;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D tGMask, tDirtMap, tDqShade, tCobbleMap; uniform vec4 uGMaskRect, uDqShadeRect; uniform float uDqShadeOn, uTone, uRuts, uCobbleScale, uEnvWet, uEnvSnow, uEnvPrecip, uEnvTime, uEnvNight; uniform vec3 uDry, uLip, uCrown, uBank, uLush, uClump, uDqShadeCol, uGDeep, uGMid, uGLight, uGSun, uKerb, uSnowLit, uSnowShade, uPuddle, uEnvHorizon;')
       .replace('#include <color_fragment>', /* glsl */`
   {
     vec2 mUv = ( vDqWorld.xz - uGMaskRect.xy ) / uGMaskRect.zw;
     float mIn = step( 0.0, mUv.x ) * step( mUv.x, 1.0 ) * step( 0.0, mUv.y ) * step( mUv.y, 1.0 );
     vec4 mk = texture2D( tGMask, mUv ) * mIn;
+    vec3 nA = texture2D( tDqNoise, vDqWorld.xz * 0.017 ).rgb;
+    vec3 nB = texture2D( tDqNoise, vDqWorld.xz * 0.061 + vec2( 0.31, 0.67 ) ).rgb;
     float edgeN = ( texture2D( tDqNoise, vDqWorld.xz * 0.21 + vec2( 0.13, 0.41 ) ).r - 0.5 ) * 0.16 + ( texture2D( tDqNoise, vDqWorld.xz * 0.85 ).g - 0.5 ) * 0.10;
+    // painterly grass TONE: big soft patches between four greens, brightness kept from the grass texture
+    vec3 macro = mix( uGDeep, uGMid, smoothstep( 0.22, 0.58, nA.r ) );
+    macro = mix( macro, uGLight, smoothstep( 0.48, 0.80, nB.g ) * 0.75 );
+    macro = mix( macro, uGSun, smoothstep( 0.58, 0.90, nA.g * 0.55 + nB.b * 0.45 ) * 0.5 );
+    float lum = dot( diffuseColor.rgb, vec3( 0.3333 ) ), mlum = max( dot( macro, vec3( 0.3333 ) ), 0.002 );
+    diffuseColor.rgb = mix( diffuseColor.rgb, macro * ( lum / mlum ), uTone );
     // stream banks: lush darker grass, then a bank of wet earth
     float wet = mk.g + edgeN * 0.35;
     diffuseColor.rgb = mix( diffuseColor.rgb, mix( diffuseColor.rgb, uLush * 0.9, 0.5 ), smoothstep( 0.12, 0.34, wet ) );
@@ -207,9 +231,46 @@ export function buildGround(scene, { heightAt, masks, ao, shade = null, inner = 
     float rim = smoothstep( 0.24, 0.5, pd ) * ( 1.0 - isPath );
     diffuseColor.rgb = mix( diffuseColor.rgb, mix( diffuseColor.rgb, uDry, 0.65 ), rim * 0.85 );
     vec3 dirt = texture2D( tDirtMap, vDqWorld.xz / 3.3 ).rgb;
-    dirt = mix( dirt, mix( dirt, uCrown, 0.45 ), smoothstep( 0.74, 0.98, mk.r ) * ( 0.4 + 0.6 * texture2D( tDqNoise, vDqWorld.xz * 0.061 ).r ) );
+    dirt = mix( dirt, mix( dirt, uCrown, 0.45 ), smoothstep( 0.74, 0.98, mk.r ) * ( 0.4 + 0.6 * nB.r ) );
     dirt = mix( dirt, uLip * 0.92, ( 1.0 - smoothstep( 0.5, 0.58, pd ) ) * 0.45 );
+    // cart ruts: two worn bands either side of the crown, broken up so they never look drawn with a ruler
+    float rut = smoothstep( 0.60, 0.78, pd ) * ( 1.0 - smoothstep( 0.78, 0.94, pd ) );
+    dirt = mix( dirt, dirt * 0.80, rut * uRuts * ( 0.45 + 0.55 * texture2D( tDqNoise, vDqWorld.xz * 0.33 ).b ) );
     diffuseColor.rgb = mix( diffuseColor.rgb, dirt, isPath );
+    // stone / cobble paving (mask B): a crisp edge with a darker kerb and a scuffed rim of dry grass outside it
+    float cd = mk.b + edgeN * 0.5;
+    float aaC = fwidth( cd ) * 0.8 + 0.003;
+    float isCob = smoothstep( 0.5 - aaC, 0.5 + aaC, cd );
+    float cobRim = smoothstep( 0.26, 0.5, cd ) * ( 1.0 - isCob );
+    diffuseColor.rgb = mix( diffuseColor.rgb, mix( diffuseColor.rgb, uDry, 0.5 ), cobRim * 0.7 );
+    // two rotated samples swapped by close noise + earth worn through between the stones, so the paving never tiles
+    vec2 cUv = vDqWorld.xz * uCobbleScale;
+    vec3 cNoise = texture2D( tDqNoise, vDqWorld.xz * 0.19 + vec2( 0.53, 0.17 ) ).rgb;
+    vec3 cob = mix( texture2D( tCobbleMap, cUv ).rgb, texture2D( tCobbleMap, mat2( 0.8, -0.6, 0.6, 0.8 ) * cUv * 0.71 + vec2( 0.37, 0.61 ) ).rgb, smoothstep( 0.38, 0.62, cNoise.g ) );
+    cob *= 0.88 + 0.24 * nA.r;
+    cob = mix( cob, mix( cob, dirt, 0.75 ), smoothstep( 0.52, 0.86, cNoise.r * 0.6 + nB.b * 0.4 ) * 0.7 );
+    cob = mix( cob, cob * 0.82, ( 1.0 - smoothstep( 0.5, 0.62, cd ) ) * 0.7 );
+    cob = mix( cob, mix( cob, uKerb, 0.45 ), ( 1.0 - smoothstep( 0.5, 0.56, cd ) ) * 0.8 );
+    diffuseColor.rgb = mix( diffuseColor.rgb, cob, isCob );
+    float hard = max( isPath, isCob );
+    // rain: everything darkens, the lanes go properly dark, shallow puddles mirror the sky — and the grass
+    // itself takes a wet sheen, brightest where the ground is seen at a grazing angle (the far lawn gleams)
+    if ( uEnvWet > 0.002 ) {
+      float w = uEnvWet;
+      diffuseColor.rgb *= mix( 1.0, mix( 0.74, 0.58, hard ), w );
+      vec3 vdirG = normalize( vDqWorld - cameraPosition );
+      float grazeG = pow( 1.0 - clamp( abs( vdirG.y ), 0.0, 1.0 ), 3.0 );
+      float sheen = grazeG * w * ( 0.55 + 0.45 * smoothstep( 0.35, 0.8, nB.g ) );
+      diffuseColor.rgb = mix( diffuseColor.rgb, mix( uEnvHorizon, uPuddle, 0.3 ), sheen * 0.30 );
+      float pud = smoothstep( 0.62, 0.88, texture2D( tDqNoise, vDqWorld.xz * 0.12 + vec2( 0.7, 0.2 ) ).r ) * hard * w;
+      diffuseColor.rgb = mix( diffuseColor.rgb, mix( uEnvHorizon * 0.7, uPuddle, 0.35 ), pud * 0.55 );
+    }
+    // snow: a dusting that settles on the grass first and keeps off the trodden lanes longest
+    if ( uEnvSnow > 0.002 ) {
+      float cover = clamp( uEnvSnow * ( 0.45 + 0.8 * texture2D( tDqNoise, vDqWorld.xz * 0.11 + vec2( 0.13, 0.83 ) ).r ) - hard * 0.35 * ( 1.0 - uEnvSnow * 0.7 ) - smoothstep( 0.3, 0.5, wet ), 0.0, 1.0 );
+      vec3 sn = mix( uSnowLit, uSnowShade, ( 1.0 - smoothstep( 0.3, 0.72, nB.g * 0.6 + nA.b * 0.4 ) ) * 0.45 );
+      diffuseColor.rgb = mix( diffuseColor.rgb, sn, smoothstep( 0.08, 0.85, cover ) * 0.94 );
+    }
     if ( uDqShadeOn > 0.5 ) {
       vec2 sUv = clamp( ( vDqWorld.xz - uDqShadeRect.xy ) / uDqShadeRect.zw, 0.0, 1.0 );
       float fs = texture2D( tDqShade, sUv ).r;
@@ -296,20 +357,67 @@ export function terrainRecipes(kit) {
     const mat = new THREE.MeshBasicMaterial({ map: Tex.water(), fog: true });
     mat.onBeforeCompile = (sh) => {
       sh.uniforms.uDqShallow = { value: C3(PAL.water.light) }; sh.uniforms.uDqFoam = { value: C3(PAL.water.foam) };
+      sh.uniforms.uDqDeep = { value: C3(PAL.water.deep) }; sh.uniforms.uDqSand = { value: C3(mixHex(PAL.dirt.pebble, PAL.water.light, 0.45)) };
       sh.uniforms.uDqShore = { value: shoreDepth }; sh.uniforms.tDqNoise = { value: Tex.noise() };
-      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aDepth; varying float vDqDepth; varying vec2 vDqWXZ;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvDqDepth = aDepth; vDqWXZ = ( modelMatrix * vec4( position, 1.0 ) ).xz;');
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vDqDepth; varying vec2 vDqWXZ; uniform vec3 uDqShallow, uDqFoam; uniform float uDqShore; uniform sampler2D tDqNoise;')
+      // the water is unlit (MeshBasic), so it takes the hour from ENV: the sky sits in it, and rain dimples it
+      for (const k of ['uEnvLight', 'uEnvHorizon', 'uEnvNight', 'uEnvPrecip', 'uEnvTime', 'uEnvSun', 'uEnvMoonVis', 'uEnvSunDir',
+        'uEnvMoonDir', 'uEnvTwilight', 'uEnvTwilightCol', 'uEnvSunVis', 'uEnvDusk', 'uEnvWindXZ']) sh.uniforms[k] = ENV.u[k];
+      sh.uniforms.uEnvZenith = ENV.sky.uZenith;
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aDepth; varying float vDqDepth; varying vec2 vDqWXZ; varying vec3 vDqWPos;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvDqDepth = aDepth; vDqWPos = ( modelMatrix * vec4( position, 1.0 ) ).xyz; vDqWXZ = vDqWPos.xz;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vDqDepth; varying vec2 vDqWXZ; varying vec3 vDqWPos; uniform sampler2D tDqNoise; uniform vec3 uDqShallow, uDqFoam, uDqDeep, uDqSand, uEnvLight, uEnvHorizon, uEnvSun, uEnvSunDir, uEnvMoonDir, uEnvTwilightCol, uEnvZenith; uniform float uDqShore, uEnvNight, uEnvPrecip, uEnvTime, uEnvMoonVis, uEnvSunVis, uEnvTwilight, uEnvDusk; uniform vec2 uEnvWindXZ;')
         .replace('#include <map_fragment>', `#include <map_fragment>
   {
-    float n = texture2D( tDqNoise, vDqWXZ * 0.35 ).g - 0.5;
-    float d = vDqDepth + n * 0.05;
-    diffuseColor.rgb = mix( mix( diffuseColor.rgb, uDqShallow, 0.55 ), diffuseColor.rgb, smoothstep( 0.03, uDqShore, d ) );
-    float foam = 1.0 - smoothstep( 0.0, 0.075, d );
-    diffuseColor.rgb = mix( diffuseColor.rgb, uDqFoam, foam * 0.8 );
+    // ── the bed, read through the water ────────────────────────────────────────────────────────────────────
+    // Two ripple fields crossing at an angle (never one printed pattern), drifting on the wind.
+    vec2 w1 = vDqWXZ * 0.34 + uEnvWindXZ * uEnvTime * 0.012;
+    vec2 w2 = mat2( 0.83, -0.56, 0.56, 0.83 ) * vDqWXZ * 0.57 - uEnvWindXZ * uEnvTime * 0.021;
+    float n1 = texture2D( tDqNoise, w1 ).g, n2 = texture2D( tDqNoise, w2 ).r;
+    float ripple = ( n1 - 0.5 ) * 0.62 + ( n2 - 0.5 ) * 0.38;
+    float d = max( vDqDepth, 0.0 ) + ripple * 0.06;
+    // depth: a proper gradient from sand, through shallow, to deep — not a flat plane of blue
+    float shallow = 1.0 - smoothstep( 0.04, uDqShore * 2.4, d );
+    float deep = smoothstep( uDqShore * 1.6, uDqShore * 5.5, d );
+    diffuseColor.rgb = mix( diffuseColor.rgb, uDqSand, shallow * shallow * 0.78 );
+    diffuseColor.rgb = mix( diffuseColor.rgb, uDqDeep, deep * 0.62 );
+    diffuseColor.rgb = mix( diffuseColor.rgb, uDqShallow, ( 1.0 - deep ) * ( 1.0 - shallow ) * 0.3 );
+    // ── the sky lying in it ───────────────────────────────────────────────────────────────────────────────
+    // A flat sheet reflects the sky hard at grazing angles and the bed straight down (Fresnel, cheap and honest).
+    vec3 vdir = normalize( vDqWPos - cameraPosition );
+    float graze = 1.0 - clamp( abs( vdir.y ) + ripple * 0.10, 0.0, 1.0 );
+    float fres = pow( graze, 3.4 );
+    vec3 skyCol = mix( uEnvHorizon, uEnvZenith, 0.35 );
+    diffuseColor.rgb = mix( diffuseColor.rgb, skyCol, fres * ( 0.66 - 0.3 * shallow ) );
+    diffuseColor.rgb = mix( diffuseColor.rgb, uEnvTwilightCol, uEnvTwilight * fres * 0.34 );
+    // ── the sun (or the moon) on the water: a broken, moving glitter path ─────────────────────────────────
+    vec3 L = normalize( mix( uEnvSunDir, uEnvMoonDir, uEnvNight ) );
+    vec3 R = reflect( vdir, normalize( vec3( ripple * 0.22, 1.0, ripple * 0.18 ) ) );
+    float spec = pow( max( dot( R, L ), 0.0 ), 34.0 );
+    float glitter = smoothstep( 0.52, 0.92, n1 * 0.6 + n2 * 0.4 );
+    diffuseColor.rgb += uEnvSun * spec * ( 0.35 + 1.5 * glitter ) * mix( uEnvSunVis, uEnvMoonVis * 0.8, uEnvNight );
+    // ── the waterline: wet sand, a soft ragged foam, and a dark seam right at the bank ────────────────────
+    float edgeN = ( texture2D( tDqNoise, vDqWXZ * 1.7 ).b - 0.5 ) * 0.055;
+    float de = d + edgeN;
+    float foam = ( 1.0 - smoothstep( 0.0, 0.10, de ) ) * ( 0.45 + 0.55 * texture2D( tDqNoise, vDqWXZ * 2.6 + vec2( uEnvTime * 0.05, 0.0 ) ).g );
+    diffuseColor.rgb = mix( diffuseColor.rgb, uDqFoam, clamp( foam, 0.0, 1.0 ) * 0.62 );
+    diffuseColor.rgb = mix( diffuseColor.rgb, uDqDeep * 0.55, ( 1.0 - smoothstep( 0.0, 0.035, de ) ) * 0.35 );
+    // ── the hour ──────────────────────────────────────────────────────────────────────────────────────────
+    diffuseColor.rgb *= uEnvLight;
+    diffuseColor.rgb = mix( diffuseColor.rgb, uEnvHorizon * mix( 1.0, 0.5, uEnvNight ), 0.10 + 0.22 * uEnvNight );
+    if ( uEnvPrecip > 0.01 ) {                        // rain rings, one per metre cell, each on its own beat
+      vec2 cell = vDqWXZ * 1.4;
+      vec2 id = floor( cell ), f = fract( cell ) - 0.5;
+      float hsh = fract( sin( dot( id, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 );
+      float tt = fract( uEnvTime * 1.35 + hsh );
+      float rr = 0.06 + tt * 0.4, r = length( f );
+      float ring = smoothstep( rr, rr - 0.07, r ) - smoothstep( rr - 0.05, rr - 0.13, r );
+      diffuseColor.rgb = mix( diffuseColor.rgb, uDqFoam, clamp( ring, 0.0, 1.0 ) * ( 1.0 - tt ) * uEnvPrecip * 0.55 );
+    }
+    // the foam line and the glitter must not be dimmed away by the alpha-free basic material's own map
+    diffuseColor.a = 1.0;
   }`);
     };
-    mat.customProgramCacheKey = () => 'kitwater|shore';
+    mat.customProgramCacheKey = () => 'kitwater|shore|env|depth2';
     const mesh = new THREE.Mesh(g, mat);
     mesh.name = 'water'; mesh.renderOrder = 0; scene.add(mesh);
     animators.push((t) => { Tex.water().offset.set(t * 0.012, -t * 0.03); });

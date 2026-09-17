@@ -20,6 +20,13 @@
  *    one sprite while an emote bubble shows. Geometry is cached per look and shared by every instance; the three
  *    materials are shared by the whole cast.
  *  - Toriyama proportions: adults ~1.6 u, children ~1.1 u, heads ~1/3 of the body, mitten hands, chunky boots.
+ *    Sir Halvard is the exception the story needs: a 2.07 u giant on a V-shaped barrel chest twice the boy's width,
+ *    with bare massive arms, a small head and adult eyes under heavy brows (CANON: "enormous shaggy bear of a man").
+ *  - Hair, beards and fur are ONE closed shaggy mass each (shag() / fringe()): an outer surface with pointed tufts,
+ *    an inner wall tucked under the skin, per-vertex colour (so grey temples are streaks in the same hair, never
+ *    separate outlined blobs) and ONE outline. A bald man's horseshoe of hair is fringe().
+ *  - A character who carries a staff-like prop (greatsword, cane, pitchfork) declares style.plant = {len, gripY, ...}
+ *    and sets K.m.stickLen; anim.js then plants its tip on the ground every stride and the hand follows the staff.
  *  - Faces are decals sitting ON the head surface; eyes, brows and mouths hang on bones so they blink, glance,
  *    talk and emote. Colours come only from PAL (mixHex/scaleHex of palette entries, never a literal hex).
  */
@@ -409,7 +416,7 @@ function stdHead(K, o) {
   }
   const nose = o.nose || 'button';
   if (nose !== 'none') {
-    const nr = nose === 'big' ? 0.2 : nose === 'round' ? 0.15 : 0.1;
+    const nr = nose === 'big' ? 0.21 : nose === 'round' ? 0.16 : 0.115;
     const { P } = K.onHead(0, -0.3, -r * nr * 0.35);
     K.ball('head', [P.x, P.y, P.z], [r * nr * 1.05, r * nr * 0.9, r * nr], o.noseC || o.skin, { skin: true, outline: nose === 'button' ? 0 : OUTLINE.char, detail: 0.7 });
   }
@@ -567,9 +574,9 @@ function stdItem(K) {
   const m = K.m, k = m.k;
   const side = K.style && K.style.propR ? 'L' : 'R', sd = side === 'L' ? 1 : -1;
   const hand = K.abs('hand' + side) || [sd * m.shX, m.handY, 0];
-  const s = 0.105 * Math.max(0.78, Math.min(1.15, k));
+  const s = 0.105 * Math.max(0.95, Math.min(1.2, k));
   const hr = 0.075 * k;
-  const c = [hand[0], hand[1] - hr * 1.2 - s * 1.2, hand[2] + 0.01 * k];
+  const c = [hand[0], hand[1] - hr * 1.3, hand[2] + 0.02 * k];
   K.joint('item', 'hand' + side, c);
   K.add(() => new THREE.OctahedronGeometry(1, 0), TRS(c, [0, 0, 0], [s * 0.78, s * 1.2, s * 0.78]), { bone: 'item', color: PAL.water.light, outline: 0, rep: [1, 1] });
   K.torus('item', c, s * 0.66, s * 0.13, COL.gold, { rot: [Math.PI / 2, 0, 0] });
@@ -656,7 +663,7 @@ function shagGeo(E, o) {
     const lph = u * locks;
     const lc = 0.5 + 0.5 * Math.cos(lph * TAU);                         // 1 at a lock's centre, 0 in the groove
     const tri = Math.abs(((lph + 0.5) % 1) * 2 - 1);                      // 1 at a lock's centre
-    const jig = 0.7 + 0.6 * hash01(Math.floor(lph + 0.5) * 7.31 + (o.seed || 0));
+    const jig = 0.55 + 0.9 * hash01(Math.floor(lph + 0.5) * 7.31 + (o.seed || 0));
     const endK = wrap ? 1 : sstep(0, o.endTaper ?? 0.06, u) * sstep(0, o.endTaper ?? 0.06, 1 - u);
     const top = o.top(a, yaw), bot = o.bot(a, yaw);
     const edge = bot - (o.tuft ? o.tuft(a, yaw) : 0) * Math.pow(tri, 1.6) * jig * endK;
@@ -667,7 +674,7 @@ function shagGeo(E, o) {
       const d = surf(yaw, pitch, Pn, Nn);
       const grow = o.topTaper ? sstep(0, o.topTaper, t) : 1;
       const tip = 1 - sstep(0.62, 1, t) * 0.94;
-      const th = o.thick(a, t) * (1 - depth * (1 - lc)) * grow * tip * endK;
+      const th = o.thick(a, t, yaw) * (1 - depth * (1 - lc)) * grow * tip * endK;
       const k = (r * cols + iu);
       if (outer) Pn.addScaledVector(Nn, th); else Pn.addScaledVector(Nn, -inset * (0.3 + 0.7 * grow));
       pos[k * 3] = Pn.x; pos[k * 3 + 1] = Pn.y; pos[k * 3 + 2] = Pn.z;
@@ -708,6 +715,24 @@ function shag(K, bone, E, o) {
   let cached = null;
   const make = () => (cached ? cached.clone() : (cached = shagGeo(E, o)).clone());
   return K.add(make, new THREE.Matrix4(), { bone, color: PAL.char.hair, outline: o.outline ?? OUTLINE.char, rep: [1, 1], hullDetail: 1 });
+}
+/** angle from the back of the head (0 at the back, PI at the face) */
+const fromBack = (yaw) => Math.abs(Math.atan2(Math.sin(yaw - Math.PI), Math.cos(yaw - Math.PI)));
+/**
+ * A bald man's horseshoe of hair: one fluffy band round the back of the head from temple to temple, bushiest over
+ * the ears (o.sideburn drops it down the cheeks). One outline for the whole band.
+ */
+function fringe(K, color, o = {}) {
+  const r = K.m.r, base = LC(color), shade = LC(scaleHex(color, o.shade ?? 0.86)), cc = new THREE.Color();
+  const ear = (fb) => Math.exp(-(((fb - 1.55) / 0.42) ** 2));
+  return shag(K, 'head', K.head, {
+    yaw0: o.from ?? 1.12, yaw1: TAU - (o.from ?? 1.12), nu: 40, nv: 7, locks: o.locks || 15, lockDepth: 0.4, seed: o.seed || 5, topTaper: 0.3, endTaper: 0.12,
+    top: (a, yaw) => lerp(o.top ?? 0.24, -0.02, sstep(1.0, 2.0, fromBack(yaw))),
+    bot: (a, yaw) => lerp(o.bot ?? -0.4, o.sideburn ?? -0.22, sstep(0.8, 2.0, fromBack(yaw))),
+    tuft: (a, yaw) => (o.tuft ?? 0.1) * (0.6 + 0.8 * ear(fromBack(yaw))),
+    thick: (a, t, yaw) => r * ((o.thick ?? 0.075) + (o.puff ?? 0.08) * ear(fromBack(yaw))),
+    color: (q, lc) => cc.copy(shade).lerp(base, 0.4 + 0.6 * lc),
+  });
 }
 /** a toon colour helper for shag colour functions */
 const LC = (hex) => C3(hex);
@@ -763,7 +788,7 @@ DEFS.hero = {
   },
   style(age) {
     return age < 12
-      ? { kid: true, bounce: 1.2, armSwing: 1.1, smile: 0.95, hop: 1.25, fidget: 1.2, cloakLift: 1.2, weapon: 'sword', blinkEvery: 3.0, cloakArms: true, stride: 1.35 }
+      ? { kid: true, bounce: 1.2, armSwing: 1.1, smile: 0.95, hop: 1.25, fidget: 1.2, cloakLift: 1.2, weapon: 'sword', blinkEvery: 3.0, cloakArms: true, stride: 1.15 }
       : { bounce: 0.9, armSwing: 0.95, smile: 0.7, cloakLift: 1.0, weapon: 'sword', chestOut: 0.03, breathPeriod: 4 };
   },
   dress(K, age) {
@@ -808,7 +833,7 @@ DEFS.hero = {
     // ── head ──
     stdHead(K, { skin, nose: kid ? 'button' : 'button', earScale: kid ? 1.1 : 1 });
     stdEyes(K, kid ? { style: 'oval', w: 0.155, h: 0.26, yaw: 0.36, pitch: -0.1, brow: 'line', browColor: hair }
-                   : { style: 'oval', w: 0.13, h: 0.22, yaw: 0.34, pitch: -0.06, brow: 'line', browColor: scaleHex(hair, 0.7), browW: 0.26 });
+                   : { style: 'adult', w: 0.14, h: 0.1, yaw: 0.33, pitch: -0.04, brow: 'heavy', browColor: hair, browW: 0.22, browPitch: 0.17, browTilt: -0.08 });
     stdMouth(K, { pitch: kid ? -0.5 : -0.52, w: kid ? 0.13 : 0.12, blush: kid ? 'always' : 'anim' });
     // hair: a round brown cap, soft fringe locks, and (boy) the curl that will not lie down; (man) spikier
     hairCap(K, hair, { theta: 0.6, tilt: -0.5 });
@@ -844,7 +869,7 @@ DEFS.halvard = {
   style: () => ({
     gait: 'heavy', bounce: 0.55, sway: 1.9, twist: 1.25, roll: 1, cadence: 0.72, stride: 1.12, armSwing: 0.95, armSwingR: 0,
     armOut: 0.3, elbow: 0.28, breath: 1.5, breathPeriod: 4.8, fidget: 0.55, smile: 0.5, hop: 0.45, runLean: 0.7,
-    weapon: 'great', propR: 'stick', plant: { len: 1.05, gripY: 1.0, out: 0.1, fwd: 0.2, tipOut: 0.08, tipFwd: 0.22, swing: 0.2, lift: 0.16 },
+    weapon: 'great', propR: 'stick', plant: { len: 0.98, gripY: 1.0, out: 0.1, fwd: 0.22, tipOut: 0.08, tipFwd: 0.26, swing: 0.2, lift: 0.1 },
     turnRate: 0.6, chestOut: 0.05, hunch: 0.04, kidEyes: false, blinkEvery: 3.8,
   }),
   dress(K) {
@@ -867,7 +892,7 @@ DEFS.halvard = {
     K.torus('chest', [0, 1.525, 0.0], 0.165, 0.048, blueD, { scale: [1.12, 0.9, 1], weave: 1, outline: OUTLINE.char, detail: 1.2 });
     K.ball('neck', [0, 1.55, 0.02], [0.13, 0.08, 0.12], skin, { skin: true, outline: 0, detail: 0.8 });
     // surcoat tails, split front and back so the big legs can stride
-    const tails = [[0.425, 0.4], [0.435, 0.43], [0.385, 0.58], [0.335, 0.74], [0.312, 0.84]];
+    const tails = [[0.42, 0.46], [0.43, 0.49], [0.385, 0.61], [0.335, 0.75], [0.312, 0.84]];
     skirt(K, tails, blue, { phiStart: -0.9, phiLen: 1.8, xs: 1.05, zs: 0.76, lining: blueD });
     skirt(K, tails, blue, { phiStart: Math.PI - 0.98, phiLen: 1.96, xs: 1.05, zs: 0.76, lining: blueD });
     // a broad belt with a big buckle
@@ -879,7 +904,7 @@ DEFS.halvard = {
     for (let i = 0; i < 4; i++) K.box('chest', [0.12 + i * 0.037, 1.382 - i * 0.004, 0.292 - i * 0.012], [0.008, 0.028, 0.012], PAL.cloth.cream, { rot: [-0.2, 0.4, 0.16] });
     K.box('spine', [-0.165, 1.02, 0.236], [0.105, 0.095, 0.016], PAL.cloth.cream, { rot: [0.05, -0.33, -0.12] });
     for (let i = 0; i < 3; i++) K.box('spine', [-0.215 + i * 0.045, 0.965, 0.228 - (i === 0 ? 0.012 : 0)], [0.007, 0.026, 0.012], COL.eye, { rot: [0.05, -0.33, 0.35] });
-    K.box('skirtF', [0.15, 0.56, 0.29], [0.11, 0.1, 0.016], PAL.cloth.mustard, { rot: [0.32, 0.36, 0.1] });
+    K.box('skirtF', [0.15, 0.6, 0.285], [0.11, 0.1, 0.016], PAL.cloth.mustard, { rot: [0.32, 0.36, 0.1] });
 
     // ── arms: huge, bare below the surcoat's cap sleeves, forearms like hams, leather bracers and gauntlets ──
     for (const [sd, S] of [[1, 'L'], [-1, 'R']]) {
@@ -904,29 +929,31 @@ DEFS.halvard = {
     }
 
     // ── head: sun-browned, a big nose, a grown man's kind eyes under heavy brows ──
-    stdHead(K, { skin, nose: 'big', noseC: mixHex(skin, PAL.tile.light, 0.28), ears: false, sx: 1.0, sy: 0.98, sz: 1.0 });
+    stdHead(K, { skin, nose: 'big', noseC: mixHex(skin, PAL.tile.light, 0.28), earScale: 0.85, sx: 1.0, sy: 0.98, sz: 1.0 });
     stdEyes(K, { style: 'adult', w: 0.135, h: 0.09, yaw: 0.31, pitch: -0.05, brow: 'heavy', browColor: mixHex(hair, grey, 0.2), browW: 0.24, browPitch: 0.17, browTilt: -0.1 });
     stdMouth(K, { pitch: -0.54, w: 0.12, blush: 'anim', cheekYaw: 0.52, cheekPitch: -0.26 });
     const E = K.head, r = m.r;
     const Lh = LC(hair), Ll = LC(hairLit), Lg = LC(grey), cc = new THREE.Color();
     // the mane: one shaggy mass from the crown down to the nape, locks falling over the ears, grey at the temples
     shag(K, 'head', E, {
-      wrap: true, nu: 96, nv: 12, locks: 26, lockDepth: 0.5, seed: 3,
+      wrap: true, nu: 76, nv: 9, locks: 19, lockDepth: 0.5, seed: 3,
       top: () => Math.PI / 2,
-      bot: (a) => (a < 1.25 ? lerp(0.56, -0.08, sstep(0.3, 1.2, a)) : lerp(-0.08, -0.52, sstep(1.35, 2.6, a))),
-      tuft: (a) => lerp(0.1, 0.22, sstep(0.3, 1.2, a)) + sstep(1.6, 2.8, a) * 0.28,
+      // the hairline sweeps up past the temple so his ear and jaw stay clear (the beard takes over below)
+      bot: (a) => (a < 1.25 ? lerp(0.64, 0.02, sstep(0.25, 1.2, a)) : lerp(0.02, -0.5, sstep(1.4, 2.5, a))),
+      tuft: (a) => lerp(0.2, 0.22, sstep(0.3, 1.2, a)) + sstep(1.6, 2.8, a) * 0.28,
       thick: (a, t) => r * (0.12 + 0.15 * (1 - t) * (1 - t)) * (a < 0.7 ? lerp(0.72, 1, a / 0.7) : 1),
       hang: -0.26, flare: 0.22,
       color: (q, lc, a, t) => {
-        const temple = sstep(0.45, 0.85, Math.abs(q.x)) * (1 - sstep(0.25, 0.72, q.y)) * sstep(-0.55, 0.05, q.z);
+        // grey only at the temples, in streaks along the locks, fading out toward the crown and the back
+        const temple = sstep(0.6, 0.86, Math.abs(q.x)) * (1 - sstep(0.12, 0.5, q.y)) * sstep(-0.3, 0.2, q.z) * sstep(-0.4, -0.05, q.y + 0.25);
         cc.copy(Lh).lerp(Ll, 0.5 * lc * (1 - t) * sstep(0.2, 0.9, q.y));
-        return cc.lerp(Lg, clamp(temple * (0.55 + 0.45 * lc) * 1.05, 0, 0.88));
+        return cc.lerp(Lg, clamp(temple * lc * lc * 0.95, 0, 0.8));
       },
     });
     // the beard: from under the mane's sideburns round the jaw, hanging to his chest; the mouth shows above it
     shag(K, 'head', E, {
-      yaw0: -1.72, yaw1: 1.72, nu: 60, nv: 12, locks: 11, lockDepth: 0.5, seed: 11, topTaper: 0.2, endTaper: 0.08,
-      top: (a) => lerp(-0.66, 0.05, sstep(0.14, 1.3, a)),
+      yaw0: -1.72, yaw1: 1.72, nu: 48, nv: 9, locks: 12, lockDepth: 0.5, seed: 11, topTaper: 0.2, endTaper: 0.08,
+      top: (a) => lerp(-0.66, 0.1, sstep(0.14, 1.3, a)),
       bot: (a) => lerp(-1.2, -0.42, sstep(0.25, 1.62, a)),
       tuft: (a) => lerp(0.34, 0.1, sstep(0.2, 1.3, a)),
       thick: (a) => r * lerp(0.21, 0.12, sstep(0.2, 1.4, a)),
@@ -938,17 +965,17 @@ DEFS.halvard = {
     });
     // moustache: two bushy wings drooping over the corners of the mouth
     for (const sd of [1, -1]) {
-      lock(K, sd * 0.2, -0.4, [0.3, 0.125, 0.16], hair, { lift: 0.055, rot: [0, 0, sd * 0.42], detail: 0.9 });
-      lock(K, sd * 0.43, -0.53, [0.15, 0.1, 0.11], hair, { lift: 0.05, rot: [0, 0, sd * 1.05], detail: 0.7 });
+      lock(K, sd * 0.19, -0.37, [0.27, 0.105, 0.15], hair, { lift: 0.055, rot: [0, 0, sd * 0.36], detail: 0.9 });
+      lock(K, sd * 0.4, -0.48, [0.13, 0.085, 0.1], hair, { lift: 0.045, rot: [0, 0, sd * 1.0], detail: 0.7 });
     }
 
     // ── the greatsword, carried like a walking stick: grip at the prop joint, blade along +Z to the tip ──
     const g = [-m.shX, m.handY - 0.105 * 0.76, 0];
-    const L = 1.05, roll = -0.62;                                   // blade turned so both its flat and its edge read
+    const L = 0.98, roll = -0.62;                                   // blade turned so both its flat and its edge read
     const R2 = (x, y) => [g[0] + x * Math.cos(roll) - y * Math.sin(roll), g[1] + x * Math.sin(roll) + y * Math.cos(roll)];
     const P3 = (x, y, z) => { const q = R2(x, y); return [q[0], q[1], g[2] + z]; };
     K.m.stickLen = L;
-    const bladeProf = [[0.001, 0.105], [0.105, 0.125], [0.108, 0.24], [0.096, 0.8], [0.074, 0.95], [0.001, L]];
+    const bladeProf = [[0.001, 0.105], [0.108, 0.125], [0.112, 0.22], [0.1, 0.74], [0.076, 0.88], [0.001, L]];
     K.add(() => {
       const geo = new THREE.LatheGeometry(bladeProf.map(([rr, y]) => new THREE.Vector2(rr, y)), 4);
       geo.applyMatrix4(new THREE.Matrix4().makeScale(1, 1, 0.34));
@@ -956,7 +983,7 @@ DEFS.halvard = {
       geo.computeVertexNormals();
       return geo;
     }, TRS([g[0], g[1], g[2]], [0, 0, roll]), { bone: 'propR', color: COL.steel, outline: OUTLINE.char * 0.8, rep: [1, 1], hullDetail: 1 });
-    K.add(() => { const geo = new THREE.LatheGeometry([[0.001, 0.2], [0.02, 0.22], [0.02, 0.78], [0.001, 0.8]].map(([rr, y]) => new THREE.Vector2(rr, y)), 4); geo.applyMatrix4(new THREE.Matrix4().makeScale(1, 1, 1.9)); geo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2)); return geo; },
+    K.add(() => { const geo = new THREE.LatheGeometry([[0.001, 0.18], [0.02, 0.2], [0.02, 0.72], [0.001, 0.74]].map(([rr, y]) => new THREE.Vector2(rr, y)), 4); geo.applyMatrix4(new THREE.Matrix4().makeScale(1, 1, 1.9)); geo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2)); return geo; },
       TRS([g[0], g[1], g[2]], [0, 0, roll]), { bone: 'propR', color: COL.steelDark, outline: 0, rep: [1, 1] });
     limbProf(K, 'propR', P3(-0.23, 0, 0.09), P3(0.23, 0, 0.09), [[0, 0.034], [0.5, 0.046], [1, 0.034]], COL.iron, { detail: 0.8 });
     for (const sx of [-1, 1]) K.ball('propR', P3(sx * 0.245, 0, 0.09), 0.05, COL.gold, { detail: 0.7 });
@@ -975,7 +1002,7 @@ DEFS.willow = {
   label: () => 'Willow (8)',
   ages: [8],
   body: () => ({ r: 0.228, leg: 0.33, ankle: 0.06, torso: 0.28, neck: 0.012, hipX: 0.072, shX: 0.165, arm: 0.28, bodyX: 0.14, bodyZ: 0.11, hair: 0.035 }),
-  style: () => ({ kid: true, stride: 1.35, bounce: 1.3, armSwing: 1.25, smile: 1.0, hop: 1.35, fidget: 1.4, weapon: 'sling', headCock: 0.06, blinkEvery: 3.4 }),
+  style: () => ({ kid: true, stride: 1.15, bounce: 1.3, armSwing: 1.25, smile: 1.0, hop: 1.35, fidget: 1.4, weapon: 'sling', headCock: 0.06, blinkEvery: 3.4 }),
   dress(K) {
     const m = K.m, k = m.k;
     const straw = PAL.thatch.light, strawHi = PAL.thatch.pale, strawDk = PAL.thatch.mid;
@@ -1011,6 +1038,11 @@ DEFS.willow = {
     K.joint('plait1', 'head', P1);
     K.joint('plait2', 'plait1', P2);
     K.joint('plait3', 'plait2', P3);
+    // seen from behind: the braid starts at the crown and winds down to behind her right ear
+    for (let i = 0; i < 6; i++) {
+      const t = i / 5;
+      lock(K, lerp(Math.PI - 0.05, Math.PI + 1.05, t), lerp(0.42, -0.5, t), [0.22 - t * 0.04, 0.16, 0.14], i % 2 ? strawDk : straw, { rot: [0, 0, i % 2 ? 0.5 : -0.5], lift: 0.035, detail: 0.7 });
+    }
     const along = [[P1, P2, 'plait1', 0.058], [P1, P2, 'plait1', 0.052], [P2, P3, 'plait2', 0.047], [P2, P3, 'plait2', 0.044], [P3, [P3[0] + 0.01, P3[1] - 0.08, P3[2] + 0.02], 'plait3', 0.04]];
     along.forEach(([a, b, bone, r], i) => {
       const t = i % 2 ? 0.75 : 0.25;
@@ -1037,7 +1069,7 @@ DEFS.sera = {
   label: () => 'Sera (7)',
   ages: [7],
   body: () => ({ r: 0.222, leg: 0.29, ankle: 0.055, torso: 0.265, neck: 0.012, hipX: 0.066, shX: 0.155, arm: 0.26, bodyX: 0.13, bodyZ: 0.11, hair: 0.07 }),
-  style: () => ({ kid: true, stride: 1.25, bounce: 0.8, armSwing: 0.6, sway: 0.7, twist: 0.7, smile: 0.55, hop: 0.9, fidget: 0.5, weapon: 'none', arms: 'clasp', headTilt: 0.03, headCock: -0.05, cadence: 1.05, blinkEvery: 2.8 }),
+  style: () => ({ kid: true, stride: 1.1, bounce: 0.8, armSwing: 0.6, sway: 0.7, twist: 0.7, smile: 0.55, hop: 0.9, fidget: 0.5, weapon: 'none', arms: 'clasp', headTilt: 0.03, headCock: -0.05, cadence: 1.05, blinkEvery: 2.8 }),
   dress(K) {
     const m = K.m, k = m.k;
     const blue = PAL.cloth.blue, blueD = PAL.cloth.blueDark, lace = PAL.plaster.light, pink = PAL.cloth.pink, hair = PAL.char.hair;
@@ -1085,7 +1117,7 @@ DEFS.barty = {
   label: () => 'Barty',
   ages: [58],
   body: () => ({ r: 0.245, leg: 0.28, ankle: 0.075, torso: 0.42, neck: 0.0, hipX: 0.105, shX: 0.285, arm: 0.34, bodyX: 0.28, bodyZ: 0.24, hipsUp: 0.03, hair: 0.0 }),
-  style: () => ({ stride: 1.3, bounce: 1.05, sway: 1.9, twist: 0.6, armSwing: 0.75, cadence: 1.12, smile: 1.1, hop: 0.8, weapon: 'ladle', hunch: 0.04, armOut: 0.32, breathPeriod: 3.2, fidget: 1.1 }),
+  style: () => ({ stride: 1.15, bounce: 1.05, sway: 1.9, twist: 0.6, armSwing: 0.75, cadence: 1.12, smile: 1.1, hop: 0.8, weapon: 'ladle', hunch: 0.04, armOut: 0.32, breathPeriod: 3.2, fidget: 1.1 }),
   dress(K) {
     const m = K.m, k = m.k;
     const amber = PAL.cloth.mustard, apron = PAL.cloth.cream, white = COL.whiteHair;
@@ -1111,11 +1143,8 @@ DEFS.barty = {
     stdHead(K, { skin: COL.ruddy, nose: 'big', noseC: mixHex(COL.ruddy, PAL.tile.light, 0.3), earScale: 1.3 });
     stdEyes(K, { style: 'dot', w: 0.13, yaw: 0.32, pitch: -0.1, brow: 'bushy', browColor: white, browW: 0.3, browPitch: 0.15, highlights: true });
     stdMouth(K, { pitch: -0.62, w: 0.12, blush: 'always' });
-    for (let i = 0; i < 13; i++) {
-      const yaw = Math.PI - 1.75 + (i / 12) * 3.5;
-      lock(K, yaw, -0.2 + Math.abs(i - 6) * 0.018, [0.3, 0.2, 0.09], i % 2 ? white : scaleHex(white, 0.94), { lift: 0.0, outline: 0, detail: 0.6, rot: [0, 0, (i - 6) * 0.04] });
-    }
-    for (const s of [1, -1]) lock(K, s * 1.42, -0.1, [0.24, 0.32, 0.13], white, { lift: 0.02, outline: OUTLINE.char, detail: 0.7 });
+    // a fluffy white horseshoe of hair round the back, puffing out over the ears
+    fringe(K, white, { top: 0.16, bot: -0.42, sideburn: -0.2, thick: 0.07, puff: 0.1, tuft: 0.12, locks: 17, shade: 0.9, seed: 7 });
     // a shine on the dome
     K.decal('head', -0.35, 0.72, -0.004, (d) => G.ell(d * 0.5), mixHex(COL.ruddy, PAL.plaster.light, 0.6), { scale: [0.05, 0.03, 0.012] });
     for (const s of [1, -1]) lock(K, s * 0.2, -0.43, [0.3, 0.13, 0.15], white, { lift: 0.07, rot: [0, 0, s * 0.45], outline: OUTLINE.char, detail: 0.7 });
@@ -1133,7 +1162,8 @@ const VILLAGERS = {
   farmer: {
     label: 'Farmer',
     body: { ...ADULT, leg: 0.52, shX: 0.26, hair: 0.12 },
-    style: { bounce: 0.9, propR: 'fork', gripY: 0.86, armSwingR: 0.2, smile: 0.9, weapon: 'none' },
+    style: { bounce: 0.9, propR: 'fork', gripY: 0.86, armSwingR: 0.2, smile: 0.9, weapon: 'none',
+      plant: { len: 0.66, gripY: 0.68, out: 0.04, fwd: 0.14, tipOut: 0.05, tipFwd: 0.2, swing: 0.14, lift: 0.1 } },
     dress(K) {
       const m = K.m, k = m.k, denim = PAL.cloth.blue, shirt = PAL.tile.mid, hat = PAL.thatch.light;
       stdLegs(K, { pants: denim, pantsTo: 'ankle', boot: mixHex(COL.boot, PAL.dirt.dark, 0.4), bootStyle: 'chunky', thigh: 0.08, knee: 0.065, ankleR: 0.056, bootScale: 1.15 });
@@ -1156,11 +1186,12 @@ const VILLAGERS = {
       K.lathe('head', [0, hy, -0.02], [[0.0, -0.012], [0.33, -0.02], [0.35, -0.005], [0.33, 0.012], [0.17, 0.02], [0.0, 0.022]], hat, { weave: 1, rot: [-0.12, 0, 0], detail: 1.2 });
       K.lathe('head', [0, hy, -0.02], [[0.17, 0.0], [0.165, 0.08], [0.14, 0.15], [0.001, 0.17]], hat, { weave: 1, rot: [-0.12, 0, 0] });
       K.torus('head', [0, hy + 0.03, -0.02], 0.166, 0.018, PAL.cloth.red, { rot: [Math.PI / 2 - 0.12, 0, 0] });
-      // pitchfork (orient frame: -Z = up)
+      // pitchfork (orient frame: -Z = up), used as a walking staff
       const c = [-m.shX, m.handY - 0.05, 0];
-      K.cyl('propR', [c[0], c[1], c[2] + 0.1], 0.016, 0.016, 1.5, PAL.wood.light, { rot: [Math.PI / 2, 0, 0] });
-      K.box('propR', [c[0], c[1], c[2] - 0.65], [0.2, 0.03, 0.03], COL.iron);
-      for (const x of [-0.09, 0, 0.09]) K.add(() => new THREE.ConeGeometry(0.013, 0.24, 5), TRS([c[0] + x, c[1], c[2] - 0.78], [-Math.PI / 2, 0, 0]), { bone: 'propR', color: COL.iron, rep: [1, 1] });
+      K.m.stickLen = 0.66;
+      K.cyl('propR', [c[0], c[1], c[2] - 0.09], 0.016, 0.016, 1.5, PAL.wood.light, { rot: [Math.PI / 2, 0, 0] });
+      K.box('propR', [c[0], c[1], c[2] - 0.84], [0.2, 0.03, 0.03], COL.iron);
+      for (const x of [-0.09, 0, 0.09]) K.add(() => new THREE.ConeGeometry(0.013, 0.24, 5), TRS([c[0] + x, c[1], c[2] - 0.97], [-Math.PI / 2, 0, 0]), { bone: 'propR', color: COL.iron, rep: [1, 1] });
       stdItem(K);
     },
   },
@@ -1199,13 +1230,14 @@ const VILLAGERS = {
   granny: {
     label: 'Granny',
     body: { r: 0.235, leg: 0.38, ankle: 0.06, torso: 0.4, neck: 0.01, hipX: 0.085, shX: 0.215, arm: 0.42, bodyX: 0.19, bodyZ: 0.16, hipsUp: 0.03, hair: 0.1 },
-    style: { hunch: 0.32, bounce: 0.5, cadence: 0.78, armSwing: 0.3, armSwingR: 0.1, breathPeriod: 4.5, fidget: 0.45, smile: 1.15, hop: 0.4, propR: 'cane', gripY: 0.5, runStart: 3.4, runFull: 4.4, weapon: 'none', turnRate: 0.7, sway: 1.2 },
+    style: { hunch: 0.32, bounce: 0.5, cadence: 0.86, stride: 1.0, lift: 0.9, armSwing: 0.65, armSwingR: 0.1, breathPeriod: 4.5, fidget: 0.45, smile: 1.15, hop: 0.4, propR: 'cane', runStart: 3.4, runFull: 4.4, weapon: 'none', turnRate: 0.7, sway: 1.5, roll: 0.6,
+      plant: { len: 0.44, gripY: 0.46, out: 0.02, fwd: 0.2, tipOut: 0.05, tipFwd: 0.27, swing: 0.08, lift: 0.07 } },
     dress(K) {
       const m = K.m, k = m.k, skirtC = mixHex(PAL.cloth.purpleDark, PAL.wood.dark, 0.35), shawl = PAL.cloth.purple, white = COL.whiteHair;
       stdLegs(K, { pants: skirtC, pantsTo: 'ankle', boot: PAL.cloth.purpleDark, bootStyle: 'shoe', thigh: 0.07, knee: 0.056, ankleR: 0.05 });
       stdTorso(K, [[0.001, -0.05], [0.19, -0.04], [0.24, 0.04], [0.25, 0.14], [0.25, 0.25], [0.22, 0.34], [0.14, 0.4], [0.001, 0.42]], { color: PAL.cloth.cream, zs: 0.9 });
-      skirt(K, [[0.28, 0.05], [0.29, 0.07], [0.27, 0.15], [0.23, 0.26], [0.2, m.hipY + 0.02], [0.18, m.hipY + 0.07]], skirtC, { zs: 0.92 });
-      skirt(K, [[0.27, 0.12], [0.275, 0.14], [0.25, 0.22], [0.215, m.hipY + 0.04]], PAL.cloth.cream, { phiStart: -0.9, phiLen: 1.8, zs: 0.95 });
+      skirt(K, [[0.275, 0.1], [0.285, 0.12], [0.265, 0.19], [0.23, 0.27], [0.2, m.hipY + 0.02], [0.18, m.hipY + 0.07]], skirtC, { zs: 0.92 });
+      skirt(K, [[0.265, 0.155], [0.27, 0.175], [0.25, 0.23], [0.215, m.hipY + 0.04]], PAL.cloth.cream, { phiStart: -0.9, phiLen: 1.8, zs: 0.95 });
       // knitted shawl over the shoulders, knotted in front
       K.lathe(null, [0, 0, 0], [[0.27, m.chestY - 0.12], [0.285, m.chestY - 0.08], [0.27, m.chestY + 0.02], [0.23, m.shoulderY], [0.15, m.neckY + 0.01]], shawl, { weights: wTorso(m), weave: 1, scale: [1, 1, 0.94], detail: 1.1, phiStart: 0.3, phiLen: TAU - 0.6 });
       K.ball('chest', [0, m.chestY - 0.03, 0.2], [0.05, 0.045, 0.035], shawl, { weave: 1, detail: 0.6 });
@@ -1222,9 +1254,10 @@ const VILLAGERS = {
       for (const s of [1, -1]) lock(K, s * 0.45, 0.45, [0.34, 0.2, 0.18], white, { rot: [0, 0, s * -0.5], lift: 0.03 });
       K.ball('head', [0, m.headC + m.r * 0.72, -m.r * 0.72], [0.1, 0.09, 0.09], white, { detail: 0.8 });
       K.torus('head', [0, m.headC + m.r * 0.66, -m.r * 0.64], 0.07, 0.012, PAL.cloth.purple, { rot: [0.9, 0, 0] });
-      // walking cane (orient frame: +Z = down)
+      // walking cane (orient frame: +Z = down), planted at every stride
       const c = [-m.shX, m.handY - 0.04, 0];
-      K.cyl('propR', [c[0], c[1], c[2] + 0.26], 0.014, 0.012, 0.56, PAL.wood.mid, { rot: [Math.PI / 2, 0, 0] });
+      K.m.stickLen = 0.44;
+      K.cyl('propR', [c[0], c[1], c[2] + 0.21], 0.014, 0.012, 0.46, PAL.wood.mid, { rot: [Math.PI / 2, 0, 0] });
       K.add((d) => G.torus(0.045, 0.014, d * 0.7, Math.PI), TRS([c[0] - 0.045, c[1], c[2] - 0.02], [Math.PI / 2, 0, Math.PI]), { bone: 'propR', color: PAL.wood.mid, rep: [1, 1] });
       stdItem(K);
     },
@@ -1232,7 +1265,7 @@ const VILLAGERS = {
   child: {
     label: 'Village child',
     body: { r: 0.22, leg: 0.27, ankle: 0.055, torso: 0.25, neck: 0.01, hipX: 0.068, shX: 0.15, arm: 0.25, bodyX: 0.13, bodyZ: 0.11, hair: 0.07 },
-    style: { kid: true, stride: 1.35, bounce: 1.45, fidget: 1.7, hop: 1.5, armSwing: 1.35, armSwingR: 0.5, smile: 1.15, propR: 'tankard', weapon: 'none', cadence: 1.1, headCock: 0.08 },
+    style: { kid: true, stride: 1.15, bounce: 1.45, fidget: 1.7, hop: 1.5, armSwing: 1.35, armSwingR: 0.5, smile: 1.15, propR: 'tankard', weapon: 'none', cadence: 1.1, headCock: 0.08 },
     dress(K) {
       const m = K.m, k = m.k, shirt = PAL.cloth.mustard, shorts = PAL.wood.mid, ginger = PAL.char.carrot;
       stdLegs(K, { pants: shorts, pantsTo: 'knee', legSkin: COL.skin, sock: PAL.plaster.light, boot: PAL.wood.dark, bootStyle: 'chunky', thigh: 0.082, knee: 0.064, ankleR: 0.056, bootScale: 1.2, kneePatch: PAL.cloth.green });
@@ -1278,7 +1311,7 @@ const VILLAGERS = {
       K.torus('hips', [0, m.hipY + 0.04, 0], 0.22, 0.024, COL.belt, { scale: [1, 0.8, 0.82], weave: 0.3 });
       stdArms(K, { sleeve: mail, sleeveTo: 'wrist', skin: COL.skin, upperR: 0.058, foreR: 0.052, handR: 0.068, hand: PAL.cloth.leather, puff: true, puffColor: COL.steel });
       stdHead(K, { skin: COL.skin, nose: 'round' });
-      stdEyes(K, { style: 'narrow', w: 0.12, h: 0.18, yaw: 0.33, pitch: -0.14, brow: 'bushy', browColor: PAL.char.hair, browW: 0.22, browPitch: 0.1 });
+      stdEyes(K, { style: 'adult', w: 0.125, h: 0.085, yaw: 0.32, pitch: -0.08, brow: 'heavy', browColor: PAL.char.hair, browW: 0.21, browPitch: 0.12, browTilt: -0.14 });
       stdMouth(K, { pitch: -0.58, w: 0.1 });
       for (const s of [1, -1]) lock(K, s * 0.22, -0.42, [0.3, 0.09, 0.12], PAL.char.hair, { lift: 0.06, rot: [0, 0, s * 0.2], outline: OUTLINE.char });
       // kettle helmet with a brim and a red plume
@@ -1311,8 +1344,8 @@ const VILLAGERS = {
       stdHead(K, { skin: COL.ruddy, nose: 'big', noseC: mixHex(COL.ruddy, PAL.flower.red, 0.25), earScale: 1.1 });
       stdEyes(K, { style: 'dot', w: 0.13, yaw: 0.32, pitch: -0.06, brow: 'bushy', browColor: brown, browW: 0.24, highlights: true });
       stdMouth(K, { pitch: -0.62, w: 0.13, blush: 'always' });
-      for (const s of [1, -1]) lock(K, s * 1.3, 0.05, [0.24, 0.34, 0.22], brown, { lift: 0.04, outline: OUTLINE.char });
-      lock(K, Math.PI, 0.1, [0.5, 0.28, 0.2], brown, { lift: 0.04 });
+      // a brown horseshoe of hair, bushy sideburns down to the moustache
+      fringe(K, brown, { top: 0.22, bot: -0.36, sideburn: -0.42, from: 0.95, thick: 0.07, puff: 0.1, tuft: 0.1, locks: 15, seed: 9 });
       // the magnificent handlebar moustache
       for (const s of [1, -1]) {
         lock(K, s * 0.2, -0.42, [0.3, 0.12, 0.14], brown, { lift: 0.07, rot: [0, 0, s * 0.3], outline: OUTLINE.char });

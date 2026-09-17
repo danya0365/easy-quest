@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-17T17:41:50.150Z",
+  "updated": "2026-09-17T19:58:10.407Z",
   "wave": 1,
   "waveTitle": "Smooth + Wave B (camera, sky/terrain, props, buildings+Puddlewick, dialogue+NPCs, battle scene, menus+HUD, title)",
   "pieces": {
@@ -93,45 +93,63 @@
     },
     "P02": {
       "id": "P02",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 74,
+      "best": 74,
+      "rounds": 1,
+      "gap": "Sky is gorgeous in the demo but in-game it is a 15% strip: horizon sits 17% down the frame behind a closed tree ring, clouds clump into one white ribbon on the treeline, haze is milky-grey not blue, and timeOfDay never advances (320s of 16x sim = still 9.00), so dusk/night/moon are console-only.",
+      "note": "first build done",
+      "history": [
+        {
+          "at": "2026-09-17T19:14:46.210Z",
+          "score": 74,
+          "gap": "Sky is gorgeous in the demo but in-game it is a 15% strip: horizon sits 17% down the frame behind a closed tree ring, clouds clump into one white ribbon on the treeline, haze is milky-grey not blue, a"
+        }
+      ],
       "name": "Sky, sun, clouds, day-night, weather"
     },
     "P03": {
       "id": "P03",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 67,
+      "best": 67,
+      "rounds": 1,
+      "gap": "Nothing to walk toward: horizon is a closed ring of identical trees in all four directions with no landmark on the land; the 1.45-unit rise over 35 units is invisible at a 26-degree camera, so the vale reads flat with no landform; river is flat blue paint with a hard cut shoreline.",
+      "note": "terrain ground shader: cobble channel, painterly tone, ruts, wet + snow, water edges (built with P02)",
+      "history": [
+        {
+          "at": "2026-09-17T19:14:46.333Z",
+          "score": 67,
+          "gap": "Nothing to walk toward: horizon is a closed ring of identical trees in all four directions with no landmark on the land; the 1.45-unit rise over 35 units is invisible at a 26-degree camera, so the val"
+        }
+      ],
       "name": "Terrain — hills, grass, paths, water"
     },
     "P04": {
       "id": "P04",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 65,
+      "best": 65,
+      "rounds": 1,
+      "gap": "Nothing in the field is planted: 112 bush/hedge instances cast no shadow at all, fence runs stay dead level over rolling ground so pickets hang in air and the rails impale two sheep, a flat yellow flower blob floats a metre up by the well, a well roof post ends in mid-air; give every standing prop a soft contact-shadow blob and conform it to terrain height",
+      "note": "first build done: mixed woodland (10 species, per-instance LOD, hedgerow rim + hills beyond), farm props (well/hay/stile/scarecrow/veg/lanterns/orchard), life (wind, butterflies, birds that take off, motes, ripples); meadow 246 -> 97 draw calls",
+      "history": [
+        {
+          "at": "2026-09-17T19:22:01.948Z",
+          "score": 65,
+          "gap": "Nothing in the field is planted: 112 bush/hedge instances cast no shadow at all, fence runs stay dead level over rolling ground so pickets hang in air and the rails impale two sheep, a flat yellow flo"
+        }
+      ],
       "name": "Props & set dressing"
     },
     "P05": {
       "id": "P05",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "Building kit (cottages, inn, church+bell tower, shop+awnings, bakery+oven, barn, mill with turning wheel, stone bridge, well, stalls, bunting, signs, doors that open) + Puddlewick: 10 buildings, green+well+chestnut, the Beck+bridge, pen/paddock, shrine, festival dressing; every door is an exit; lane out to the vale works",
       "history": [],
       "name": "Buildings — houses, inn, church, castle"
     },
@@ -149,11 +167,11 @@
     "P07": {
       "id": "P07",
       "status": "iterating",
-      "score": 67,
+      "score": 66,
       "best": 67,
-      "rounds": 2,
-      "gap": "Adults are the kid doll scaled up: Halvard is a box with stick arms + gas-mask beard; rebuild him as a broad V-chested giant with thick arms and heavy-browed adult eyes",
-      "note": "first build done",
+      "rounds": 3,
+      "gap": "Models are front-facing portraits: every profile hides the face behind the hair, every back is a blank cone/slab, and the CANON tell-tales are missing (no ladle on Barty, no grey temples + undersized greatsword on Halvard, no ribbon in Willow's hair)",
+      "note": "Halvard rebuilt as a Toriyama giant: 2.07 u, V-shaped barrel chest, bare massive arms, adult eyes under heavy brows, shaggy mane+beard built as one closed hair mass (grey streaked at the temples), thick greatsword",
       "history": [
         {
           "at": "2026-09-17T16:15:26.799Z",
@@ -164,6 +182,11 @@
           "at": "2026-09-17T17:35:14.815Z",
           "score": 67,
           "gap": "Adults are the kid doll scaled up: Halvard is a box with stick arms + gas-mask beard; rebuild him as a broad V-chested giant with thick arms and heavy-browed adult eyes"
+        },
+        {
+          "at": "2026-09-17T19:47:53.649Z",
+          "score": 66,
+          "gap": "Models are front-facing portraits: every profile hides the face behind the hair, every back is a blank cone/slab, and the CANON tell-tales are missing (no ladle on Barty, no grey temples + undersized "
         }
       ],
       "name": "Character models"
@@ -173,9 +196,9 @@
       "status": "iterating",
       "score": 64,
       "best": 65,
-      "rounds": 2,
-      "gap": "One procedural gait for every body: give Halvard a slow heavy shoulder-rolling walk where the greatsword plants like a walking stick each stride (granny's cane too)",
-      "note": "first build done",
+      "rounds": 3,
+      "gap": "Nothing ever looks at anything: ch.lookAt() is implemented and never called, so father and son walk side by side for 700 frames without one head turn; and the boy's floor-length cloak gets no lift at walk speed so the (measured-excellent) walk reads as a sliding cone",
+      "note": "Heavy shoulder-rolling gait for Halvard, the greatsword plants on the ground every stride (tip slide 0.2 cm), hip bob 13.4->6.7 cm, foot lift 5->17 cm, treasure held in the fist, attack reads from any angle, talk gestures keep busy hands",
       "history": [
         {
           "at": "2026-09-17T16:15:26.843Z",
@@ -186,19 +209,30 @@
           "at": "2026-09-17T17:35:14.858Z",
           "score": 64,
           "gap": "One procedural gait for every body: give Halvard a slow heavy shoulder-rolling walk where the greatsword plants like a walking stick each stride (granny's cane too)"
+        },
+        {
+          "at": "2026-09-17T19:47:53.848Z",
+          "score": 64,
+          "gap": "Nothing ever looks at anything: ch.lookAt() is implemented and never called, so father and son walk side by side for 700 frames without one head turn; and the boy's floor-length cloak gets no lift at "
         }
       ],
       "name": "Character animation"
     },
     "P09": {
       "id": "P09",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 63,
+      "best": 63,
+      "rounds": 1,
+      "gap": "Lens surveys instead of follows: boy is 18% of frame, horizon at the top edge, and one interior round trip kills the sky for good",
+      "note": "Camera: spring follow + lead, 360 orbit, ease-behind with a latched walk frame (path stays straight), auto-recentre, ground/sight-line lift, field/town/world/interior/dungeon modes, camera.shot() cutscene API, and the CLEAN 42% occluder fade (depth pre-pass, outline kept, 150ms) replacing the dither — live in /index.html",
+      "history": [
+        {
+          "at": "2026-09-17T19:28:16.908Z",
+          "score": 63,
+          "gap": "Lens surveys instead of follows: boy is 18% of frame, horizon at the top edge, and one interior round trip kills the sky for good"
+        }
+      ],
       "name": "Camera"
     },
     "P10": {
@@ -225,12 +259,12 @@
     },
     "P12": {
       "id": "P12",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "P12 dialogue + P11 NPC life live in /index.html: name tab, per-speaker glyph voices, choices + Yes/No, %HERO% tokens, flag/Act-dependent scripts; 10 alive in the vale (sweeper, fisher, child, chat pair, cat, dog, 3 hens) + the whole Puddlewick cast layer on P23's spots; both scenarios green",
       "history": [],
       "name": "Dialogue & the writing voice"
     },
@@ -248,11 +282,11 @@
     "P14": {
       "id": "P14",
       "status": "iterating",
-      "score": 65,
+      "score": 64,
       "best": 66,
-      "rounds": 3,
-      "gap": "Mashing Enter commands every member, so healers swing sticks (Elowen 12 dmg vs Mortmain): Attack-only child loses Hoarfax 59% first try, retries to 14. Only Bram takes commands; companions default to DQV Tactics (auto policy)",
-      "note": "first build done",
+      "rounds": 4,
+      "gap": "Confirm does not drive the fight: one round vs one bat = 15s / 60 unanswered Enter taps (11.8s held), and a mashing child sat 17s on 'Victory!' alone over an empty field (renderer crashed once); make one press finish the line and open the next window. Also: recruit is off for all of Act I (0 offers in 500 Long Lane fights) and no family is drawn on the battle stage",
+      "note": "DQV Tactics: only Bram takes commands, the family fights Wisely (switchable per member); first hour reworked (Gloop 11 HP, Bram lands 35-38% of kills); flee is a coin toss; a boss wipe says what to do; demo rebuilt on the 3D stage with real monsters, SFX and the score",
       "history": [
         {
           "at": "2026-09-17T13:56:16.568Z",
@@ -268,6 +302,11 @@
           "at": "2026-09-17T17:41:50.103Z",
           "score": 65,
           "gap": "Mashing Enter commands every member, so healers swing sticks (Elowen 12 dmg vs Mortmain): Attack-only child loses Hoarfax 59% first try, retries to 14. Only Bram takes commands; companions default to "
+        },
+        {
+          "at": "2026-09-17T19:55:31.568Z",
+          "score": 64,
+          "gap": "Confirm does not drive the fight: one round vs one bat = 15s / 60 unanswered Enter taps (11.8s held), and a mashing child sat 17s on 'Victory!' alone over an empty field (renderer crashed once); make "
         }
       ],
       "name": "Battle core"
@@ -285,12 +324,12 @@
     },
     "P16": {
       "id": "P16",
-      "status": "iterating",
-      "score": 67,
+      "status": "building",
+      "score": 0,
       "best": 72,
       "rounds": 2,
       "gap": "Faces are one sticker kit: same bug-eyed delighted grin on 15 species, no mischief/state expressions, so enemies already look like friends and the join has no arc; add lids/brows/mouth states (sly enemy -> beaming on join), seat eyes into body",
-      "note": "first build done: 20 rigged monsters (tier one, Gloop family, bat, ghost, mimic, knights, golem, Sunmane+Pip, Bogwallop, Cactuddle), 8 death styles, join hop, <=8 draw calls each",
+      "note": "face-state layer: sly wild faces, squint/grimace, > < hurt, dizzy defeat, beaming friend face; roster 44",
       "history": [
         {
           "at": "2026-09-17T15:58:53.893Z",
@@ -330,10 +369,10 @@
     "P19": {
       "id": "P19",
       "status": "iterating",
-      "score": 62,
+      "score": 60,
       "best": 62,
-      "rounds": 3,
-      "gap": "Growth has little bite: never-buy-gear child never walled at Lv28 in a Wooden Sword; kit tuned at 31k G vs ~18k earned; keel makes grinding 8x fights; Lv1 Bram 5 dmg vs 30-HP Gloop (6% of kills). Fix first: companion Tactics so levels/gear show",
+      "rounds": 4,
+      "gap": "Growth has no bite: 84 fights -> Lv27, 839 fights -> Lv30 (10x the play, +3 levels) because the invisible EXP keel pays x0.2 above the area level - the Long Lane pays 1.5 exp/fight from Lv6 on, so the priest's 'win a few fights out on the road' is 2,133 fights. Also the assumed kit costs 36,068 G vs ~31,700 G ever earned, and Willow/Sera never level (3-7 dmg to a 224 HP Act I boss)",
       "note": "first build done: growth.js (six personalities + Lantern, templates, guests, learnsets) and formulas.js; 51 tests; sim over every area",
       "history": [
         {
@@ -350,6 +389,11 @@
           "at": "2026-09-17T17:41:50.150Z",
           "score": 62,
           "gap": "Growth has little bite: never-buy-gear child never walled at Lv28 in a Wooden Sword; kit tuned at 31k G vs ~18k earned; keel makes grinding 8x fights; Lv1 Bram 5 dmg vs 30-HP Gloop (6% of kills). Fix "
+        },
+        {
+          "at": "2026-09-17T19:55:31.718Z",
+          "score": 60,
+          "gap": "Growth has no bite: 84 fights -> Lv27, 839 fights -> Lv30 (10x the play, +3 levels) because the invisible EXP keel pays x0.2 above the area level - the Long Lane pays 1.5 exp/fight from Lv6 on, so the"
         }
       ],
       "name": "Stats, growth, level-up ceremony"
@@ -434,11 +478,11 @@
     "P27": {
       "id": "P27",
       "status": "iterating",
-      "score": 63,
-      "best": 63,
-      "rounds": 3,
-      "gap": "Accompaniment is all generated pads/arpeggios/root-fifth bass under a tune doubled in 3-4 octaves: hand-write real counter-melodies + moving bass lines (village, overworld, battle)",
-      "note": "first build done — score now played by real recorded multisamples (VSCO 2 CE, VCSL CC0; Iowa MIS horn), 26 instruments, 24.8 MB, all 27 cues peak -1.6..-2.4 dBFS, no clipping/dropouts",
+      "score": 70,
+      "best": 70,
+      "rounds": 4,
+      "gap": "Every theme is one 4-bar cell restated 4-6x in straight quarters/eighths - no hook, no dotted march rhythm, no real consequent phrase",
+      "note": "counterpoint: hand-written counter-melodies + walking basses in village/overworld/battle (+title/town); no generator-made parts; loop overrun, layer beating and slow-line loading fixed",
       "history": [
         {
           "at": "2026-09-17T14:23:09.788Z",
@@ -454,18 +498,23 @@
           "at": "2026-09-17T17:35:58.374Z",
           "score": 63,
           "gap": "Accompaniment is all generated pads/arpeggios/root-fifth bass under a tune doubled in 3-4 octaves: hand-write real counter-melodies + moving bass lines (village, overworld, battle)"
+        },
+        {
+          "at": "2026-09-17T19:31:42.543Z",
+          "score": 70,
+          "gap": "Every theme is one 4-bar cell restated 4-6x in straight quarters/eighths - no hook, no dotted march rhythm, no real consequent phrase"
         }
       ],
       "name": "Music — the symphonic score"
     },
     "P28": {
       "id": "P28",
-      "status": "iterating",
-      "score": 71,
-      "best": 71,
-      "rounds": 4,
-      "gap": "Plain sword_hit/monster_hurt have no low body: at contact they cut 60-250 Hz by 3-4 dB in the battle mix (crit adds +9.6). Add a ~100 ms 60-180 Hz thump + 250 ms swish tail",
-      "note": "Impacts rebuilt (200-900 Hz crack + 2-5 kHz slash, ~250 ms) + sample-accurate -6 dB music dips: hits now +7 dB over battle theme with lows cut; real music on the mixer in demo; beds never repeat",
+      "status": "building",
+      "score": 0,
+      "best": 76,
+      "rounds": 6,
+      "gap": "sword_hit's blade-air tail holds at 68-80% of peak for 240ms: +16.5 LU over music at 150ms in 3-6kHz, so a hit reads as a swipe at air",
+      "note": "a3r1 gap CLOSED: sword_hit's blade-air tail replaced with a fast decay (-10 dB by 20-25 ms, gone by ~100) under a lowpass sweeping 6k->1.5k in 60 ms: true-mix 3-6 kHz residual over the battle theme 20.7/16.0/11.8 dB at 10/60/150 ms -> 19.1/1.9/0.0, solo 3-6 kHz -20.9->-64 dBFS by 150 ms, and a hit now ends 33 dB darker than miss's whoosh; snap (1 ms, 8.9 dB over the body), the 122->61 Hz dosh (+11.3 dB at 60-250 Hz in the mix) and the +5.8 LU lift kept, gain retrimmed 0.62->0.665 so a blip stays 5+ LU under a hit. Cursor is now the DQ pip: 1046 Hz, 30 ms, dry, NO music dip (was 3 dB per press = a 9 Hz wobble while scrolling) and byte-identical every press. sword_hit and footstep_grass got three real alternate takes (repeat similarity 0.999 -> 0.968 / 0.997 -> 0.943); footstep_wood got its sole-on-board click. selfTest 50/50, hitCheck + uiCheck green, both pages shoot 0.",
       "history": [
         {
           "at": "2026-09-17T13:26:52.189Z",
@@ -486,6 +535,16 @@
           "at": "2026-09-17T17:34:06.189Z",
           "score": 71,
           "gap": "Plain sword_hit/monster_hurt have no low body: at contact they cut 60-250 Hz by 3-4 dB in the battle mix (crit adds +9.6). Add a ~100 ms 60-180 Hz thump + 250 ms swish tail"
+        },
+        {
+          "at": "2026-09-17T18:43:45.436Z",
+          "score": 76,
+          "gap": "sword_hit's 250ms noise tail sits +16 LU over the music at 3-6kHz — a hit that reads as a swipe"
+        },
+        {
+          "at": "2026-09-17T18:50:45.869Z",
+          "score": 76,
+          "gap": "sword_hit's blade-air tail holds at 68-80% of peak for 240ms: +16.5 LU over music at 150ms in 3-6kHz, so a hit reads as a swipe at air"
         }
       ],
       "name": "Sound effects & mixer"
@@ -629,6 +688,42 @@
     {
       "at": "2026-09-17T17:20:44.582Z",
       "t": "Session limit hit 23:20 (resets 00:20). Watcher woke every 15 min. 00:20: game verified booting, WIP committed, resuming Wave A2 + smoother/Wave B."
+    },
+    {
+      "at": "2026-09-17T17:57:33.192Z",
+      "t": "Smoother done (self 77): per-piece seams carved, real Bram + audio wired, docs on canon names. Wave B builds started: camera, sky/terrain, props, buildings+Puddlewick, dialogue+NPCs (then battle, menus+HUD, title)."
+    },
+    {
+      "at": "2026-09-17T18:21:32.736Z",
+      "t": "Orchestrator eyes: church gable renders bright magenta in the P05 building kit (likely missing material) — noted for P05."
+    },
+    {
+      "at": "2026-09-17T18:24:01.265Z",
+      "t": "P28 r11: hit weight + amb_town loop join + level-up sting; hitCheck/selfTest/uiCheck ok, scenarios/P28.json exits 0 (shots/P28-r11)"
+    },
+    {
+      "at": "2026-09-17T18:50:52.419Z",
+      "t": "Recovered P28 critic r2 verdict (76) from a crashed agent transcript — StructuredOutput JSON parse error lost it. Restarting P28's loop from that gap."
+    },
+    {
+      "at": "2026-09-17T19:02:48.311Z",
+      "t": "P14/P19 r4: Tactics engine + first-hour rebalance + bosses recalibrated; journey passes on seeds 20040/7/99; demos/P14.html now the meadow stage with P16 monsters, P28 SFX, P27 score, the level-up ceremony and the join question alone on screen"
+    },
+    {
+      "at": "2026-09-17T19:07:10.674Z",
+      "t": "P07/P08 a3: the father-and-son frame rebuilt (demo __DQ.pair(speed,'side'|'line'), __DQ.probe(frames) measures bob/foot slide/staff plant)"
+    },
+    {
+      "at": "2026-09-17T19:42:20.665Z",
+      "t": "P05/P23: Puddlewick is live (register it in src/world/maps/index.js to reach it without a teleport); buildings vanish when P09's occluder-fade hides an object it then fails to ghost"
+    },
+    {
+      "at": "2026-09-17T19:43:08.163Z",
+      "t": "P12/P11: scenarios/P12.json (demos/P12.html) and scenarios/P12-index.json (/index.html) both exit 0; NPCs cost ~32k tris / 17 calls in the opening frame (__DQ.npcsShow measures it)"
+    },
+    {
+      "at": "2026-09-17T19:58:10.407Z",
+      "t": "Iteration method upgraded: per-piece cumulative gap ledger (tools/gaps.mjs). Critics must re-verify every past gap before naming a new one; no score above 80 while a gap is open; regressions cap at 65."
     }
   ]
 }

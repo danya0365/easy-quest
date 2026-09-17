@@ -159,13 +159,17 @@ Sampler.manifest().then((man) => {
 }).catch((e) => { orchEl.innerHTML = `<div class="sum">sample manifest failed: ${e}</div>`; });
 function paintOrch() {
   const st = Sampler.state(); const man = Sampler.loaded; if (!man) return;
-  let ready = 0;
+  let ready = 0, zones = 0, want = 0;
   for (const [id, row] of Object.entries(orchRows)) {
     const s = st.instruments[id]; const status = s ? s.status : 'idle';
     row.className = 'ins ' + status; if (status === 'ready') ready++;
-    row.querySelector('s').style.width = s ? `${Math.round(100 * s.loaded / Math.max(1, s.zones))}%` : '0';
+    // a theme asks for the zones its notes actually play, so the bar fills against what was WANTED, not every zone
+    const asked = s ? (s.wanted || s.zones) : 0;
+    if (s) { zones += s.loaded; want += asked; }
+    row.querySelector('s').style.width = s ? `${Math.round(100 * s.loaded / Math.max(1, asked))}%` : '0';
+    if (s) row.title = `${man.instruments[id].label} — ${s.loaded}/${asked} zones decoded of ${s.zones} recorded`;
   }
-  const sum = $('orchsum'); if (sum) sum.textContent = `${ready}/${Object.keys(orchRows).length} instruments decoded · ${st.mbFetched} of ${st.totalMb} MB fetched · loaded lazily per theme`;
+  const sum = $('orchsum'); if (sum) sum.textContent = `${ready}/${Object.keys(orchRows).length} instruments ready · ${zones}/${want} zones decoded · ${st.mbFetched} of ${st.totalMb} MB fetched · zones load lazily, in the order the music needs them`;
 }
 Sampler.onChange(() => paintOrch());
 
@@ -186,7 +190,8 @@ function frame(ts) {
       const bi = Math.floor(beatsDone);
       if (bi !== lastBeat) { lastBeat = bi; const g = $('gbody'); g.animate([{ transform: 'scale(1.12,.84)' }, { transform: 'scale(.94,1.1) translateY(-14px)' }, { transform: 'none' }], { duration: Math.min(420, 60000 / th.bpm * 0.9), easing: 'ease-out' }); }
     } else { $('title').textContent = s.theme === 'silence' ? '— silence —' : '— silence —'; $('counter').innerHTML = '<span>BAR</span>0 · 0'; $('prog').style.width = '0'; }
-    $('stats').textContent = `voices ${s.voices} · space ${s.space || '—'} · duck ${s.ducked} · ${s.ctxState} · quality ${s.quality || '—'}`;
+    $('stats').textContent = `voices ${s.voices} · space ${s.space || '—'} · duck ${s.ducked} · ${s.ctxState} · quality ${s.quality || '—'}`
+      + (s.loading ? ` · loading ${s.loading.id}: ${s.loading.missing} zones to go` : '') + (s.missed ? ` · MISSED ${s.missed}` : '');
     // viz
     const W = viz.width = viz.clientWidth * devicePixelRatio, H = viz.height = viz.clientHeight * devicePixelRatio;
     vg.clearRect(0, 0, W, H);

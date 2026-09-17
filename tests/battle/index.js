@@ -2,3 +2,4 @@
 // directory to this file). Each *.test.mjs also runs on its own: `node --test tests/battle/*.test.mjs`.
 import './formulas.test.mjs';
 import './battle.test.mjs';
+import './tactics.test.mjs';

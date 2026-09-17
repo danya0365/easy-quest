@@ -188,7 +188,9 @@ for (const area of AREAS) {
       if (goldPer < area.goldTarget * 0.6) verdict.push('POOR');
       if (goldPer > area.goldTarget * 1.8) verdict.push('RICH');
       if (mean(smart.rounds) > 3.6) verdict.push('LONG');
-      if (mean(smart.rounds) < 2.0) verdict.push('SHORT');
+      // the first hour is meant to be quick (areas.js `firstHour`, balance pass r4: the boy's swing pops the slime —
+      // tests/battle/first-hour.mjs holds that line instead)
+      if (mean(smart.rounds) < (area.firstHour ? 1.4 : 2.0)) verdict.push('SHORT');
     }
     if (verdict.length && L === area.levels[1]) flags.push(`${area.id} Lv${L}: ${verdict.join(', ')}`);
     normalRows.push([

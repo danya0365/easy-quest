@@ -2,15 +2,15 @@
 // change BOSSES in balance.js or the targets in calibrate-bosses.mjs and run it again, then tests/battle/journey.mjs.
 // Applied last (after balance.js BOSSES): every boss's actions a round, HP, blow, guard, Wisdom and magic bases.
 export const BOSS_CAL = {
-  mumbleroot: {"hp":220,"atk":24,"def":28,"mdef":100,"wis":12,"actions":2,"moves":{"cold_draught":{"base":12}}},
-  bogwallop: {"hp":752,"atk":72,"def":68,"mdef":10,"wis":15,"actions":2,"phases":[{"below":0.4,"set":{"atk":78},"text":"%ACTOR% stands up on his back legs! It is genuinely startling."}]},
-  sexton_sootbell: {"hp":711,"atk":71,"def":80,"mdef":18,"wis":35,"actions":2,"moves":{"toll":{"base":36}},"phases":[{"below":0.5,"text":"%ACTOR% rings the bell. The candles go out, one by one."},{"below":0.2,"skipTurn":true,"skipText":"\"I only wanted someone to hear it.\"","text":"%ACTOR% stops, and lowers his hands."}]},
-  tidewarden: {"hp":852,"atk":73,"def":90,"mdef":100,"wis":53,"actions":2,"moves":{"high_tide":{"base":42}}},
-  iron_governess: {"hp":1331,"atk":100,"def":104,"mdef":100,"wis":44,"actions":2,"phases":[{"below":0.66,"text":"Her key slows. Tick... tick."},{"below":0.33,"text":"Tick.......... tick."}]},
-  hush: {"hp":1674,"atk":106,"def":156,"mdef":41,"wis":69,"actions":2,"moves":{"hush_now":{"base":29}}},
-  hark: {"hp":1674,"atk":106,"def":156,"mdef":41,"wis":69,"actions":2},
-  hoarfax: {"hp":1618,"atk":136,"def":70,"mdef":100,"wis":108,"actions":1,"moves":{"frostbreath":{"base":73}},"phases":[{"below":0.78,"text":"One of the nine tails winks out like a candle."},{"below":0.56,"removeMoves":["hush"],"text":"Another tail goes out. %ACTOR% can't find its Hush any more."},{"below":0.33,"removeMoves":["ninefold_feint"],"text":"Only three tails left. %ACTOR% can't feint any more — it is getting easier, and more beautiful."}]},
-  mortmain: {"hp":1462,"atk":206,"def":40,"mdef":100,"wis":105,"actions":2,"moves":{"vespers":{"base":92}},"phases":[{"below":0.5,"set":{"name":"Mortmain Enfolded"},"text":"The dream wraps round him like a coat. It has given him a bat's face, and it is beautiful, and that is worse."},{"below":0.25,"text":"The wings unfurl to their full span. He stops speaking entirely."}]},
-  malgrim_cocoon: {"hp":666,"atk":146,"def":50,"mdef":100,"wis":60,"actions":2,"moves":{"unlight":{"base":60}}},
-  malgrim_unravelling: {"hp":699,"atk":146,"def":50,"mdef":100,"wis":60,"actions":2,"phases":[{"below":0.1,"spare":true,"text":"It whispers: \"Wouldn't it be kinder if everything were quiet?\""}]},
+  mumbleroot: {"hp":224,"atk":38,"def":29,"mdef":100,"wis":25,"actions":1,"moves":{"cold_draught":{"base":25}}},
+  bogwallop: {"hp":741,"atk":72,"def":68,"mdef":10,"wis":15,"actions":2,"phases":[{"below":0.4,"set":{"atk":78},"text":"%ACTOR% stands up on his back legs! It is genuinely startling."}]},
+  sexton_sootbell: {"hp":775,"atk":90,"def":80,"mdef":18,"wis":54,"actions":1,"moves":{"toll":{"base":55}},"phases":[{"below":0.5,"text":"%ACTOR% rings the bell. The candles go out, one by one."},{"below":0.2,"skipTurn":true,"skipText":"\"I only wanted someone to hear it.\"","text":"%ACTOR% stops, and lowers his hands."}]},
+  tidewarden: {"hp":881,"atk":104,"def":90,"mdef":100,"wis":96,"actions":1,"moves":{"high_tide":{"base":76}}},
+  iron_governess: {"hp":1206,"atk":100,"def":140,"mdef":100,"wis":43,"actions":2,"phases":[{"below":0.66,"text":"Her key slows. Tick... tick."},{"below":0.33,"text":"Tick.......... tick."}]},
+  hush: {"hp":1588,"atk":109,"def":156,"mdef":100,"wis":74,"actions":2,"moves":{"hush_now":{"base":31}}},
+  hark: {"hp":1588,"atk":109,"def":156,"mdef":100,"wis":74,"actions":2},
+  hoarfax: {"hp":1618,"atk":137,"def":70,"mdef":100,"wis":110,"actions":1,"moves":{"frostbreath":{"base":74}},"phases":[{"below":0.78,"text":"One of the nine tails winks out like a candle."},{"below":0.56,"removeMoves":["hush"],"text":"Another tail goes out. %ACTOR% can't find its Hush any more."},{"below":0.33,"removeMoves":["ninefold_feint"],"text":"Only three tails left. %ACTOR% can't feint any more — it is getting easier, and more beautiful."}]},
+  mortmain: {"hp":1912,"atk":213,"def":40,"mdef":100,"wis":110,"actions":2,"moves":{"vespers":{"base":96}},"phases":[{"below":0.5,"set":{"name":"Mortmain Enfolded"},"text":"The dream wraps round him like a coat. It has given him a bat's face, and it is beautiful, and that is worse."},{"below":0.25,"text":"The wings unfurl to their full span. He stops speaking entirely."}]},
+  malgrim_cocoon: {"hp":681,"atk":162,"def":50,"mdef":100,"wis":70,"actions":2,"moves":{"unlight":{"base":70}}},
+  malgrim_unravelling: {"hp":713,"atk":162,"def":50,"mdef":100,"wis":70,"actions":2,"phases":[{"below":0.1,"spare":true,"text":"It whispers: \"Wouldn't it be kinder if everything were quiet?\""}]},
 };

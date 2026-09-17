@@ -1,140 +1,64 @@
 {
- "name": "P27 music \u2014 the Sound Room jukebox: real recorded instruments (lazy per theme), crossfades, stingers, ducking",
+ "name": "P27 music — the Sound Room jukebox: real recorded instruments (lazy per zone), hand-written counterpoint, crossfades, stingers, ducking",
  "steps": [
-  {
-   "waitFor": "window.__DQ && __DQ.ready",
-   "timeout": 30000
-  },
-  {
-   "waitFor": "document.querySelectorAll('#orch .ins').length >= 20",
-   "timeout": 15000
-  },
-  {
-   "wait": 600
-  },
-  {
-   "shot": "jukebox-idle"
-  },
-  {
-   "assert": "__DQ.themes().length >= 27",
-   "msg": "every theme, variant and cue is registered"
-  },
-  {
-   "assert": "['title','village','overworld','castle','town','church','inn','dungeon','tension','battle','boss','victory','levelup','befriend','family','family.short','family.broken','family.whole','inn.sleep','lullaby','wedding','highfeather','quiet_hand','finale'].every(id => __DQ.themes().some(t => t.id === id))",
-   "msg": "all CANON \u00a79 music ids exist"
-  },
-  {
-   "assert": "__DQ.harmony().every(h => h.clash.length === 0 || ['tension','lullaby'].includes(h.id))",
-   "msg": "melody sits on the harmony on strong beats (tension/lullaby chromatics are intentional)"
-  },
-  {
-   "eval": "(__DQ.select('overworld'), __DQ.play('overworld', {fade: 0.2}))"
-  },
-  {
-   "assert": "__DQ.state().audio.theme === 'overworld'",
-   "msg": "the requested theme is reported at once, even while its samples load"
-  },
-  {
-   "waitFor": "__DQ.state().audio.playing === 'overworld'",
-   "timeout": 15000
-  },
-  {
-   "wait": 2500
-  },
-  {
-   "shot": "playing-overworld"
-  },
-  {
-   "assert": "__DQ.state().audio.voices > 0 && __DQ.state().audio.bar >= 1",
-   "msg": "overworld is sounding live and the beat clock advances"
-  },
-  {
-   "assert": "['strings','horn','trumpet','timpani','harp'].every(id => __DQ.samples().instruments[id] && __DQ.samples().instruments[id].status === 'ready')",
-   "msg": "the overworld's recorded instruments decoded"
-  },
-  {
-   "eval": "(__DQ.select('village'), __DQ.play('village', {fade: 1.2}))"
-  },
-  {
-   "waitFor": "__DQ.state().audio.playing === 'village'",
-   "timeout": 15000
-  },
-  {
-   "wait": 2000
-  },
-  {
-   "shot": "crossfade-to-village"
-  },
-  {
-   "assert": "__DQ.state().audio.theme === 'village'",
-   "msg": "crossfaded to the village"
-  },
-  {
-   "waitFor": "['horn','timpani','cymbal','trumpet','trombone','tuba','strings_spic','pizz'].every(id => (__DQ.samples().instruments[id]||{}).status === 'ready')",
-   "timeout": 20000
-  },
-  {
-   "eval": "__DQ.stinger('battle_start')"
-  },
-  {
-   "wait": 2000
-  },
-  {
-   "shot": "battle-after-stinger"
-  },
-  {
-   "assert": "__DQ.state().audio.theme === 'battle'",
-   "msg": "battle stinger chains into the battle theme"
-  },
-  {
-   "eval": "__DQ.stinger('victory')"
-  },
-  {
-   "wait": 1500
-  },
-  {
-   "shot": "victory"
-  },
-  {
-   "assert": "__DQ.state().audio.theme === 'victory'",
-   "msg": "victory fanfare cuts the battle"
-  },
-  {
-   "eval": "(__DQ.play('family'), __DQ.duck(0.55, 1500))"
-  },
-  {
-   "wait": 400
-  },
-  {
-   "assert": "__DQ.state().audio.ducked === 0.55",
-   "msg": "dialogue duck applied"
-  },
-  {
-   "eval": "__DQ.stinger('level_up')"
-  },
-  {
-   "wait": 2500
-  },
-  {
-   "shot": "family-with-levelup"
-  },
-  {
-   "eval": "__DQ.play('silence', {fade: 0.6})"
-  },
-  {
-   "wait": 1200
-  },
-  {
-   "assert": "__DQ.state().audio.theme === 'silence'",
-   "msg": "silence is a real cue"
-  },
-  {
-   "assert": "__DQ.samples().errors === 0",
-   "msg": "every sample fetched and decoded"
-  },
-  {
-   "assert": "__DQ.errors.length === 0",
-   "msg": "no runtime errors"
-  }
+  { "waitFor": "window.__DQ && __DQ.ready", "timeout": 30000 },
+  { "waitFor": "document.querySelectorAll('#orch .ins').length >= 20", "timeout": 15000 },
+  { "wait": 600 },
+  { "shot": "jukebox-idle" },
+  { "assert": "__DQ.themes().length >= 27", "msg": "every theme, variant and cue is registered" },
+  { "assert": "['title','village','overworld','castle','town','church','inn','dungeon','tension','battle','boss','victory','levelup','befriend','family','family.short','family.broken','family.whole','inn.sleep','lullaby','wedding','highfeather','quiet_hand','finale'].every(id => __DQ.themes().some(t => t.id === id))", "msg": "all CANON §9 music ids exist" },
+  { "assert": "__DQ.harmony().every(h => h.clash.length === 0 || ['tension','lullaby','wedding'].includes(h.id))", "msg": "melody sits on the harmony on strong beats (tension/lullaby chromatics and the wedding's ringing bells are intentional)" },
+
+  { "note": "counterpoint: every accompaniment line in the three core themes is hand-written, and no line just doubles the tune" },
+  { "eval": "(async () => { const { counterpoint } = await import('/src/audio/score/index.js'); window.__cp = counterpoint(['village','overworld','battle','title','town']); return window.__cp; })()" },
+  { "assert": "window.__cp.every(r => r.generatedPct <= 2)", "msg": "no generator-made pads/arpeggios/bass in village, overworld, battle, title or town" },
+  { "assert": "window.__cp.filter(r => ['village','overworld','battle'].includes(r.id)).every(r => r.independent >= 4)", "msg": "each core theme has at least four independent hand-written lines besides the tune" },
+  { "assert": "window.__cp.filter(r => ['village','overworld','battle'].includes(r.id)).every(r => r.maxDoubling <= 50)", "msg": "no non-tune line doubles the melody (same onset, same pitch class) more than half the time (it used to be 91-100%)" },
+  { "assert": "window.__cp.every(r => r.overrun === 0)", "msg": "no loop theme has notes written past its loop end (that made the engine skip the loop's opening beats)" },
+  { "assert": "window.__cp.filter(r => ['village','overworld','battle'].includes(r.id)).every(r => r.bassStepPct >= 45)", "msg": "the bass lines move by step, not in root-fifth jumps" },
+
+  { "note": "a held note must not warble: one velocity layer per note, and the loops themselves are level-flattened" },
+  { "eval": "(async () => { const b = await __DQ.renderAudio('note:clarinet:G4:mp:12:60', 14); const d = b.getChannelData(0), sr = b.sampleRate, h = Math.floor(sr * 0.1); const db = []; for (let i = Math.floor(sr * 1.5); i + h < Math.floor(sr * 11); i += h) { let s = 0; for (let j = 0; j < h; j++) s += d[i + j] * d[i + j]; db.push(10 * Math.log10(s / h + 1e-12)); } window.__swing = { clarinet: +(Math.max(...db) - Math.min(...db)).toFixed(1) }; return window.__swing; })()" },
+  { "assert": "window.__swing.clarinet < 3", "msg": "a held solo clarinet note is steady (summed velocity layers used to phase-beat 10 dB)" },
+  { "eval": "(async () => { const b = await __DQ.renderAudio('note:horns:A3:mf:12:60', 14); const d = b.getChannelData(0), sr = b.sampleRate, h = Math.floor(sr * 0.1); const db = []; for (let i = Math.floor(sr * 1.5); i + h < Math.floor(sr * 11); i += h) { let s = 0; for (let j = 0; j < h; j++) s += d[i + j] * d[i + j]; db.push(10 * Math.log10(s / h + 1e-12)); } window.__swing.horn = +(Math.max(...db) - Math.min(...db)).toFixed(1); return window.__swing; })()" },
+  { "assert": "window.__swing.horn < 3", "msg": "a held horn note is steady (it used to be three detuned copies of one take, beating 5-6 dB)" },
+
+  { "eval": "(__DQ.select('overworld'), __DQ.play('overworld', {fade: 0.2}))" },
+  { "assert": "__DQ.state().audio.theme === 'overworld'", "msg": "the requested theme is reported at once, even while its samples load" },
+  { "waitFor": "__DQ.state().audio.playing === 'overworld'", "timeout": 15000 },
+  { "wait": 2500 },
+  { "shot": "playing-overworld" },
+  { "assert": "__DQ.state().audio.voices > 0 && __DQ.state().audio.bar >= 1", "msg": "overworld is sounding live and the beat clock advances" },
+  { "assert": "__DQ.state().audio.missed === 0 && __DQ.state().audio.fallbacks === 0", "msg": "every note found its own recorded zone: no dropouts, no substitutions" },
+  { "assert": "['strings','horn','trumpet','timpani','harp','bassoon','clarinet','flute'].every(id => (__DQ.samples().instruments[id]||{}).status === 'ready')", "msg": "the overworld's recorded instruments decoded (every zone it asked for)" },
+
+  { "eval": "(__DQ.select('village'), __DQ.play('village', {fade: 1.2}))" },
+  { "waitFor": "__DQ.state().audio.playing === 'village'", "timeout": 15000 },
+  { "wait": 2000 },
+  { "shot": "crossfade-to-village" },
+  { "assert": "__DQ.state().audio.theme === 'village'", "msg": "crossfaded to the village" },
+  { "assert": "__DQ.samples().instruments.oboe.status === 'ready' && __DQ.samples().instruments.vibes.status === 'ready'", "msg": "the village's oboe and music box arrived" },
+
+  { "waitFor": "['horn','timpani','cymbal','trumpet','trombone','tuba','strings_spic','pizz'].every(id => (__DQ.samples().instruments[id]||{}).status === 'ready')", "timeout": 25000 },
+  { "eval": "__DQ.stinger('battle_start')" },
+  { "wait": 2000 },
+  { "shot": "battle-after-stinger" },
+  { "assert": "__DQ.state().audio.theme === 'battle'", "msg": "battle stinger chains into the battle theme" },
+  { "eval": "__DQ.stinger('victory')" },
+  { "wait": 1500 },
+  { "shot": "victory" },
+  { "assert": "__DQ.state().audio.theme === 'victory'", "msg": "victory fanfare cuts the battle" },
+  { "eval": "(__DQ.play('family'), __DQ.duck(0.55, 1500))" },
+  { "wait": 400 },
+  { "assert": "__DQ.state().audio.ducked === 0.55", "msg": "dialogue duck applied" },
+  { "eval": "__DQ.stinger('level_up')" },
+  { "wait": 2500 },
+  { "shot": "family-with-levelup" },
+  { "eval": "__DQ.play('silence', {fade: 0.6})" },
+  { "wait": 1200 },
+  { "assert": "__DQ.state().audio.theme === 'silence'", "msg": "silence is a real cue" },
+  { "assert": "__DQ.state().audio.missed === 0", "msg": "nothing fell on an undecoded sample all session" },
+  { "assert": "__DQ.samples().errors === 0", "msg": "every sample fetched and decoded" },
+  { "assert": "__DQ.errors.length === 0", "msg": "no runtime errors" }
  ]
 }

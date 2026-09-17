@@ -1,0 +1,44 @@
+{ "name": "P02/P03 in the real game — the horizon, the hours, the water", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 45000},
+  {"waitFor": "__DQ.screenshotReady()", "timeout": 20000},
+  {"wait": 1400},
+  {"note": "1. as it opens — is there anything on the skyline?"},
+  {"shot": "01-as-it-opens"},
+  {"eval": "JSON.stringify(__DQ.state().sky)"},
+
+  {"note": "2. orbit all four compass points at spawn: every one must end on something worth walking to"},
+  {"eval": "__DQ.cameraOrbit(0)"}, {"wait": 900}, {"shot": "02-look-north"},
+  {"eval": "__DQ.cameraOrbit(90)"}, {"wait": 900}, {"shot": "03-look-east"},
+  {"eval": "__DQ.cameraOrbit(180)"}, {"wait": 900}, {"shot": "04-look-south"},
+  {"eval": "__DQ.cameraOrbit(270)"}, {"wait": 900}, {"shot": "05-look-west"},
+
+  {"note": "3. the signposted lanes: down the Puddlewick lane, down the Saltmarrow lane, down the Long Lane"},
+  {"eval": "__DQ.landmarks && JSON.stringify(__DQ.landmarks())"},
+  {"eval": "__DQ.landmarkView ? __DQ.landmarkView('puddlewick') : null"}, {"wait": 1100}, {"shot": "06-toward-puddlewick"},
+  {"eval": "__DQ.landmarkView ? __DQ.landmarkView('saltmarrow') : null"}, {"wait": 1100}, {"shot": "07-toward-saltmarrow"},
+  {"eval": "__DQ.landmarkView ? __DQ.landmarkView('coddleston') : null"}, {"wait": 1100}, {"shot": "08-toward-coddleston"},
+
+  {"note": "4. the hours, from the same spot: noon, dusk, night, the small hours, dawn"},
+  {"eval": "__DQ.cameraOrbit(0)"}, {"eval": "__DQ.timeOfDay(12)"}, {"wait": 900}, {"shot": "09-noon"},
+  {"eval": "__DQ.timeOfDay(18.6)"}, {"wait": 900}, {"shot": "10-dusk"},
+  {"eval": "__DQ.timeOfDay(21.5)"}, {"wait": 1000}, {"shot": "11-night-2130"},
+  {"eval": "__DQ.timeOfDay(3)"}, {"wait": 1000}, {"shot": "12-night-0300"},
+  {"eval": "__DQ.timeOfDay(6.3)"}, {"wait": 1000}, {"shot": "13-dawn"},
+  {"eval": "__DQ.timeOfDay(9)"}, {"wait": 900},
+
+  {"note": "5. water: the Beck's edge and the pond, close"},
+  {"eval": "__DQ.teleport('meadow', 12.5, -12.5)"}, {"wait": 1200}, {"eval": "__DQ.cameraOrbit(20)"}, {"wait": 900}, {"shot": "14-beck-edge"},
+  {"eval": "__DQ.timeOfDay(18.8)"}, {"wait": 900}, {"shot": "15-beck-at-dusk"},
+  {"eval": "__DQ.timeOfDay(9)"}, {"wait": 700},
+
+  {"note": "6. weather in the real game"},
+  {"eval": "__DQ.weather('rain', {instant: true})"}, {"wait": 1600}, {"shot": "16-rain"},
+  {"eval": "__DQ.weather('snow', {instant: true})"}, {"wait": 1800}, {"shot": "17-snow"},
+  {"eval": "__DQ.weather('clear', {instant: true})"}, {"wait": 1400},
+
+  {"note": "7. back to the opening and health"},
+  {"eval": "__DQ.teleport('meadow')"}, {"wait": 1400}, {"eval": "__DQ.cameraOrbit(4)"}, {"wait": 900}, {"shot": "18-opening-again"},
+  {"eval": "JSON.stringify(__DQ.state().sky)"},
+  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"},
+  {"assert": "__DQ.state().fps >= 45", "msg": "fps >= 45"}
+]}

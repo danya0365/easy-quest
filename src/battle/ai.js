@@ -1,9 +1,13 @@
-// src/battle/ai.js — P14. Monster move choice (with Big-Attack telegraphs) and party auto-battle policies.
+// src/battle/ai.js — P14. Monster move choice (with Big-Attack telegraphs), the DQV Tactics, and the party policies.
 // Pure logic. Policies:
-//   'mash'  — a six-year-old pressing Confirm: every turn, Attack the first monster.
-//   'auto'  — the "Fight!" auto-battle (SYSTEMS §7.3): never uses items; on the road it never spends MP below half —
-//             that half is kept for the boss, and against a boss it spends it (balance pass r3).
-//   'smart' — a careful player / helpful parent: heals early, revives, Bolsters on a wind-up, uses items.
+//   'mash'   — a six-year-old pressing Confirm: every turn, Attack the first monster.
+//   'auto'   — the "Fight!" auto-battle and the "Fight Wisely" tactic (SYSTEMS §7.3): never uses items; on the road it
+//              never spends MP below half — that half is kept for the boss, and against a boss it spends it (r3).
+//   'smart'  — a careful player / helpful parent: heals early, revives, Bolsters on a wind-up, uses items.
+//   'mercy'  — "Show No Mercy": every spell it has, heals only when somebody is nearly out.
+//   'support'— "Watch My Back": heals at 60%, wakes friends, braces for a Big Attack, fights when nobody needs help.
+//   'nomagic'— "Don't Use Magic": swings, and saves every drop.
+// A tactic id ('wisely', 'watch_back', …) may be passed in place of a policy name.
 
 import { isUp, targetable, effMaxHp, effAtk, effDef, effMdef, elementMult, spellCost, spellProblem, itemProblem } from './actions.js';
 import { BIG_ATTACK_COOLDOWN } from './formulas.js';
@@ -128,11 +132,11 @@ export function policyForTactic(t) { const x = TACTIC_BY_ID[normalizeTactic(t) |
  *   items / brace / bossBuffs / cure / damageSpells / magic
  */
 const POLICY = {
-  auto:    { healAt: 0.35, reserve: 'road', healReserve: 'road', thrift: 0.04, damageSpells: true, magic: true },
+  auto:    { healAt: 0.35, weakSwingHeals: 0.5, reserve: 'road', healReserve: 'road', thrift: 0.04, damageSpells: true, magic: true },
   smart:   { healAt: 0.45, healAtTele: 0.65, reserve: false, healReserve: false, thrift: 0.015, items: true, brace: true, defend: true,
     bossBuffs: true, damageSpells: true, magic: true, spareSingles: true },
   mercy:   { healAt: 0.25, reserve: false, healReserve: false, thrift: 0.004, bossBuffs: true, damageSpells: true, magic: true },
-  support: { healAt: 0.6, healAtTele: 0.75, reserve: 'road', healReserve: false, thrift: 0.04, brace: true, bossBuffs: true, cure: true,
+  support: { healAt: 0.6, healAtTele: 0.75, weakSwingHeals: 0.8, reserve: 'road', healReserve: false, thrift: 0.04, brace: true, bossBuffs: true, cure: true,
     damageSpells: true, magic: true },
   nomagic: { healAt: 0, magic: false },
 };
@@ -192,10 +196,11 @@ export function chooseAllyAction(B, a, policy = 'auto') {
   const attackTarget = () => {
     if (policy === 'mash') return foes[0];
     // finish off whatever can be finished, else the one with the least HP left — and a friend fighting by Tactics
-    // leaves the monster somebody was *told* to hit to them when their own two swings will finish it, while there is
-    // another monster to go for. DQV's first hour: the boy's swing is the one that pops the slime (before, Bobble
+    // leaves a small monster somebody was *told* to hit (one their own two swings fell from full) to them, while there
+    // is another monster to go for. DQV's first hour: the boy's swing is the one that pops the slime (before, Bobble
     // finished off every Gloop Bram had just hit, and Bram landed 6% of the killing blows). A monster that needs
-    // everybody's swings (a Crabbit on the coast) still gets everybody's swings.
+    // everybody's swings still gets everybody's swings: spreading out there only lets it hit back for longer (measured:
+    // on the Sogglemarsh walk it cost Bogwallop's door eight points of first-try wins).
     let pool = foes;
     if (a.control !== 'player' && !a.guest) {
       const told = new Set();
@@ -203,7 +208,7 @@ export function chooseAllyAction(B, a, policy = 'auto') {
         if (c === a || c.control !== 'player' || !isUp(c)) continue;
         const cmd = B.commands.get(c.id);
         const t = cmd && cmd.type === 'attack' && cmd.target ? foes.find((f) => f.id === cmd.target) : null;
-        if (t && 2 * 1.1 * estPhys(c, t) >= t.hp) told.add(t.id);
+        if (t && 2 * 1.1 * estPhys(c, t) >= t.maxHp) told.add(t.id);
       }
       const rest = foes.filter((f) => !told.has(f.id));
       if (rest.length) pool = rest;
@@ -229,8 +234,14 @@ export function chooseAllyAction(B, a, policy = 'auto') {
     }
   }
 
-  // 2. heal the hurt
-  const healAt = telegraphing && P.healAtTele ? P.healAtTele : P.healAt;
+  // 2. heal the hurt — and a healer whose swing hardly matters (Queen Elowen's staff against Mortmain: 18 damage a turn
+  // while the Rowan beside her hits for 150) tops friends up early instead of hitting things with a stick
+  let healAt = telegraphing && P.healAtTele ? P.healAtTele : P.healAt;
+  if (P.weakSwingHeals && usableSpells(B, a, ['heal', 'healAll', 'fullheal']).length) {
+    const aim = boss || attackTarget();
+    const best = Math.max(...up.filter((c) => c !== a).map((c) => estPhys(c, aim)), 0);
+    if (best > 0 && estPhys(a, aim) < best * 0.35) healAt = Math.max(healAt, P.weakSwingHeals);
+  }
   const hurt = up.filter((c) => c.hp / effMaxHp(c) < healAt).sort((x, y) => x.hp / effMaxHp(x) - y.hp / effMaxHp(y));
   if (hurt.length) {
     if (hurt.length >= 2) {

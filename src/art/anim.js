@@ -24,6 +24,13 @@
  *    forward lean, squash on landing.
  *  - Legs and (when a clip asks) arms are solved with 2-bone IK, so kneeling knees touch the ground, a greatsword
  *    held like a walking stick stays upright, and hands meet on an item held aloft.
+ *  - Walk heights are built from walkDrop(): the pelvis follows a smooth wave between "both feet down" and
+ *    "over the planted leg", so a planted foot is always in reach and the bob is a wave, not an IK kink. The back
+ *    heel peels up at the end of each stance. style.gait = 'heavy' adds a shoulder roll, a weight-taking dip at
+ *    each landing and a slower cadence — a big man lumbers, a child scurries, on the same code.
+ *  - style.plant = {len, gripY, out, fwd, tipOut, tipFwd, swing, lift} makes the right hand's prop a WALKING STAFF:
+ *    its tip is planted in world space like a third foot (once per stride, with the left foot), carried forward in
+ *    an arc, and the hand rides the staff (so Halvard's greatsword thumps the ground and never slides).
  *  - Turning is a critically-damped spring on the root's yaw, never a snap; the head leads, the chest follows.
  *  - Cloaks, skirts and plaits are damped springs driven by speed, turning, bob and the legs underneath.
  *
@@ -240,7 +247,7 @@ function locoClip(P, t, c, run) {
     const soft = clamp(s.kneeBend, 0, 0.9) * (1 - clamp(s.bounce * 0.45, 0, 0.8));
     const wave = 0.5 + 0.5 * Math.cos(step2 * TAU);                // 1 at landing, 0 at mid-stance
     const land = env(step2, 0, 0.07, 0.09, heavy ? 0.34 : 0.24);    // the weight arriving on the new foot
-    const dip = land * (heavy ? 0.034 : 0.008) * k;
+    const dip = land * (heavy ? 0.02 : 0.008) * k;
     const swayW = Math.sin(legPh + TAU * (0.25 - L.duty * 0.5));   // + while the LEFT foot carries the weight
     P.p('hips', swayW * 0.018 * k * s.sway, -drop * (soft + (1 - soft) * wave) - dip, 0);
     P.r('hips', 0.04 + s.hunch * 0.3, -(zL - zR) / (half * 2) * 0.16 * s.twist, -swayW * 0.04 * s.sway);
@@ -295,26 +302,57 @@ const CLIPS = {
   talk: {
     loop: true, mask: UPPER, dur: 3.2,
     sample(P, t, c) {
-      const s = c.style, k = c.m.k, seed = c.seed;
+      const s = c.style, m = c.m, k = m.k, seed = c.seed;
+      const PH = 2.6, pt = (t + seed) % PH, ph = Math.floor((t + seed) / PH);
       // syllables: a gated wobble, with little pauses between phrases
-      const phrase = env((t + seed) % 2.6, 0.05, 0.15, 1.95, 2.2);
+      const phrase = env(pt, 0.05, 0.15, 1.95, 2.2);
       const syl = Math.max(0, Math.sin(t * 17 + Math.sin(t * 5.3) * 2)) * (0.55 + 0.45 * vnoise1(t * 3 + seed));
+      const stress = Math.pow(Math.max(0, Math.sin(t * 4.3 + seed)), 6) * phrase;   // an emphatic word now and then
       P.x('open', syl * phrase * 0.9);
       P.x('smile', s.smile * (1 - phrase * 0.3));
-      P.x('browUp', Math.max(0, vnoise1(t * 1.7 + seed * 3)) * 0.8 * phrase);
-      P.r('head', Math.sin(t * 5.1) * 0.04 * phrase + 0.02, Math.sin(t * 1.3) * 0.08, Math.sin(t * 0.8) * 0.05);
-      P.r('neck', Math.sin(t * 2.6) * 0.03, 0, 0);
-      P.r('chest', 0.02, Math.sin(t * 1.1) * 0.05, 0);
-      // a hand gesture every phrase, alternating hands
-      const g = (Math.floor((t + seed) / 2.6) + (seed > 0.5 ? 1 : 0)) % 2 ? 1 : -1;
-      const gw = env((t + seed) % 2.6, 0.1, 0.45, 1.7, 2.2);
-      const beat = Math.sin(t * 6.5) * 0.08;
-      P.rl('arm', g, (-0.95 + beat) * gw, 0.15 * gw, (0.25) * gw + s.armOut);
-      P.rl('fore', g, (-1.1 - beat) * gw, 0.5 * gw, 0);
-      P.rl('hand', g, -0.3 * gw, 0, 0.3 * gw);
-      P.rl('arm', -g, 0.02, 0, s.armOut); P.rl('fore', -g, -s.elbow - 0.1, 0, 0);
+      P.x('browUp', Math.max(0, vnoise1(t * 1.7 + seed * 3)) * 0.7 * phrase + stress * 0.6);
+      P.r('head', Math.sin(t * 5.1) * 0.035 * phrase + 0.02 + stress * 0.12, Math.sin(t * 1.3) * 0.08, Math.sin(t * 0.8) * 0.05 + Math.sin(ph * 2.1) * 0.05);
+      P.r('neck', Math.sin(t * 2.6) * 0.03 + stress * 0.05, 0, 0);
+      P.r('chest', 0.02 + stress * 0.04, Math.sin(t * 1.1) * 0.05, 0);
       P.p('chest', 0, Math.sin(t * 3) * 0.004 * k, 0);
-      restArms(P, c, 1 - gw * 0.8, 0);
+      // which hands are free to talk with (a hand on the hip, a staff or a tankard's hand stays put or joins in kind)
+      const busyL = s.arms === 'hipL' || s.arms === 'hips';
+      const busyR = s.arms === 'hips' || !!s.plant;
+      const gw = env(pt, 0.1, 0.45, 1.7, 2.2);
+      const beat = Math.sin(t * 6.5) * 0.08 + stress * 0.12;
+      const pick = hash1(ph * 3.7 + seed * 11);
+      let g = hash1(ph * 1.3 + seed) < 0.5 ? 1 : -1;
+      if (busyL && !busyR) g = -1; else if (busyR && !busyL) g = 1;
+      const any = !(busyL && busyR);
+      const skip = { L: 0, R: 0 };
+      if (any) {
+        const gs = g > 0 ? 'L' : 'R';
+        if (pick < 0.4) {
+          // explaining: palm up, out in front
+          P.rl('arm', g, (-0.95 + beat) * gw, 0.15 * gw, 0.25 * gw + s.armOut); P.rl('fore', g, (-1.1 - beat) * gw, 0.5 * gw, 0); P.rl('hand', g, -0.3 * gw, 0, 0.3 * gw);
+          skip[gs] = gw;
+        } else if (pick < 0.6 && !busyL && !busyR) {
+          // both hands open: "well, what can you do?"
+          for (const sd of [1, -1]) { P.rl('arm', sd, -0.55 * gw, 0.1 * gw, (0.55 + beat) * gw + s.armOut); P.rl('fore', sd, -1.25 * gw, -0.4 * gw, 0); P.rl('hand', sd, -0.4 * gw, 0, 0.2 * gw); }
+          P.r('clavL', 0, 0, 0.14 * gw); P.r('clavR', 0, 0, -0.14 * gw); P.r('head', 0, 0, 0.1 * gw);
+          skip.L = gw; skip.R = gw;
+        } else if (pick < 0.8) {
+          // a hand to the heart
+          P.handC(g, g * 0.06 * k, (m.shoulderY - m.chestY) * 0.2, m.bodyZ + 0.05 * k, gw);
+          P.r('head', 0.05 * gw, 0, -g * 0.06 * gw);
+          skip[gs] = gw;
+        } else {
+          // a raised hand, making a point (with the tankard, if that's what's in it)
+          P.rl('arm', g, (-1.75 + beat * 1.5) * gw, 0.1 * gw, 0.3 * gw + s.armOut); P.rl('fore', g, (-0.7 - beat) * gw, 0, 0); P.rl('hand', g, 0, 0, Math.sin(t * 9) * 0.25 * gw);
+          skip[gs] = gw;
+        }
+      } else {
+        // both hands busy: talk with the shoulders
+        P.r('clavL', 0, 0, stress * 0.12); P.r('clavR', 0, 0, -stress * 0.12);
+      }
+      P.rl('arm', 1, 0.02 * (1 - skip.L), 0, s.armOut * (1 - skip.L)); P.rl('fore', 1, (-s.elbow - 0.1) * (1 - skip.L), 0, 0);
+      P.rl('arm', -1, 0.02 * (1 - skip.R), 0, s.armOut * (1 - skip.R)); P.rl('fore', -1, (-s.elbow - 0.1) * (1 - skip.R), 0, 0);
+      restArms(P, c, 1, 0, 0, skip);
     },
   },
   nod: {
@@ -351,41 +389,55 @@ const CLIPS = {
     },
   },
   celebrate: {
-    // the Dragon Quest item-held-aloft pose: hop, both hands up, the treasure over your head, a huge grin
-    loop: false, mask: FULL, dur: 2.4, fadeIn: 0.08, fadeOut: 0.35,
+    // the Dragon Quest item-held-aloft pose: a crouch, a hop, the treasure thrust up in one fist, the other arm pumping,
+    // a huge grin, a second little bounce of joy
+    loop: false, mask: FULL, dur: 2.6, fadeIn: 0.08, fadeOut: 0.4,
     sample(P, t, c) {
       const m = c.m, k = m.k, s = c.style;
+      const hs = s.propR ? 1 : -1, free = -hs;                // the treasure goes up in the free hand
       const crouch = env(t, 0, 0.12, 0.14, 0.26);
       const jump = Math.sin(clamp((t - 0.18) / 0.3, 0, 1) * Math.PI);
-      const hold = sstep(0.2, 0.42, t);
-      const bounce = hold * Math.abs(Math.sin((t - 0.5) * 5.2)) * 0.018 * k * sstep(0.55, 0.8, t);
-      P.p('hips', 0, -crouch * 0.08 * k + jump * 0.1 * k * s.hop + bounce, 0);
-      P.r('spine', -0.08 * hold, 0, 0); P.r('chest', -0.1 * hold, 0, 0); P.r('neck', -0.02 * hold, 0, 0); P.r('head', -0.1 * hold, 0, 0);
+      const hop2 = Math.sin(clamp((t - 1.3) / 0.26, 0, 1) * Math.PI) * 0.55;
+      const land2 = env(t, 1.52, 1.58, 1.6, 1.75);
+      const hold = sstep(0.2, 0.42, t) * (1 - sstep(2.15, 2.6, t));
+      const sway = Math.sin((t - 0.55) * 4.4) * sstep(0.55, 0.85, t) * (1 - sstep(1.9, 2.3, t));
+      const up = (jump + hop2) * 0.1 * k * s.hop;
+      P.p('hips', sway * 0.018 * k, -crouch * 0.08 * k - land2 * 0.03 * k + up, 0);
+      P.r('hips', 0, 0, -sway * 0.04);
+      P.r('spine', -0.08 * hold, 0, 0); P.r('chest', -0.1 * hold, sway * 0.05, sway * 0.07); P.r('neck', -0.02 * hold, 0, 0);
+      P.r('head', -0.14 * hold, 0, -sway * 0.05 + hs * 0.07 * hold);
       standFeet(P, c, 1.3, 1);
       const a = P.pose.a, o = P.pose.ikOff;
-      a[o + 1] += jump * 0.1 * k * s.hop; a[o + 5] += jump * 0.1 * k * s.hop;
-      // both arms thrown up in a V, palms up under the treasure that floats over the head
-      const vee = s.kid ? 0.9 : 0.6;   // chibi heads are wide: children throw their arms wider to clear it
-      P.rl('arm', 1, -2.9 * hold, 0.15 * hold, vee * hold); P.rl('arm', -1, -2.9 * hold, 0.15 * hold, vee * hold);
-      P.rl('fore', 1, -0.2 * hold, 0, 0.1 * hold); P.rl('fore', -1, -0.2 * hold, 0, 0.1 * hold);
-      P.rl('hand', 1, -0.3 * hold, 0, -0.5 * hold); P.rl('hand', -1, -0.3 * hold, 0, -0.5 * hold);
-      P.r('clavL', 0, 0, 0.18 * hold); P.r('clavR', 0, 0, -0.18 * hold);
-      P.p('item', 0, bounce + Math.sin(t * 3.1) * 0.012 * k, 0);
-      P.x('item', sstep(0.26, 0.34, t));
-      P.x('happy', hold); P.x('open', hold * 0.8); P.x('smile', 1 + hold * 0.5); P.x('browUp', hold * 0.6); P.x('blush', hold);
+      a[o + 1] += up; a[o + 5] += up;
+      // the treasure arm: straight up and out beside the head, the item riding on top of the fist
+      const out = s.kid ? 0.56 : 0.34;
+      const hy = (m.shoulderY - m.chestY) + m.arm * (s.kid ? 0.84 : 0.92), hx = hs * (m.shoulderX + m.arm * out);
+      P.rl('arm', hs, -2.6 * hold, 0, 0.45 * hold); P.rl('fore', hs, -0.1 * hold, 0, 0);
+      P.handC(hs, hx, hy + Math.sin(t * 7) * 0.008 * k * hold, (s.kid ? 0.16 : 0.1) * k, hold);
+      P.p('item', 0, Math.sin(t * 3.1) * 0.01 * k, 0);
+      P.x('item', sstep(0.26, 0.34, t) * (1 - sstep(2.3, 2.5, t)));
+      if (s.plant) {
+        P.x('stick', 1);                                        // the big man keeps his sword planted
+      } else {
+        const pump = Math.sin((t - 0.6) * 9) * sstep(0.6, 0.8, t) * (1 - sstep(1.8, 2.1, t));
+        P.rl('arm', free, (-2.2 + pump * 0.3) * hold, 0.1 * hold, 0.85 * hold); P.rl('fore', free, (-0.95 - pump * 0.35) * hold, 0, 0);
+        P.rl('hand', free, -0.2 * hold, 0, -0.3 * hold);
+      }
+      P.r('clavL', 0, 0, 0.16 * hold); P.r('clavR', 0, 0, -0.16 * hold);
+      P.x('happy', hold); P.x('open', hold * (0.65 + 0.2 * Math.sin(t * 3))); P.x('smile', 1 + hold * 0.5); P.x('browUp', hold * 0.6); P.x('blush', hold);
+      P.x('lookX', hs * 0.7 * hold); P.x('lookY', 0.55 * hold);        // he looks up at the treasure in his fist
     },
   },
   attack: {
-    loop: false, mask: FULL, dur: 0.95, fadeIn: 0.06, fadeOut: 0.22, events: [[0.38, 'hit']],
+    loop: false, mask: FULL, dur: 1.0, fadeIn: 0.06, fadeOut: 0.24, events: [[0.38, 'hit']],
     sample(P, t, c) {
       const m = c.m, k = m.k, s = c.style, w = s.weapon;
-      const wind = env(t, 0.02, 0.3, 0.3, 0.42);
-      const strike = sstep(0.3, 0.42, t) * (1 - sstep(0.62, 0.9, t));
-      const recover = sstep(0.62, 0.9, t);
-      P.x('weapon', env(t, 0.0, 0.06, 0.86, 0.95));
+      const wind = env(t, 0.02, 0.28, 0.3, 0.4);
+      const strike = sstep(0.3, 0.42, t) * (1 - sstep(0.66, 0.95, t));
+      const lunge = strike * 0.14 * k;
+      P.x('weapon', env(t, 0.0, 0.06, 0.9, 1.0));
       P.x('browAngry', env(t, 0.02, 0.15, 0.7, 0.9)); P.x('smile', -0.2);
       P.x('open', strike * 0.7);
-      const lunge = strike * 0.14 * k;
       if (w === 'sling') {
         // left hand holds the slingshot out, right hand pulls the band back to the cheek, then lets fly
         const aim = env(t, 0.02, 0.22, 0.75, 0.95);
@@ -406,29 +458,42 @@ const CLIPS = {
         standFeet(P, c, 1.2, 1, 0.1 * k + lunge);
         return;
       }
-      const two = w === 'great';
-      const big = two ? 1.25 : w === 'ladle' ? 0.9 : w === 'none' ? 0.7 : 1;
-      P.p('hips', 0, -0.04 * k * (wind + strike), -0.05 * k * wind + lunge);
-      P.r('hips', 0, 0.25 * wind - 0.35 * strike * big, 0);
-      P.r('spine', -0.12 * wind + 0.2 * strike, 0.2 * wind - 0.25 * strike, 0);
-      P.r('chest', -0.15 * wind + 0.25 * strike, 0.35 * wind - 0.45 * strike, 0.08 * wind);
-      P.r('head', 0.05 * wind - 0.1 * strike, -0.3 * wind + 0.3 * strike, 0);
-      // right arm: up and back, then down across
-      P.rl('arm', -1, -2.8 * wind * big - (0.35 + 0.15 * big) * strike + 0.1 * recover, 0.2 * wind - 0.4 * strike, 0.25 * wind + 0.15 * strike);
-      P.rl('fore', -1, -0.9 * wind - 0.25 * strike, 0, 0);
-      P.rl('hand', -1, 0.4 * wind + 0.9 * strike, 0, 0);
+      // sword / greatsword / ladle / bare fist: wind UP beside the right shoulder with the blade raised where it can be
+      // seen, then chop down and forward across the body toward the foe. The body loads to the right and turns INTO
+      // the blow; it never turns its back.
+      const two = w === 'great', blade = w !== 'none';
+      const big = two ? 1.2 : w === 'ladle' ? 0.9 : 1;
+      P.p('hips', 0, -0.035 * k * wind - 0.05 * k * strike, -0.04 * k * wind + lunge);
+      P.r('hips', 0, -0.1 * wind + 0.08 * strike, 0);
+      P.r('spine', -0.06 * wind + 0.16 * strike * big, -0.06 * wind + 0.05 * strike, 0);
+      P.r('chest', -0.1 * wind + 0.14 * strike, -0.16 * wind + 0.1 * strike, 0.05 * wind);
+      P.r('head', 0.04 * wind - 0.05 * strike, 0.24 * wind - 0.14 * strike, 0);
+      // FK gets the arm roughly there; IK puts the fist exactly on the arc
+      P.rl('arm', -1, -2.2 * wind - 1.0 * strike, 0, 0.5 * wind);
+      P.rl('fore', -1, -1.2 * wind - 0.2 * strike, 0, 0);
+      const wx = -(m.shoulderX + m.arm * 0.3), wy = m.shoulderY + m.arm * 0.5, wz = -0.02 * k;
+      const sx = -m.shoulderX * 0.2, sy = m.chestY - m.arm * 0.3, sz = m.bodyZ + m.arm * 0.75;
+      const ww = wind * (1 - strike);
+      if (ww > 0.001) P.handR(-1, wx, wy, wz, ww);
+      if (strike > 0.001) P.handR(-1, sx, sy, sz, strike);
+      if (blade) {
+        // blade direction (root space): up and a little back/out on the wind, forward and down at the end of the chop
+        const bx = lerp(-0.35, 0.18, strike), by = lerp(0.92, -0.55, strike), bz = lerp(-0.2, 0.82, strike);
+        P.x('blade', Math.max(ww, strike)); P.x('bladeX', bx * Math.max(ww, strike)); P.x('bladeY', by * Math.max(ww, strike)); P.x('bladeZ', bz * Math.max(ww, strike));
+      }
       if (two) {
-        P.x('twoHand', sstep(0.02, 0.2, t) * (1 - sstep(0.62, 0.85, t)));
-        P.rl('arm', 1, -2.6 * wind - 0.9 * strike, -0.3, -0.1); P.rl('fore', 1, -0.8, 0, 0);
+        P.x('twoHand', sstep(0.02, 0.2, t) * (1 - sstep(0.66, 0.9, t)));
+        P.rl('arm', 1, -2.0 * wind - 1.0 * strike, -0.3, -0.1); P.rl('fore', 1, -0.8, 0, 0);
       } else {
-        P.rl('arm', 1, 0.35 * wind - 0.3 * strike, 0, 0.45 * wind + 0.2 * strike); P.rl('fore', 1, -0.5 * wind - 0.3 * strike, 0, 0);
+        // the free arm swings back for balance
+        P.rl('arm', 1, 0.3 * wind + 0.45 * strike, 0, 0.35 * wind + 0.25 * strike); P.rl('fore', 1, -0.5 * wind - 0.3 * strike, 0, 0);
       }
       standFeet(P, c, 1.25, 1, 0.07 * k + lunge * 0.8);
       P.x('footPitchR', wind * 0.2);
     },
   },
   cast: {
-    loop: false, mask: FULL, dur: 1.45, fadeIn: 0.1, fadeOut: 0.3, events: [[0.95, 'cast']],
+    loop: false, mask: FULL, dur: 1.45, dropStick: true, fadeIn: 0.1, fadeOut: 0.3, events: [[0.95, 'cast']],
     sample(P, t, c) {
       const m = c.m, k = m.k;
       const gather = env(t, 0.02, 0.3, 0.45, 0.65);
@@ -521,7 +586,7 @@ const CLIPS = {
     },
   },
   grieve: {
-    loop: true, mask: FULL, dur: 4, fadeIn: 0.6, fadeOut: 0.6,
+    loop: true, mask: FULL, dur: 4, dropStick: true, fadeIn: 0.6, fadeOut: 0.6,
     sample(P, t, c) {
       const m = c.m, k = m.k;
       const sob = Math.max(0, Math.sin(t * 7)) * env(t % 3.2, 0.2, 0.5, 1.6, 2.4);
@@ -542,8 +607,9 @@ const CLIPS = {
     sample(P, t, c) {
       const w = env(t, 0, 0.25, 1.4, 1.8);
       const wag = Math.sin(t * 13) * w;
-      P.rl('arm', -1, -2.3 * w, 0, 0.35 * w); P.rl('fore', -1, -0.5 * w, 0, wag * 0.45); P.rl('hand', -1, 0, 0, wag * 0.3);
-      P.r('head', -0.06 * w, -0.1 * w, 0.1 * w); P.r('chest', 0, 0, -0.05 * w);
+      const sd = c.style.propR ? 1 : -1;                        // wave with the hand that isn't holding something
+      P.rl('arm', sd, -2.3 * w, 0, 0.35 * w); P.rl('fore', sd, -0.5 * w, 0, wag * 0.45); P.rl('hand', sd, 0, 0, wag * 0.3);
+      P.r('head', -0.06 * w, sd * 0.1 * w, -sd * 0.1 * w); P.r('chest', 0, 0, sd * 0.05 * w);
       P.x('happy', w * 0.8); P.x('open', w * 0.5); P.x('smile', c.style.smile + w * 0.5); P.x('browUp', w * 0.5);
     },
   },
@@ -644,7 +710,7 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
   const m = metrics;
   const S = Object.assign({}, STYLE_DEFAULT, style);
   if (style.turnRate == null && S.kid) S.turnRate = 1.3;            // little ones whip round, big men swing round
-  if (style.kneeBend == null && S.gait === 'heavy') S.kneeBend = 0.65;
+  if (style.kneeBend == null && S.gait === 'heavy') S.kneeBend = 0.78;
   if (style.roll == null && S.gait === 'heavy') S.roll = 1;
   const { bones, list, index, bind } = rig;
   const nb = list.length;
@@ -652,6 +718,7 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
   const poseBase = new Pose(nb), poseTmp = new Pose(nb), poseOut = new Pose(nb), poseAct = new Pose(nb), posePrev = new Pose(nb);
   const seed = (hash1((m.height || 1) * 13.7 + (style.seed || 0)) * 10);
 
+  const CHEST_KIDS = list.filter(b => b.parent === bones.chest && /^(clav|neck)/.test(b.name)).map(b => b.name);
   // masks
   const maskOf = (kind) => {
     const mk = new Float32Array(poseOut.a.length).fill(1);
@@ -672,7 +739,7 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
   };
   const MASKS = { [FULL]: null, [UPPER]: maskOf(UPPER), [HEAD]: maskOf(HEAD) };
   // a clip that doesn't fight with the weapon leaves the carried prop's upright grip alone
-  const keepGrip = (mk) => { const out = mk ? mk.slice() : new Float32Array(poseOut.a.length).fill(1); out[poseOut.exOff + EX.orientR] = 0; return out; };
+  const keepGrip = (mk) => { const out = mk ? mk.slice() : new Float32Array(poseOut.a.length).fill(1); out[poseOut.exOff + EX.orientR] = 0; out[poseOut.exOff + EX.stick] = 0; return out; };
   const GRIP_MASKS = { [FULL]: keepGrip(MASKS[FULL]), [UPPER]: keepGrip(MASKS[UPPER]), [HEAD]: keepGrip(MASKS[HEAD]) };
 
   // state
@@ -773,10 +840,10 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
         clip: api.current, action: A.cur ? { name: A.cur.name, t: r3(A.cur.t), w: r3(A.cur.w), loop: A.cur.loop } : null,
         fading: A.prev ? { name: A.prev.name, w: r3(A.prev.w) } : null,
         facing: r3(A.yaw), facingTarget: r3(A.yawT), turning: Math.abs(wrapPi(A.yawT - A.yaw)) > 0.02,
-        speed: r3(A.speed), amp: r3(A.amp), run: r3(A.runK), phase: r3(A.phase), stride: r3(A.D), cadence: r3(A.freq), lockW: r3(A.lockW),
+        speed: r3(A.speed), amp: r3(A.amp), ikDrop: r3(A.ikDrop || 0), run: r3(A.runK), phase: r3(A.phase), stride: r3(A.D), cadence: r3(A.freq), lockW: r3(A.lockW),
         feet: feet.map(f => ({ side: f.side > 0 ? 'L' : 'R', swing: f.swing, s: r3(f.s) })),
         blinking: A.blinkK > 0.3, emote: A.emote,
-        stick: S.plant ? { planted: stick.planted && stick.init, swing: stick.swing, plants: stick.plants } : undefined,
+        stick: S.plant ? { planted: stick.planted && stick.init, swing: stick.swing, plants: stick.plants, tip: [r3(stick.tip.x), r3(stick.tip.y), r3(stick.tip.z)] } : undefined,
         debug: api.debug ? {
           footLocal: feet.map(f => f.local ? [r3(f.local.x), r3(f.local.y), r3(f.local.z)] : null),
           hipsY: bones.hips ? r3(bones.hips.position.y) : null, vAct: r3(A.vAct), D: r3(A.D), freq: r3(A.freq), duty: r3(A.duty),
@@ -884,6 +951,8 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
       const P = layer === A.cur ? poseAct : posePrev;
       P.clear(); W.pose = P; clip.sample(W, tt, ctx);
       poseOut.blend(P, sstep(0, 1, layer.w), (layer.name === 'attack' ? MASKS : GRIP_MASKS)[clip.mask || FULL]);
+      // a clip that needs both hands (hands to the face, gathering a spell) lets go of the staff
+      if (clip.dropStick) poseOut.a[poseOut.exOff + EX.stick] *= 1 - sstep(0, 1, layer.w);
     }
     if (A.prev && A.prev.w <= 0.001) A.prev = null;
     if (A.cur && A.cur.fadingOut && A.cur.w <= 0.001) { A.cur = null; }
@@ -951,6 +1020,12 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
       b.position.set(bp.x + pa[o + 3], bp.y + pa[o + 4], bp.z + pa[o + 5]);
       b.scale.set(1 + pa[o + 6], 1 + pa[o + 7], 1 + pa[o + 8]);
     }
+    // the chest breathes and squashes, but the arms and head it carries must not stretch with it (a stretched arm
+    // puts a held staff's tip off its spot on the ground, and wobbles the face)
+    if (bones.chest) {
+      const cs = bones.chest.scale;
+      for (const n of CHEST_KIDS) { const b = bones[n]; if (b) b.scale.set(b.scale.x / cs.x, b.scale.y / cs.y, b.scale.z / cs.z); }
+    }
     applyFace(pa, ex);
     applySecondary(dt, pa, ex);
     root.updateWorldMatrix(false, true);
@@ -988,6 +1063,7 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
         const need = (hp.y - feet[li].target.y) - maxUp;
         if (need > drop) drop = need;
       }
+      A.ikDrop = drop;
       if (drop > 0 && hips) { hips.position.y -= Math.min(drop, m.legLen * 0.5) * ikW; hips.updateWorldMatrix(false, true); }
       for (let li = 0; li < 2; li++) {
         const side = li === 0 ? 'L' : 'R', sgn = li === 0 ? 1 : -1;
@@ -1167,6 +1243,9 @@ export function createAnimator({ root, rig, metrics, style = {} }) {
         if (f.swing && f.kind !== 'gait') { f.kind = 'gait'; f.from.copy(f.pos); f.dur = Math.max(0.05, (1 - duty) / Math.max(0.1, A.freq)); f.lift = 0.05 * m.legLen; }
         if (inSwing && !f.swing && moving) {
           f.swing = true; f.from.copy(f.pos); f.s = 0;
+          // leave from where the peeled-up ankle already is (no dip at toe-off)
+          const hl = 0.5 * S.heelLift * (1 - A.runK);
+          f.from.addScaledVector(Y_UP, footLen * Math.sin(hl)).addScaledVector(fwdW, footLen * (1 - Math.cos(hl)));
           f.dur = Math.max(0.05, (1 - duty) / Math.max(0.1, A.freq));
           f.lift = lerp(0.2, 0.32, A.runK) * m.legLen * (0.5 + 0.5 * clamp(D / (m.legLen * 0.9), 0, 1)) * S.lift;
           f.kind = 'gait';

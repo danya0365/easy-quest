@@ -1,5 +1,5 @@
 {
- "name": "critic P07/P08 round 1 (a2r1)",
+ "name": "critic-P07 a2r2 frame-exact",
  "steps": [
   {
    "waitFor": "window.__DQ && __DQ.ready",
@@ -9,224 +9,2050 @@
    "wait": 1500
   },
   {
-   "eval": "(__DQ.ui(false), __DQ.cast(), __DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+   "eval": "__DQ.life(false)"
   },
   {
-   "wait": 1200
+   "eval": "__DQ.ui(false)"
   },
   {
-   "shot": "cast-front"
+   "wait": 300
   },
   {
-   "eval": "__DQ.cameraOrbit(90)"
+   "eval": "__DQ.show('hero',6)"
   },
   {
-   "wait": 1400
+   "eval": "__DQ.cameraAim(0.62)"
   },
   {
-   "shot": "cast-side"
+   "eval": "__DQ.cameraZoom(0.5)"
   },
   {
-   "eval": "__DQ.cameraOrbit(180)"
+   "eval": "__DQ.cameraOrbit(18)"
   },
   {
-   "wait": 1400
+   "eval": "__DQ.snap()"
   },
   {
-   "shot": "cast-back"
+   "wait": 500
   },
   {
-   "note": "father and boy side by side: cast mode, everyone plays walk in place, camera framed on Halvard + Bram(6)"
-  },
-  {
-   "eval": "(__DQ.life(false), __DQ.cameraOrbit(-28), __DQ.cameraZoom(0.3), __DQ.play('walk'))"
-  },
-  {
-   "wait": 1500
-  },
-  {
-   "burst": {
-    "name": "father-boy-walk",
-    "count": 10,
-    "interval": 70
-   }
-  },
-  {
-   "eval": "__DQ.cameraOrbit(62)"
-  },
-  {
-   "wait": 1400
-  },
-  {
-   "burst": {
-    "name": "father-boy-walk-side",
-    "count": 10,
-    "interval": 70
-   }
-  },
-  {
-   "eval": "(__DQ.play('idle'), __DQ.life(true), __DQ.show('hero',6), __DQ.cameraOrbit(0), __DQ.cameraZoom(0.8))"
-  },
-  {
-   "wait": 900
-  },
-  {
-   "shot": "hero6-front"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(90)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "hero6-side"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(180)"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "hero6-back"
-  },
-  {
-   "eval": "(__DQ.cameraOrbit(90), __DQ.play('walk'))"
-  },
-  {
-   "wait": 1400
-  },
-  {
-   "burst": {
-    "name": "hero6-walk",
-    "count": 10,
-    "interval": 60
-   }
-  },
-  {
-   "eval": "__DQ.play('run')"
-  },
-  {
-   "wait": 1400
-  },
-  {
-   "burst": {
-    "name": "hero6-run",
-    "count": 10,
-    "interval": 40
-   }
-  },
-  {
-   "eval": "(__DQ.play('idle'), __DQ.cameraOrbit(35))"
-  },
-  {
-   "wait": 900
-  },
-  {
-   "eval": "__DQ.turn(180)"
-  },
-  {
-   "burst": {
-    "name": "hero6-turn",
-    "count": 8,
-    "interval": 60
-   }
-  },
-  {
-   "eval": "(__DQ.face(0), __DQ.cameraOrbit(15), __DQ.cameraZoom(1.1))"
-  },
-  {
-   "wait": 900
+   "eval": "__DQ.freeze(true)"
   },
   {
    "eval": "__DQ.play('celebrate')"
   },
   {
-   "burst": {
-    "name": "hero6-celebrate",
-    "count": 12,
-    "interval": 110
-   }
+   "shot": "b6CELEB-f00"
   },
   {
-   "eval": "(__DQ.show('innkeeper'), __DQ.cameraOrbit(20), __DQ.cameraZoom(0.8))"
+   "eval": "__DQ.advance(70)"
   },
   {
-   "wait": 900
+   "shot": "b6CELEB-f01"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CELEB-f02"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CELEB-f03"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CELEB-f04"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CELEB-f05"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CELEB-f06"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CELEB-f07"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CELEB-f08"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CELEB-f09"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CELEB-f10"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CELEB-f11"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CELEB-f12"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CELEB-f13"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CELEB-f14"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CELEB-f15"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(600)"
+  },
+  {
+   "eval": "__DQ.play('attack')"
+  },
+  {
+   "shot": "b6ATTACK-f00"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f01"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f02"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f03"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f04"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f05"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f06"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f07"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f08"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f09"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f10"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f11"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f12"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f13"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f14"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6ATTACK-f15"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(600)"
   },
   {
    "eval": "__DQ.play('talk')"
   },
   {
-   "burst": {
-    "name": "villager-talk",
-    "count": 10,
-    "interval": 120
-   }
+   "shot": "b6TALK-f00"
   },
   {
-   "eval": "(__DQ.show('halvard'), __DQ.cameraOrbit(0), __DQ.cameraZoom(0.8))"
+   "eval": "__DQ.advance(90)"
   },
   {
-   "wait": 900
+   "shot": "b6TALK-f01"
   },
   {
-   "shot": "halvard-front"
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "b6TALK-f02"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "b6TALK-f03"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "b6TALK-f04"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "b6TALK-f05"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "b6TALK-f06"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "b6TALK-f07"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "b6TALK-f08"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "b6TALK-f09"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "b6TALK-f10"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "b6TALK-f11"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "b6TALK-f12"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "b6TALK-f13"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(600)"
+  },
+  {
+   "eval": "__DQ.play('hurt')"
+  },
+  {
+   "shot": "b6HURT-f00"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6HURT-f01"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6HURT-f02"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6HURT-f03"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6HURT-f04"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6HURT-f05"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6HURT-f06"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6HURT-f07"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6HURT-f08"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6HURT-f09"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6HURT-f10"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "b6HURT-f11"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(600)"
+  },
+  {
+   "eval": "__DQ.play('cast')"
+  },
+  {
+   "shot": "b6CAST-f00"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CAST-f01"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CAST-f02"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CAST-f03"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CAST-f04"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CAST-f05"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CAST-f06"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CAST-f07"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CAST-f08"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CAST-f09"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CAST-f10"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CAST-f11"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CAST-f12"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6CAST-f13"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(400)"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "__DQ.show('halvard')"
+  },
+  {
+   "eval": "__DQ.cameraAim(0.62)"
+  },
+  {
+   "eval": "__DQ.cameraZoom(0.5)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(18)"
+  },
+  {
+   "eval": "__DQ.snap()"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.play('celebrate')"
+  },
+  {
+   "shot": "hvCELEB-f00"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f01"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f02"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f03"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f04"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f05"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f06"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f07"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f08"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f09"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f10"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f11"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f12"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f13"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f14"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCELEB-f15"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(600)"
+  },
+  {
+   "eval": "__DQ.play('attack')"
+  },
+  {
+   "shot": "hvATTACK-f00"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f01"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f02"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f03"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f04"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f05"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f06"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f07"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f08"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f09"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f10"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f11"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f12"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f13"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f14"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvATTACK-f15"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(600)"
+  },
+  {
+   "eval": "__DQ.play('talk')"
+  },
+  {
+   "shot": "hvTALK-f00"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "hvTALK-f01"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "hvTALK-f02"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "hvTALK-f03"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "hvTALK-f04"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "hvTALK-f05"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "hvTALK-f06"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "hvTALK-f07"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "hvTALK-f08"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "hvTALK-f09"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "hvTALK-f10"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "hvTALK-f11"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "hvTALK-f12"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "hvTALK-f13"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(600)"
+  },
+  {
+   "eval": "__DQ.play('hurt')"
+  },
+  {
+   "shot": "hvHURT-f00"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvHURT-f01"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvHURT-f02"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvHURT-f03"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvHURT-f04"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvHURT-f05"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvHURT-f06"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvHURT-f07"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvHURT-f08"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvHURT-f09"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvHURT-f10"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "hvHURT-f11"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(600)"
+  },
+  {
+   "eval": "__DQ.play('cast')"
+  },
+  {
+   "shot": "hvCAST-f00"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCAST-f01"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCAST-f02"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCAST-f03"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCAST-f04"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCAST-f05"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCAST-f06"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCAST-f07"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCAST-f08"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCAST-f09"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCAST-f10"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCAST-f11"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCAST-f12"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "hvCAST-f13"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(400)"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "__DQ.show('willow')"
+  },
+  {
+   "eval": "__DQ.cameraAim(0.66)"
+  },
+  {
+   "eval": "__DQ.cameraZoom(0.45)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(10)"
+  },
+  {
+   "eval": "__DQ.snap()"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.play('celebrate')"
+  },
+  {
+   "shot": "wiCELEB-f00"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f01"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f02"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f03"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f04"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f05"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f06"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f07"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f08"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f09"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f10"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f11"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f12"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f13"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f14"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCELEB-f15"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(600)"
+  },
+  {
+   "eval": "__DQ.play('attack')"
+  },
+  {
+   "shot": "wiATTACK-f00"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f01"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f02"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f03"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f04"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f05"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f06"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f07"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f08"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f09"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f10"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f11"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f12"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f13"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f14"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiATTACK-f15"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(600)"
+  },
+  {
+   "eval": "__DQ.play('talk')"
+  },
+  {
+   "shot": "wiTALK-f00"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "wiTALK-f01"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "wiTALK-f02"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "wiTALK-f03"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "wiTALK-f04"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "wiTALK-f05"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "wiTALK-f06"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "wiTALK-f07"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "wiTALK-f08"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "wiTALK-f09"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "wiTALK-f10"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "wiTALK-f11"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "wiTALK-f12"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "shot": "wiTALK-f13"
+  },
+  {
+   "eval": "__DQ.advance(90)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(600)"
+  },
+  {
+   "eval": "__DQ.play('hurt')"
+  },
+  {
+   "shot": "wiHURT-f00"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiHURT-f01"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiHURT-f02"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiHURT-f03"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiHURT-f04"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiHURT-f05"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiHURT-f06"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiHURT-f07"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiHURT-f08"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiHURT-f09"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiHURT-f10"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "shot": "wiHURT-f11"
+  },
+  {
+   "eval": "__DQ.advance(60)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(600)"
+  },
+  {
+   "eval": "__DQ.play('cast')"
+  },
+  {
+   "shot": "wiCAST-f00"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCAST-f01"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCAST-f02"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCAST-f03"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCAST-f04"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCAST-f05"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCAST-f06"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCAST-f07"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCAST-f08"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCAST-f09"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCAST-f10"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCAST-f11"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCAST-f12"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "wiCAST-f13"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "eval": "__DQ.advance(400)"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "__DQ.show('hero',6)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "eval": "__DQ.cameraZoom(0.5)"
+  },
+  {
+   "eval": "__DQ.cameraAim(0.6)"
+  },
+  {
+   "eval": "__DQ.snap()"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "eval": "__DQ.face(0)"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.turn(180)"
+  },
+  {
+   "shot": "b6TURNX-f00"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f01"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f02"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f03"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f04"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f05"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f06"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f07"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f08"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f09"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f10"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f11"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f12"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f13"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f14"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "shot": "b6TURNX-f15"
+  },
+  {
+   "eval": "__DQ.advance(70)"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "__DQ.cameraAim(0.9)"
+  },
+  {
+   "eval": "__DQ.cameraZoom(0.26)"
+  },
+  {
+   "eval": "__DQ.snap()"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.play('idle')"
+  },
+  {
+   "shot": "b6IDLEX-f00"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f01"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f02"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f03"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f04"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f05"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f06"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f07"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f08"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f09"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f10"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f11"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f12"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f13"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f14"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f15"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f16"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f17"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f18"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f19"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f20"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f21"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f22"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "shot": "b6IDLEX-f23"
+  },
+  {
+   "eval": "__DQ.advance(340)"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "__DQ.cameraAim(0.5)"
+  },
+  {
+   "eval": "__DQ.cameraZoom(0.55)"
   },
   {
    "eval": "__DQ.cameraOrbit(90)"
   },
   {
-   "wait": 800
+   "eval": "__DQ.snap()"
   },
   {
-   "shot": "halvard-side"
+   "wait": 400
   },
   {
-   "eval": "__DQ.cameraOrbit(180)"
+   "eval": "__DQ.treadmill(true)"
   },
   {
-   "wait": 800
+   "eval": "__DQ.setMove(2.0)"
   },
   {
-   "shot": "halvard-back"
+   "wait": 600
   },
   {
-   "eval": "(__DQ.cameraOrbit(70), __DQ.play('attack'))"
+   "eval": "__DQ.freeze(true)"
   },
   {
-   "burst": {
-    "name": "halvard-attack",
-    "count": 10,
-    "interval": 50
-   }
+   "shot": "b6WALKX-f00"
   },
   {
-   "eval": "(__DQ.cameraOrbit(90), __DQ.play('walk'))"
+   "eval": "__DQ.advance(45)"
   },
   {
-   "wait": 1400
+   "shot": "b6WALKX-f01"
   },
   {
-   "burst": {
-    "name": "halvard-walk",
-    "count": 10,
-    "interval": 60
-   }
+   "eval": "__DQ.advance(45)"
   },
   {
-   "eval": "__DQ.play('run')"
+   "shot": "b6WALKX-f02"
   },
   {
-   "wait": 1400
+   "eval": "__DQ.advance(45)"
   },
   {
-   "burst": {
-    "name": "halvard-run",
-    "count": 10,
-    "interval": 40
-   }
+   "shot": "b6WALKX-f03"
+  },
+  {
+   "eval": "__DQ.advance(45)"
+  },
+  {
+   "shot": "b6WALKX-f04"
+  },
+  {
+   "eval": "__DQ.advance(45)"
+  },
+  {
+   "shot": "b6WALKX-f05"
+  },
+  {
+   "eval": "__DQ.advance(45)"
+  },
+  {
+   "shot": "b6WALKX-f06"
+  },
+  {
+   "eval": "__DQ.advance(45)"
+  },
+  {
+   "shot": "b6WALKX-f07"
+  },
+  {
+   "eval": "__DQ.advance(45)"
+  },
+  {
+   "shot": "b6WALKX-f08"
+  },
+  {
+   "eval": "__DQ.advance(45)"
+  },
+  {
+   "shot": "b6WALKX-f09"
+  },
+  {
+   "eval": "__DQ.advance(45)"
+  },
+  {
+   "shot": "b6WALKX-f10"
+  },
+  {
+   "eval": "__DQ.advance(45)"
+  },
+  {
+   "shot": "b6WALKX-f11"
+  },
+  {
+   "eval": "__DQ.advance(45)"
+  },
+  {
+   "shot": "b6WALKX-f12"
+  },
+  {
+   "eval": "__DQ.advance(45)"
+  },
+  {
+   "shot": "b6WALKX-f13"
+  },
+  {
+   "eval": "__DQ.advance(45)"
+  },
+  {
+   "shot": "b6WALKX-f14"
+  },
+  {
+   "eval": "__DQ.advance(45)"
+  },
+  {
+   "shot": "b6WALKX-f15"
+  },
+  {
+   "eval": "__DQ.advance(45)"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "__DQ.setMove(5.4)"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "shot": "b6RUNX-f00"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f01"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f02"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f03"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f04"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f05"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f06"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f07"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f08"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f09"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f10"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f11"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f12"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f13"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f14"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "shot": "b6RUNX-f15"
+  },
+  {
+   "eval": "__DQ.advance(35)"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "__DQ.treadmill(false)"
+  },
+  {
+   "eval": "__DQ.setMove(0)"
   },
   {
    "assert": "__DQ.errors.length===0",

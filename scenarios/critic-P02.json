@@ -1,0 +1,73 @@
+{ "name": "critic-P02 — blind audit of SKY (P02) and TERRAIN (P03), round 1",
+  "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 40000},
+  {"wait": 1500},
+
+  {"note": "A. what a child sees the second the world appears — untouched camera"},
+  {"shot": "01-as-it-opens"},
+  {"eval": "JSON.stringify({map:__DQ.state().map, tod:__DQ.state().timeOfDay, render:__DQ.state().render})"},
+
+  {"note": "B. look in every direction — is the world endless or boxed in?"},
+  {"eval": "__DQ.cameraOrbit(0)"}, {"wait": 700}, {"shot": "02-look-north"},
+  {"eval": "__DQ.cameraOrbit(90)"}, {"wait": 700}, {"shot": "03-look-east"},
+  {"eval": "__DQ.cameraOrbit(180)"}, {"wait": 700}, {"shot": "04-look-south"},
+  {"eval": "__DQ.cameraOrbit(270)"}, {"wait": 700}, {"shot": "05-look-west"},
+  {"eval": "__DQ.cameraOrbit(0)"}, {"wait": 500},
+
+  {"note": "C. the ground: right under the boots, then pulled back to the horizon"},
+  {"eval": "__DQ.cameraZoom(0.45)"}, {"wait": 800}, {"shot": "06-ground-close"},
+  {"eval": "__DQ.cameraZoom(1)"}, {"wait": 600}, {"shot": "07-ground-normal"},
+  {"eval": "__DQ.cameraZoom(2.6)"}, {"wait": 800}, {"shot": "08-ground-far"},
+  {"eval": "__DQ.cameraZoom(1)"}, {"wait": 600},
+
+  {"note": "D. do the clouds drift? camera frozen, nine seconds of real time"},
+  {"eval": "(__DQ.view && __DQ.view('sky')) || __DQ.cameraOrbit(0)"}, {"wait": 900},
+  {"burst": {"name": "09-clouds", "count": 6, "interval": 1500}},
+  {"eval": "(__DQ.view && __DQ.view('field')) || 0"}, {"wait": 700},
+
+  {"note": "E. walking the lane — does a path lead anywhere, and does the ground change under you?"},
+  {"eval": "JSON.stringify((__DQ.state().map && __DQ.state().map.exits) || null)"},
+  {"key": "ArrowUp", "hold": 2600}, {"wait": 500}, {"shot": "10-walked-north"},
+  {"eval": "JSON.stringify({pos:__DQ.state().player && [__DQ.state().player.x,__DQ.state().player.z], ground:__DQ.state().player && __DQ.state().player.ground})"},
+  {"key": "ArrowRight", "hold": 2600}, {"wait": 500}, {"shot": "11-walked-east"},
+  {"key": "ArrowDown", "hold": 3200}, {"wait": 500}, {"shot": "12-walked-south"},
+  {"eval": "JSON.stringify({pos:__DQ.state().player && [__DQ.state().player.x,__DQ.state().player.z], ground:__DQ.state().player && __DQ.state().player.ground, blocked:__DQ.state().player && __DQ.state().player.blocked})"},
+  {"key": "ArrowLeft", "hold": 3200}, {"wait": 500}, {"shot": "13-walked-west"},
+
+  {"note": "F. the edge of the world — push hard in one direction and see what stops you"},
+  {"key": "ArrowUp", "hold": 6000}, {"wait": 400},
+  {"key": "ArrowUp", "hold": 6000}, {"wait": 600}, {"shot": "14-at-the-edge"},
+  {"eval": "__DQ.cameraZoom(2.2)"}, {"wait": 700}, {"shot": "15-edge-pulled-back"},
+  {"eval": "JSON.stringify({pos:__DQ.state().player && [__DQ.state().player.x,__DQ.state().player.z], blocked:__DQ.state().player && __DQ.state().player.blocked})"},
+  {"eval": "__DQ.cameraZoom(1)"}, {"wait": 500},
+
+  {"note": "G. the hours: midday, late afternoon, dusk, night, small hours, dawn"},
+  {"eval": "__DQ.timeOfDay(12)"}, {"wait": 900}, {"shot": "16-noon"},
+  {"eval": "__DQ.timeOfDay(17.5)"}, {"wait": 900}, {"shot": "17-late-afternoon"},
+  {"eval": "__DQ.timeOfDay(19)"}, {"wait": 900}, {"shot": "18-dusk"},
+  {"eval": "__DQ.cameraOrbit(180)"}, {"wait": 700}, {"shot": "19-dusk-away-from-sun"},
+  {"eval": "__DQ.cameraOrbit(0)"}, {"eval": "__DQ.timeOfDay(21.5)"}, {"wait": 1000}, {"shot": "20-night"},
+  {"eval": "__DQ.cameraZoom(0.5)"}, {"wait": 800}, {"shot": "21-night-ground-close"},
+  {"eval": "__DQ.cameraZoom(2.4)"}, {"wait": 800}, {"shot": "22-night-wide"},
+  {"eval": "__DQ.cameraZoom(1)"}, {"eval": "__DQ.timeOfDay(3)"}, {"wait": 900}, {"shot": "23-small-hours"},
+  {"eval": "__DQ.timeOfDay(6.3)"}, {"wait": 900}, {"shot": "24-dawn"},
+  {"eval": "JSON.stringify({tod:__DQ.state().timeOfDay, sky:__DQ.state().demo && __DQ.state().demo.sky})"},
+
+  {"note": "H. does time pass on its own, or only when a critic pokes it?"},
+  {"eval": "__DQ.timeOfDay(12)"}, {"wait": 200},
+  {"eval": "window.__critTod0 = __DQ.state().timeOfDay; 1"},
+  {"wait": 8000},
+  {"eval": "JSON.stringify({before: window.__critTod0, after: __DQ.state().timeOfDay})"},
+
+  {"note": "I. weather, if the real game has any"},
+  {"eval": "typeof __DQ.weather"},
+  {"eval": "(__DQ.weather && __DQ.weather('rain',{instant:true})) || 'no weather api'"}, {"wait": 1500}, {"shot": "25-rain-if-any"},
+  {"eval": "(__DQ.weather && __DQ.weather('clear',{instant:true})) || 0"}, {"wait": 1000},
+
+  {"note": "J. health"},
+  {"eval": "JSON.stringify(__DQ.budget && __DQ.budget())"},
+  {"eval": "JSON.stringify({fps:__DQ.state().fps, errors:__DQ.errors.length, stubs:__DQ.state().stubs})"},
+  {"shot": "26-final-field"},
+  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"},
+  {"assert": "__DQ.state().fps >= 55", "msg": "fps >= 55"}
+]}

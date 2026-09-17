@@ -8,7 +8,7 @@
  *          voice ─┘
  *   (sfx/ui/voice sends pass a 320 Hz highpass first, so short effects keep a room without a boomy low-mid tail)
  *   REVERB_IN ─► predelay ─► HP 180 ─► convolver A/B (crossfaded on setSpace) ─► LP ─► wet ─► MASTER_SUM
- *   MASTER_SUM ─► glue compressor (-14 dB, knee 8, 3:1) ─┬─► masterGain ─► limiter (-2 dB, 20:1) ─► soft clip ─► out
+ *   MASTER_SUM ─► glue compressor (-14 dB, knee 8, 3:1) ─┬─► masterGain ─► limiter (-2 dB, 20:1) ─► soft clip (0.93) ─► out
  *   FX_SUM (x the glue's small-signal gain) ─► 6 ms delay ┘  (the glue's own look-ahead: effects stay aligned with music)
  *   Effects skip the glue so a hit's snap and decay are not squashed by a compressor riding the score, and a menu blip
  *   is not pulled down while the music drives it; below the glue threshold the two paths are exactly equal in level.
@@ -141,9 +141,12 @@ export function makeIR(ctx, name = 'hall', seed = 7) {
   return buf;
 }
 
-// soft clip: transparent below 0.8, smooth knee up to ±0.985
+// soft clip: transparent below 0.8, smooth knee up to ±0.93. The ceiling leaves ~0.6 dB for the shaper's own 2x
+// oversampling to ring past it: at 0.985 a deliberate pile-up of three impacts on the same millisecond came out at
+// +0.12 dBFS (a handful of clipped samples), and ten at once at +0.03. Nothing below -1.9 dBFS is touched at all,
+// and the limiter (-2 dB, 20:1) already sits above that, so this only ever catches a deliberate pile-up.
 function softClipCurve() {
-  const N = 4097, c = new Float32Array(N), knee = 0.8, ceil = 0.985;
+  const N = 4097, c = new Float32Array(N), knee = 0.8, ceil = 0.93;
   for (let i = 0; i < N; i++) {
     const x = (i / (N - 1)) * 2 - 1, ax = Math.abs(x);
     let y = ax;

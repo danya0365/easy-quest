@@ -1,25 +1,39 @@
-{
- "name": "critic P27 a2r1 (fresh) - the score through recorded instruments: home village / overworld / battle live, loop overrun, layer phasing",
- "steps": [
-  { "waitFor": "window.__DQ && __DQ.ready", "timeout": 30000 },
-  { "waitFor": "document.querySelectorAll('#orch .ins').length >= 20", "timeout": 15000 },
-  { "eval": "(async () => { const { THEMES } = await import('/src/audio/score/index.js'); const man = await (await fetch('/vendor/samples/manifest.json')).json(); window.__crit = { overrun: Object.values(THEMES).filter(t => t.kind === 'loop').flatMap(t => t.events.filter(e => e.b >= t.introBeats + t.loopBeats - 1e-6).map(e => t.id + ':' + e.part + '@' + e.b)), victorySec: +THEMES.victory.lengthSec.toFixed(2), synthEvents: Object.values(THEMES).reduce((n, t) => n + t.events.filter(e => ['twinkle','pad','vox'].includes(e.voice)).length, 0), libs: Object.keys(man.libraries || {}) }; return window.__crit; })()" },
-  { "note": "held clarinet G4 mp: two unaligned velocity-layer takes are summed -> slow phase beating; measure the RMS swing of the sustain" },
-  { "eval": "(async () => { const b = await __DQ.renderAudio('note:clarinet:G4:mp:12:60', 14); const d = b.getChannelData(0), sr = b.sampleRate, h = Math.floor(sr * 0.1); const db = []; for (let i = Math.floor(sr * 1.5); i + h < Math.floor(sr * 11); i += h) { let s = 0; for (let j = 0; j < h; j++) s += d[i + j] * d[i + j]; db.push(10 * Math.log10(s / h + 1e-12)); } window.__crit.clarSwingDb = +(Math.max(...db) - Math.min(...db)).toFixed(1); return window.__crit.clarSwingDb; })()" },
-  { "eval": "(__DQ.select('village'), __DQ.play('village', {fade: 0.2}))" },
-  { "waitFor": "__DQ.state().audio.theme === 'village' && __DQ.state().audio.bar >= 3", "timeout": 30000 },
-  { "shot": "jukebox-village" },
-  { "eval": "(__DQ.select('overworld'), __DQ.play('overworld', {fade: 0.6}))" },
-  { "waitFor": "__DQ.state().audio.theme === 'overworld' && __DQ.state().audio.bar >= 6", "timeout": 40000 },
-  { "shot": "jukebox-overworld" },
-  { "eval": "(__DQ.select('battle'), __DQ.play('battle', {fade: 0.3}))" },
-  { "waitFor": "__DQ.state().audio.theme === 'battle' && __DQ.state().audio.bar >= 4", "timeout": 30000 },
-  { "shot": "jukebox-battle" },
-  { "eval": "__DQ.state().audio" },
-  { "assert": "__DQ.state().audio.missed === 0", "msg": "live playback on localhost: no note fell on an undecoded sample" },
-  { "assert": "__DQ.samples().errors === 0", "msg": "every sample fetched and decoded" },
-  { "assert": "window.__crit.overrun.length === 0", "msg": "no loop theme has notes starting at/after its loop end (village flute tail at beats 96-98 makes the engine skip the loop's opening beats on every repeat)" },
-  { "assert": "window.__crit.clarSwingDb < 4", "msg": "a held solo clarinet note is steady (summed velocity layers must not phase-beat)" },
-  { "assert": "__DQ.errors.length === 0", "msg": "no runtime errors" }
- ]
-}
+{ "name": "critic-P27 a2r2 — the music, live path (sample loading, fallbacks, missed notes)",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000},
+    {"note": "wake the context the way a player would"},
+    {"eval": "document.getElementById('wake').click()"},
+    {"wait": 400},
+
+    {"note": "home-village theme — measure how long the live path takes to have its samples"},
+    {"eval": "(__DQ.select('village'), __DQ.play('village'))"},
+    {"wait": 1200}, {"shot": "village-1200ms"},
+    {"eval": "JSON.stringify(__DQ.state().audio)"},
+    {"wait": 8000}, {"shot": "village-9s"},
+    {"eval": "JSON.stringify({s:__DQ.state().audio, samp:__DQ.samples().mbFetched})"},
+
+    {"note": "overworld"},
+    {"eval": "__DQ.play('overworld')"},
+    {"wait": 1200}, {"shot": "overworld-1200ms"},
+    {"wait": 8000}, {"shot": "overworld-9s"},
+    {"eval": "JSON.stringify(__DQ.state().audio)"},
+
+    {"note": "battle: the stinger, then the loop, then victory — the real in-game chain"},
+    {"eval": "__DQ.stinger('battle_start')"},
+    {"wait": 2200}, {"shot": "battle-start"},
+    {"eval": "__DQ.play('battle')"},
+    {"wait": 6000}, {"shot": "battle-6s"},
+    {"eval": "__DQ.stinger('victory')"},
+    {"wait": 3000}, {"shot": "victory"},
+    {"eval": "JSON.stringify({s:__DQ.state().audio, samp:__DQ.samples()})"},
+
+    {"note": "dialogue duck and the fade to silence"},
+    {"eval": "__DQ.duck(0.55, 2000)"},
+    {"wait": 900}, {"shot": "ducked"},
+    {"eval": "__DQ.stop({fade:1.2})"},
+    {"wait": 1800}, {"shot": "stopped"},
+
+    {"assert": "__DQ.errors.length===0", "msg": "no runtime errors while the music plays"},
+    {"assert": "__DQ.harmony().every(r=>r.clash.length<=3)", "msg": "no theme has more than 3 strong-beat clashes"},
+    {"assert": "!__DQ.state().audio.missed", "msg": "no notes were missed by the live scheduler"}
+  ]}

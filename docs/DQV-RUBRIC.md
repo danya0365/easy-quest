@@ -118,3 +118,25 @@ What this changes for everyone:
 - **Critics:** do NOT score down for being prettier, more detailed or more modern than PS2. The blind A/B is
   about *magic, warmth, charm, discovery and feel* — DQV's soul — delivered at this higher visual fidelity.
   A change that makes a frame less beautiful than the approved references is a regression and scores lower.
+
+## ★ The gap ledger — how iteration must work from 2026-09-18
+Scores were oscillating (62→67→66, 50→66→65→64) because every fresh critic named a *different* biggest gap and
+nobody re-checked the last one. That is whack-a-mole, not progress. From now on:
+
+**Critics, in this order:**
+1. `node tools/gaps.mjs list <PIECE>` — read every gap ever named for this piece.
+2. **Re-check every gap not yet `verified-fixed`, by measurement, in the running build.** Record each:
+   `node tools/gaps.mjs verify <PIECE> <n> pass|fail "what you measured"`.
+   A gap a builder marked `claimed-fixed` that is NOT actually fixed is the most important thing you can find.
+3. Only then look for new problems, and open the biggest as a new gap:
+   `node tools/gaps.mjs open <PIECE> "short title" "full buildable description"`.
+4. Score the piece. **A piece cannot score above 80 while any gap is still open or unverified.** Regressions
+   (a `verified-fixed` gap that came back) cap the score at 65 and must be reported as the biggest gap.
+5. Keep your StructuredOutput valid JSON: biggestGap under ~1200 chars, blindAB under ~800, at most 6 short
+   evidence strings, no backticks or nested quotes.
+
+**Builders, in this order:**
+1. `node tools/gaps.mjs list <PIECE>` — you are responsible for EVERY open gap, not only the newest one.
+2. Fix the newest biggest gap first, then close as many older open gaps as you can in the same pass.
+3. For each one you close: `node tools/gaps.mjs fixed <PIECE> <n> "how you verified it, with numbers"`.
+4. Never regress a `verified-fixed` gap. Re-measure the old ones before you finish.

@@ -13,7 +13,8 @@ below is `tests/battle/data.js` (all 33 MONSTER-BIBLE monsters + every CANON bos
 `node -e "import('./tests/battle/data.js').then(m => console.log(m.default.monsters.gloop))"`). Run
 `node --test tests/battle` after changing data, and **`node tests/battle/journey.mjs`** — whole playthroughs with EXP
 carried, every kind of child, plus "do levels matter?" at every boss, exit code 1 if the difficulty contract breaks —
-before calling a number done. `node tests/battle/bosses.mjs` is the quick boss bench; `calibrate-bosses.mjs` and
+before calling a number done. `node tests/battle/first-hour.mjs` holds the opening (how long a Long Lane fight lasts and
+whose swing kills things); `node tests/battle/bosses.mjs` is the quick boss bench; `calibrate-bosses.mjs` and
 `calibrate.mjs` regenerate the boss and wild-monster numbers.
 
 Contents: §1 conventions · §2 monsters · §3 spells · §4 items · §5 party members · §6 battle API & events ·
@@ -65,6 +66,9 @@ gloop: {
   mdef: 100,        // magic resistance: spells do 1 - min(0.6, mdef/200). Several bosses sit at 100 (half) so the fight
                     // leans on Might, which levels bring, and an Attack-only child is not left far behind
   fleeRefusal: 'The belfry door has swung shut…',
+  advice: '"When the candle leans sideways…" says the priest.',  // BOSSES: the one sentence a child hears at the
+                    // church after losing to it (SYSTEMS §6.1.6's "one line of actual tactical advice"). The engine
+                    // puts it in the wipe event and in result.advice; far under its level it says "grow" instead
   neverTargets: ['willow_child', 'willow'],          // party member ids it will not attack
   minHpPct: 0.5,    // cannot be hurt below this fraction (the Sunmane)
   partnerGivesUp: true, // beat one and every other partnerGivesUp monster sits down (Hush & Hark)
@@ -182,11 +186,14 @@ One shape for the front line, the wagon, the paddock and the save file.
   lvl: 12, exp: 1590, hp: 97, mp: 20,          // current values; max values are derived, never stored
   equip: { weapon:'iron_lance', armour:'chain_mail', shield:'iron_shield', helm:'leather_cap', accessory:'osrics_wooden_bird' },
   status: { poison: 99 },                      // only poison persists after a battle
+  tactic: 'wisely',      // DQV Tactics: 'no_mercy'|'wisely'|'watch_back'|'no_magic'|'orders' (default 'wisely';
+                         // the leader — Bram, or the first family member when he is not there — is always 'orders')
   mother: 'willow',                            // twins only: CANON §7 mother's gift
   // monster companions
   species: 'gloop', template: 'plodder', mult: 1.0, cap: 30,
   // overrides (tests, scripted scenes): stats:{hp,mp,might,nimble,resil,wis,luck} + fixed:true, spells:[...],
-  // gear:{power,def,mdef} (guests' fixed kit), control:'player'|'ai'
+  // gear:{power,def,mdef} (guests' fixed kit), control:'player'|'ai' (an old save's control is read as a tactic:
+  // 'player' = Follow Orders, 'ai' = Fight Wisely)
 }
 ```
 Build them with `newMember(id, lvl, extra)` / `newCompanion(monsterData, {id, name, lvl})` from `src/data/growth.js`.
@@ -209,6 +216,7 @@ const battle = createBattle({
                     //                P31's `encounters.table[{id, weight, lvl}]` → `{id, partyLevel: lvl}`)
                     //   areaLevel  — the map's level, for the EXP keel (pass it on every spec, or as options.areaLevel)
                     //   hpMult     — a sturdier one of these (tests/battle/areas.js uses it per area)
+                  //   expMult    — one that pays a little more or less EXP (areas.js `expMult`)
                     //   anything else — per-instance overrides ({id:'chestnut', hp: 60})
   rng,              // seed number/string, () => [0,1), or {next()}; same seed = same battle, event for event
   data,             // {monsters, spells, items, strings?}
@@ -224,18 +232,30 @@ const battle = createBattle({
     protectedMap: false,             // first three encounters of a new map: no enemy ambush
     recruit: { enabled, kidMode: true, charmBell, joined: {gloop: 1}, misses: {}, battlesSinceRecruit },
     scripted: { rounds: 3, text: "You can't reach him." },  // B9/B19: unwinnable AND unlosable
+    tactics: 'orders' | {linnet: 'no_mercy'},   // override the DQV default (Bram commands, the rest Fight Wisely):
+                                     // a string sets everyone, an object sets named members. Tests and sims use it
+    bossWipes: 1,                    // wipes in a row by this boss before this fight: from the second, result.advice
+                                     // .helper asks the field for the §6.1.6 helper at the door
     guestControl: 'ai', autoPolicy: 'auto', normalHitCap: 0.40, expectedMaxHP, holdResolving: false,
   },
 });
 battle.opening            // events for the encounter start: appear, ambush, and the enemy free round if any
 battle.phase              // 'command' | 'resolving' | 'victory' | 'defeat' | 'fled' | 'scripted'
-battle.needsCommand()     // -> {id, name, hp, maxHp, mp, maxMp, spells:[{id,name,mp,usable,field}], canSwap:{ok,text}, …} | null
+battle.needsCommand()     // -> the next member on "Follow Orders" who still needs a command (by default that is Bram
+                          //    alone): {id, name, hp, maxHp, mp, maxMp, spells:[…], canSwap:{ok,text}, tactic, leader, …} | null
+battle.ready()            // true when the round can be resolved with no more input
+battle.tactics()          // -> [{id, name, front, guest, leader, tactic, label, canChange}] for the Tactics menu
+battle.setTactic(id, t)   // 'no_mercy' | 'wisely' | 'watch_back' | 'no_magic' | 'orders'; id 'all' = everybody but the
+                          //    leader. -> {ok, tactic, text} | {ok:false, reason, text}. Free: it never costs a turn
 battle.command(id, cmd)   // cmd: {type:'attack', target} | {type:'spell', id, target} | {type:'item', id, target}
                           //      {type:'defend'} | {type:'flee'} | {type:'swap', target: wagonId, out?: frontId}
+                          //      commanding a member who is on Tactics is refused (reason 'tactics'); the leader can
+                          //      never be swapped out; command(null, {type:'flee'}) runs when nobody can take orders
                           // -> {ok:true, next} | {ok:false, reason, text}  (never throws; text is kind, show it)
 battle.undoCommand()      // back to the previous actor
 battle.autoCommands(p)    // fill the rest with an AI policy: 'auto' (the "Fight!" button) | 'smart' | 'mash'
-                          //   'auto' keeps half its MP on the road; against a boss it spends that half
+                          //   'auto' keeps half its MP on the road; against a boss it spends that half. This only
+                          //   fills in the members on Follow Orders; everyone else chooses on their own turn
 battle.resolveRound()     // -> this round's ordered events (missing commands default to Attack)
 battle.autoRound(p)       // autoCommands + resolveRound
 battle.validTargets(id, cmd), battle.actor(id), battle.snapshot(), battle.result, battle.log, battle.over
@@ -272,9 +292,9 @@ Every event is `{t, text?, ...}`. `text` is ready to type into the message windo
 | `fx` | `id` (`darken`, `desaturate`), `actor` | screen treatment |
 | `message` | `refunded?`, `target?` | a plain line |
 | `victory` | `exp`, `gold`, `drops[{item,name,from,monster}]`, `boss`, `allFled?`, `lines[]` | fanfare → tally (§10.1) |
-| `recruit_offer` | `monster{id,species,name,lvl}`, `joinLine`, `ask`, `lines[]` | P17's join beat (MONSTER §7); after the tally, before level-ups |
+| `recruit_offer` | `monster{id,species,name,lvl}`, `joinLine`, `ask`, `lines[]` | P17's join beat (MONSTER §7); after the tally, before level-ups. **Hold the queue here**: clear the window, type these lines, ask Yes/No, and only then play the level-ups — the question must be the last thing on screen |
 | `levelup` | `who`, `name`, `from`, `level`, `gains{hp,mp,might,nimble,resil,wis,luck}`, `gainsOrdered[{key,label,gain,total}]` (SYSTEMS §10.2 order), `learned[{id,name,mp,blurb}]`, `lines[]` | §10.2 ceremony, one per character |
-| `wipe` | `goldBefore`, `goldAfter`, `wakeAt:'church'`, `lines[]` | fade to **white**, family theme, wake at the church. The words "Game Over" never appear |
+| `wipe` | `goldBefore`, `goldAfter`, `wakeAt:'church'`, `lines[]`, `advice` | fade to **white**, family theme, wake at the church. The words "Game Over" never appear. After a boss, `advice` = `{kind:'grow'\|'boss'\|'try', text, levelsShort, boss, wipesInARow, helper}` — one sentence a child can act on, already in `lines` |
 | `scripted_end` | `endText?` | B9/B19 close |
 | `end` | `outcome` | last event of every battle |
 
@@ -290,10 +310,12 @@ bag, fleeFails, assist:{s,tier}, rngState, events, errors, result}` — party en
 { outcome: 'victory'|'defeat'|'fled'|'scripted', rounds,
   exp, gold, drops,                 // earned this battle (exp is per member before catch-up)
   goldAfter, bag, itemsUsed,        // write these back to the save
-  party: [member], wagon: [member], // §5 shape with new lvl/exp/hp/mp/status; front/wagon order after swaps
+  party: [member], wagon: [member], // §5 shape with new lvl/exp/hp/mp/status/tactic; front/wagon order after swaps
   levelUps: [{who, from, level, learned: [spellIds]}],
   recruit: { offer: {id,species,name,lvl} | null, state: {joined, misses, battlesSinceRecruit} } | null,
   assist: { before, delta, after },  // store `after` as the new S (a flee adds nothing once S is 30)
+  advice: { kind, text, levelsShort, boss, wipesInARow,
+            helper: {heal:'full', items:{strong_herb:3}, text} | null } | null,   // boss wipes only (see `wipe`)
   boss: [ids]|null, bossDefeated: [ids]|null, bossWipe: [ids]|null,  // P31: two wipes by the same boss → helper NPC
   stats: { damageTaken, maxHitPct, cappedHits, koCount, crits, telegraphs, bigFired, secondWinds, … } }
 ```
@@ -316,7 +338,8 @@ the Larksteel set and every CANON boss stat block; those are used verbatim. What
 | Monster `wis`/`mdef` defaults | 5 + 2.5×lvl / 1.2×lvl | MONSTER stat blocks have neither | P16 |
 | Glimmergloop spell immunity | all elements 0 | DQ metal-slime convention, not in the bible | P16 |
 
-## 9. What the simulator says — balance pass r3 (tests/battle/journey.mjs) — for P16, P31, P22, P15
+## 9. What the simulator says — balance passes r3 and r4 (tests/battle/journey.mjs) — for P16, P31, P22, P15
+**Start at §9.4: it is the current pass (DQV Tactics, the first hour, fleeing, the boss-door line).** §9.1–§9.3 are r3.
 **The pass/fail check is `node tests/battle/journey.mjs`** (whole playthroughs, EXP/S/gold carried area to area, seven
 kinds of child, then "do levels matter?" at every boss, then Attack-only retries) → `shots/P14-sim/journey.txt`.
 Run with `--trials 80 --levels 100 --retry 100` it prints `CONTRACT: all pass.` (exit 0). `node --test tests/battle` runs
@@ -394,6 +417,13 @@ On other seeds (`--seed 7`, `--seed 99`, 40–60 playthroughs) one or two number
 HP left 51%, the Tidewarden's 35%, the Long Lane's free fights 21%: the finale and the Act II healer sit near the edges.
 
 ### 9.3 Open findings (data owners)
+- **P21 / P22 (the economy, r4 measurement)**: the kit `tests/battle/areas.js` hands every child costs **31,338 G** in
+  total, and a child who fights everything earns and spends about **18,000 G** — at the Quiet Deep roughly 11.6k of that
+  kit is still unaffordable (critic a2r1, confirmed here). Either SYSTEMS §5's legs pay more, or the areas' assumed kit
+  comes down to one big buy a leg with hand-me-downs. It is no longer *free* to skip the shops, at least: measured with
+  the critic's own shopping simulation, a child who never buys a thing (60 playthroughs) now fights 9–12-round bosses
+  and wins Hush & Hark first try **33%** (p95 **6** tries, 14 of 60 needed five or more), the Iron Governess 57%, the
+  Tidewarden 75% — against 91–100% for the child who buys what it can afford. Nobody is ever walled.
 - **P16**: `src/data/monsters.js` should take its boss numbers from `balance-bosses.js` (actions, hp, atk, def, mdef, wis,
   magic bases) and the `balance.js BOSSES` move changes. Two actions a round is new for most bosses (the bibles only say
   it for Mortmain, from 60%; he now acts twice throughout and the phase only renames him).
@@ -405,3 +435,71 @@ HP left 51%, the Tidewarden's 35%, the Long Lane's free fights 21%: the finale a
   wipes often in Cobwell Manor, Pelican Coast, the Sogglemarsh, Marbleford Downs, the Belfry, the Sighing Grotto and the
   Quiet Quarry — the journey splits each leg between its areas and rests, and has ≤ 5 wipes per 80 playthroughs there.
   Monster gold in the Whistling Caves is under the SYSTEMS §5 leg (POOR).
+
+### 9.4 Balance pass r4 — Dragon Quest V Tactics (what the critic's second look changed)
+
+Critic a2r1 (62/100): *"Make Bram the only one who takes commands, the way DQV does it. Every other family member and
+monster should fight on its own by default… Right now mashing Enter commands every member in the front line, so the
+healers just swing sticks: Elowen hit Mortmain for 12 while he knocked her out, and Linnet did 1 damage to a 602-HP
+Hexcalibur."* Also: *"at Lv 1 on the Long Lane, Gloop has 30 HP and Bram hits for 5… Bram lands 6% of the killing
+blows, Halvard 73%"*, *"fleeing is almost free"*, *"a child who flees everything is walled at Mumbleroot with no
+in-game hint"*, and the builder's own journey contract failing.
+
+**Engine rules (r4)** — each is documented where it lives and tested (`tests/battle/tactics.test.mjs`):
+1. **Only the leader takes commands** (`battle.js assignTactics`, `ai.js TACTICS`). The leader is Bram (`hero`), or the
+   first family member when he is not in the roster (Linnet at the Stone Garden), and is always on "Follow Orders".
+   Everybody else fights by their Tactics — **Fight Wisely** by default — and decides **on their own turn**, so a heal
+   goes to whoever is hurt *now*. `battle.setTactic(id, t)` switches one member (or `'all'`), free, mid-battle.
+   `options.tactics` overrides the default for tests and sims.
+2. **A Tactics friend leaves the leader's small monster to the leader** (`ai.js attackTarget`): if the monster somebody
+   was told to attack would fall to two of that member's own swings, and there is another monster to go for, they go for
+   the other one. That is the first hour's rhythm — the boy's swing is the one that pops the slime — and it is
+   deliberately *only* for small monsters: spreading out on a chunky one just lets it hit back for longer (measured: it
+   cost Bogwallop's door 8 points of first-try wins).
+3. **A healer whose swing hardly matters heals at half HP instead** (`ai.js weakSwingHeals`): Fight Wisely tops a friend
+   up at 50% (0.35 for everyone else) when the member's own swing is under 35% of the party's best. Queen Elowen stops
+   hitting Mortmain with her staff.
+4. **Fleeing is a real coin toss** (`formulas.FLEE`): `0.30 + 0.40 × agility share`, `+0.20` a failure, certain on the
+   fourth try (SYSTEMS §1.9 had 0.55 + 0.40 × share, certain on the third). A party as quick as the monsters gets away
+   half the time; nobody is ever trapped.
+5. **A boss wipe says one thing a child can act on** (`battle.js bossAdvice`, `result.advice`, the `wipe` event):
+   three or more levels under the boss, the priest says *grow*; otherwise the boss's own `advice` line (what its
+   wind-up means); and from the second wipe in a row `advice.helper` asks the field for SYSTEMS §6.1.6's helper at the
+   door (full heal, three Strong Herbs). **NEEDS P31/P22**: place her, and print `advice.text` at the church.
+6. **`expMult` on an enemy spec** (`battle.js addEnemy`): an area's monsters can pay a little more or less EXP without
+   moving their stat block (the Long Lane's HP came down; its EXP did not).
+
+**Data (r4)**
+- The **Long Lane**: `tableLvl 2.75 × hpMult 1.25` → `tableLvl 2 × hpMult 0.6 × expMult 1.35`. A Gloop has **11 HP**
+  (the bible says 9) against Bram's 5–6: two swings. **Saltmarrow Coast**: `hpMult 1.25 → 0.75` (49-HP Crabbits → 29).
+- **Mortmain's Silence the Choir**: weight 2, three turns → weight 1, two turns. At the old weight Queen Elowen spent
+  144 of her 267 turns silenced, swinging a staff — which is exactly what the critic saw.
+- Every boss **recalibrated** against the new AI (`calibrate-bosses.mjs`, `balance-bosses.js`). The finale pair is aimed
+  at "eight or nine rounds, somebody knocked out, the party standing at about half" instead of 40% HP left: they are the
+  only fights with Queen Elowen in them, and pushed to a 90% first try they stop caring what level anyone is.
+
+**The first hour now** (`tests/battle/first-hour.mjs`, 1500 fights a row, Attack only) — Long Lane, Lv 1 → Lv 3:
+
+| | before (critic a2r1) | after |
+|---|---|---|
+| Gloop HP vs Bram's swing | 30 vs 5 | 11 vs 5.6 |
+| rounds a fight | 3.4 | **2.1 → 1.7** |
+| over in 1–2 rounds | 3% | **76% → 95%** |
+| 4+ rounds | 38% | **6% → 0%** |
+| Bram's share of the killing blows | 6% | **35–38%** |
+| Halvard's share | 73% | **28% → 18%** |
+| HP the fight costs | 27% | 16% → 6% |
+
+**Whole playthroughs** (`journey.mjs`, seeds 20040 / 7 / 99: `CONTRACT: all pass`). The design child (Fight!) arrives at
+every boss within 0.4 levels, normal fights 1.6–3.2 rounds, bosses won first try 82–95%. Four levels under and fresh:
+8–38% (the finale 32%); four levels under and walked: 2–35%. A child who only presses Attack, in the **critic's own**
+harsher simulation (gear bought with carried gold, herbs bought, no door helper, recruits really joining):
+
+| | before (critic a2r1) | after |
+|---|---|---|
+| Hoarfax, first try | 41% | **98%** |
+| Iron Governess, first try · p95 tries | — · 8 | **75% · 3** |
+| Hush & Hark, first try · p95 tries | — · 9 | **79% · 4** |
+| children needing 5+ tries at any boss | 24/150 | **5/80 (Mortmain only)** |
+| wipes a playthrough | 11.1 | **4.1** |
+| the same child with no inn, ever: worst Hush & Hark | 15 tries | **5 tries** · wipes 28.2 → 15.4 |

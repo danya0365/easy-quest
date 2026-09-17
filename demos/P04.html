@@ -1,0 +1,282 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>P04 — props &amp; set dressing</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>html,body{margin:0;height:100%;overflow:hidden}
+#game-canvas{display:block;width:100vw;height:100vh}#ui-root{position:fixed;inset:0;pointer-events:none}</style>
+</head><body>
+<canvas id="game-canvas"></canvas><div id="ui-root"></div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// DEMO — P04: PROPS & SET DRESSING. Everything src/art/props.js makes, on one hillside:
+//   · the mixed woodland — oak, birch, pine, fruit, round (lollipop), blossom, poplar, bush, hedgerow, chestnut —
+//     planted with kit.trees() and drawn as a handful of CPU-culled InstancedMeshes, with a 3-row rim and cards behind
+//   · farm and lane furniture: well, fences, picket, stile, hay bales, barrels, crates, woodpile, bench, washing
+//     line, signposts, lanterns, scarecrow, kitchen garden, ladder, apple crates, rocks, flower bed, footbridge
+//   · life: wind sway on trees / grass / flowers / washing, butterflies, birds that take off when you come near,
+//     drifting pollen motes, pond ripples, lily pads, reeds
+// Controls (critics drive these): __DQ.view(name) · __DQ.views() · __DQ.walk(x, z) · __DQ.orbit(on, degPerSec)
+//                                __DQ.wind(n) · __DQ.outline(bool) · __DQ.budget() · __DQ.state().demo
+import * as THREE from 'three';
+import { App } from '/src/engine/app.js';
+import { Scenes } from '/src/engine/states.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { PAL, C3, applyCssVars, smooth, lerp } from '/src/art/palette.js';
+import { Tex, mulberry, vnoise } from '/src/art/tex.js';
+import { Toon, makeAOMask, makeLightRig } from '/src/art/toon.js';
+import { createKit, buildSky, ringHill, buildGround, paintMasks, distanceGrid, curvePoints, bridgeFrame,
+  ringPlacements, SPECIES } from '/src/world/scenery.js';
+
+applyCssVars();
+Input.init();
+App.start({ canvas: document.getElementById('game-canvas'), version: '0.4.0-P04', beforeUpdate: Input.update });
+
+// ── the stage: a gentle hillside with a lane and a pond ─────────────────────────────────────────────────────
+const SPAN = 104, TAU = Math.PI * 2;
+const POND = { x: 17.5, z: 7.5, r: 4.4, sx: 1.2, sz: 1 };
+const WATER_Y = -0.55;
+const LANE = curvePoints([[-46, 20], [-30, 16], [-16, 12], [-4, 9], [8, 4], [20, -3], [34, -12], [46, -18]], 0.4);
+const bump = (x, z, cx, cz, r) => Math.exp(-((x - cx) * (x - cx) + (z - cz) * (z - cz)) / (r * r));
+const superR = (x, z) => Math.pow(Math.pow(Math.abs(x), 4) + Math.pow(Math.abs(z), 4), 0.25);
+const MASKS = paintMasks({ N: 1024, span: SPAN, strokes: [{ pts: LANE, w: 2.1, falloff: 1.0, channel: 0 }], discs: [{ x: POND.x, z: POND.z, r: POND.r + 0.8, sx: POND.sx, sz: POND.sz, falloff: 1.8, channel: 1 }] });
+const WATERD = distanceGrid({ N: 320, span: SPAN, discs: [POND], maxR: 12 });
+
+function heightRaw(x, z) {
+  let h = 1.1 * vnoise(x * 0.045 + 5.5, z * 0.045 + 2.5, 3) + 0.42 * vnoise(x * 0.11 + 1.5, z * 0.11 + 6.5, 5) - 0.75;
+  h += 1.5 * bump(x, z, -20, -16, 10) + 1.2 * bump(x, z, 24, 20, 11) + 0.9 * bump(x, z, -30, 14, 8);
+  h += (2.2 + 4.6 * (0.4 + 0.6 * vnoise(Math.cos(Math.atan2(z, x)) * 3 + 5, Math.sin(Math.atan2(z, x)) * 3 + 5, 17))) * smooth(30, 92, superR(x, z));
+  return h;
+}
+function heightAt(x, z) {
+  let h = heightRaw(x, z);
+  h -= 0.07 * smooth(0.45, 0.92, MASKS.sample(0, x, z));
+  const d = WATERD.sample(x, z);
+  if (d < 3.4) h = lerp(-1.3, h, smooth(-0.15, 3.4, d));
+  // the prop yard and the species row stand on flat ground
+  for (const p of [{ x: -8, z: -14, r: 13 }, { x: 6, z: 24, r: 15 }]) {
+    const dd = Math.hypot(x - p.x, z - p.z);
+    if (dd < p.r + 4) h = lerp(heightRaw(p.x, p.z), h, smooth(p.r, p.r + 4, dd));
+  }
+  return h;
+}
+
+const SPECIES_ROW = ['oak', 'birch', 'pine', 'fruit', 'round', 'blossom', 'poplar', 'chestnut', 'bush', 'hedge'];
+const DEMO = { counts: null, grove: null, props: [], species: SPECIES_ROW };
+
+Scenes.register('demo', () => {
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(50, App.aspect(), 0.3, 1400);
+  const focus = { x: 0, y: 0, z: 6 };                        // the stand-in hero: motes gather round him, birds flee him
+  const cam = { pos: new THREE.Vector3(0, 9, 26), tgt: new THREE.Vector3(0, 2, 0), orbit: 0, rate: 0, r: 26, h: 9 };
+  let kit = null, rig = null, sky = null, offResize = null, t0 = performance.now(), marker = null;
+
+  const VIEWS = {
+    wide:      { pos: [-6, 22, 52], tgt: [2, 2, 4] },
+    species:   { pos: [6, 9, 44], tgt: [6, 3, 24] },
+    yard:      { pos: [-8, 11, 4], tgt: [-8, 1.5, -14] },
+    well:      { pos: [-15, 4.5, -7], tgt: [-13.5, 1.4, -12] },
+    scarecrow: { pos: [-1.5, 3.4, -6.5], tgt: [-2.5, 1.5, -11.5] },
+    orchard:   { pos: [22, 8, 30], tgt: [24, 2, 20] },
+    pond:      { pos: [17.5, 5, 19], tgt: [17.5, -0.4, 7.5] },
+    rim:       { pos: [0, 6, 18], tgt: [0, 4, 44] },
+    hedge:     { pos: [-26, 5, 26], tgt: [-34, 2, 34] },
+    bridge:    { pos: [-30, 5.5, 4], tgt: [-36, 1, 12] },
+    life:      { pos: [4, 3.2, 14], tgt: [0, 1.4, 6] },
+    birds:     { pos: [7, 4.2, 18], tgt: [0, 2.2, 7] },
+    hills:     { pos: [0, 12, 0], tgt: [30, 6, -40] },
+  };
+
+  function setView(name) {
+    const v = VIEWS[name] || VIEWS.wide;
+    cam.pos.set(...v.pos); cam.tgt.set(...v.tgt);
+    cam.r = Math.hypot(cam.pos.x - cam.tgt.x, cam.pos.z - cam.tgt.z);
+    cam.h = cam.pos.y - cam.tgt.y;
+    cam.orbit = Math.atan2(cam.pos.x - cam.tgt.x, cam.pos.z - cam.tgt.z);
+    camera.position.copy(cam.pos); camera.lookAt(cam.tgt);
+    return { view: name in VIEWS ? name : 'wide', pos: cam.pos.toArray(), tgt: cam.tgt.toArray() };
+  }
+
+  function build() {
+    const ao = makeAOMask({ span: SPAN, size: 1024, center: [0, 0] });
+    const shade = makeAOMask({ span: 210, size: 512, center: [0, 0] });
+    rig = makeLightRig({ scene, preset: 'day' });
+    kit = createKit({ scene, heightAt, ao });
+    sky = buildSky(scene, rig);
+    ringHill(scene, 'mid', 118, 150, 205, 5, 21, 71, PAL.hill.midLow, PAL.hill.mid, 0.2);
+    ringHill(scene, 'far', 240, 300, 380, 12, 78, 81, PAL.hill.farLow, PAL.hill.far, 0.25, { fogged: false, peaky: 1.8 });
+
+    // ── one of every species, in a row on the rise, biggest last ──
+    const trees = [];
+    SPECIES_ROW.forEach((kind, i) => {
+      const x = -12 + i * 4.6, z = 24 + (i % 2) * 1.2;
+      trees.push({ kind, x, z, s: kind === 'chestnut' ? 1.2 : 1.15, r: 0.6 + i, c: 1.0, tint: (i % 3 - 1) * 0.8 });
+    });
+    // ── a mixed wood scattered over the hillside (what a map's meadow trees look like) ──
+    const r = mulberry(4242);
+    const MIX = ['oak', 'oak', 'birch', 'pine', 'round', 'poplar', 'fruit', 'blossom'];
+    let tries = 0;
+    const away = (x, z, list, pad) => list.every(t => Math.hypot(t.x - x, t.z - z) > pad * (t.s + 1));
+    while (trees.length < 46 && tries++ < 4000) {
+      const x = (r() - 0.5) * 70, z = (r() - 0.5) * 70;
+      if (superR(x, z) < 20 || superR(x, z) > 34) continue;
+      if (MASKS.sample(0, x, z) > 0.1 || WATERD.sample(x, z) < 4) continue;
+      if (Math.hypot(x - POND.x, z - POND.z) < 9 || Math.hypot(x + 8, z + 14) < 16) continue;
+      if (!away(x, z, trees, 2.4)) continue;
+      trees.push({ kind: MIX[(r() * MIX.length) | 0], x, z, s: 0.9 + r() * 0.5, r: r() * TAU, c: 0.86 + r() * 0.2, tint: (r() - 0.5) * 1.5 });
+    }
+    kit.trees(trees);
+
+    // ── the rim: hedgerow, three staggered rows of mixed clumps, then wooded hills on cards ──
+    const ring = ringPlacements({
+      seed: 4711,
+      pointAt: (a, e) => { const c = Math.cos(a), si = Math.sin(a), rr = e / Math.pow(Math.pow(Math.abs(c), 4) + Math.pow(Math.abs(si), 4), 0.25); return [c * rr, si * rr]; },
+      rows: [
+        { kind: 'tree', e: 37.5, spacing: 2.3, jitter: 0.45, size: [0.95, 1.35], pick: (x, z, rnd) => (rnd() < 0.8 ? 'hedge' : 'bush') },
+        { kind: 'tree', e: 41.0, spacing: 3.5, jitter: 1.2, size: [0.95, 1.4], clump: { freq: 15, threshold: 0.42, seed: 91 }, pick: pickWood },
+        { kind: 'tree', e: 45.6, spacing: 4.2, jitter: 1.6, size: [1.0, 1.5], clump: { freq: 11, threshold: 0.47, seed: 57 }, pick: pickWood },
+        { kind: 'tree', e: 50.8, spacing: 5.0, jitter: 2.0, size: [1.05, 1.6], clump: { freq: 8, threshold: 0.53, seed: 23 }, pick: pickWood },
+        { kind: 'card', e: 60, spacing: 6.0, jitter: 3.0, size: [6.4, 8.2], haze: 0.14, clump: { freq: 7, threshold: 0.5, seed: 131 } },
+        { kind: 'card', e: 72, spacing: 7.5, jitter: 4.5, size: [7.2, 9.4], haze: 0.26, clump: { freq: 6, threshold: 0.56, seed: 167 } },
+        { kind: 'card', e: 88, spacing: 9.5, jitter: 6.0, size: [8, 10.6], haze: 0.38, clump: { freq: 5, threshold: 0.6, seed: 199 } },
+      ],
+      clear: (x, z) => Math.abs(z - lerp(20, -18, (x + 46) / 92)) < 3.4 && Math.abs(x) > 30,     // the lane's mouths
+    });
+    kit.trees(ring.trees, { shade });
+    kit.cards(ring.cards, { sunDir: rig.dir, shade });
+
+    // ── the prop yard ──
+    kit.fence([[-20, -4], [-2, -6], [2, -18], [-18, -20], [-20, -4]], { seed: 11 });
+    kit.stile(-11.1, -5.05, -1.46);
+    kit.well(-13.5, -12, 0.3);
+    kit.hayBale(-17, -9, 0.4, { round: true });
+    kit.hayBale(-16.6, -16.4, -0.3, { round: false });
+    kit.hayBale(-16.5, -16.35, 0.2, { round: false, lift: 0.58 });
+    kit.scarecrow(-2.5, -11.5, 0.5);
+    kit.vegPatch(-5.6, -14.6, 3.6, 2.6, 0.1, 9);
+    kit.picket([[-9.5, -17.5], [-4.5, -17.4], [-4.4, -13.6]]);
+    kit.barrel(-7.4, -7.2, 1, 0.3); kit.barrel(-6.7, -7.9, 0.85, 1.1);
+    kit.crate(-9.2, -8.4, 0.4); kit.appleCrate(-8.4, -9.3, -0.3);
+    kit.woodpile(-15.4, -6.2, 0.4);
+    kit.bench(-4.2, -8.6, 0.15);
+    kit.flowerBed(-3.4, -6.4, 2.4, 1.2, 0.05, 17);
+    kit.laundry([-19.4, -7.6], [-19.9, -12.4], [
+      { t: 0.18, w: 0.9, h: 0.72, tex: Tex.cloth(PAL.cloth.cream, { stripe: PAL.cloth.red, S: 128 }) },
+      { t: 0.42, w: 1.0, h: 1.15, tex: Tex.cloth(PAL.cloth.green) },
+      { t: 0.64, w: 0.75, h: 0.9, tex: Tex.cloth(PAL.cloth.blue) },
+      { t: 0.85, w: 0.55, h: 0.55, tex: Tex.cloth(PAL.cloth.mustard) },
+    ]);
+    const atlas = kit.useSignAtlas(kit.signAtlas(['Puddlewick', 'Saltmarrow', 'The Long Lane']));
+    kit.signpost(atlas, -2.2, -3.6, [{ label: 'Puddlewick', dir: -1.6 }, { label: 'Saltmarrow', dir: 1.5 }]);
+    kit.signpost(atlas, 9.5, 1.5, [{ label: 'The Long Lane', dir: 2.6 }], { h: 1.55 });
+    kit.lantern(-3.4, -4.4, 0.2);
+    kit.lantern(11.2, 2.4, -0.4, { h: 1.8 });
+    kit.ladder(23.6, 22.4, 0.35);
+    kit.appleCrate(24.6, 23.6, 0.2);
+    for (const [x, z, s, seed] of [[-24, 6, 1.1, 1], [12, -12, 0.85, 2], [6, 16, 1.3, 3], [-6, 28, 0.7, 4], [22, -20, 1.0, 5], [13.6, 12.2, 0.9, 6]]) kit.rock(x, z, s, seed);
+
+    // ── the footbridge over a dry ford on the west lane, and the pond's edge ──
+    const F = bridgeFrame({ cx: -34, cz: 13.6, dir: Math.atan2(12, -4), L: 6.2, W: 2.4, arch: 0.5, y0: heightAt(-34, 13.6) + 0.15 });
+    kit.footbridge(F);
+    const shore = (x, z, y) => y > WATER_Y - 0.2 && y < WATER_Y + 0.45;
+    kit.reeds(POND.x - 4.4, POND.z + 1.4, 14, 21, 1.4, shore);
+    kit.reeds(POND.x + 2.6, POND.z - 4.2, 12, 22, 1.3, shore);
+    kit.lilyPads(POND.x - 1.2, POND.z + 0.6, WATER_Y, 7, 31, 2.4);
+
+    kit.flush();
+    kit.water({ ponds: [{ x: POND.x, z: POND.z, r: POND.r + 2.2, sx: POND.sx, sz: POND.sz }], y: WATER_Y, shoreDepth: 0.42 });
+
+    // ── grass, flowers, and the life ──
+    const onGrass = (x, z) => superR(x, z) < 40 && MASKS.sample(0, x, z) < 0.3 && WATERD.sample(x, z) > 2.2;
+    kit.tufts({ count: 1100, radius: 40, seed: 999, accept: onGrass, rimOf: (x, z) => smooth(0.08, 0.3, MASKS.sample(0, x, z)) });
+    const hues = [PAL.flower.white, PAL.flower.yellow, PAL.flower.pink, PAL.flower.blue];
+    const fr = mulberry(5150), clusters = [];
+    for (let i = 0; i < 40; i++) clusters.push({ x: (fr() - 0.5) * 66, z: (fr() - 0.5) * 66, hue: hues[(fr() * hues.length) | 0] });
+    clusters.push({ x: 1.5, z: 8, hue: PAL.flower.yellow, n: 20 }, { x: -3, z: 4, hue: PAL.flower.white, n: 18 });
+    kit.flowers(clusters, { accept: onGrass });
+    kit.butterflies([{ x: 1.5, z: 8, hue: PAL.flower.yellow }, { x: -3, z: 4, hue: PAL.char.white }, { x: -3.4, z: -6.4, hue: PAL.flower.pink },
+      { x: 20, z: 18, hue: PAL.flower.yellow }, { x: 8, z: 12, hue: PAL.char.white }]);
+    kit.groundBirds([{ x: 0.5, z: 6.5 }, { x: -2.2, z: 9.2 }, { x: 3.4, z: 9.8, kind: 'robin' },
+      { x: -3.2, z: -10.6 }, { x: -1.4, z: -12.8, kind: 'robin' }, { x: 16.5, z: 12.5 }], { scare: 3.4, seed: 17 });
+    kit.motes({ count: 70, radius: 11, height: 3.2, seed: 21 });
+    kit.ripples([{ x: POND.x, z: POND.z, r: POND.r, sx: POND.sx, sz: POND.sz }], { y: WATER_Y, every: 0.9 });
+
+    buildGround(scene, { heightAt, masks: MASKS, ao, shade, inner: 38, step: 1.0, outer: 132, rings: 8 });
+
+    // the stand-in hero, so the see-through, the motes and the birds have somebody to react to
+    marker = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.9, 4, 10), new THREE.MeshToonMaterial({ color: C3(PAL.cloth.green) }));
+    marker.castShadow = true; marker.name = 'stand-in';
+    scene.add(marker);
+
+    DEMO.counts = Object.assign({}, kit.counts);
+    DEMO.grove = kit.groveState();
+    DEMO.props = ['well', 'fence', 'picket', 'stile', 'hayBale', 'barrel', 'crate', 'appleCrate', 'woodpile', 'bench',
+      'flowerBed', 'laundry', 'signpost', 'lantern', 'scarecrow', 'vegPatch', 'ladder', 'rock', 'footbridge', 'reeds',
+      'lilyPads', 'tufts', 'flowers', 'butterflies', 'groundBirds', 'motes', 'ripples', 'trees', 'cards'];
+    DEMO.buildMs = Math.round(performance.now() - t0);
+  }
+
+  function pickWood(x, z, rnd) {
+    const g = vnoise(x * 0.042 + 3.1, z * 0.042 + 7.7, 43);
+    let kind = g < 0.33 ? 'birch' : g > 0.74 ? 'pine' : g > 0.62 ? 'round' : 'oak';
+    const k = rnd();
+    if (k < 0.1) kind = 'round';
+    else if (k < 0.18) kind = kind === 'birch' ? 'oak' : 'birch';
+    else if (k < 0.23) kind = 'poplar';
+    else if (k < 0.26) kind = 'fruit';
+    return kind;
+  }
+
+  return {
+    opaque: true,
+    enter() {
+      offResize = App.onResize(() => { camera.aspect = App.aspect(); camera.updateProjectionMatrix(); });
+      try { build(); } catch (e) { reportError('P04 demo build', e); }
+      setView('wide');
+      // hand the controls to __DQ (see the expose calls at the foot of this file)
+      DEMO.views = VIEWS;
+      DEMO.setView = setView;
+      DEMO.walk = (x, z) => { focus.x = +x || 0; focus.z = +z || 0; focus.y = heightAt(focus.x, focus.z); return { x: focus.x, z: focus.z, y: +focus.y.toFixed(2) }; };
+      DEMO.orbit = (on, rate) => { cam.rate = on ? (rate || 8) * Math.PI / 180 : 0; return { orbiting: !!cam.rate, degPerSec: (cam.rate * 180 / Math.PI) }; };
+      DEMO.focus = focus;
+    },
+    exit() { if (offResize) offResize(); },
+    update() {},
+    render(alpha) {
+      const t = App.clock.time;
+      try {
+        Toon.tick(t);
+        if (cam.rate) {
+          cam.orbit += cam.rate * (1 / 60);
+          cam.pos.set(cam.tgt.x + Math.sin(cam.orbit) * cam.r, cam.tgt.y + cam.h, cam.tgt.z + Math.cos(cam.orbit) * cam.r);
+        }
+        camera.position.lerp(cam.pos, 0.2);
+        camera.lookAt(cam.tgt);
+        focus.y = heightAt(focus.x, focus.z);
+        if (marker) marker.position.set(focus.x, focus.y + 0.75, focus.z);
+        if (rig) rig.follow(new THREE.Vector3(focus.x, focus.y, focus.z));
+        if (sky && sky.sky) sky.sky.position.copy(camera.position);
+        if (sky && sky.clouds) sky.clouds.rotation.y = t * 0.0035;
+        if (kit) kit.update(t, 1 / 60, camera, focus);
+        Toon.see.setHero({ x: focus.x, y: focus.y, z: focus.z }, camera, App.renderer);
+      } catch (e) { reportError('P04 demo frame', e); }
+      App.render(scene, camera);
+      void alpha;
+    },
+    onInput() { return true; },
+  };
+});
+
+Scenes.push('demo');
+
+// ── critic controls ─────────────────────────────────────────────────────────────────────────────────────────
+Debug.provide('demo', () => ({ piece: 'P04', counts: DEMO.counts, grove: DEMO.grove, props: DEMO.props.length, species: DEMO.species, buildMs: DEMO.buildMs }));
+Debug.expose('views', () => Object.keys(DEMO.views || {}));
+Debug.expose('where', () => (DEMO.focus ? { x: +DEMO.focus.x.toFixed(2), z: +DEMO.focus.z.toFixed(2) } : null));
+Debug.expose('view', (name) => (DEMO.setView ? DEMO.setView(name) : null));
+Debug.expose('walk', (x, z) => (DEMO.walk ? DEMO.walk(x, z) : null));
+Debug.expose('orbit', (on = true, rate = 8) => (DEMO.orbit ? DEMO.orbit(on, rate) : null));
+Debug.expose('wind', (n) => Toon.tune('wind', n));
+Debug.expose('outline', (on = true) => Toon.setOutlines(!!on));
+</script></body></html>

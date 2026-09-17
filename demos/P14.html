@@ -1,251 +1,409 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>P14 — Battle rules engine (text battle)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>DEMO — P14 · Battle rules (Tactics)</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="/src/ui/ui.css"/>
 <style>
-:root{
-  --win-top:#2a3fb0; --win-bot:#0d1760; --win-line:#f4f6ff; --win-inner:#0a1150; --ink:#ffffff; --dim:#8d97c8;
-  --gold:#ffd75e; --hurt:#ff9b8a; --low:#ffb35c; --ko:#6c7196; --good:#9dffb0; --chev:#ff4d4d;
-  --font: "Trebuchet MS", "Verdana", "Segoe UI", system-ui, sans-serif;
-}
-*{box-sizing:border-box}
-html,body{margin:0;height:100%;background:#050716;overflow:hidden;font-family:var(--font);color:var(--ink)}
-#stage{position:fixed;inset:0;display:grid;grid-template-columns:1fr 330px;grid-template-rows:64px 1fr;}
-/* ------------------------------------------------ the DQ window */
-.win{position:relative;background:linear-gradient(180deg,var(--win-top),var(--win-bot));border:4px solid var(--win-line);
-  border-radius:12px;box-shadow:inset 0 0 0 2px var(--win-inner),inset 0 0 0 4px rgba(255,255,255,.18),0 6px 0 rgba(0,0,0,.35),0 10px 26px rgba(0,0,0,.45);
-  padding:12px 16px;transform-origin:bottom left;animation:winIn .16s ease-out}
-@keyframes winIn{from{transform:scale(.92) translateY(10px);opacity:.2}to{transform:none;opacity:1}}
-/* ------------------------------------------------ top bar */
-#top{grid-column:1/3;display:flex;align-items:center;gap:14px;padding:8px 14px;background:linear-gradient(#0c1030,#070a20);border-bottom:2px solid #1f2a66}
-#top h1{font-size:18px;margin:0;letter-spacing:.04em;color:#cfd6ff;white-space:nowrap}
-#top .area{padding:4px 12px;font-size:17px;font-weight:bold;min-width:360px;max-width:600px;text-align:center;animation:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#top .keys{font-size:13px;color:#a8b0e0;line-height:1.35}
-#top .keys b{color:#fff;background:#26306e;border-radius:4px;padding:0 5px;margin:0 1px}
-/* ------------------------------------------------ battlefield */
-#field{position:relative;overflow:hidden}
-#backdrop{position:absolute;inset:0;transition:background .4s}
-.t-meadow{background:radial-gradient(120% 60% at 50% 110%,#5fa544 0,#4b8a3a 40%,transparent 41%),radial-gradient(80% 40% at 15% 88%,#6fb450 0,transparent 60%),linear-gradient(#7fc6ff 0,#bfe6ff 55%,#8fcf6a 56%,#5b9a44 100%)}
-.t-coast{background:radial-gradient(100% 40% at 50% 100%,#e8d49a 0,#d9c07c 45%,transparent 46%),linear-gradient(#86ceff 0,#cbeeff 50%,#4aa3c8 51%,#3b8fb5 62%,#e3cf92 63%,#cfb67a 100%)}
-.t-wood{background:radial-gradient(60% 30% at 50% 100%,#6b8f3f 0,transparent 70%),repeating-linear-gradient(90deg,rgba(40,30,20,.28) 0 18px,transparent 18px 90px),linear-gradient(#2f5a36 0,#3f7442 50%,#56733a 56%,#3d5a2a 100%)}
-.t-manor{background:radial-gradient(40% 30% at 50% 35%,rgba(255,220,140,.25),transparent 70%),repeating-linear-gradient(90deg,#2a1f3a 0 60px,#2f2443 60px 64px),linear-gradient(#1c1428,#2b2038 60%,#3a2c30 61%,#241a20 100%)}
-.t-cave{background:radial-gradient(50% 40% at 50% 45%,rgba(120,150,190,.25),transparent 70%),linear-gradient(#141018 0,#2a2230 45%,#3b3036 58%,#1d171c 100%)}
-.t-desert{background:radial-gradient(90% 30% at 30% 100%,#e9c887 0,transparent 60%),linear-gradient(#ffc98a 0,#ffe7b8 48%,#e7bf78 50%,#d19f5a 100%)}
-.t-sea{background:radial-gradient(60% 40% at 50% 60%,rgba(140,220,230,.25),transparent 70%),linear-gradient(#10303f 0,#1d5566 45%,#2c6f7a 58%,#173c47 100%)}
-.t-snow{background:radial-gradient(80% 30% at 50% 100%,#f7fbff 0,#e3eefa 50%,transparent 51%),linear-gradient(#a9c8e8 0,#dfeaf6 52%,#eef5fc 53%,#cddbe9 100%)}
-.t-ruins{background:repeating-linear-gradient(90deg,transparent 0 120px,rgba(90,90,100,.35) 120px 150px),linear-gradient(#6b7383 0,#9aa1ad 50%,#6d6a66 52%,#4c4a48 100%)}
-.t-sky{background:radial-gradient(40% 20% at 30% 40%,#fff,transparent 70%),radial-gradient(50% 25% at 75% 70%,#fff,transparent 70%),linear-gradient(#6fb6ff 0,#bfe2ff 60%,#f6fbff 100%)}
-.t-abbey{background:repeating-linear-gradient(90deg,#3a3c48 0 80px,#343642 80px 84px),linear-gradient(#262833,#3a3c48 58%,#2b2a30 59%,#1c1b20 100%)}
-.t-deep{background:radial-gradient(40% 40% at 50% 45%,rgba(120,100,180,.28),transparent 70%),linear-gradient(#0b0913,#171327 55%,#100d18 100%)}
-/* party status windows */
-#partybar{position:absolute;left:16px;right:16px;top:12px;display:flex;gap:10px;z-index:4;align-items:flex-start}
-.pm{flex:0 1 178px;min-width:140px;padding:8px 12px 10px;transition:transform .15s, filter .2s}
-.pm .nm{font-size:20px;font-weight:bold;letter-spacing:.02em;display:flex;justify-content:space-between;align-items:baseline}
-.pm .nm small{font-size:13px;color:var(--dim);font-weight:normal}
-.pm .row{display:flex;justify-content:space-between;font-size:18px;margin-top:2px}
-.pm .row span:first-child{color:#c8cff5}
-.pm .bar{height:6px;border-radius:3px;background:#0a0f3a;margin-top:3px;overflow:hidden}
-.pm .bar i{display:block;height:100%;background:linear-gradient(90deg,#78f59a,#b9ffb0);transition:width .26s ease-out}
-.pm.low .bar i{background:linear-gradient(90deg,#ffb35c,#ffd98f)} .pm.low .hpv{color:var(--low)}
-.pm.ko{filter:grayscale(.9) brightness(.7)} .pm.ko .hpv{color:var(--ko)}
-.pm.active{transform:translateY(8px) scale(1.04);box-shadow:inset 0 0 0 2px var(--win-inner),0 0 0 3px var(--gold),0 10px 26px rgba(0,0,0,.5)}
-.pm.hit{animation:pmHit .2s linear}
-@keyframes pmHit{0%,100%{translate:0}20%{translate:-6px 0;background:linear-gradient(#b3303b,#5e0f1c)}60%{translate:5px 0}}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--pal-sky-page)}
+#game-canvas{display:block;width:100vw;height:100vh}
+.U{--c:calc(1 * var(--u))}
+/* party status windows (top) */
+#partybar{position:absolute;left:calc(16 * var(--u));right:calc(16 * var(--u));top:calc(14 * var(--u));display:flex;gap:calc(10 * var(--u));align-items:flex-start}
+#partybar .dq-win{position:relative;flex:0 0 calc(226 * var(--u));padding:calc(10 * var(--u)) calc(18 * var(--u)) calc(10 * var(--u));font-size:calc(25 * var(--u));line-height:1.28;transition:transform .15s}
+.pm .nm{display:flex;justify-content:space-between;align-items:baseline;color:var(--dq-ink)}
+.pm .nm small{font-size:.66em;color:var(--dq-label)}
+.pm .row{display:flex;justify-content:space-between;align-items:baseline}
+.pm .row .lab{color:var(--dq-label);font-size:.8em}
+.pm .bar{height:calc(6 * var(--u));border-radius:calc(3 * var(--u));background:var(--dq-rim);margin:calc(1 * var(--u)) 0 calc(2 * var(--u));overflow:hidden}
+.pm .bar i{display:block;height:100%;background:var(--dq-green);transition:width .26s ease-out}
+.pm .tac{font-size:.62em;letter-spacing:.06em;color:var(--dq-gold);min-height:1.2em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm .tac.st{color:var(--dq-purple)}
+.pm.low .hpv{color:var(--dq-orange)} .pm.low .bar i{background:var(--dq-orange)}
+.pm.ko{filter:grayscale(.85) brightness(.72)} .pm.ko .hpv{color:var(--dq-red)}
+.pm.active{transform:translateY(calc(8 * var(--u))) scale(1.04)}
+.pm.active::before{border-color:var(--dq-gold)!important}
+.pm.hit{animation:pmHit .22s linear}
+@keyframes pmHit{0%,100%{translate:0}20%{translate:calc(-7 * var(--u)) 0}60%{translate:calc(6 * var(--u)) 0}}
 .pm.healed{animation:pmHeal .5s ease-out}
-@keyframes pmHeal{50%{box-shadow:inset 0 0 0 2px var(--win-inner),0 0 18px 6px rgba(140,255,170,.8)}}
-.pm .tags{font-size:12px;color:var(--gold);min-height:15px}
-.wagonbox{flex:0 0 156px;padding:6px 10px 8px;opacity:.9;background:linear-gradient(180deg,#3a4270,#1b2150)}
-.wagonbox .wl{font-size:13px;color:var(--gold);letter-spacing:.06em;margin-bottom:2px}
-.wagonbox .wr{display:flex;justify-content:space-between;gap:6px;font-size:15px;line-height:1.35}
-.wagonbox .wr small{color:var(--dim);font-size:12px;margin-left:4px}
-.wagonbox .wr.ko{color:var(--ko)} .wagonbox .wr.low .hpv{color:var(--low)}
-/* monsters */
-#enemies{position:absolute;left:0;right:0;top:170px;bottom:250px;display:flex;justify-content:center;align-items:flex-end;gap:34px;z-index:2}
-.mon{position:relative;display:flex;flex-direction:column;align-items:center;transition:opacity .3s}
-.mon .body{position:relative;width:var(--s);height:calc(var(--s)*.86);background:radial-gradient(60% 55% at 35% 30%,rgba(255,255,255,.55),transparent 60%),var(--c);
-  border-radius:50% 50% 44% 44% / 62% 62% 38% 38%;box-shadow:inset -8px -10px 0 rgba(0,0,0,.14),0 0 0 3px rgba(0,0,0,.45);animation:hop 1.15s infinite ease-in-out;transform-origin:50% 100%}
-.mon.boss .body{border-radius:46% 46% 40% 40% / 55% 55% 45% 45%}
-.mon.ghost .body{border-radius:50% 50% 18% 18% / 60% 60% 20% 20%;opacity:.85}
-.mon.box .body{border-radius:18%}
-@keyframes hop{0%,100%{transform:translateY(0) scale(1.08,.9)}45%{transform:translateY(calc(var(--s)*-.13)) scale(.96,1.06)}55%{transform:translateY(calc(var(--s)*-.13)) scale(.96,1.06)}}
-.mon .eye{position:absolute;top:34%;width:calc(var(--s)*.2);height:calc(var(--s)*.23);background:#fff;border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,.35)}
-.mon .eye::after{content:"";position:absolute;left:34%;top:34%;width:44%;height:44%;background:#1b1a22;border-radius:50%;box-shadow:inset 2px 2px 0 1px rgba(255,255,255,.9)}
-.mon .eye.l{left:24%} .mon .eye.r{right:24%}
-.mon .mouth{position:absolute;left:36%;right:36%;top:64%;height:calc(var(--s)*.09);border-bottom:4px solid #2a1e24;border-radius:0 0 50% 50%}
-.mon .shadow{width:calc(var(--s)*.8);height:12px;border-radius:50%;background:rgba(0,0,0,.28);margin-top:-6px;animation:shadow 1.15s infinite ease-in-out}
-@keyframes shadow{45%,55%{transform:scale(.66)}}
-.mon .plate{margin-top:8px;font-size:17px;font-weight:bold;text-shadow:0 2px 0 #000,0 0 6px #000;white-space:nowrap}
-.mon .dots{height:12px;display:flex;gap:5px;margin-top:3px}
-.mon .dots i{width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px #000}
-.mon .chev{position:absolute;top:-38px;font-size:30px;color:var(--chev);text-shadow:0 2px 0 #000;animation:chev .5s infinite;display:none}
-.mon.tele .chev{display:block}
-@keyframes chev{50%{transform:translateY(-8px);opacity:.55}}
-.mon .zzz{position:absolute;top:-20px;right:-10px;font-size:20px;font-weight:bold;color:#dfe8ff;text-shadow:0 2px 0 #000;display:none}
-.mon.sleep .zzz{display:block;animation:chev 1.2s infinite}
-.mon.flash .body{animation:none;filter:brightness(3) saturate(0)}
-.mon.shake .body{animation:monShake .18s linear}
-@keyframes monShake{25%{transform:translateX(-7px) scale(1.1,.86)}75%{transform:translateX(6px) scale(.9,1.1)}}
-.mon.pop{animation:pop .34s ease-in forwards} @keyframes pop{40%{transform:scale(1.25)}100%{transform:scale(.1);opacity:0}}
-.mon.gone{display:none}
-.mon.spared .body{animation:none;transform:translateY(8px) scale(1.05,.85) rotate(-6deg);filter:saturate(.6)}
-.mon.fled{animation:flee .4s ease-in forwards} @keyframes flee{to{transform:translateX(420px);opacity:0}}
-.mon.lunge .body{animation:lunge .3s ease-out}
-@keyframes lunge{40%{transform:translateY(40px) scale(1.12)}}
-.popnum{position:absolute;left:50%;top:-34px;transform:translate(-50%,0);font-size:34px;font-weight:900;color:#fff;text-shadow:0 3px 0 #000,0 0 8px #000;pointer-events:none;animation:num .9s ease-out forwards;z-index:9}
-.popnum.crit{color:var(--gold);font-size:52px}
-.popnum.heal{color:var(--good)}
-@keyframes num{0%{transform:translate(-50%,10px) scale(.4)}20%{transform:translate(-50%,-6px) scale(1.15)}35%{transform:translate(-50%,-10px) scale(1)}100%{transform:translate(-50%,-38px);opacity:0}}
-#field.shake{animation:fshake .18s linear}
-@keyframes fshake{25%{transform:translate(-6px,3px)}50%{transform:translate(5px,-2px)}75%{transform:translate(-3px,2px)}}
-#field.white::after{content:"";position:absolute;inset:0;background:#fff;opacity:.7;animation:wflash .12s forwards;z-index:20;pointer-events:none}
-@keyframes wflash{to{opacity:0}}
-#field.darken #backdrop{filter:brightness(.45)} #field.desat #backdrop{filter:saturate(.2)}
-#field.wiped::before{content:"";position:absolute;inset:0;background:#fff;opacity:.82;z-index:3;animation:wfade 1.2s}
-@keyframes wfade{from{opacity:0}}
-/* bottom windows */
-#cmd{position:absolute;left:16px;bottom:16px;width:330px;min-height:214px;z-index:6}
-#cmd .who{font-size:18px;color:var(--gold);margin-bottom:6px;font-weight:bold}
-#cmd .grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px}
-#cmd .list{display:grid;grid-template-columns:1fr;gap:2px;max-height:260px;overflow:hidden}
-.opt{position:relative;font-size:22px;padding:2px 0 2px 28px;white-space:nowrap}
-.opt .r{float:right;color:#c8cff5;font-size:18px;margin-left:10px}
-.opt.dis{color:var(--dim)}
-.opt.sel::before{content:"▶";position:absolute;left:2px;top:3px;font-size:19px;color:#fff;animation:cur .6s infinite}
-@keyframes cur{50%{transform:translateX(4px)}}
-#cmd .hint{font-size:14px;color:#aab3e6;margin-top:6px;min-height:18px}
-#msg{position:absolute;left:362px;right:16px;bottom:16px;height:214px;z-index:5;font-size:24px;line-height:1.42;padding:14px 22px;overflow:hidden}
-#lines{max-height:100%;overflow:hidden}
-#msg .ln{white-space:pre-wrap}
-#msg .ln.old{color:#d8def9}
-#msg .more{position:absolute;right:16px;bottom:8px;font-size:18px;animation:cur .6s infinite}
-/* side: event log */
-#side{grid-row:2;grid-column:2;display:flex;flex-direction:column;background:#070a20;border-left:2px solid #1f2a66;min-height:0}
-#side h2{font-size:14px;margin:10px 12px 6px;color:#9aa6e8;letter-spacing:.08em;text-transform:uppercase}
-#log{flex:1;overflow:hidden;padding:0 10px 10px;font-size:13px;line-height:1.35;display:flex;flex-direction:column;justify-content:flex-end;min-height:0}
-#log .ev{padding:2px 0;border-bottom:1px solid #121a44;color:#d8def9}
-#log .ev .t{display:inline-block;min-width:74px;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#7f8ad6}
-#log .ev.damage .t{color:#ff9b8a} #log .ev.heal .t,#log .ev.revive .t{color:#8dffae} #log .ev.telegraph .t{color:#ff5d5d}
-#log .ev.victory .t,#log .ev.levelup .t,#log .ev.recruit_offer .t{color:var(--gold)} #log .ev.status .t{color:#c3a4ff}
-#stats{font-size:12px;color:#9aa6e8;padding:8px 12px;border-top:1px solid #1f2a66;line-height:1.5}
-#stats b{color:#fff}
+@keyframes pmHeal{50%{filter:brightness(1.35) saturate(1.3)}}
+.pm.lvup{animation:pmLv 1.4s ease-out}
+@keyframes pmLv{0%,100%{filter:none}20%,60%{filter:brightness(1.45) sepia(.35) saturate(1.6)}}
+.wagonbox{flex:0 0 calc(160 * var(--u))!important;font-size:calc(20 * var(--u))!important;opacity:.93}
+.wagonbox .wl{font-size:.72em;color:var(--dq-title-ink);letter-spacing:.08em}
+.wagonbox .wr{display:flex;justify-content:space-between;gap:calc(6 * var(--u))}
+.wagonbox .wr.ko{color:var(--dq-dim)}
+/* command + message windows (bottom) */
+#cmd{left:calc(16 * var(--u));bottom:calc(16 * var(--u));width:calc(392 * var(--u));min-height:calc(206 * var(--u));padding:calc(26 * var(--u)) calc(20 * var(--u)) calc(14 * var(--u));font-size:calc(27 * var(--u))}
+#cmd .grid{display:grid;grid-template-columns:1fr 1fr;column-gap:calc(8 * var(--u))}
+#cmd .list{display:grid;grid-template-columns:1fr}
+#cmd .opt{position:relative;padding-left:calc(30 * var(--u));line-height:calc(38 * var(--u));white-space:nowrap}
+#cmd .opt .r{float:right;color:var(--dq-label);font-size:.8em;margin-left:calc(10 * var(--u))}
+#cmd .opt.dis{color:var(--dq-dim)}
+#cmd .opt.sel::after{content:"";position:absolute;left:calc(2 * var(--u));top:calc(9 * var(--u));border-left:calc(16 * var(--u)) solid var(--dq-ink);border-top:calc(10 * var(--u)) solid transparent;border-bottom:calc(10 * var(--u)) solid transparent;filter:drop-shadow(0 calc(2 * var(--u)) 0 var(--dq-ink-shadow));animation:cur .55s infinite}
+@keyframes cur{50%{transform:translateX(calc(4 * var(--u)))}}
+#cmd .hint{font-size:calc(18 * var(--u));color:var(--dq-label);margin-top:calc(6 * var(--u));white-space:normal;line-height:1.3;max-width:calc(350 * var(--u))}
+#msg{left:calc(420 * var(--u));right:calc(16 * var(--u));bottom:calc(16 * var(--u));height:calc(206 * var(--u));font-size:calc(28 * var(--u));line-height:1.42;padding:calc(24 * var(--u)) calc(30 * var(--u)) calc(16 * var(--u))}
+#msg.wide{left:calc(16 * var(--u))}
+#lines{height:100%;overflow:hidden}
+#lines .ln{white-space:pre-wrap}
+#msg .dq-title{max-width:calc(700 * var(--u));overflow:hidden;text-overflow:ellipsis}
+.dq-win.pop{animation:winIn .16s ease-out}
+@keyframes winIn{from{transform:scale(.94) translateY(calc(8 * var(--u)));opacity:.3}to{transform:none;opacity:1}}
+/* over the monsters */
+#overlay{position:absolute;inset:0;pointer-events:none;z-index:20}   /* damage numbers and chevrons go over the windows */
+.plate{position:absolute;transform:translate(-50%,0);font-size:calc(20 * var(--u));color:var(--dq-ink);text-shadow:0 calc(2 * var(--u)) 0 var(--dq-ink-shadow),0 0 calc(4 * var(--u)) var(--dq-ink-shadow);white-space:nowrap;letter-spacing:.04em}
+.plate .dots{display:flex;gap:calc(4 * var(--u));justify-content:center;height:calc(10 * var(--u))}
+.plate .dots i{width:calc(8 * var(--u));height:calc(8 * var(--u));border-radius:50%;background:var(--dq-ink);box-shadow:0 0 0 calc(1.5 * var(--u)) var(--dq-ink-shadow)}
+.chev{position:absolute;transform:translate(-50%,0);font-size:calc(34 * var(--u));color:var(--dq-red);text-shadow:0 calc(2 * var(--u)) 0 var(--dq-ink-shadow);animation:chev .5s infinite}
+.pick{position:absolute;transform:translate(-50%,-100%);width:0;height:0;border-left:calc(13 * var(--u)) solid transparent;border-right:calc(13 * var(--u)) solid transparent;border-top:calc(20 * var(--u)) solid var(--dq-gold);filter:drop-shadow(0 calc(2 * var(--u)) 0 var(--dq-ink-shadow));animation:chev .6s infinite}
+@keyframes chev{50%{translate:0 calc(-8 * var(--u));opacity:.7}}
+.popnum{position:absolute;transform:translate(-50%,0);font-size:calc(40 * var(--u));font-weight:900;color:var(--dq-ink);text-shadow:0 calc(3 * var(--u)) 0 var(--dq-ink-shadow),0 0 calc(8 * var(--u)) var(--dq-ink-shadow);animation:num .95s ease-out forwards;white-space:nowrap}
+.popnum.crit{color:var(--dq-gold);font-size:calc(62 * var(--u))}
+.popnum.heal{color:var(--dq-green)} .popnum.miss{font-size:calc(28 * var(--u));color:var(--dq-label)}
+.popnum.hurt{color:var(--dq-orange)}
+.popnum.lv{color:var(--dq-gold);font-size:calc(30 * var(--u));letter-spacing:.08em}
+@keyframes num{0%{transform:translate(-50%,calc(14 * var(--u))) scale(.4)}18%{transform:translate(-50%,calc(-8 * var(--u))) scale(1.15)}32%{transform:translate(-50%,calc(-12 * var(--u))) scale(1)}100%{transform:translate(-50%,calc(-44 * var(--u)));opacity:0}}
+/* encounter swirl (SYSTEMS §7.1: 520 ms) and the white wipe */
+#swirl{position:absolute;inset:-40%;pointer-events:none;opacity:0;background:repeating-conic-gradient(from 0deg,var(--pal-ui-win-top) 0deg 12deg,var(--pal-ui-border) 12deg 24deg)}
+#swirl.go{animation:swirl .56s ease-in forwards}
+@keyframes swirl{0%{opacity:0;transform:rotate(0) scale(.2)}35%{opacity:.95}70%{opacity:1;transform:rotate(300deg) scale(1.4)}100%{opacity:0;transform:rotate(420deg) scale(2.2)}}
+#flash{position:absolute;inset:0;background:var(--pal-ui-text);opacity:0;pointer-events:none}
+#flash.go{animation:flash .13s ease-out}
+@keyframes flash{0%{opacity:.55}100%{opacity:0}}
+#white{position:absolute;inset:0;background:var(--pal-ui-text);opacity:0;pointer-events:none;transition:opacity 1.1s}
+#white.on{opacity:.8}
+/* the level-up panel (SYSTEMS §10.2): slides in from the right, one gain at a time */
+#lvpanel{z-index:22;right:calc(16 * var(--u));bottom:calc(238 * var(--u));width:calc(360 * var(--u));padding:calc(26 * var(--u)) calc(22 * var(--u)) calc(14 * var(--u));font-size:calc(25 * var(--u));animation:panelIn .18s ease-out}
+@keyframes panelIn{from{transform:translateX(calc(40 * var(--u)));opacity:0}to{transform:none;opacity:1}}
+#lvpanel .r{display:flex;align-items:baseline;gap:calc(10 * var(--u));line-height:calc(34 * var(--u))}
+#lvpanel .r .lab{color:var(--dq-label);flex:1}
+#lvpanel .r .tot{font-variant-numeric:tabular-nums;min-width:calc(56 * var(--u));text-align:right}
+#lvpanel .r .up{color:var(--dq-gold);min-width:calc(60 * var(--u));text-align:right}
+#lvpanel .r .up.none{color:var(--dq-dim)}
+#lvpanel .r .up.big::after{content:" ★";font-size:.8em}
+#lvpanel .r.hide{visibility:hidden}
+#lvpanel .card{text-align:center;padding:calc(6 * var(--u)) 0}
+#lvpanel .card .nm{font-size:calc(34 * var(--u));color:var(--dq-gold)}
+#lvpanel .card .mp{color:var(--dq-label);font-size:calc(20 * var(--u))}
+#lvpanel .card .bl{white-space:normal;font-size:calc(22 * var(--u));line-height:1.3;margin-top:calc(6 * var(--u))}
+/* the event log: hidden unless E is pressed (it is for critics, not children) */
+#side{position:absolute;right:calc(16 * var(--u));top:calc(150 * var(--u));width:calc(420 * var(--u));bottom:calc(240 * var(--u));white-space:normal;font-size:calc(15 * var(--u));line-height:1.3;padding:calc(14 * var(--u)) calc(16 * var(--u));pointer-events:none}
+#log{height:calc(100% - calc(70 * var(--u)));overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+#log .ev{border-bottom:calc(1 * var(--u)) solid var(--dq-rim)} #log .t{color:var(--dq-gold);display:inline-block;min-width:calc(84 * var(--u))}
+#stats{color:var(--dq-label);margin-top:calc(6 * var(--u))} #stats b{color:var(--dq-ink)}
+#keys{position:absolute;right:calc(20 * var(--u));top:calc(152 * var(--u));font-size:calc(14 * var(--u));color:var(--dq-ink);text-shadow:0 calc(1.5 * var(--u)) 0 var(--dq-ink-shadow);opacity:.75;text-align:right;line-height:1.35}
+[hidden]{display:none!important}
 </style>
 </head><body>
-<div id="stage">
-  <div id="top">
-    <h1>P14 · Battle</h1>
-    <div class="win area" id="areaWin">◀ … ▶</div>
-    <div class="keys">
-      <b>↑↓←→</b> move <b>Enter</b>/<b>Z</b> choose <b>Esc</b>/<b>X</b> back &nbsp; <b>F</b> Fight! (auto) &nbsp; <b>N</b> new fight <b>B</b> boss
-      <br><b>[</b> <b>]</b> area &nbsp; <b>L</b> level (low / mid / high) &nbsp; <b>U</b> / <b>O</b> boss 4 levels under / over &nbsp; <b>S</b> struggle score &nbsp; <b>T</b> instant text
-    </div>
-  </div>
-  <div id="field">
-    <div id="backdrop" class="t-meadow"></div>
-    <div id="partybar"></div>
-    <div id="enemies"></div>
-    <div class="win" id="cmd" hidden></div>
-    <div class="win" id="msg"><div id="lines"></div><div class="more" id="more" hidden>▼</div></div>
-  </div>
-  <div id="side"><h2>Event log</h2><div id="log"></div><div id="stats"></div></div>
+<canvas id="game-canvas"></canvas>
+<div id="ui-root" class="dq-ui">
+  <div id="overlay"></div>
+  <div id="partybar"></div>
+  <div id="cmd" class="dq-win"></div>
+  <div id="msg" class="dq-win dq-shown"><div class="dq-title" id="areaTab">…</div><div id="lines"></div></div>
+  <div id="lvpanel" class="dq-win" hidden></div>
+  <div id="side" class="dq-win" hidden><div id="log"></div><div id="stats"></div></div>
+  <div id="keys">Enter choose · Esc back · F Fight! · T Tactics<br>N new fight · B boss · [ ] area · L level · E event log · I inn</div>
+  <div id="white"></div><div id="flash"></div><div id="swirl"></div>
 </div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
 <script type="module">
-// P14 demo — a playable text battle driven entirely by src/battle/battle.js.
-// Data: tests/battle/data.js (fixture in the docs/DATA-SHAPES.md shapes), areas: tests/battle/areas.js.
-import { createBattle } from '/src/battle/battle.js';
+// P14 — the battle rules engine (src/battle/battle.js), played. Dragon Quest V's way: Bram takes commands; everybody else
+// fights by their Tactics ("Fight Wisely" until you say otherwise; "Follow Orders" per member). The stage is the house
+// meadow (src/world/scenery.js) with P16's real monsters (src/art/monsters.js); sound is P28's SFX and P27's score.
+// Rules data: tests/battle/data.js (the docs/DATA-SHAPES.md shapes), areas and parties: tests/battle/areas.js.
+import * as THREE from 'three';
+import { App } from '/src/engine/app.js';
+import { Scenes } from '/src/engine/states.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { PAL, lerp, smooth, applyCssVars } from '/src/art/palette.js';
+import { mulberry, vnoise } from '/src/art/tex.js';
+import { Toon, makeLightRig, makeAOMask } from '/src/art/toon.js';
+import { createKit, buildSky, ringHill, buildGround, paintMasks, curvePoints, OAK, POPLAR, BUSH } from '/src/world/scenery.js';
+import { Monsters } from '/src/art/monsters.js';
+import { Audio } from '/src/audio/audio.js';
+import { Sfx } from '/src/audio/sfx.js';
+import { Music } from '/src/audio/music.js';
+import { createBattle, TACTICS } from '/src/battle/battle.js';
 import { makeRng } from '/src/battle/formulas.js';
 import { newCompanion } from '/src/data/growth.js';
 import DATA from '/tests/battle/data.js';
 import { AREAS, rollEncounter } from '/tests/battle/areas.js';
 import { fight as simFight, walkArea } from '/tests/battle/play.js';
 
-const errors = [];
-window.addEventListener('error', (e) => errors.push(String(e.message || e)));
-window.addEventListener('unhandledrejection', (e) => errors.push(String(e.reason && e.reason.message || e.reason)));
+applyCssVars();
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+const guard = (where, fn) => { try { return fn(); } catch (e) { reportError('P14 ' + where, e); return undefined; } };
 
+// ------------------------------------------------------------------------------------------------ design units
+function fitUnits() { document.getElementById('ui-root').style.setProperty('--u', Math.min(innerWidth / 1280, innerHeight / 720) + 'px'); }
+fitUnits(); addEventListener('resize', fitUnits);
+
+// ================================================================================================= the stage (3D)
+function heightAt(x, z) {
+  const r = Math.hypot(x, z * 1.15);
+  let h = 1.0 * vnoise(x * 0.07 + 3, z * 0.07 + 7, 3) + 0.45 * vnoise(x * 0.18, z * 0.18, 5) - 0.7;
+  h *= smooth(6, 18, r);
+  h += 2.6 * smooth(-16, -44, z) * (0.55 + 0.45 * vnoise(x * 0.05 + 2, 1.3, 9));
+  const e = Math.hypot(x, z), a = Math.atan2(z, x);
+  const lump = 0.6 * vnoise(Math.cos(a) * 3 + 5, Math.sin(a) * 3 + 5, 17) + 0.4 * vnoise(Math.cos(a) * 7, Math.sin(a) * 7, 19);
+  h += (3 + 6 * lump) * smooth(36, 88, e);
+  return h;
+}
+const LANE = [[18, 30], [10, 16], [4.5, 6], [0.8, -0.5], [-3.5, -7], [-10, -15], [-16, -21], [-26, -30]];
+const G = { scene: null, camera: null, rig: null, sky: null, kit: null, models: new Map(), dist: 5, look: 0.4, shake: 0, push: 0, preset: 'day', built: false, buildMs: 0 };
+
+function buildStage() {
+  const t0 = performance.now();
+  const scene = G.scene = new THREE.Scene();
+  G.camera = new THREE.PerspectiveCamera(42, App.aspect(), 0.3, 1400);
+  G.rig = makeLightRig({ scene, preset: 'day', extent: 18 });
+  const ao = makeAOMask({ span: 96, size: 1024, center: [0, 0] });
+  const kit = G.kit = createKit({ scene, heightAt, ao });
+  G.sky = buildSky(scene, G.rig);
+  ringHill(scene, 'mid', 118, 150, 205, 5, 21, 71, PAL.hill.midLow, PAL.hill.mid, 0.2);
+  ringHill(scene, 'far', 240, 300, 380, 12, 78, 81, PAL.hill.farLow, PAL.hill.far, 0.25, { fogged: false, peaky: 1.8 });
+  const masks = paintMasks({ N: 1024, span: 96, strokes: [{ pts: curvePoints(LANE, 0.35), w: 3.2, falloff: 1.1, channel: 0 }] });
+  const pathAt = (x, z) => masks.sample(0, x, z);
+  const step = (name, fn) => guard('stage ' + name, fn);
+  const r = mulberry(1414), oaks = [], poplars = [], bushes = [];
+  const clear = (x, z, pad) => pathAt(x, z) < 0.05 && Math.hypot(x, z * 1.4) > pad;
+  for (let i = 0; i < 160 && oaks.length < 26; i++) {
+    const x = (r() - 0.5) * 64, z = -9 - r() * 26;
+    if (!clear(x, z, 11) || oaks.some((o) => Math.hypot(o.x - x, o.z - z) < 4.6)) continue;
+    oaks.push({ x, z, s: 0.85 + r() * 0.45, r: r() * 6.28, c: 0.92 + r() * 0.16 });
+  }
+  for (let i = 0; i < 60 && poplars.length < 6; i++) {
+    const x = (r() - 0.5) * 50, z = -12 - r() * 18;
+    if (!clear(x, z, 12) || [...oaks, ...poplars].some((o) => Math.hypot(o.x - x, o.z - z) < 3.6)) continue;
+    poplars.push({ x, z, s: 0.9 + r() * 0.3, r: r() * 6.28, c: 0.95 + r() * 0.1 });
+  }
+  for (const [x, z] of [[-7.5, -6.5], [8.5, -5.5], [-10.5, -2.5], [11.5, -9], [-5.5, -10.5], [13, 1.5], [-13, 3], [6.5, -11]]) {
+    if (pathAt(x, z) <= 0.1) bushes.push({ x, z, s: 0.75 + r() * 0.5, r: r() * 6.28, c: 0.95 + r() * 0.1 });
+  }
+  step('rocks', () => { for (const [x, z, s, seed] of [[-6.2, -4.2, 0.7, 3], [7.4, -2.8, 0.55, 4], [-9.5, 6.5, 0.9, 5], [10.5, 5.2, 0.6, 6]]) kit.rock(x, z, s, seed); });
+  step('trees', () => { kit.forest('oak', OAK, oaks, { detail: 1, spherize: 0.72, trunkH: 1.7 }); kit.forest('poplar', POPLAR, poplars, { detail: 1, spherize: 0.6, trunkH: 1.3, light: PAL.foliage.light }); });
+  step('bushes', () => kit.forest('bush', BUSH, bushes, { detail: 1, spherize: 0.6, trunkH: 0, light: PAL.foliage.light, wind: 0.02, windBase: 0.2, shadows: false, aoR: 1.1, aoS: 0.55 }));
+  step('belt', () => kit.forestBelt({ radius: 44, rows: 3, rowGap: 6.5, seed: 1414, threshold: 0.36, step: 0.07 }));
+  step('flush', () => kit.flush());
+  const onMeadow = (x, z) => pathAt(x, z) < 0.3 && Math.hypot(x, z) < 38;
+  step('tufts', () => kit.tufts({ count: 1000, radius: 36, seed: 1415, accept: (x, z) => onMeadow(x, z) && Math.hypot(x, z * 1.6) > 3.2,
+    rimOf: (x, z) => { const p = pathAt(x, z); return smooth(0.08, 0.3, p) * (1 - smooth(0.3, 0.42, p)); } }));
+  const hues = [PAL.flower.white, PAL.flower.yellow, PAL.flower.pink, PAL.flower.blue];
+  const clusters = [{ x: -4.2, z: 3.4, hue: PAL.flower.yellow, n: 12 }, { x: 5.8, z: 2.2, hue: PAL.flower.white, n: 14 }, { x: -6.5, z: -2, hue: PAL.flower.pink, n: 12 }, { x: 9, z: -1, hue: PAL.flower.yellow, n: 12 }];
+  for (let i = 0; i < 22; i++) clusters.push({ x: (r() - 0.5) * 56, z: (r() - 0.5) * 50, hue: hues[(r() * hues.length) | 0] });
+  step('flowers', () => kit.flowers(clusters, { accept: (x, z) => onMeadow(x, z) && pathAt(x, z) < 0.15 && Math.hypot(x, z * 1.6) > 2.8 }));
+  step('ground', () => buildGround(scene, { heightAt, masks, ao, inner: 40, step: 1.0, outer: 132, rings: 9 }));
+  step('butterflies', () => kit.butterflies([{ x: -4.5, z: 2.5, hue: PAL.flower.yellow }, { x: 6.2, z: -3.5, hue: PAL.char.white }]));
+  G.built = true;
+  G.buildMs = Math.round(performance.now() - t0);
+}
+
+/** Light the meadow for the place: the rig preset (the sky dome, the fog and the sun all follow it). */
+function applyLight(preset) {
+  guard('light', () => {
+    G.rig.apply(preset);                    // P02's sky dome follows the rig's preset on its own (weather.js ENV.sync)
+    G.preset = preset;
+  });
+}
+
+/** Terrain → light: the house meadow everywhere (the matched backdrops per terrain are P15's), lit for the place. */
+const LIGHT = { cave: 'dusk', manor: 'dusk', abbey: 'dusk', deep: 'night', sea: 'dusk', ruins: 'dusk', quarry: 'dusk' };
 const TERRAIN = {
-  long_lane: 'meadow', long_lane_alone: 'meadow', saltmarrow_coast: 'coast', whispering_wood: 'wood', cobwell_manor: 'manor',
-  coddleston_downs: 'meadow', whistling_caves: 'cave', gogglestone_caves: 'cave', marbleford_downs: 'meadow', sogglemarsh: 'wood',
-  frittering_sands: 'desert', bellhollow_belfry: 'manor', pelican_coast: 'coast', ambergarde_road: 'meadow', sighing_grotto: 'sea', glasswing_grotto: 'snow', grey_ruins: 'ruins',
-  quiet_quarry: 'cave', highfeather: 'sky', whistfell_abbey: 'abbey', quiet_deep: 'deep',
+  long_lane: 'meadow', long_lane_alone: 'meadow', saltmarrow_coast: 'meadow', whispering_wood: 'meadow', cobwell_manor: 'manor',
+  coddleston_downs: 'meadow', whistling_caves: 'cave', gogglestone_caves: 'cave', marbleford_downs: 'meadow', sogglemarsh: 'meadow',
+  frittering_sands: 'meadow', bellhollow_belfry: 'manor', pelican_coast: 'meadow', ambergarde_road: 'meadow', sighing_grotto: 'sea',
+  glasswing_grotto: 'cave', grey_ruins: 'ruins', quiet_quarry: 'quarry', highfeather: 'meadow', whistfell_abbey: 'abbey', quiet_deep: 'deep',
 };
-// MONSTER-BIBLE §9 body colours (demo-only CSS blobs; the real models are P16's)
-const COLOUR = {
-  gloop: '#4C86D8', bloop: '#E88BB4', flapjack: '#7B5FA8', peckish: '#F5D467', grumpleroot: '#EFE3D0', toadstooligan: '#D3524C',
-  bumbleblunder: '#F2C230', grumbleglop: '#7E6B45', sir_gloopalot: '#5FBF7E', boohoo: '#DCE8F2', chestnut: '#8A5A32', crabbit: '#E2734A',
-  hoot_couture: '#B08A5E', batterfly: '#C8A96E', twiglet: '#6E5236', quietling: '#9aa0ac', glimmergloop: '#C9D3DC', clankworthy: '#9AA7B8',
-  boulderdash: '#8A8578', cactuddle: '#6FA65A', dune_buggy: '#4A6E8A', jinglebottom: '#D3524C', barrowmole: '#6B5A6E',
-  candelabracadabra: '#C9973C', gloopold: '#C24C6E', sir_cumference: '#9AA7B8', mirthquake: '#4A2B52', lady_mothbonnet: '#C9CFE8',
-  squidgeon: '#8E6FB8', thunderpuff: '#E8EEF6', wyrmsley: '#4E8C6A', grimalkitten: '#3A3352', hexcalibur: '#D9E2EC', vesperling: '#2E2A44',
-  mumbleroot: '#4a3a30', sunmane: '#E9A23B', bogwallop: '#6E8F52', sexton_sootbell: '#B8C0CC', tidewarden: '#3f8f9a', hoarfax: '#e6eef8',
-  iron_governess: '#7A8290', hush: '#6b6f86', hark: '#8A6A3C', mortmain: '#d4d4dc', mortmain_scripted: '#d4d4dc', mortmain_enfolded: '#7A1F2E',
-  malgrim_cocoon: '#241E33', malgrim_unravelling: '#2e2542',
+/**
+ * The species P16 has not modelled yet stand in as the nearest shape it has, so a fight is never a CSS blob; the
+ * nameplate still says who it really is, and __DQ.state().stage marks it `standIn`. (NEEDS P16: models for these.)
+ */
+const STAND_IN = {
+  squidgeon: 'flapjack', thunderpuff: 'flapjack', vesperling: 'flapjack', wyrmsley: 'flapjack',
+  dune_buggy: 'grumbleglop', barrowmole: 'grumpleroot', tidewarden: 'grumbleglop',
+  candelabracadabra: 'clankworthy', jinglebottom: 'clankworthy', sir_cumference: 'clankworthy', hexcalibur: 'clankworthy', iron_governess: 'clankworthy',
+  lady_mothbonnet: 'boohoo', sexton_sootbell: 'boohoo', mortmain: 'boohoo', mortmain_scripted: 'boohoo', mortmain_enfolded: 'boohoo',
+  hush: 'boohoo', hark: 'boohoo', malgrim_cocoon: 'gloopold', malgrim_unravelling: 'boohoo', grimalkitten: 'pip', sunspot_cub: 'pip',
+  mirthquake: 'boulderdash', hoarfax: 'sunmane',
 };
-const SHAPE = { boohoo: 'ghost', sexton_sootbell: 'ghost', lady_mothbonnet: 'ghost', chestnut: 'box', clankworthy: 'box', hexcalibur: 'box', twiglet: 'box' };
-const HOLD = { telegraph: 1100, victory: 650, levelup: 520, recruit_offer: 1300, wipe: 1500, defeat: 480, damage: 330, transform: 1000, phase: 900, spared: 900 };
-const CPS = 38 / 1000; // SYSTEMS §7: 38 glyphs per second
+const modelId = (species) => (Monsters.has(species) ? species : STAND_IN[species] && Monsters.has(STAND_IN[species]) ? STAND_IN[species] : 'gloop');
+const isStandIn = (species) => !Monsters.has(species);
+
+/** Lay the enemies out in a gentle arc facing the camera, and fit the camera to them. */
+function stageEnemies(snapEnemies, { drop = true } = {}) {
+  for (const v of G.models.values()) guard('dispose', () => v.m.dispose());
+  G.models.clear();
+  const list = snapEnemies.filter((e) => e.alive);
+  const built = list.map((e) => {
+    const m = Monsters.build(modelId(e.species));
+    const scale = e.boss ? Math.max(1.5, 1.7 / Math.max(0.35, m.height)) : 1;
+    m.root.scale.setScalar(scale);
+    return { e, m, scale, r: m.radius * scale, h: m.height * scale };
+  });
+  const gap = 0.5;
+  let W = 0; built.forEach((b, i) => { W += b.r * 2 + (i ? gap : 0); });
+  let x = -W / 2, top = 0;
+  built.forEach((b, i) => {
+    if (i) x += gap;
+    const cx = x + b.r; x += b.r * 2;
+    const t = W > 0 ? cx / (W / 2 + 1e-6) : 0;
+    const z = -0.35 * t * t * Math.min(1, W / 3);
+    const y = heightAt(cx, z);
+    b.m.root.position.set(cx, y + (drop ? 3.2 + i * 0.6 : 0), z);
+    G.scene.add(b.m.root);
+    const hover = (b.m._template && b.m._template.spec && b.m._template.spec.hover) || 0;
+    top = Math.max(top, b.h + hover * b.scale);
+    G.models.set(b.e.id, { m: b.m, species: b.e.species, x: cx, y, z, dropT: drop ? -i * 0.09 : 1, scale: b.scale, h: b.h, gone: false });
+  });
+  // Frame them like DQV: the party windows own the top of the screen and the command/message windows the bottom, so the
+  // monsters live in the band between — big enough to read every face, never clipped by a window.
+  const tanH = Math.tan(THREE.MathUtils.degToRad(G.camera.fov / 2)), tanW = tanH * App.aspect();
+  G.dist = Math.max(4.2, (W * 0.5 + 0.9) / tanW / 0.82, (top * 0.5 + 0.35) / tanH / 0.34);
+  G.fitTop = top;
+}
+
+const BAND_NDC = 0.10;      // the middle of the monster band, in screen coords (a touch above the frame's centre)
+function placeCamera(dt) {
+  const p = THREE.MathUtils.degToRad(13);
+  G.push += ((G.pushTo || 0) - G.push) * Math.min(1, dt * 6);
+  const d = G.dist * (1 - 0.08 * G.push);
+  G.shake = Math.max(0, G.shake - dt * 2.6);
+  const s = G.shake * G.shake * 0.06;
+  const sx = s * (Math.random() - 0.5), sy = s * (Math.random() - 0.5);
+  const tanH = Math.tan(THREE.MathUtils.degToRad(G.camera.fov / 2));
+  const centre = (G.fitTop || 0.7) * 0.52 + heightAt(0, 0);
+  const look = centre - BAND_NDC * tanH * d;
+  G.look = look;
+  G.camera.position.set(sx, look + Math.sin(p) * d + sy, Math.cos(p) * d);
+  G.camera.lookAt(0, look, 0);
+}
+
+function tickStage(dt) {
+  for (const [id, v] of G.models) {
+    if (v.dropT < 1) {
+      v.dropT += dt / 0.34;
+      const t = Math.max(0, Math.min(1, v.dropT));
+      const bounce = t < 1 ? (1 - t) * (1 - t) * 3.2 - Math.sin(t * Math.PI) * 0.12 : 0;
+      v.m.root.position.y = v.y + Math.max(-0.05, bounce);
+      if (v.dropT >= 1 && !v.landed) { v.landed = true; v.m.root.position.y = v.y; }
+    }
+    guard('monster update', () => v.m.update(dt));
+  }
+}
+
+/** Screen position (design px of the overlay) of a point above/under a monster. */
+function screenOf(id, where = 'top') {
+  const v = G.models.get(id); if (!v || !G.camera) return null;
+  const local = where === 'top' ? v.m.top() : where === 'center' ? v.m.center() : new THREE.Vector3(0, 0, 0);
+  const p = local.clone().multiplyScalar(v.scale).add(v.m.root.position);
+  p.project(G.camera);
+  const u = Math.min(innerWidth / 1280, innerHeight / 720);
+  // keep it in the frame: the party windows own the top 170 design px, the message window the bottom 230
+  const y = (1 - p.y) / 2 * innerHeight / u;
+  return { x: (p.x + 1) / 2 * innerWidth / u, y: where === 'top' ? Math.max(178, y) : Math.min(470, y), u };
+}
+
+// ================================================================================================= sound
+const SND = { unlocked: false, musicReady: false, theme: null, played: [], log: [], t0: 0, vt: null };
+const nowS = () => (SND.vt == null ? performance.now() / 1000 : SND.vt);
+function sfx(id, opts) {
+  SND.played.push(id); if (SND.played.length > 30) SND.played.shift();
+  SND.log.push({ id, t: Math.max(0, nowS() - SND.t0), variant: SND.log.length + 1 });
+  if (SND.log.length > 240) SND.log.shift();
+  guard('sfx', () => { if (Audio.ready) Sfx.play(id, opts); });
+}
+function music(themeId, opts = {}) {
+  SND.theme = themeId;
+  guard('music', () => { if (!SND.musicReady || !Audio.ready) return; Music.play(themeId, { fade: opts.fade ?? 0.25 }); });
+}
+function sting(id) { SND.played.push('sting:' + id); guard('sting', () => { if (SND.musicReady && Audio.ready) Music.stinger(id); }); }
+function unlockAudio() {
+  if (SND.unlocked) return;
+  SND.unlocked = true;
+  guard('audio init', () => {
+    Audio.init();
+    Audio.unlock().then((ok) => {
+      if (!ok) { SND.unlocked = false; return; }
+      guard('music init', () => { Music.init({ ctx: Audio.ctx, output: Audio.bus('music'), reverbSend: Audio.reverbSend }); SND.musicReady = true; });
+      if (SND.theme) music(SND.theme, { fade: 0.4 });
+    });
+  });
+}
+
+// ================================================================================================= the battle UI
+const HOLD = { telegraph: 1000, victory: 650, levelup: 700, recruit_offer: 400, wipe: 1600, defeat: 420, damage: 300, transform: 1000, phase: 900, spared: 900 };
+const CPS = 38 / 1000;   // SYSTEMS §7: 38 glyphs per second
+const HERB_PRICE = Object.fromEntries(Object.values(DATA.items).filter((i) => i.kind === 'consumable').map((i) => [i.id, i.buy]));
 
 const UI = {
-  areaIdx: AREAS.findIndex((a) => a.id === 'cobwell_manor'), levelIdx: 1, S: 0, rng: makeRng(20040),
+  areaIdx: AREAS.findIndex((a) => a.id === 'long_lane'), levelIdx: 0, S: 0, rng: makeRng(20040),
   battle: null, level: 1, isBoss: false,
-  order: { party: [], wagon: [], enemies: [] }, vm: {}, renderedKey: { party: '', enemies: '' },
-  queue: [], cur: null, typed: 0, hold: 0, lines: [], busy: false, instant: false, fast: false,
-  menu: null, pendingMenu: null, cmdIdx: {}, activeId: null,
-  // carried between fights, like a real walk (balance pass r2): levels/EXP/HP/MP per member, gold, S, befriending
-  carry: {}, gold: 120, friends: [], recruit: { enabled: true, kidMode: true, joined: {}, misses: {}, battlesSinceRecruit: 0 },
-  offer: null, fights: 0,
+  order: { party: [], wagon: [], enemies: [] }, vm: {}, partyKey: '',
+  queue: [], cur: null, typed: 0, hold: 0, lines: [], busy: false, instant: false, fast: false, waiting: null,
+  menu: null, pendingMenu: null, cmdIdx: {}, activeId: null, pickTarget: null, panel: null,
+  // carried between fights, like a real walk: levels/EXP/HP/MP/Tactics per member, gold, bag, S, befriending
+  carry: {}, gold: 120, bag: null, friends: [], recruit: { enabled: true, kidMode: true, joined: {}, misses: {}, battlesSinceRecruit: 0 },
+  offer: null, fights: 0, logOn: false, autopilot: null,
 };
 
-// ------------------------------------------------------------------------------------------------ battle setup
-/** Fresh party at a level (new area picked by hand), or the carried one (another fight, the boss, the next area). */
 function partyFor(area, level, fresh, bossSpec) {
-  if (fresh) { UI.carry = {}; UI.friends = []; }
-  // a boss started by hand gets the party children really bring to that door (areas.js boss.party)
+  if (fresh) { UI.carry = {}; UI.friends = []; UI.bag = null; }
   const base = fresh && bossSpec && bossSpec.party ? bossSpec.party(level) : area.party(level);
   const list = base.map((m) => {
     const k = UI.carry[m.id];
     if (!k || m.kind === 'guest') return m;
-    return { ...m, lvl: k.lvl, exp: k.exp, hp: k.hp, mp: k.mp };
+    return { ...m, lvl: k.lvl, exp: k.exp, hp: k.hp, mp: k.mp, tactic: k.tactic };
   });
-  if (area.act >= 2) {
-    for (const f of UI.friends) {
-      const k = UI.carry[f.id] || {};
-      list.push({ ...f, lvl: k.lvl ?? f.lvl, exp: k.exp ?? f.exp, hp: k.hp, mp: k.mp });
-    }
+  if (area.act >= 2) for (const f of UI.friends) {
+    const k = UI.carry[f.id] || {};
+    list.push({ ...f, lvl: k.lvl ?? f.lvl, exp: k.exp ?? f.exp, hp: k.hp, mp: k.mp, tactic: k.tactic });
   }
   return list;
 }
 
-function startBattle({ areaId, boss = false, level, seed, enemies, fresh, carry } = {}) {
+function startBattle({ areaId, boss = false, level, seed, enemies, fresh, carry, quiet } = {}) {
   const moved = areaId && AREAS.findIndex((a) => a.id === areaId) !== UI.areaIdx;
   if (areaId) UI.areaIdx = Math.max(0, AREAS.findIndex((a) => a.id === areaId));
   if (seed != null) UI.rng = makeRng(seed);
   const area = AREAS[UI.areaIdx];
   const bossSpec = boss ? (boss === 2 && area.boss2 ? area.boss2 : area.boss) : null;
   UI.isBoss = !!bossSpec;
-  // a level given by hand (L key, __DQ.battle(area, {level})) starts a fresh party; otherwise carry on
   const freshParty = fresh || level != null || (moved && !carry) || !UI.carry.hero;
   UI.level = level ?? (!freshParty && UI.carry.hero ? UI.carry.hero.lvl : (bossSpec ? bossSpec.level : area.levels[UI.levelIdx]));
+  const party = partyFor(area, UI.level, freshParty, bossSpec);
+  if (!UI.bag) UI.bag = { ...(area.bag || {}) };           // a fresh walk starts with the area's shopping
   const foes = enemies || (bossSpec ? bossSpec.enemies : rollEncounter(area, UI.rng, DATA.monsters));
-  UI.offer = null;
+  UI.offer = null; UI.waiting = null;
   UI.battle = createBattle({
-    party: partyFor(area, UI.level, freshParty, bossSpec), enemies: foes, data: DATA, rng: UI.rng,
+    party, enemies: foes, data: DATA, rng: UI.rng,
     options: {
-      gold: UI.gold, bag: { ...(area.bag || {}) }, assist: { s: UI.S }, areaLevel: bossSpec ? undefined : area.areaLevel,
+      gold: UI.gold, bag: { ...UI.bag }, assist: { s: UI.S }, areaLevel: bossSpec ? undefined : area.areaLevel,
       wagonReachable: bossSpec ? false : (area.wagonReachable ?? true), ambush: bossSpec ? 'none' : undefined,
-      recruit: area.act >= 2 && !bossSpec ? { ...UI.recruit } : null,
+      recruit: area.act >= 2 && !bossSpec ? { ...UI.recruit } : null, bossWipes: bossSpec ? (UI.bossWipes || 0) : 0,
     },
   });
-  UI.vm = {}; UI.queue = []; UI.cur = null; UI.lines = []; UI.busy = false; UI.menu = null; UI.pendingMenu = null; UI.cmdIdx = {};
-  UI.renderedKey = { party: '', enemies: '' };
+  UI.vm = {}; UI.queue = []; UI.cur = null; UI.lines = []; UI.busy = false; UI.menu = null; UI.pendingMenu = null; UI.cmdIdx = {}; UI.afterMessages = null;
+  closeLevelPanel();
+  UI.partyKey = ''; UI.activeId = null; UI.pickTarget = null; UI.autopilot = null;
+  SND.log = []; SND.t0 = nowS();          // the fight's own soundtrack, for __DQ.renderAudio('fight')
   syncFromSnapshot();
   $('lines').innerHTML = ''; $('log').innerHTML = '';
-  $('field').classList.remove('wiped', 'darken', 'desat');
-  $('backdrop').className = 't-' + (TERRAIN[area.id] || 'meadow');
-  hideMenu(); renderTop(); render();
+  $('white').classList.remove('on');
+  hideMenu(); renderTop(); renderParty();
+  const snap = UI.battle.snapshot();
+  { const want = LIGHT[TERRAIN[area.id]] || 'day'; if (want !== G.preset) applyLight(want); }
+  guard('stage', () => stageEnemies(snap.enemies, { drop: !UI.instant }));
+  if (!UI.instant && !quiet) {
+    const sw = $('swirl'); sw.classList.remove('go'); void sw.offsetWidth; sw.classList.add('go');
+    Debug.busy('p14.swirl', true); setTimeout(() => Debug.busy('p14.swirl', false), 600);
+    sting('battle_start');
+    music(UI.isBoss ? 'boss' : 'battle', { fade: 0.2 });
+  } else music(UI.isBoss ? 'boss' : 'battle', { fade: 0.2 });
   enqueue(UI.battle.opening);
-  return UI.battle.snapshot();
+  return snap;
 }
 
 function syncFromSnapshot() {
@@ -253,8 +411,7 @@ function syncFromSnapshot() {
   for (const p of snap.party.concat(snap.wagon)) UI.vm[p.id] = { ...(UI.vm[p.id] || {}), ...p, tags: new Set(p.status) };
   for (const e of snap.enemies) {
     const old = UI.vm[e.id] || {};
-    UI.vm[e.id] = { ...old, ...e, tele: !!e.telegraphing, asleep: e.status.includes('sleep'),
-      state: e.alive ? '' : (old.state || (e.gone === 'spared' ? 'spared' : e.gone === 'fled' ? 'fled' : 'gone')) };
+    UI.vm[e.id] = { ...old, ...e, tele: !!e.telegraphing, state: e.alive ? '' : (old.state || (e.gone === 'spared' ? 'spared' : e.gone === 'fled' ? 'fled' : 'gone')) };
   }
   UI.order.party = snap.party.map((p) => p.id);
   UI.order.wagon = snap.wagon.map((p) => p.id);
@@ -270,77 +427,83 @@ function enqueue(events) {
 
 function beginNext() {
   const ev = UI.queue.shift();
-  applyEvent(ev);
+  guard('event ' + ev.t, () => applyEvent(ev));
   logEvent(ev);
   const lines = ev.lines || (ev.text ? [ev.text] : []);
   if (!lines.length) return;
-  UI.cur = { ev, lines, idx: 0, phase: 'type' };
+  // the join question gets the window to itself (critic a2r1: it was asked over Bobble's level-up lines)
+  if (ev.t === 'recruit_offer' || ev.t === 'victory' || ev.t === 'wipe') UI.lines = [];
+  // a level-up is a ceremony, not a list of stat lines in the message window (SYSTEMS §10.2): the panel takes them
+  UI.cur = { ev, lines: ev.t === 'levelup' && !UI.instant ? [lines[0]] : lines, idx: 0, phase: 'type' };
   UI.typed = 0;
   pushLine('');
 }
 
 function tick(dt) {
+  if (UI.panel) { tickLevelPanel(dt / 1000); return; }
+  if (UI.waiting) return;
   const speed = UI.fast ? 5 : 1;
-  while (!UI.cur && UI.queue.length) beginNext();
+  while (!UI.cur && UI.queue.length && !UI.waiting) beginNext();
   const c = UI.cur;
-  if (!c) { if (UI.busy) { UI.busy = false; idle(); } return; }
-  if (c.phase === 'gap') {
-    UI.hold -= dt * speed;
-    if (UI.hold <= 0) { c.phase = 'type'; pushLine(''); }
-    return;
-  }
+  if (!c) { if (UI.busy && !UI.waiting) { UI.busy = false; idle(); } return; }
+  if (c.phase === 'gap') { UI.hold -= dt * speed; if (UI.hold <= 0) { c.phase = 'type'; pushLine(''); } return; }
   if (c.phase === 'type') {
     const line = c.lines[c.idx];
+    const before = Math.floor(UI.typed);
     UI.typed += dt * CPS * speed;
     const n = Math.min(line.length, Math.floor(UI.typed));
+    if (n > before && line[n - 1] !== ' ') guard('glyph', () => { if (Audio.ready) Sfx.glyph('narrator'); });
     setLastLine(line.slice(0, n));
     if (n >= line.length) {
       c.idx++; UI.typed = 0;
-      if (c.idx < c.lines.length) { c.phase = 'gap'; UI.hold = c.ev.t === 'levelup' ? 90 : 170; }
+      if (c.idx < c.lines.length) { c.phase = 'gap'; UI.hold = c.ev.t === 'levelup' ? 110 : 170; }
       else { c.phase = 'hold'; UI.hold = HOLD[c.ev.t] || 300; }
     }
     return;
   }
   UI.hold -= dt * speed;
-  if (UI.hold <= 0) UI.cur = null;
+  if (UI.hold <= 0) {
+    UI.cur = null;
+    if (c.ev.t === 'recruit_offer') openRecruit(c.ev);
+    else if (c.ev.t === 'levelup') openLevelPanel(c.ev);
+  }
 }
 
 function flush() {
   for (;;) {
-    while (!UI.cur && UI.queue.length) beginNext();
+    while (!UI.cur && UI.queue.length && !UI.waiting) beginNext();
     if (!UI.cur) break;
     const c = UI.cur;
     setLastLine(c.lines[c.idx]);
     for (let i = c.idx + 1; i < c.lines.length; i++) pushLine(c.lines[i]);
     UI.cur = null;
+    if (c.ev.t === 'recruit_offer') { openRecruit(c.ev); break; }
   }
-  if (UI.busy) { UI.busy = false; idle(); }
+  if (UI.busy && !UI.waiting && !UI.queue.length) { UI.busy = false; idle(); }
 }
 
-function pushLine(text) { UI.lines.push(text); if (UI.lines.length > 5) UI.lines.shift(); renderLines(); }
+function pushLine(text) { UI.lines.push(text); if (UI.lines.length > 6) UI.lines.shift(); renderLines(); }
 function setLastLine(text) { UI.lines[UI.lines.length - 1] = text; renderLines(); }
 function renderLines() {
-  const box = $('lines'), limit = $('msg').clientHeight - 28;
-  const draw = () => { box.innerHTML = UI.lines.map((l, i) => `<div class="ln${i < UI.lines.length - 1 ? ' old' : ''}">${esc(l)}</div>`).join(''); };
+  const box = $('lines');
+  const draw = () => { box.innerHTML = UI.lines.map((l) => `<div class="ln">${esc(l)}</div>`).join(''); };
   draw();
-  // DQ windows fill top-down; when a new line would spill over, the oldest line scrolls away
-  while (UI.lines.length > 1 && box.scrollHeight > limit) { UI.lines.shift(); draw(); }
+  while (UI.lines.length > 1 && box.scrollHeight > box.clientHeight + 2) { UI.lines.shift(); draw(); }
 }
 
-/** The queue just emptied: sync, then give the child control (or finish). */
+/** The queue emptied: sync, then give the child control (or finish). */
 function idle() {
-  const b = UI.battle;
-  if (!b) return;
-  syncFromSnapshot(); UI.activeId = null; render(); renderStats();
+  const b = UI.battle; if (!b) return;
+  syncFromSnapshot(); UI.activeId = null; renderParty(); renderStats();
   if (UI.pendingMenu) { const m = UI.pendingMenu; UI.pendingMenu = null; showMenu(m); return; }
   if (UI.afterMessages) { const f = UI.afterMessages; UI.afterMessages = null; f(); return; }
   if (b.phase === 'command') {
+    if (UI.autopilot) { hideMenu(); b.autoCommands(UI.autopilot); return enqueue(b.resolveRound()); }
     const n = b.needsCommand();
-    if (n) openCommand(n); else enqueue(b.resolveRound());
-  } else if (b.over) { carryResult(); if (UI.offer) openRecruit(); else openEnd(); }
+    if (n) openCommand(n); else openPartyMenu();
+  } else if (b.over) { UI.autopilot = null; carryResult(); openEnd(); }
 }
 
-/** Write the finished battle back into the carried party (once per battle). */
 function carryResult() {
   const r = UI.battle && UI.battle.result;
   if (!r || UI.battle._carried) return;
@@ -349,181 +512,274 @@ function carryResult() {
   const wiped = r.outcome === 'defeat';
   for (const m of r.party.concat(r.wagon)) {
     if (m.kind === 'guest') continue;
-    // a wipe wakes everyone on the church bench, healed (SYSTEMS §6.2); EXP earned is kept
-    UI.carry[m.id] = { lvl: m.lvl, exp: m.exp, hp: wiped ? undefined : m.hp, mp: wiped ? undefined : m.mp };
+    UI.carry[m.id] = { lvl: m.lvl, exp: m.exp, hp: wiped ? undefined : m.hp, mp: wiped ? undefined : m.mp, tactic: m.tactic };
   }
   UI.gold = r.goldAfter;
+  UI.bag = { ...r.bag };                                   // herbs used are gone (no free refill between fights)
   UI.S = r.assist.after;
-  if (r.recruit) {
-    UI.recruit = { ...UI.recruit, ...r.recruit.state };
-    if (r.recruit.offer) UI.offer = r.recruit.offer;
-  }
+  UI.bossWipes = r.bossWipe ? (UI.bossWipes || 0) + 1 : r.bossDefeated ? 0 : (UI.bossWipes || 0);
+  if (r.recruit) UI.recruit = { ...UI.recruit, ...r.recruit.state };
 }
 
-let last = performance.now();
-function frame(now) {
-  const dt = Math.min(100, now - last); last = now;
-  try { if (!UI.instant) tick(dt); } catch (e) { errors.push(String(e && e.stack || e)); }
-  requestAnimationFrame(frame);
+let hudT = 0;
+function frameTick(dt) {
+  guard('tick', () => { if (!UI.instant) tick(dt * 1000); });
+  hudT += dt;
+  guard('overlay', renderOverlay);
 }
 
-// ------------------------------------------------------------------------------------------------ events → visuals
+// ------------------------------------------------------------------------------------------------ events → stage + sound
 function el(id) { return document.querySelector(`[data-id="${CSS.escape(id)}"]`); }
 function pulse(node, cls, ms) { if (!node || UI.instant) return; node.classList.remove(cls); void node.offsetWidth; node.classList.add(cls); setTimeout(() => node.classList.remove(cls), ms); }
-function popNumber(id, text, cls = '') {
-  const node = el(id); if (!node || UI.instant) return;
-  const s = document.createElement('div'); s.className = 'popnum ' + cls; s.textContent = text; node.appendChild(s);
-  setTimeout(() => s.remove(), 900);
+function popAt(x, y, text, cls) {
+  if (UI.instant) return;
+  const s = document.createElement('div'); s.className = 'popnum ' + (cls || ''); s.textContent = text;
+  s.style.left = `calc(${x} * var(--u))`; s.style.top = `calc(${y} * var(--u))`;
+  $('overlay').appendChild(s); setTimeout(() => s.remove(), 950);
 }
+function popOn(id, text, cls) {
+  const v = G.models.get(id);
+  if (v) { const p = screenOf(id, 'top'); if (p) popAt(p.x, p.y - 10, text, cls); return; }
+  const node = el(id); if (!node) return;
+  const r = node.getBoundingClientRect(), u = Math.min(innerWidth / 1280, innerHeight / 720);
+  popAt((r.left + r.width / 2) / u, (r.bottom) / u - 10, text, cls);
+}
+const ELEMENT_SFX = { fire: 'fire', ice: 'ice', wind: 'wind', lightning: 'lightning' };
+const toward = () => new THREE.Vector3(G.camera.position.x, 0.5, G.camera.position.z);
 
 function applyEvent(ev) {
-  const vm = UI.vm;
+  const vm = UI.vm, model = (id) => G.models.get(id);
   switch (ev.t) {
-    case 'damage': {
-      const t = vm[ev.target]; if (!t) break;
-      if (ev.miss) { popNumber(ev.target, 'miss'); break; }
-      t.hp = ev.hp;
-      if (ev.side === 'party') pulse(el(ev.target), 'hit', 220);
-      else { pulse(el(ev.target), 'flash', 70); setTimeout(() => pulse(el(ev.target), 'shake', 190), 70); }
-      popNumber(ev.target, String(ev.amount), ev.crit ? 'crit' : '');
-      if (ev.crit) { pulse($('field'), 'shake', 190); pulse($('field'), 'white', 130); }
-      if (ev.poison) break;
-      if (t.asleep && ev.amount > 0 && ev.hp > 0) t.asleep = false;
+    case 'appear': sfx(ev.boss ? 'monster_cry_big' : 'monster_cry_small'); break;
+    case 'act': {
+      const enemy = ev.actor && ev.actor.startsWith('e');
+      if (enemy) {
+        const v = model(ev.actor);
+        if (v && !UI.instant) guard('anim', () => v.m.play(ev.kind === 'spell' || ev.nothing ? 'cast' : 'attack', { distance: 1.1 }));
+        if (vm[ev.actor] && ev.big) vm[ev.actor].tele = false;
+        UI.activeId = null; G.pushTo = 0;
+      } else {
+        UI.activeId = ev.actor; G.pushTo = ev.kind === 'attack' ? 1 : 0.4;
+        setTimeout(() => { G.pushTo = 0; }, 420);
+      }
+      if (ev.kind === 'spell') { sfx('spell_cast'); if (ELEMENT_SFX[ev.element]) setTimeout(() => sfx(ELEMENT_SFX[ev.element]), 180); }
+      if (ev.kind === 'defend') sfx('buff');
       break;
     }
-    case 'heal': { const t = vm[ev.target]; if (!t) break; if (ev.mp) t.mp = Math.min(t.maxMp, t.mp + ev.amount); else { t.hp = ev.hp; popNumber(ev.target, '+' + ev.amount, 'heal'); } pulse(el(ev.target), 'healed', 500); break; }
-    case 'revive': { const t = vm[ev.target]; if (t) { t.hp = ev.hp; t.alive = true; pulse(el(ev.target), 'healed', 500); } break; }
+    case 'damage': {
+      const t = vm[ev.target]; if (!t) break;
+      if (ev.miss) { popOn(ev.target, ev.reason === 'immune' ? 'no effect' : 'miss', 'miss'); sfx('miss'); break; }
+      t.hp = ev.hp;
+      if (ev.side === 'party') {
+        pulse(el(ev.target), 'hit', 240); popOn(ev.target, String(ev.amount), 'hurt');
+        sfx(ev.poison ? 'poison' : 'player_hurt'); if (!ev.poison) G.shake = Math.max(G.shake, 0.55);
+      } else {
+        const v = model(ev.target);
+        if (v && !UI.instant) guard('hit', () => v.m.onHit(toward()));
+        popOn(ev.target, String(ev.amount), ev.crit ? 'crit' : '');
+        sfx(ev.crit ? 'sword_crit' : ev.element ? 'monster_hurt' : 'sword_hit');
+        if (ev.crit) { G.shake = 1; const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+      }
+      break;
+    }
+    case 'heal': { const t = vm[ev.target]; if (!t) break; if (ev.mp) t.mp = Math.min(t.maxMp, t.mp + ev.amount); else { t.hp = ev.hp; popOn(ev.target, '+' + ev.amount, 'heal'); } if (!ev.quiet) sfx('heal'); pulse(el(ev.target), 'healed', 500); break; }
+    case 'revive': { const t = vm[ev.target]; if (t) { t.hp = ev.hp; t.alive = true; pulse(el(ev.target), 'healed', 500); sfx('heal'); } break; }
     case 'defeat': {
       const t = vm[ev.target]; if (!t) break;
       t.alive = false; t.hp = 0;
-      if (ev.side === 'enemy') { t.state = 'pop'; setTimeout(() => { if (t.state === 'pop') { t.state = 'gone'; render(); } }, UI.instant ? 0 : 340); }
+      if (ev.side === 'enemy') {
+        t.state = 'gone'; const v = model(ev.target);
+        if (v) { v.gone = true; if (!UI.instant) guard('defeat', () => v.m.play('defeat', { vanish: true })); else v.m.root.visible = false; }
+        setTimeout(() => sfx('monster_defeat'), 120);
+      } else sfx('player_hurt', { pitch: 0.7 });
       break;
     }
-    case 'spared': { const t = vm[ev.target]; if (t) { t.alive = false; t.state = 'spared'; t.tele = false; } break; }
-    case 'flee': if (ev.side === 'enemy' && vm[ev.actor]) { vm[ev.actor].alive = false; vm[ev.actor].state = 'fled'; } break;
+    case 'spared': { const t = vm[ev.target]; if (t) { t.alive = false; t.state = 'spared'; t.tele = false; } const v = model(ev.target); if (v) { v.gone = true; guard('spare', () => v.m.play('hurt')); } break; }
+    case 'flee':
+      if (ev.side === 'enemy' && vm[ev.actor]) { vm[ev.actor].alive = false; vm[ev.actor].state = 'fled'; const v = model(ev.actor); if (v) { v.gone = true; v.m.root.visible = false; } sfx('flee'); }
+      if (ev.side === 'party') sfx(ev.ok ? 'flee' : 'run_away_fail');
+      break;
     case 'status': {
       const t = vm[ev.target]; if (!t) break;
-      if (ev.status === 'sleep' && !ev.skip) t.asleep = !!ev.on && !ev.resisted;
       if (t.tags) { if (ev.on && !ev.resisted) t.tags.add(ev.status); else if (!ev.on) ev.status.split(',').forEach((x) => t.tags.delete(x)); }
+      if (ev.on && !ev.resisted && !ev.skip) sfx(/_down$/.test(ev.status) ? 'debuff' : /_up$/.test(ev.status) ? 'buff' : ev.status === 'poison' ? 'poison' : 'debuff');
       break;
     }
-    case 'telegraph': { const t = vm[ev.actor]; if (t) t.tele = true; break; }
-    case 'act': {
-      if (ev.actor && ev.actor.startsWith('e')) { const t = vm[ev.actor]; if (t && ev.big) t.tele = false; pulse(el(ev.actor), 'lunge', 300); UI.activeId = null; }
-      else UI.activeId = ev.actor;
-      break;
-    }
+    case 'telegraph': { const t = vm[ev.actor]; if (t) t.tele = true; const v = model(ev.actor); if (v && !UI.instant) guard('taunt', () => v.m.play('taunt')); sfx('monster_cry_big'); break; }
     case 'swap': {
       const i = UI.order.party.indexOf(ev.out), j = UI.order.wagon.indexOf(ev.in);
       if (i >= 0 && j >= 0) { UI.order.party[i] = ev.in; UI.order.wagon[j] = ev.out; }
+      sfx('wagon_rattle'); break;
+    }
+    case 'summon': case 'transform': syncFromSnapshot(); guard('restage', () => stageEnemies(UI.battle.snapshot().enemies, { drop: !UI.instant })); break;
+    case 'fx': if (!UI.instant) { const was = G.preset; applyLight(ev.id === 'darken' ? 'night' : 'dusk'); setTimeout(() => applyLight(was), 1800); } break;
+    case 'victory': SND.theme = null; guard('stop', () => { if (SND.musicReady && Audio.ready) Music.stop({ fade: 0.05 }); }); sting('victory'); if (ev.gold) setTimeout(() => sfx('gold_coins'), 900); if (ev.drops && ev.drops.length) setTimeout(() => sfx('item_get'), 1400); break;
+    case 'levelup': sting('level_up'); sfx('level_up_sparkle'); pulse(el(ev.who), 'lvup', 1400); popOn(ev.who, 'LEVEL UP!', 'lv'); break;
+    case 'recruit_offer': {
+      guard('join', () => {
+        const m = Monsters.build(modelId(ev.monster.species));
+        const y = heightAt(0, 0.6);
+        m.root.position.set(0, y, 0.6); G.scene.add(m.root);
+        G.models.set('join', { m, species: ev.monster.species, x: 0, y, z: 0.6, dropT: UI.instant ? 1 : 0, scale: 1, h: m.height, gone: false });
+        if (!UI.instant) setTimeout(() => guard('join anim', () => m.play('join')), 350);
+      });
+      sting('join');
       break;
     }
-    case 'summon': for (const a of ev.added) { vm[a.id] = { ...a, state: '' }; UI.order.enemies.push(a.id); } break;
-    case 'transform': { const t = vm[ev.actor]; if (t) Object.assign(t, { name: ev.name, species: ev.into, hp: ev.hp, maxHp: ev.maxHp, tele: false }); break; }
-    case 'fx': if (!UI.instant) { const cls = ev.id === 'darken' ? 'darken' : 'desat'; $('field').classList.add(cls); setTimeout(() => $('field').classList.remove(cls), 1800); } break;
-    case 'wipe': $('field').classList.add('wiped'); break;
+    case 'wipe': $('white').classList.add('on'); music('family', { fade: 1.2 }); break;
     case 'round': UI.activeId = null; break;
   }
-  render();
+  renderParty();
+}
+
+/**
+ * SYSTEMS §10.2, the level-up ceremony: the jingle, the line, then the stat panel sliding in from the right with the
+ * gains revealing one per 220 ms (a gain of 5+ gets a star), and — the best thing that happens outside the story — a
+ * spell card for anything newly learnt. The message window is not where a child should read their level-up.
+ */
+function openLevelPanel(ev) {
+  if (UI.instant) return false;
+  UI.waiting = 'levelup';
+  UI.panel = { ev, t: 0, shown: 0, phase: 'stats', card: 0 };
+  const node = $('lvpanel');
+  node.hidden = false; node.classList.add('dq-shown');
+  node.style.animation = 'none'; void node.offsetWidth; node.style.animation = '';
+  node.innerHTML = `<div class="dq-title">${esc(ev.name)} · Level ${ev.level}</div>`
+    + ev.gainsOrdered.map((g, i) => `<div class="r hide" data-i="${i}"><span class="lab">${esc(g.label)}</span><span class="tot">${g.total}</span><span class="up ${g.gain > 0 ? (g.gain >= 5 ? 'big' : '') : 'none'}">${g.gain > 0 ? '+' + g.gain : '—'}</span></div>`).join('');
+  return true;
+}
+function tickLevelPanel(dt) {
+  const P = UI.panel; if (!P) return;
+  P.t += dt;
+  const node = $('lvpanel');
+  if (P.phase === 'stats') {
+    const want = Math.min(P.ev.gainsOrdered.length, Math.floor(P.t / 0.22));
+    while (P.shown < want) {
+      const row = node.querySelector(`.r[data-i="${P.shown}"]`);
+      if (row) row.classList.remove('hide');
+      const g = P.ev.gainsOrdered[P.shown];
+      if (g && g.gain > 0) sfx(g.gain >= 5 ? 'level_up_sparkle' : 'cursor', { vol: g.gain >= 5 ? 0.9 : 0.7 });
+      P.shown++;
+    }
+    if (P.shown >= P.ev.gainsOrdered.length && P.t > 0.22 * P.shown + 0.7) {
+      if (P.ev.learned && P.ev.learned.length) { P.phase = 'spell'; P.t = 0; showSpellCard(P.ev.learned[0]); }
+      else { closeLevelPanel(); }
+    }
+    return;
+  }
+  if (P.phase === 'spell' && P.t > 1.8) {
+    P.card++;
+    if (P.ev.learned[P.card]) { P.t = 0; showSpellCard(P.ev.learned[P.card]); } else closeLevelPanel();
+  }
+}
+function showSpellCard(sp) {
+  const node = $('lvpanel');
+  node.style.animation = 'none'; void node.offsetWidth; node.style.animation = '';
+  node.innerHTML = `<div class="dq-title">A new spell!</div><div class="card"><div class="nm">${esc(sp.name)}</div>
+    <div class="mp">${sp.mp} MP</div><div class="bl">${esc(sp.blurb || '')}</div></div>`;
+  sfx('level_up_sparkle');
+  sting('item_get');
+}
+function closeLevelPanel() {
+  UI.panel = null; UI.waiting = null;
+  const node = $('lvpanel');
+  node.hidden = true; node.classList.remove('dq-shown');
 }
 
 function logEvent(ev) {
   const log = $('log');
   const d = document.createElement('div');
-  d.className = 'ev ' + ev.t;
+  d.className = 'ev';
   d.innerHTML = `<span class="t">${esc(ev.t)}</span> ${esc(ev.lines ? ev.lines.join(' / ') : (ev.text || (ev.t === 'round' ? 'round ' + ev.n : ev.t === 'end' ? ev.outcome : '')))}`;
   log.appendChild(d);
-  while (log.children.length > 70) log.firstChild.remove();
+  while (log.children.length > 60) log.firstChild.remove();
 }
 
-// ------------------------------------------------------------------------------------------------ rendering (in place)
+// ------------------------------------------------------------------------------------------------ rendering
 function renderTop() {
   const a = AREAS[UI.areaIdx];
   const lv = UI.battle ? (UI.battle.snapshot().party.find((p) => p.id === 'hero') || {}).lvl || UI.level : UI.level;
-  $('areaWin').textContent = `◀ ${a.name} · Lv ${lv}${UI.isBoss ? ' · BOSS' : ` (area ${a.areaLevel})`}${UI.S ? ' · S ' + UI.S : ''} ▶`;
+  $('areaTab').textContent = `${a.name} · Lv ${lv}${UI.isBoss ? ' · boss' : ''}`;
 }
 
-function render() { renderParty(); renderEnemies(); }
-
+const tacticShort = (t) => (TACTICS.find((x) => x.id === t) || {}).name || '';
 function renderParty() {
   const key = UI.order.party.join(',') + '|' + UI.order.wagon.join(',');
   const bar = $('partybar');
-  if (key !== UI.renderedKey.party) {
-    UI.renderedKey.party = key;
-    const box = (id) => `<div class="win pm" data-id="${esc(id)}">
-      <div class="nm"><span class="n"></span><small class="lv"></small></div>
-      <div class="row"><span>H</span><span class="hpv"></span></div><div class="bar"><i></i></div>
-      <div class="row"><span>M</span><span class="mpv"></span></div><div class="tags"></div></div>`;
-    const row = (id) => `<div class="wr" data-id="${esc(id)}"><span><span class="n"></span><small class="lv"></small></span><span>H <span class="hpv"></span><span class="mpv" hidden></span></span></div>`;
+  if (key !== UI.partyKey) {
+    UI.partyKey = key;
+    const box = (id) => `<div class="dq-win dq-shown pm" data-id="${esc(id)}"><div class="nm"><span class="n"></span><small class="lv"></small></div>
+      <div class="row"><span class="lab">H</span><span class="hpv"></span></div><div class="bar"><i></i></div>
+      <div class="row"><span class="lab">M</span><span class="mpv"></span></div><div class="tac"></div></div>`;
+    const row = (id) => `<div class="wr" data-id="${esc(id)}"><span class="n"></span><span class="hpv"></span></div>`;
     const snap = UI.battle.snapshot();
     bar.innerHTML = UI.order.party.map(box).join('')
-      + (UI.order.wagon.length ? `<div class="win wagonbox"><div class="wl">WAGON${snap.wagonReachable ? '' : ' · waiting outside'}</div>${UI.order.wagon.map(row).join('')}</div>` : '');
+      + (UI.order.wagon.length ? `<div class="dq-win dq-shown wagonbox"><div class="wl">WAGON${snap.wagonReachable ? '' : ' · OUTSIDE'}</div>${UI.order.wagon.map(row).join('')}</div>` : '');
   }
   for (const id of UI.order.party.concat(UI.order.wagon)) {
     const m = UI.vm[id], node = el(id);
     if (!m || !node) continue;
     const pct = Math.max(0, Math.min(100, (100 * m.hp) / Math.max(1, m.maxHp)));
     node.querySelector('.n').textContent = m.name;
-    node.querySelector('.lv').textContent = m.guest ? 'guest' : (node.classList.contains('wr') ? '' : 'Lv ') + m.lvl;
+    const lv = node.querySelector('.lv'); if (lv) lv.textContent = m.guest ? 'guest' : 'Lv ' + m.lvl;
     node.querySelector('.hpv').textContent = m.hp;
-    node.querySelector('.mpv').textContent = m.mp;
+    const mp = node.querySelector('.mpv'); if (mp) mp.textContent = m.mp;
     const i = node.querySelector('.bar i'); if (i) i.style.width = pct + '%';
-    const tags = node.querySelector('.tags');
-    if (tags) tags.textContent = [...(m.tags ? [...m.tags] : [])].filter(Boolean).join(' · ');
+    const tac = node.querySelector('.tac');
+    if (tac) {
+      const st = [...(m.tags || [])].filter((s) => !/_up$|_down$/.test(s));
+      tac.classList.toggle('st', st.length > 0);
+      tac.textContent = st.length ? st.join(' · ') : m.guest ? (id === 'halvard' ? 'Papa fights his own way' : '') : m.leader ? 'Follow Orders' : tacticShort(m.tactic);
+    }
     node.classList.toggle('ko', m.hp <= 0);
     node.classList.toggle('low', m.hp > 0 && pct < 25);
     node.classList.toggle('active', UI.activeId === id);
   }
 }
 
-function renderEnemies() {
-  const key = UI.order.enemies.join(',');
-  const wrap = $('enemies');
-  if (key !== UI.renderedKey.enemies) {
-    UI.renderedKey.enemies = key;
-    wrap.innerHTML = UI.order.enemies.map((id) => `<div class="mon" data-id="${esc(id)}"><div class="chev">▼</div><div class="zzz">Zzz</div>
-      <div class="body"><div class="eye l"></div><div class="eye r"></div><div class="mouth"></div></div>
-      <div class="shadow"></div><div class="plate"></div><div class="dots"></div></div>`).join('');
-  }
-  const snap = UI.battle.snapshot();
+function renderOverlay() {
+  const ov = $('overlay');
+  if (!UI.battle || !G.camera) return;
+  let html = '';
+  const pickId = UI.menu && UI.menu.kind === 'target' && UI.menu.pending && UI.menu.side !== 'party' ? UI.menu.opts[UI.menu.idx] && UI.menu.opts[UI.menu.idx].v : null;
   for (const id of UI.order.enemies) {
-    const e = UI.vm[id], node = el(id);
-    if (!e || !node) continue;
-    const se = snap.enemies.find((x) => x.id === id);
-    node.style.setProperty('--s', (e.boss ? 190 : 104) + 'px');
-    node.style.setProperty('--c', COLOUR[e.name === 'Mortmain Enfolded' ? 'mortmain_enfolded' : e.species] || '#8888aa');
-    for (const s of ['ghost', 'box']) node.classList.toggle(s, SHAPE[e.species] === s);
-    node.classList.toggle('boss', !!e.boss);
-    for (const s of ['pop', 'gone', 'spared', 'fled']) node.classList.toggle(s, e.state === s);
-    node.classList.toggle('tele', !!e.tele && e.alive !== false);
-    node.classList.toggle('sleep', !!e.asleep && e.alive !== false);
-    node.querySelector('.plate').textContent = e.name;
-    const dots = se && se.bigCooldown > 0 && se.alive ? se.bigCooldown : 0;
-    node.querySelector('.dots').innerHTML = '<i></i>'.repeat(dots);
+    const e = UI.vm[id], v = G.models.get(id);
+    if (!e || !v || v.gone || e.alive === false) continue;
+    const top = screenOf(id, 'top'), base = screenOf(id, 'base');
+    if (!top || !base) continue;
+    const se = e.bigCooldown > 0 ? '<i></i>'.repeat(e.bigCooldown) : '';
+    const stagger = (UI.order.enemies.indexOf(id) % 2) * 26;
+    html += `<div class="plate" style="left:calc(${base.x} * var(--u));top:calc(${base.y + 6 + stagger} * var(--u))">${esc(e.name)}<div class="dots">${se}</div></div>`;
+    if (e.tele) html += `<div class="chev" style="left:calc(${top.x} * var(--u));top:calc(${Math.max(174, top.y - 44)} * var(--u))">▼</div>`;
+    if (pickId === id) html += `<div class="pick" style="left:calc(${top.x} * var(--u));top:calc(${top.y - 6} * var(--u))"></div>`;
   }
+  const pops = [...ov.querySelectorAll('.popnum')];
+  ov.innerHTML = html;
+  for (const p of pops) ov.appendChild(p);
 }
 
 function renderStats() {
   const b = UI.battle; if (!b) return;
   const s = b.snapshot(), r = s.result;
-  $('stats').innerHTML = `phase <b>${s.phase}</b> · round <b>${s.round}</b> · gold <b>${s.gold}</b> · assist S <b>${s.assist.s}</b> (tier ${s.assist.tier})<br>
+  $('stats').innerHTML = `phase <b>${s.phase}</b> · round <b>${s.round}</b> · gold <b>${s.gold}</b> · S <b>${s.assist.s}</b> (tier ${s.assist.tier})<br>
     bag: ${Object.entries(s.bag).map(([k, v]) => `${esc(DATA.items[k] ? DATA.items[k].name : k)} ×${v}`).join(', ') || '—'}<br>
-    ${r ? `result <b>${r.outcome}</b> · +${r.exp} EXP · +${r.gold} G · S ${r.assist.before}→${r.assist.after}${r.recruit && r.recruit.offer ? ' · <b>' + esc(r.recruit.offer.name) + ' asked to join</b>' : ''}`
-    : `wagon ${s.wagonReachable ? 'can follow' : 'waits outside'}${s.boss ? ' · boss fight' : ''}`}`;
+    ${r ? `result <b>${r.outcome}</b> · +${r.exp} EXP · +${r.gold} G · S ${r.assist.before}→${r.assist.after}` : `wagon ${s.wagonReachable ? 'can follow' : 'waits outside'}${s.boss ? ' · boss' : ''}`}`;
 }
 
 // ------------------------------------------------------------------------------------------------ menus
-function hideMenu() { UI.menu = null; $('cmd').hidden = true; }
+function hideMenu() { UI.menu = null; $('cmd').classList.remove('dq-shown'); $('msg').classList.add('wide'); }
 
 function showMenu(m) {
-  UI.menu = m;
   const node = $('cmd');
-  const wasHidden = node.hidden;
-  node.hidden = false;
-  if (wasHidden) { node.style.animation = 'none'; void node.offsetWidth; node.style.animation = ''; }
-  node.innerHTML = `<div class="who">${esc(m.title)}</div><div class="${m.grid ? 'grid' : 'list'}">${m.opts.map((o, i) =>
+  const was = node.classList.contains('dq-shown');
+  const moved = UI.menu && UI.menu !== m ? false : UI.menu && UI.menu.idx !== m.idx;
+  UI.menu = m;
+  node.classList.add('dq-shown'); $('msg').classList.remove('wide');
+  if (!was) { node.classList.remove('pop'); void node.offsetWidth; node.classList.add('pop'); }
+  node.innerHTML = `<div class="dq-title">${esc(m.title)}</div><div class="${m.grid ? 'grid' : 'list'}">${m.opts.map((o, i) =>
     `<div class="opt${i === m.idx ? ' sel' : ''}${o.dis ? ' dis' : ''}">${esc(o.label)}${o.r != null && o.r !== '' ? `<span class="r">${esc(o.r)}</span>` : ''}</div>`).join('')}</div>
-    <div class="hint">${esc(m.hint || '')}</div>`;
+    <div class="hint">${esc((m.opts[m.idx] && m.opts[m.idx].hint) || m.hint || '')}</div>`;
+  if (moved) sfx('cursor');
 }
 
 function openCommand(actor) {
@@ -531,20 +787,43 @@ function openCommand(actor) {
   const bag = UI.battle.snapshot().bag;
   const opts = [
     { label: 'Attack', v: 'attack' }, { label: 'Spells', v: 'spells', dis: !actor.spells.some((s) => !s.field) },
-    { label: 'Defend', v: 'defend' }, { label: 'Items', v: 'items', dis: !Object.keys(bag).some((k) => DATA.items[k] && DATA.items[k].battle) },
-    { label: 'Wagon', v: 'wagon', dis: !actor.canSwap.ok }, { label: 'Flee', v: 'flee' },
-    { label: 'Fight!', v: 'fight', r: 'auto' },
+    { label: 'Defend', v: 'defend' }, { label: 'Items', v: 'items', dis: !Object.keys(bag).some((k) => DATA.items[k] && DATA.items[k].battle && bag[k] > 0) },
+    { label: 'Tactics', v: 'tactics', hint: 'Tell your friends how to fight. Only you give orders, unless you switch Follow Orders on.' },
+    { label: 'Wagon', v: 'wagon', dis: !actor.canSwap.ok },
+    { label: 'Flee', v: 'flee' }, { label: 'Fight!', v: 'fight', hint: 'Let everyone fight on their own this round.' },
   ];
-  showMenu({ kind: 'command', actor, opts, grid: true, idx: UI.cmdIdx[actor.id] || 0,
-    title: `${actor.name}  ·  H ${actor.hp}/${actor.maxHp}  M ${actor.mp}`, hint: 'Esc goes back to the friend before' });
+  showMenu({ kind: 'command', actor, opts, grid: true, idx: UI.cmdIdx[actor.id] || 0, title: `${actor.name}` });
 }
 
-function refuse(text, back) { hideMenu(); UI.pendingMenu = back; enqueue([{ t: 'message', text }]); }
+/** Nobody on Follow Orders can act (Bram is worn out, or asleep): the fight goes on, and you can still run or change Tactics. */
+function openPartyMenu() {
+  showMenu({ kind: 'party', actor: null, idx: 0, grid: false, title: 'Your friends fight on',
+    opts: [{ label: 'Fight on', v: 'go' }, { label: 'Tactics', v: 'tactics' }, { label: 'Flee', v: 'flee' }] });
+}
+
+function openTactics(prev) {
+  const list = UI.battle.tactics();
+  const opts = list.filter((t) => !t.guest).map((t) => ({ label: t.name, v: t.id, r: t.leader ? 'Orders' : TACTICS.find((x) => x.id === t.tactic).name, dis: !t.canChange,
+    hint: t.leader ? `${t.name} always does what you say.` : `${t.name}: ${TACTICS.find((x) => x.id === t.tactic).blurb}` }));
+  const others = list.filter((t) => t.canChange);
+  if (others.length > 1) opts.push({ label: 'Everybody', v: 'all', r: '', hint: 'The same Tactics for all your friends.' });
+  showMenu({ kind: 'tacticWho', actor: prev && prev.actor, prev, idx: Math.min(1, opts.length - 1), title: 'Tactics', opts });
+}
+
+function openTacticChoice(who, prev) {
+  const cur = who === 'all' ? null : (UI.battle.tactics().find((t) => t.id === who) || {}).tactic;
+  const name = who === 'all' ? 'Everybody' : UI.battle.tactics().find((t) => t.id === who).name;
+  const opts = TACTICS.map((t) => ({ label: t.name, v: t.id, r: t.id === cur ? '●' : '', hint: `${name} ${t.blurb}` }));
+  showMenu({ kind: 'tactic', actor: prev.actor, who, prev, idx: Math.max(0, TACTICS.findIndex((t) => t.id === cur)), title: name, opts });
+}
+
+function refuse(text, back) { sfx('buzzer'); hideMenu(); UI.pendingMenu = back; enqueue([{ t: 'message', text }]); }
 
 function doCommand(actorId, cmd, back) {
   const b = UI.battle;
   const r = b.command(actorId, cmd);
   if (!r.ok) { refuse(r.text, back); return r; }
+  sfx('confirm');
   hideMenu();
   const n = b.needsCommand();
   if (n) openCommand(n); else enqueue(b.resolveRound());
@@ -557,31 +836,55 @@ function choose() {
   const b = UI.battle, snap = b.snapshot();
   const foes = snap.enemies.filter((e) => e.alive);
   const actorId = m.actor && m.actor.id;
-  const targetMenu = (pending, pool, title, showHp) => showMenu({ kind: 'target', actor: m.actor, pending, prev: m, idx: 0, title,
-    opts: pool.map((p) => ({ label: p.name, v: p.id, r: showHp ? `H ${p.hp}/${p.maxHp}` : '' })) });
+  const targetMenu = (pending, pool, title, side) => { sfx('confirm'); showMenu({ kind: 'target', actor: m.actor, pending, prev: m, idx: 0, title, side,
+    opts: pool.map((p) => ({ label: p.name, v: p.id, r: side === 'party' ? `H ${p.hp}` : '' })) }); };
   switch (m.kind) {
     case 'command':
       UI.cmdIdx[actorId] = m.idx;
       if (o.v === 'attack') return foes.length === 1 ? doCommand(actorId, { type: 'attack', target: foes[0].id }, m) : targetMenu({ type: 'attack' }, foes, 'Attack which one?');
       if (o.v === 'defend') return doCommand(actorId, { type: 'defend' }, m);
       if (o.v === 'flee') return doCommand(actorId, { type: 'flee' }, m);
-      if (o.v === 'fight') { hideMenu(); b.autoCommands('auto'); return enqueue(b.resolveRound()); }
+      if (o.v === 'fight') { sfx('confirm'); hideMenu(); b.autoCommands('auto'); return enqueue(b.resolveRound()); }
+      if (o.v === 'tactics') { sfx('confirm'); return openTactics(m); }
       if (o.v === 'spells') {
         if (o.dis) return refuse(`${m.actor.name} doesn't know any spells yet.`, m);
-        return showMenu({ kind: 'spell', actor: m.actor, prev: m, idx: 0, title: `${m.actor.name}'s spells · MP ${m.actor.mp}`,
-          opts: m.actor.spells.map((s) => ({ label: s.name, v: s.id, r: s.mp, dis: !s.usable, s })), hint: 'Grey: not enough MP, or it only works on the road' });
+        sfx('confirm');
+        return showMenu({ kind: 'spell', actor: m.actor, prev: m, idx: 0, title: `Spells · MP ${m.actor.mp}`,
+          opts: m.actor.spells.map((s) => ({ label: s.name, v: s.id, r: s.mp, dis: !s.usable, s, hint: (DATA.spells[s.id] || {}).blurb || '' })) });
       }
       if (o.v === 'items') {
         if (o.dis) return refuse('The bag has nothing useful for a fight.', m);
+        sfx('confirm');
         return showMenu({ kind: 'item', actor: m.actor, prev: m, idx: 0, title: 'The bag',
-          opts: Object.entries(snap.bag).filter(([k]) => DATA.items[k]).map(([k, n]) => ({ label: DATA.items[k].name, v: k, r: '×' + n, dis: !DATA.items[k].battle })) });
+          opts: Object.entries(snap.bag).filter(([k, n]) => DATA.items[k] && n > 0).map(([k, n]) => ({ label: DATA.items[k].name, v: k, r: '×' + n, dis: !DATA.items[k].battle })) });
       }
       if (o.v === 'wagon') {
         if (!m.actor.canSwap.ok) return refuse(m.actor.canSwap.text, m);
-        return showMenu({ kind: 'swap', actor: m.actor, prev: m, idx: 0, title: `Who climbs down for ${m.actor.name}?`,
-          opts: snap.wagon.filter((p) => p.alive).map((p) => ({ label: p.name, v: p.id, r: `Lv ${p.lvl}` })) });
+        sfx('confirm');
+        return showMenu({ kind: 'swapOut', actor: m.actor, prev: m, idx: 0, title: 'Who climbs up?',
+          opts: snap.party.filter((p) => !p.leader).map((p) => ({ label: p.name, v: p.id, r: `H ${p.hp}` })) });
       }
       return;
+    case 'party':
+      if (o.v === 'go') { sfx('confirm'); hideMenu(); return enqueue(b.resolveRound()); }
+      if (o.v === 'tactics') { sfx('confirm'); return openTactics(m); }
+      if (o.v === 'flee') { const r = b.command(null, { type: 'flee' }); if (!r.ok) return refuse(r.text, m); sfx('confirm'); hideMenu(); return enqueue(b.resolveRound()); }
+      return;
+    case 'tacticWho':
+      if (o.dis) return refuse(o.hint, m);
+      sfx('confirm'); return openTacticChoice(o.v, m);
+    case 'tactic': {
+      const r = b.setTactic(m.who, o.v);
+      if (!r.ok) return refuse(r.text, m.prev);
+      sfx('confirm');
+      syncFromSnapshot(); renderParty();
+      // back to whoever needs a command now (switching Follow Orders on can add one; switching it off can remove one)
+      hideMenu();
+      const n = b.needsCommand();
+      UI.pendingMenu = null;
+      UI.afterMessages = () => { const nn = b.needsCommand(); if (nn) openCommand(nn); else openPartyMenu(); };
+      return enqueue([{ t: 'message', text: r.text }]);
+    }
     case 'spell': {
       const s = o.s;
       if (!s.usable) return refuse(s.field ? `${s.name} only works out on the road.` : `${m.actor.name} hasn't the puff for it.`, m);
@@ -590,7 +893,7 @@ function choose() {
       if (['ally', 'fallen', 'self'].includes(sp.target)) {
         const pool = snap.party.filter((p) => (sp.target === 'fallen' ? !p.alive : p.alive));
         if (!pool.length) return refuse(sp.target === 'fallen' ? 'Nobody needs rousing.' : 'There is nobody to help.', m);
-        return targetMenu({ type: 'spell', id: s.id }, pool, `${s.name} on whom?`, true);
+        return targetMenu({ type: 'spell', id: s.id }, pool, `${s.name} on whom?`, 'party');
       }
       return doCommand(actorId, { type: 'spell', id: s.id }, m);
     }
@@ -600,18 +903,23 @@ function choose() {
       if (it.battle.target === 'enemies') return doCommand(actorId, { type: 'item', id: it.id }, m);
       const pool = snap.party.filter((p) => (it.battle.effect === 'revive' ? !p.alive : p.alive));
       if (!pool.length) return refuse('Nobody needs it right now.', m);
-      return targetMenu({ type: 'item', id: it.id }, pool, `The ${it.name} for whom?`, true);
+      return targetMenu({ type: 'item', id: it.id }, pool, `The ${it.name} for whom?`, 'party');
     }
     case 'recruit': return answerRecruit(o.v === 'yes');
-    case 'swap': return doCommand(actorId, { type: 'swap', target: o.v }, m.prev);
+    case 'swapOut': {
+      sfx('confirm');
+      return showMenu({ kind: 'swap', actor: m.actor, out: o.v, prev: m, idx: 0, title: 'Who climbs down?',
+        opts: snap.wagon.filter((p) => p.alive).map((p) => ({ label: p.name, v: p.id, r: `Lv ${p.lvl}` })) });
+    }
+    case 'swap': return doCommand(actorId, { type: 'swap', target: o.v, out: m.out }, m.prev.prev);
     case 'target': return doCommand(actorId, { ...m.pending, target: o.v }, m.prev);
     case 'end':
-      hideMenu();
+      sfx('confirm'); hideMenu();
       if (o.v === 'again') return startBattle({});
       if (o.v === 'inn') return restAtInn();
       if (o.v === 'boss') return startBattle({ boss: true });
       if (o.v === 'boss2') return startBattle({ boss: 2 });
-      if (o.v === 'next') { UI.areaIdx = nextStoryArea(UI.areaIdx); restAtInn(true); return startBattle({ carry: true }); }
+      if (o.v === 'next') { UI.areaIdx = nextStoryArea(UI.areaIdx); restAtInn(true); UI.bag = null; return startBattle({ carry: true }); }
   }
 }
 
@@ -619,171 +927,306 @@ const nextStoryArea = (i) => { let j = (i + 1) % AREAS.length; while (AREAS[j].s
 
 function openEnd() {
   const a = AREAS[UI.areaIdx], r = UI.battle.result;
-  const opts = [{ label: 'Another fight', v: 'again' }, { label: 'Rest at the inn', v: 'inn' }];
-  if (a.boss) opts.push({ label: 'Fight the boss', v: 'boss' });
+  const opts = [{ label: 'Walk on', v: 'again' }, { label: 'Rest at the inn', v: 'inn' }];
+  if (a.boss) opts.push({ label: 'The boss', v: 'boss' });
   if (a.boss2) opts.push({ label: 'The last boss', v: 'boss2' });
-  opts.push({ label: 'Next area', v: 'next' });
-  showMenu({ kind: 'end', actor: null, opts, idx: 0, hint: `${UI.fights} fights so far · ${UI.gold} G in the purse`,
-    title: r ? ({ victory: 'Victory!', defeat: 'Back at the church', fled: 'Got away!', scripted: 'That was never a fight you could win' }[r.outcome]) : 'Done' });
+  opts.push({ label: 'Next place', v: 'next' });
+  showMenu({ kind: 'end', actor: null, opts, idx: 0, hint: `${UI.fights} fights · ${UI.gold} G · ${Object.entries(UI.bag || {}).map(([k, n]) => `${DATA.items[k].name} ×${n}`).join(', ') || 'no herbs'}`,
+    title: r ? ({ victory: 'Victory!', defeat: 'Back at the church', fled: 'Got away!', scripted: 'Not this time' }[r.outcome]) : 'Done' });
+  if (r && r.outcome !== 'defeat') music('overworld', { fade: 1.5 });
 }
 
-/** MONSTER-BIBLE §7: "Shall it come along?" ▸ Yes / No, cursor on Yes. */
-function openRecruit() {
-  const o = UI.offer;
-  const m = DATA.monsters[o.species] || {};
-  showMenu({ kind: 'recruit', actor: null, idx: 0, title: `Shall the ${o.name} come along?`,
+/** MONSTER-BIBLE §7: the monster gets up, looks at you, and asks. The question is the last thing on screen. */
+function openRecruit(ev) {
+  carryResult();
+  UI.offer = ev.monster;
+  UI.waiting = 'recruit';
+  const m = DATA.monsters[ev.monster.species] || {};
+  showMenu({ kind: 'recruit', actor: null, idx: 0, grid: false, title: 'Shall it come along?',
     opts: [{ label: 'Yes', v: 'yes' }, { label: 'No', v: 'no' }], hint: m.nameSuggest ? `It would like to be called ${m.nameSuggest}.` : '' });
 }
 
 function answerRecruit(yes) {
-  const o = UI.offer;
-  if (!o) return;
-  UI.offer = null;
+  const o = UI.offer; if (!o) return;
+  UI.offer = null; UI.waiting = null;
   hideMenu();
   const mon = DATA.monsters[o.species];
+  const out = [];
   if (yes) {
+    sfx('confirm');
     const n = (UI.recruit.joined[o.species] || 0) + 1;
     UI.recruit = { ...UI.recruit, joined: { ...UI.recruit.joined, [o.species]: n } };
     const base = mon.nameSuggest || mon.name;
     const name = n > 1 ? `${base} ${['', '', 'II', 'III', 'IV', 'V'][n] || n}` : base;
     const hero = UI.carry.hero ? UI.carry.hero.lvl : UI.level;
-    const friend = newCompanion(mon, { id: `${o.species}_${n}`, name, lvl: Math.max(1, hero - 2) });
-    UI.friends.push(friend);
-    UI.pendingMenu = null;
-    enqueue([{ t: 'message', text: `${name} joined the party!` }, { t: 'message', text: `${name} hops up into the wagon, very pleased with itself.` }]);
+    UI.friends.push(newCompanion(mon, { id: `${o.species}_${n}`, name, lvl: Math.max(1, hero - 2) }));
+    out.push({ t: 'message', text: `${name} joined the party!` }, { t: 'message', text: `${name} hops up into the wagon, very pleased with itself. It will Fight Wisely.` });
+    sfx('item_get');
   } else {
+    sfx('cancel');
     UI.recruit = { ...UI.recruit, misses: { ...UI.recruit.misses, [o.species]: (UI.recruit.misses[o.species] || 0) + 1 } };
-    enqueue([{ t: 'message', text: `The ${o.name} waves you off cheerfully and wanders home.` }]);
+    out.push({ t: 'message', text: `The ${o.name} waves you off cheerfully and wanders home.` });
+    const v = G.models.get('join'); if (v) guard('leave', () => v.m.play('defeat', { vanish: true }));
   }
-  UI.afterMessages = openEnd;
+  UI.queue.unshift(...out);           // …then the level-ups that were waiting behind the question
+  UI.busy = true;
+  if (UI.instant) flush();
 }
 
-/** The inn (or the church bench): everyone back to full, levels kept. */
 function restAtInn(quiet) {
+  const a = AREAS[UI.areaIdx];
+  const lvl = UI.carry.hero ? UI.carry.hero.lvl : UI.level;
+  const inn = Math.round((12 * lvl) / 5) * 5;
+  UI.gold = Math.max(0, UI.gold - Math.min(UI.gold, inn));
   for (const k of Object.values(UI.carry)) { k.hp = undefined; k.mp = undefined; }
+  // the shop next door: top the bag back up to what the area expects, while the purse allows
+  const bag = UI.bag || {};
+  let spent = 0;
+  for (const [h, n] of Object.entries(a.bag || {})) while ((bag[h] || 0) < n && UI.gold >= (HERB_PRICE[h] || 999)) { UI.gold -= HERB_PRICE[h]; spent += HERB_PRICE[h]; bag[h] = (bag[h] || 0) + 1; }
+  UI.bag = bag;
   if (quiet) return;
-  startBattle({});
-  UI.queue.unshift({ t: 'message', text: 'A night at the inn. Everybody is in the pink again. Off you go.' });
+  sfx('inn_sleep');
+  startBattle({ quiet: true });
+  UI.queue.unshift({ t: 'message', text: `A night at the inn (${inn} G)${spent ? ` and ${spent} G of herbs` : ''}. Everybody is in the pink again.` });
 }
 
 function cancel() {
   const m = UI.menu; if (!m) return;
-  if (m.prev) return showMenu(m.prev);
-  if (m.kind === 'command') { const u = UI.battle.undoCommand(); if (u.ok && u.actor) openCommand(u.actor); }
+  if (m.kind === 'recruit') return answerRecruit(false);
+  if (m.prev) { sfx('cancel'); return showMenu(m.prev); }
+  if (m.kind === 'command') { const u = UI.battle.undoCommand(); if (u.ok && u.actor) { sfx('cancel'); openCommand(u.actor); } }
 }
 
 function move(dx, dy) {
   const m = UI.menu; if (!m) return;
   const n = m.opts.length;
+  const before = m.idx;
   m.idx = m.grid ? Math.max(0, Math.min(n - 1, m.idx + dx + dy * 2)) : (m.idx + dy + dx + n) % n;
+  if (m.idx !== before) sfx('cursor');
   showMenu(m);
 }
 
 function press(btn) {
-  if (UI.busy) { if (btn === 'confirm') UI.fast = true; return; }
+  unlockAudio();
+  if (UI.panel) { if (btn === 'confirm' && UI.panel.t > 0.9) { if (UI.panel.phase === 'stats' && UI.panel.ev.learned.length) { UI.panel.phase = 'spell'; UI.panel.t = 0; showSpellCard(UI.panel.ev.learned[0]); } else closeLevelPanel(); } return true; }
+  if (UI.busy && !UI.waiting) { if (btn === 'confirm') UI.fast = true; return false; }
   switch (btn) {
-    case 'up': return move(0, -1); case 'down': return move(0, 1);
-    case 'left': return move(-1, 0); case 'right': return move(1, 0);
-    case 'confirm': return choose(); case 'cancel': return cancel();
+    case 'up': move(0, -1); return true; case 'down': move(0, 1); return true;
+    case 'left': move(-1, 0); return true; case 'right': move(1, 0); return true;
+    case 'confirm': choose(); return true; case 'cancel': cancel(); return true;
   }
+  return false;
 }
 
 const KEYS = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
   Enter: 'confirm', Space: 'confirm', KeyZ: 'confirm', Escape: 'cancel', KeyX: 'cancel', Backspace: 'cancel' };
-window.addEventListener('keydown', (e) => {
-  try {
+addEventListener('keydown', (e) => {
+  guard('keys', () => {
+    unlockAudio();
     if (KEYS[e.code]) { e.preventDefault(); press(KEYS[e.code]); return; }
     switch (e.code) {
-      case 'KeyF': if (!UI.busy && UI.menu && UI.menu.kind === 'command') { UI.menu.idx = 6; choose(); } break;
+      case 'KeyF': if (!UI.busy && UI.menu && UI.menu.kind === 'command') { UI.menu.idx = 7; choose(); } break;
+      case 'KeyT': if (!UI.busy && UI.menu && ['command', 'party'].includes(UI.menu.kind)) openTactics(UI.menu); break;
       case 'KeyN': startBattle({}); break;
       case 'KeyB': if (AREAS[UI.areaIdx].boss) startBattle({ boss: true }); break;
-      case 'KeyU': case 'KeyO': { const a = AREAS[UI.areaIdx]; if (a.boss) startBattle({ boss: true, level: Math.max(1, Math.min(30, a.boss.level + (e.code === 'KeyU' ? -4 : 4))) }); break; }
       case 'BracketRight': UI.areaIdx = (UI.areaIdx + 1) % AREAS.length; startBattle({ fresh: true }); break;
       case 'BracketLeft': UI.areaIdx = (UI.areaIdx - 1 + AREAS.length) % AREAS.length; startBattle({ fresh: true }); break;
       case 'KeyL': UI.levelIdx = (UI.levelIdx + 1) % 3; startBattle({ fresh: true }); break;
       case 'KeyI': if (!UI.busy && UI.battle && UI.battle.over) restAtInn(); break;
-      case 'KeyS': UI.S = [0, 30, 60, 75][([0, 30, 60, 75].indexOf(UI.S) + 1) % 4]; startBattle({}); break;
-      case 'KeyT': UI.instant = !UI.instant; if (UI.instant) flush(); break;
+      case 'KeyE': UI.logOn = !UI.logOn; $('side').hidden = !UI.logOn; $('side').classList.toggle('dq-shown', UI.logOn); break;
     }
-  } catch (err) { errors.push(String(err && err.stack || err)); }
+  });
 });
-window.addEventListener('keyup', (e) => { if (KEYS[e.code] === 'confirm') UI.fast = false; });
+addEventListener('keyup', (e) => { if (KEYS[e.code] === 'confirm') UI.fast = false; });
 
-// ------------------------------------------------------------------------------------------------ window.__DQ
-window.__DQ = {
-  ready: false, version: 'P14-demo-4', errors,
-  state() {
-    const b = UI.battle, snap = b ? b.snapshot() : null;
-    return {
-      scene: 'battle', area: AREAS[UI.areaIdx].id, level: UI.level, boss: UI.isBoss,
-      battle: snap ? { turn: snap.round, phase: snap.phase, enemies: snap.enemies.map((e) => ({ id: e.id, name: e.name, hp: e.hp, maxHp: e.maxHp, alive: e.alive, telegraphing: !!e.telegraphing, bigCooldown: e.bigCooldown })) } : null,
-      party: snap ? snap.party.map((p) => ({ name: p.name, hp: p.hp, mhp: p.maxHp, mp: p.mp, lvl: p.lvl })) : [],
-      assist: snap ? snap.assist : null,
-      carried: { fights: UI.fights, gold: UI.gold, friends: UI.friends.map((f) => ({ id: f.id, name: f.name, species: f.species })),
-        levels: Object.fromEntries(Object.entries(UI.carry).map(([k, v]) => [k, v.lvl])), recruitOffer: UI.offer },
-      areaLevel: AREAS[UI.areaIdx].areaLevel,
-      ui: { menu: UI.menu ? { kind: UI.menu.kind, options: UI.menu.opts.map((o) => o.label), idx: UI.menu.idx } : null, typing: UI.busy, lines: UI.lines.slice() },
-      snapshot: snap, errors: errors.length + (b ? b.errors.length : 0),
-    };
+// ================================================================================================= boot
+Scenes.register('battle-stage', {
+  opaque: true,
+  enter() {
+    guard('build', buildStage);
+    App.onResize(() => { if (G.camera) { G.camera.aspect = App.aspect(); G.camera.updateProjectionMatrix(); } });
+    guard('first battle', () => startBattle({ areaId: 'long_lane', level: 1, seed: 11 }));
   },
-  listAreas: () => AREAS.map((a) => ({ id: a.id, name: a.name, levels: a.levels, boss: a.boss ? a.boss.enemies : null })),
-  /** battle('cobwell_manor', {boss:true, level:6, seed:1, enemies:['gloop']}) */
-  battle(area, opts = {}) { startBattle({ areaId: area, ...opts }); return this.state(); },
-  /** command({type:'attack', target:'e1'}) for whoever needs one; command('hero', {...}); command('resolve'). */
-  command(a, b) {
-    const bt = UI.battle; if (!bt) return { ok: false, text: 'no battle' };
-    if (a === 'resolve') { hideMenu(); enqueue(bt.resolveRound()); return { ok: true }; }
-    const n = bt.needsCommand();
-    const id = typeof a === 'string' ? a : n && n.id;
-    const cmd = typeof a === 'string' ? b : a;
-    if (!id) return { ok: false, text: 'nobody needs a command' };
-    return doCommand(id, cmd, UI.menu);
+  update(dt) { frameTick(dt); guard('stage tick', () => tickStage(dt)); },
+  render() {
+    if (!G.scene) return;
+    const t = App.clock.time;
+    Toon.tick(t);
+    placeCamera(1 / 60);
+    G.rig.follow(new THREE.Vector3(0, 0, 0));
+    G.sky.sky.position.copy(G.camera.position);
+    G.sky.clouds.rotation.y = t * 0.0035;
+    G.kit.update(t, 1 / 60, G.camera);
+    App.render(G.scene, G.camera);
   },
-  /** Resolve up to n rounds with an AI policy ('smart' | 'auto' | 'mash'), instantly. */
-  autoplay(n = 99, policy = 'smart') {
-    const bt = UI.battle; if (!bt) return null;
-    const was = UI.instant; UI.instant = true; hideMenu(); flush();
-    let k = 0;
-    while (!bt.over && k++ < n) enqueue(bt.autoRound(policy));
-    flush(); UI.instant = was;
-    return { phase: bt.phase, round: bt.round, outcome: bt.result ? bt.result.outcome : null };
-  },
-  press(btn) { press(btn); return this.state().ui; },
-  /** Answer "Shall it come along?" (only while the offer is showing). */
-  answer(yes = true) { if (!UI.offer) return false; UI.busy = false; answerRecruit(!!yes); return true; },
-  rest() { restAtInn(); return this.state(); },
-  /** The last n event texts of the current battle (the message window only keeps a few lines). */
-  log(n = 30) { return UI.battle ? UI.battle.log.slice(-n).map((e) => `${e.t}${e.move ? ':' + e.move : ''} ${e.text || ''}`.trim()) : []; },
-  instant(v = true) { UI.instant = !!v; if (UI.instant) flush(); return UI.instant; },
-  assist(s) { UI.S = Number(s) || 0; return UI.S; },
-  level(i) { UI.levelIdx = Math.max(0, Math.min(2, i)); return UI.levelIdx; },
-  seed(n) { UI.rng = makeRng(n); return n; },
-  idle: () => !UI.busy,
-  /**
-   * Does the level you arrive at matter? Plays n boss fights instantly (no presentation) at the boss's level + each
-   * delta, pressing Fight! (or 'mash' / 'smart'), first try, S = 0. walked: the area walked at that level first,
-   * resting on the road (HP rested, MP spent); fresh: straight to the door. -> [{delta, level, win, rounds, hpLeft}]
-   */
-  levels(areaId, { n = 40, deltas = [-4, -2, 0, 4], policy = 'auto', fresh = false, boss = 1, seed = 7 } = {}) {
-    const area = AREAS.find((a) => a.id === (areaId || AREAS[UI.areaIdx].id));
-    const spec = area && (boss === 2 ? area.boss2 : area.boss);
-    if (!spec) return null;
+});
+App.start({ version: 'P14-demo-5-tactics' });
+Scenes.push('battle-stage');
+
+// ================================================================================================= __DQ (via Debug)
+const stateUi = () => ({ menu: UI.menu ? { kind: UI.menu.kind, options: UI.menu.opts.map((o) => o.label), idx: UI.menu.idx, title: UI.menu.title } : null,
+  typing: UI.busy, waiting: UI.waiting, lines: UI.lines.slice(), log: UI.logOn,
+  panel: UI.panel ? { who: UI.panel.ev.name, level: UI.panel.ev.level, phase: UI.panel.phase, shown: UI.panel.shown, learned: UI.panel.ev.learned.map((l) => l.name) } : null });
+Debug.provide('battle', () => { const s = UI.battle && UI.battle.snapshot(); return s ? { turn: s.round, phase: s.phase, leader: s.leader,
+  enemies: s.enemies.map((e) => ({ id: e.id, name: e.name, hp: e.hp, maxHp: e.maxHp, alive: e.alive, telegraphing: !!e.telegraphing, bigCooldown: e.bigCooldown })) } : null; });
+Debug.provide('party', () => { const s = UI.battle && UI.battle.snapshot(); return s ? s.party.map((p) => ({ id: p.id, name: p.name, hp: p.hp, mhp: p.maxHp, mp: p.mp, lvl: p.lvl, tactic: p.tactic, leader: p.leader })) : []; });
+Debug.provide('area', () => AREAS[UI.areaIdx].id);
+Debug.provide('level', () => UI.level);
+Debug.provide('boss', () => UI.isBoss);
+Debug.provide('areaLevel', () => AREAS[UI.areaIdx].areaLevel);
+Debug.provide('assist', () => (UI.battle ? UI.battle.snapshot().assist : null));
+Debug.provide('carried', () => ({ fights: UI.fights, gold: UI.gold, bag: UI.bag, friends: UI.friends.map((f) => ({ id: f.id, name: f.name, species: f.species })),
+  levels: Object.fromEntries(Object.entries(UI.carry).map(([k, v]) => [k, v.lvl])), exp: Object.fromEntries(Object.entries(UI.carry).map(([k, v]) => [k, v.exp])),
+  tactics: Object.fromEntries(Object.entries(UI.carry).map(([k, v]) => [k, v.tactic])), recruitOffer: UI.offer, bossWipes: UI.bossWipes || 0 }));
+Debug.provide('ui', stateUi);
+Debug.provide('snapshot', () => (UI.battle ? UI.battle.snapshot() : null));
+Debug.provide('battleErrors', () => (UI.battle ? UI.battle.errors.length : 0));
+Debug.provide('stage', () => ({ built: G.built, buildMs: G.buildMs, preset: G.preset, dist: Math.round(10 * G.dist) / 10,
+  models: [...G.models.entries()].map(([id, v]) => ({ id, species: v.species, model: modelId(v.species), standIn: isStandIn(v.species), gone: v.gone })) }));
+Debug.provide('sound', () => ({ unlocked: SND.unlocked, ready: guard('ready', () => Audio.ready), music: SND.musicReady ? guard('music state', () => Music.state().theme) : null, theme: SND.theme, played: SND.played.slice(-12) }));
+
+/**
+ * __DQ.battle(...) — the ARCHITECTURE accessor forwards ONE argument (NEEDS F1: forward them all), so it takes
+ *   ['gloop', 'gloop']                                   monsters here, in the area we are in
+ *   'cobwell_manor'                                      that area, a fresh party at its level
+ *   {area: 'cobwell_manor', boss: true, level: 7, seed}   everything
+ * __DQ.fight(area, opts) is the same thing in two arguments.
+ */
+function startFrom(a, opts = {}) {
+  if (Array.isArray(a)) startBattle({ ...opts, enemies: a.map((id) => (typeof id === 'string' ? { id, partyLevel: AREAS[UI.areaIdx].areaLevel, areaLevel: AREAS[UI.areaIdx].areaLevel } : id)) });
+  else if (a && typeof a === 'object') { const { area, ...rest } = a; startBattle({ areaId: area, ...rest, ...opts }); }
+  else startBattle({ areaId: a, ...opts });
+  const snap = UI.battle.snapshot();
+  return { area: AREAS[UI.areaIdx].id, boss: UI.isBoss, phase: snap.phase, party: snap.party.map((p) => ({ name: p.name, lvl: p.lvl, tactic: p.tactic })),
+    enemies: snap.enemies.map((e) => ({ id: e.id, name: e.name, hp: e.hp })), battle: { turn: snap.round, phase: snap.phase } };
+}
+Debug.implement('battle', (a) => startFrom(a));
+Debug.expose('fight', (area, opts) => startFrom(area, opts));
+Debug.implement('press', (btn) => { press(btn); return stateUi(); });
+Debug.expose('listAreas', () => AREAS.map((a) => ({ id: a.id, name: a.name, levels: a.levels, boss: a.boss ? a.boss.enemies : null })));
+/** command({type:'attack', target:'e1'}) for whoever needs one; command('hero', {...}); command('resolve'). */
+Debug.expose('command', (a, b) => {
+  const bt = UI.battle; if (!bt) return { ok: false, text: 'no battle' };
+  if (a === 'resolve') { hideMenu(); enqueue(bt.resolveRound()); return { ok: true }; }
+  const n = bt.needsCommand();
+  const id = typeof a === 'string' ? a : n && n.id;
+  const cmd = typeof a === 'string' ? b : a;
+  if (!id && !(cmd && cmd.type === 'flee')) return { ok: false, text: 'nobody needs a command' };
+  return doCommand(id || null, cmd, UI.menu);
+});
+/** Tactics: tactic('linnet', 'orders') · tactic('all', 'watch_back') · tactic() lists them. */
+Debug.expose('tactic', (who, t) => { const bt = UI.battle; if (!bt) return null; if (who == null) return bt.tactics(); const r = bt.setTactic(who, t); syncFromSnapshot(); renderParty(); if (UI.menu && UI.menu.kind === 'command' && !UI.busy) { const n = bt.needsCommand(); if (n) openCommand(n); else openPartyMenu(); } return r; });
+/** Resolve up to n rounds instantly. policy: what Bram (and anyone on Follow Orders) does: 'auto' | 'mash' | 'smart'. */
+Debug.expose('autoplay', (n = 99, policy = 'auto') => {
+  const bt = UI.battle; if (!bt) return null;
+  const was = UI.instant; UI.instant = true; hideMenu(); flush();
+  let k = 0;
+  while (!bt.over && k++ < n) enqueue(bt.autoRound(policy));
+  flush(); UI.instant = was;
+  if (!UI.busy && !UI.waiting) idle();
+  return { phase: bt.phase, round: bt.round, outcome: bt.result ? bt.result.outcome : null };
+});
+Debug.expose('answer', (yes = true) => { if (!UI.offer) return false; answerRecruit(!!yes); return true; });
+/** Watch the rest of the fight play itself at reading pace (the child's own policy for Bram: 'mash' | 'auto' | 'smart'). */
+Debug.expose('playOut', (policy = 'auto') => { UI.autopilot = policy; if (!UI.busy && !UI.waiting && !UI.panel) idle(); return policy; });
+Debug.expose('rest', () => { restAtInn(); return UI.gold; });
+Debug.expose('log', (n = 30) => (UI.battle ? UI.battle.log.slice(-n).map((e) => `${e.t}${e.move ? ':' + e.move : ''}${e.actor ? '@' + e.actor : ''} ${e.text || ''}`.trim()) : []));
+Debug.expose('instant', (v = true) => { UI.instant = !!v; if (UI.instant) flush(); return UI.instant; });
+Debug.expose('assist', (s) => { UI.S = Number(s) || 0; return UI.S; });
+Debug.expose('level', (i) => { UI.levelIdx = Math.max(0, Math.min(2, i)); return UI.levelIdx; });
+Debug.expose('rngSeed', (n) => { UI.rng = makeRng(n); return n; });
+Debug.expose('idle', () => !UI.busy || !!UI.waiting);
+Debug.expose('eventLog', (on = true) => { UI.logOn = !!on; $('side').hidden = !on; $('side').classList.toggle('dq-shown', !!on); return UI.logOn; });
+Debug.expose('audio', () => { unlockAudio(); return SND.unlocked; });
+/**
+ * What Tactics are worth, measured in the page: n boss fights where the child only ever presses Attack for Bram —
+ * once with everybody else on "Fight Wisely" (the way DQV plays), once with everybody switched to "Follow Orders" and
+ * mashed (the way this demo used to work). -> {tactics, orders} win rates.
+ */
+Debug.expose('mashTest', (areaId, { n = 30, boss = 1, seed = 11, level } = {}) => {
+  const area = AREAS.find((a) => a.id === (areaId || AREAS[UI.areaIdx].id));
+  const spec = area && (boss === 2 ? area.boss2 : area.boss);
+  if (!spec) return null;
+  const L = level ?? spec.level;
+  const run = (tactics) => {
     const rng = makeRng(seed);
-    return deltas.map((d) => {
-      const level = Math.max(1, Math.min(30, spec.level + d));
-      let wins = 0; const rounds = [], left = [];
-      for (let i = 0; i < n; i++) {
-        const { members, bag } = walkArea(area, level, rng, { fresh, spec });
-        const r = simFight(rng, members, spec.enemies, { bag, gold: 500, ambush: 'none', wagonReachable: false }, policy);
-        if (r.res && r.res.outcome === 'victory') { wins++; rounds.push(r.res.rounds); left.push(r.left); }
-      }
-      const avg = (a) => (a.length ? Math.round(10 * a.reduce((x, y) => x + y, 0) / a.length) / 10 : null);
-      const hpLeft = left.length ? Math.round(100 * left.reduce((x, y) => x + y, 0) / left.length) + '%' : null;
-      return { delta: d, level, win: Math.round(100 * wins / n) + '%', rounds: avg(rounds), hpLeft };
-    });
-  },
-};
+    let wins = 0; const rounds = [];
+    for (let i = 0; i < n; i++) {
+      const { members, bag } = walkArea(area, L, rng, { spec });
+      const r = simFight(rng, members, spec.enemies, { bag, gold: 500, ambush: 'none', wagonReachable: false, tactics }, 'mash');
+      if (r.res && r.res.outcome === 'victory') { wins++; rounds.push(r.res.rounds); }
+    }
+    return { win: Math.round(100 * wins / n) + '%', rounds: rounds.length ? Math.round(10 * rounds.reduce((a, b) => a + b, 0) / rounds.length) / 10 : null, presses: rounds.length ? null : null };
+  };
+  return { boss: spec.enemies.join('+'), level: L, n, tactics: run(undefined), everyoneOnOrders: run('orders') };
+});
+/**
+ * Agents cannot hear, so the fight can be rendered: `node tools/audio-probe.mjs --url …/demos/P14.html --ids fight,battle`.
+ *   'fight'          the last fight actually played here: P27's battle (or boss) theme with every P28 effect landing
+ *                    where it landed on screen — the real rhythm of the real fight, through the same mixer
+ *   'battle' | 'boss' | 'victory' | 'levelup' | any CANON §9 theme id   the score alone
+ *   any Sfx id ('sword_hit', 'monster_defeat', …)                       that effect alone
+ */
+/**
+ * Play a fight on a virtual clock (no waiting) so `renderAudio('fight')` has a real fight's timings to render: the
+ * queue, the typing, the holds and the Tactics AI all run exactly as they do on screen, 60 steps a second.
+ */
+function playFightForSound(seconds) {
+  const area = AREAS[UI.areaIdx];
+  SND.vt = 0; SND.log = []; SND.t0 = 0;
+  startBattle({ areaId: area.id, carry: true, quiet: true });
+  UI.autopilot = 'mash';
+  const step = 1 / 60;
+  for (let i = 0; i < Math.ceil(seconds * 60) && SND.vt < seconds; i++) {
+    SND.vt += step;
+    guard('sound tick', () => tick(step * 1000));
+    if (!UI.busy && !UI.waiting && !UI.panel && UI.battle && !UI.battle.over) guard('sound idle', idle);
+  }
+  SND.vt = null; UI.autopilot = null;
+  return SND.log.length;
+}
 
-startBattle({});
-requestAnimationFrame((t) => { last = t; requestAnimationFrame(frame); window.__DQ.ready = true; });
+async function renderTheFight(seconds) {
+  const theme = SND.theme || 'battle';
+  const [{ THEMES, ALIASES }, { instrumentsFor }, M] = await Promise.all([
+    import('/src/audio/score/index.js'), import('/src/audio/instruments.js'), import('/src/audio/music.js')]);
+  const th = THEMES[(ALIASES && ALIASES[theme]) || theme];
+  const need = th && typeof instrumentsFor === 'function' ? instrumentsFor(th.events) : [];
+  const shots = SND.log.filter((e) => e.t < seconds - 0.2 && !e.id.startsWith('sting:'));
+  return Audio.renderOffline(async (octx, dest) => {
+    if (need.length) { try { const { Sampler } = await import('/src/audio/sampler.js'); await Sampler.load(octx, need); } catch (e) { reportError('P14 samples', e); } }
+    const m = M.createMusic();
+    m.init({ ctx: octx, output: dest.bus('music'), reverbSend: dest.reverbSend, quality: 'high' });
+    for (let k = 1; k * 0.2 < seconds + 0.25; k++) octx.suspend(k * 0.2).then(() => { try { m._pump(); } catch (_) { /* keep rendering */ } octx.resume(); }).catch(() => {});
+    m.play(theme, { fade: 0, at: 0.02 });
+    m._pump();
+    for (const e of shots) Sfx.renderInto(e.id, dest, Math.max(0.05, e.t), { variant: e.variant });
+    return m;
+  }, seconds, { sampleRate: 48000 });
+}
+Debug.expose('renderAudio', (id = 'fight', seconds = 12) => {
+  if (id === 'fight') { if (SND.log.filter((e) => e.t < seconds).length < 6) guard('sound fight', () => playFightForSound(seconds)); return renderTheFight(seconds); }
+  if (Sfx.list().includes(id)) return Sfx.render(id, seconds);
+  return Music.renderOffline(id, seconds);
+});
+Debug.expose('soundLog', () => SND.log.slice(-40));
+
+/** Does the level you arrive at matter? n boss fights instantly at the boss's level + each delta, first try, S = 0. */
+Debug.expose('levels', (areaId, { n = 40, deltas = [-4, -2, 0, 4], policy = 'auto', fresh = false, boss = 1, seed = 7 } = {}) => {
+  const area = AREAS.find((a) => a.id === (areaId || AREAS[UI.areaIdx].id));
+  const spec = area && (boss === 2 ? area.boss2 : area.boss);
+  if (!spec) return null;
+  const rng = makeRng(seed);
+  return deltas.map((d) => {
+    const level = Math.max(1, Math.min(30, spec.level + d));
+    let wins = 0; const rounds = [], left = [];
+    for (let i = 0; i < n; i++) {
+      const { members, bag } = walkArea(area, level, rng, { fresh, spec });
+      const r = simFight(rng, members, spec.enemies, { bag, gold: 500, ambush: 'none', wagonReachable: false }, policy);
+      if (r.res && r.res.outcome === 'victory') { wins++; rounds.push(r.res.rounds); left.push(r.left); }
+    }
+    const avg = (a) => (a.length ? Math.round(10 * a.reduce((x, y) => x + y, 0) / a.length) / 10 : null);
+    return { delta: d, level, win: Math.round(100 * wins / n) + '%', rounds: avg(rounds), hpLeft: left.length ? Math.round(100 * left.reduce((x, y) => x + y, 0) / left.length) + '%' : null };
+  });
+});
 </script></body></html>

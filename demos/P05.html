@@ -1,0 +1,240 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>P05 — buildings: the Puddlewick kit</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>html,body{margin:0;height:100%;overflow:hidden}
+#game-canvas{display:block;width:100vw;height:100vh}#ui-root{position:fixed;inset:0;pointer-events:none}
+#label{position:fixed;left:18px;bottom:16px;font:700 20px "Arial Rounded MT Bold",system-ui,sans-serif;color:#fff;text-shadow:0 2px 0 #23301c,0 0 10px #050a20;pointer-events:none}</style>
+</head><body>
+<canvas id="game-canvas"></canvas><div id="ui-root"></div><div id="label"></div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// DEMO — P05 buildings: every piece of the village kit at its best, on one green, with doors that open.
+//   __DQ.show(name)     cottage · thatch · inn · shop · bakery · barn · mill · church · well · bridge · market · shrine
+//   __DQ.doors(true|false|null)   force every door open / shut / back to automatic (they open as you walk up)
+//   __DQ.walk(x, z)     move the "hero" stand-in (the doors watch him)  ·  __DQ.orbit(deg) · __DQ.zoom(n) · __DQ.pitch(deg)
+//   __DQ.state().buildings   what was built, and which doors are open
+import * as THREE from 'three';
+import { App } from '/src/engine/app.js';
+import { Scenes } from '/src/engine/states.js';
+import { Loop } from '/src/engine/loop.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { PAL, C3, applyCssVars, smooth, lerp } from '/src/art/palette.js';
+import { vnoise, mulberry } from '/src/art/tex.js';
+import { makeAOMask, makeLightRig, makeBlobShadows } from '/src/art/toon.js';
+// The scenery kit is loaded dynamically: while other pieces are editing src/art/*.js in parallel, a module that
+// fails to evaluate must cost this page its props — never its __DQ, and never the whole frame.
+let LIB = null;
+const libReady = import('/src/world/scenery.js').then((m) => { LIB = m; return true; })
+  .catch((e) => { reportError('P05 demo: src/world/scenery.js did not load', e); return false; });
+const createKit = (...a) => LIB.createKit(...a);
+const buildSky = (...a) => LIB.buildSky(...a);
+const ringHill = (...a) => LIB.ringHill(...a);
+const buildGround = (...a) => LIB.buildGround(...a);
+const paintMasks = (...a) => LIB.paintMasks(...a);
+const distanceGrid = (...a) => LIB.distanceGrid(...a);
+const curvePoints = (...a) => LIB.curvePoints(...a);
+const bridgeFrame = (...a) => LIB.bridgeFrame(...a);
+
+applyCssVars();
+Input.init();
+App.start({ canvas: document.getElementById('game-canvas'), version: '0.1.0-P05', beforeUpdate: Input.update });
+
+const WATER_Y = -0.45, HW = 1.3, BANK = 0.8, MASK = 120;
+const STREAM = [[-62, -2], [-40, -6], [-22, -9.5], [-8, -11], [6, -11.6], [20, -13], [38, -16], [60, -20]];
+const LANE = [[-40, 9], [-22, 7.4], [-8, 6.4], [4, 6.0], [16, 5.2], [30, 3.6], [48, 1.0]];
+const SPUR = [[0.5, 6.2], [0.2, -2], [-0.2, -8.5], [-0.4, -14], [-0.6, -21]];
+
+const st = { stream: null, lane: null, spur: null, masks: null, water: null, pads: [] };
+function pathData() {
+  if (st.masks) return st;
+  st.stream = curvePoints(STREAM, 0.4); st.lane = curvePoints(LANE, 0.4); st.spur = curvePoints(SPUR, 0.4);
+  st.masks = paintMasks({ N: 1024, span: MASK, strokes: [
+    { pts: st.lane, w: 2.6, falloff: 1.1, channel: 0 },
+    { pts: st.spur, w: 2.0, falloff: 1.0, channel: 0 },
+    { pts: st.stream, w: 2 * (HW + BANK), falloff: 1.8, channel: 1 },
+  ] });
+  st.water = distanceGrid({ N: 384, span: MASK, lines: [st.stream], maxR: 14 });
+  return st;
+}
+function raw(x, z) {
+  return 1.1 * vnoise(x * 0.04 + 3.3, z * 0.04 + 8.1, 5) + 0.42 * vnoise(x * 0.1 + 1.7, z * 0.1 + 2.3, 11) - 0.62
+    + 1.1 * Math.exp(-((x - 4) * (x - 4) + (z - 9) * (z - 9)) / 100);
+}
+function heightAt(x, z) {
+  const S = pathData();
+  let h = raw(x, z);
+  for (const p of st.pads) { const d = Math.hypot(x - p.x, z - p.z); if (d < p.r + 4) h = lerp(h, p.y, 1 - smooth(p.r, p.r + 4, d)); }
+  const dW = S.water.sample(x, z);
+  h = lerp(-0.12 + (h + 0.12) * 0.25, h, smooth(2.4, 11, dW));
+  h -= 0.07 * smooth(0.45, 0.92, S.masks.sample(0, x, z));
+  if (dW < HW + BANK) h = lerp(-1.05, h, smooth(HW - 0.5, HW + BANK, dW));
+  return h;
+}
+
+const SPOTS = {
+  cottage: { x: -18, z: 3 }, thatch: { x: -9, z: 3.5 }, inn: { x: 2, z: 2 }, shop: { x: 13, z: 2.5 },
+  bakery: { x: 22, z: 3 }, barn: { x: 31, z: 3.5 }, mill: { x: -30, z: -12.6 }, church: { x: 12, z: -20 },
+  well: { x: 4, z: 11 }, bridge: { x: -0.4, z: -11.2 }, market: { x: -8, z: 12 }, shrine: { x: 26, z: -18 },
+};
+
+Scenes.register('demo', () => {
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(48, App.aspect(), 0.3, 1400);
+  const view = { orbit: 8, pitch: 24, dist: 15, target: new THREE.Vector3(2, 1.2, 2), want: new THREE.Vector3(2, 1.2, 2) };
+  const hero = { x: 2, z: 9, mesh: null };
+  let kit = null, rig = null, sky = null, blobs = null, built = null, t = 0;
+  let offResize = null;
+
+  // every stage guarded: another piece's module mid-edit must not cost this demo its buildings
+  const safe = (name, fn) => { try { return fn(); } catch (e) { reportError('P05 demo: ' + name, e); return null; } };
+
+  function build() {
+    const S = pathData();
+    rig = makeLightRig({ scene, preset: 'day' });
+    safe('sky', () => { sky = buildSky(scene, rig); });
+    safe('hills', () => {
+      ringHill(scene, 'mid', 130, 165, 215, 5, 22, 71, PAL.hill.midLow, PAL.hill.mid, 0.2);
+      ringHill(scene, 'far', 250, 310, 390, 12, 78, 81, PAL.hill.farLow, PAL.hill.far, 0.25, { fogged: false, peaky: 1.8 });
+    });
+    const ao = makeAOMask({ span: MASK, size: 1024, center: [0, 0] });
+    kit = createKit({ scene, heightAt, ao });
+    blobs = makeBlobShadows(4); scene.add(blobs.mesh);
+
+    // building pads, so nothing stands on a slope
+    for (const [k, p] of Object.entries(SPOTS)) st.pads.push({ x: p.x, z: p.z, r: k === 'church' ? 7 : 4.2, y: raw(p.x, p.z) });
+
+    const recs = {};
+    recs.cottage = kit.cottage({ id: 'demo-cottage', kind: 'cottage', x: SPOTS.cottage.x, z: SPOTS.cottage.z, rot: 0.18, W: 5.4, D: 4.3, H: 2.4,
+      roof: 'tile', pitch: 0.62, barge: true, doorX: -0.4, doorColor: PAL.paint.doorRed, opens: true, frontWindows: [1.5], sideWindows: [0],
+      shutter: PAL.paint.shutterGreen, chimney: 'brick', chimneyX: -1.6, roses: [2.2] });
+    recs.thatch = kit.cottage({ id: 'demo-thatch', kind: 'cottage', x: SPOTS.thatch.x, z: SPOTS.thatch.z, rot: -0.1, W: 5.0, D: 4.0, H: 2.3,
+      roof: 'thatch', pitch: 0.76, doorX: 0.5, doorColor: PAL.paint.shutterBlue, opens: true, frontWindows: [-1.3], sideWindows: [0],
+      shutter: PAL.paint.shutterGreen, chimney: 'stone', chimneyX: 1.2, braces: false });
+    recs.inn = kit.inn({ id: 'demo-inn', x: SPOTS.inn.x, z: SPOTS.inn.z, rot: 0.05 });
+    recs.shop = kit.shop({ id: 'demo-shop', x: SPOTS.shop.x, z: SPOTS.shop.z, rot: -0.06 });
+    recs.bakery = kit.bakery({ id: 'demo-bakery', x: SPOTS.bakery.x, z: SPOTS.bakery.z, rot: 0.12 });
+    recs.barn = kit.barn({ id: 'demo-barn', x: SPOTS.barn.x, z: SPOTS.barn.z, rot: -0.15 });
+    recs.mill = kit.mill({ id: 'demo-mill', x: SPOTS.mill.x, z: SPOTS.mill.z, rot: -Math.PI / 2, wheelSide: 1, waterY: WATER_Y });
+    recs.church = kit.church({ id: 'demo-church', x: SPOTS.church.x, z: SPOTS.church.z, rot: 0.02, towerSide: -1 });
+    recs.well = kit.wellHouse(SPOTS.well.x, SPOTS.well.z, { rot: 0.3 });
+
+    // the humpbacked bridge over the stream, on the spur lane
+    let best = null;
+    for (const [x, z] of st.spur) { const d = S.water.sample(x, z); if (!best || d < best.d) best = { d, x, z }; }
+    const frame = bridgeFrame({ cx: best.x, cz: best.z, dir: 0, L: 7.2, W: 2.8, arch: 0.85, y0: -0.08 });
+    kit.stoneBridge(frame);
+    recs.bridge = { x: frame.cx, z: frame.cz };
+
+    // the festival end of the green: stalls, bunting, a maypole, a trestle of pies
+    safe('festival', () => {
+      kit.stall({ x: SPOTS.market.x, z: SPOTS.market.z, rot: 0.5, color: PAL.cloth.mustard });
+      kit.stall({ x: SPOTS.market.x + 4.2, z: SPOTS.market.z + 1.4, rot: -0.35, color: PAL.cloth.blue, goods: ['pot', 'loaf'] });
+      kit.maypole(SPOTS.market.x + 9.5, SPOTS.market.z + 1.0, {});
+      kit.trestleTable(SPOTS.market.x + 14.5, SPOTS.market.z + 0.4, 0.15, { pies: 3 });
+      kit.bunting([[-13, heightAt(-13, 9) + 3.4, 9], [-4, heightAt(-4, 11) + 3.0, 11], [5, heightAt(5, 12) + 3.3, 12], [14, heightAt(14, 10.5) + 3.1, 10.5]], {});
+    });
+    safe('dressing', () => {
+      kit.vegPatch(27, 8, 4.2, 3.0, 0.1, 9);
+      kit.hayBale(34.5, 7.2, 0.4, {});
+      kit.sacks(19.6, 6.4, 3, 0.2, 6);
+      kit.noticeBoard(9.5, -14.6, 0.1, {});
+      kit.stoneWall([[-2, 15.5], [8, 15.0], [16, 14.2]], { seed: 4 });
+      for (let k = 0; k < 3; k++) kit.standingStone(SPOTS.shrine.x + k * 1.9 - 1.9, SPOTS.shrine.z + (k % 2) * 1.2, { h: 1.9 + k * 0.25, seed: 3 + k });
+      kit.bench(SPOTS.shrine.x + 0.4, SPOTS.shrine.z + 3.2, 0.1);
+    });
+
+    safe('flush', () => kit.flush());
+    safe('water', () => kit.water({ stream: st.stream, width: 2 * (HW + BANK + 0.5), y: WATER_Y, shoreDepth: 0.42 }));
+    const onGrass = (x, z) => S.masks.sample(0, x, z) < 0.3 && S.water.sample(x, z) > 2.3;
+    safe('tufts', () => kit.tufts({ count: 900, radius: 46, seed: 88, accept: onGrass }));
+    safe('flowers', () => kit.flowers([{ x: -6, z: 16, hue: PAL.flower.white, n: 16 }, { x: 8, z: 17, hue: PAL.flower.yellow, n: 14 },
+      { x: 20, z: 14, hue: PAL.flower.pink, n: 12 }, { x: -24, z: 10, hue: PAL.flower.blue, n: 12 }], { accept: onGrass }));
+    safe('ground', () => buildGround(scene, { heightAt, masks: S.masks, ao, inner: 46, step: 1.1, outer: 140, rings: 8 }));
+    safe('smoke', () => kit.smoke((kit.buildings || []).flatMap(b => b.chimneyTops || []).filter(Boolean)));
+    safe('birds', () => kit.birds(3, { centre: [0, 0], height: 13, radius: 22, seed: 5 }));
+
+    // a stand-in for the hero, so the doors have somebody to open for
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 0.9, 4, 10), new THREE.MeshToonMaterial({ color: C3(PAL.cloth.green) }));
+    body.castShadow = true;
+    hero.mesh = new THREE.Group(); hero.mesh.add(body); body.position.y = 0.8;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 11), new THREE.MeshToonMaterial({ color: C3(PAL.char.skin) }));
+    head.position.y = 1.45; head.castShadow = true; hero.mesh.add(head);
+    scene.add(hero.mesh);
+    built = recs;
+    return recs;
+  }
+
+  function placeHero() {
+    hero.mesh.position.set(hero.x, heightAt(hero.x, hero.z), hero.z);
+    if (blobs) { blobs.set(0, hero.x, heightAt(hero.x, hero.z), hero.z, 1.1); blobs.commit(); }
+  }
+
+  return {
+    opaque: true,
+    enter() {
+      offResize = App.onResize(() => { camera.aspect = App.aspect(); camera.updateProjectionMatrix(); });
+      libReady.then((ok) => { if (!ok) return; try { build(); placeHero(); } catch (e) { reportError('P05 demo build', e); } });
+    },
+    exit() { if (offResize) offResize(); },
+    update() {},
+    render(alpha) {
+      const dt = Math.min(0.05, Loop.stepMs / 1000);
+      t = App.clock.time;
+      view.target.lerp(view.want, 1 - Math.exp(-dt * 6));
+      const ph = view.pitch * Math.PI / 180, yaw = view.orbit * Math.PI / 180;
+      camera.position.set(view.target.x + Math.sin(yaw) * Math.cos(ph) * view.dist, view.target.y + Math.sin(ph) * view.dist + 0.4, view.target.z + Math.cos(yaw) * Math.cos(ph) * view.dist);
+      camera.lookAt(view.target);
+      if (kit) { try { kit.update(t, dt, camera, { x: hero.x, y: heightAt(hero.x, hero.z), z: hero.z }); } catch (e) { reportError('P05 kit update', e); } }
+      if (sky && sky.sky) { sky.sky.position.copy(camera.position); if (sky.clouds) sky.clouds.rotation.y = t * 0.0035; }
+      App.render(scene, camera);
+      void alpha;
+    },
+    onInput() { return true; },
+    api: {
+      show(name) {
+        const p = SPOTS[name] || SPOTS.inn;
+        view.want.set(p.x, heightAt(p.x, p.z) + 1.6, p.z + 2);
+        hero.x = p.x + (name === 'church' ? 0 : 0.2); hero.z = p.z + (name === 'church' ? 7.6 : 4.6);
+        placeHero();
+        document.getElementById('label').textContent = name;
+        return { show: name, at: p };
+      },
+      doors(v) { for (const d of (kit ? kit.doors : [])) d.force = (v === null || v === undefined) ? null : (v ? 1 : 0); return (kit ? kit.doors.length : 0); },
+      walk(x, z) { hero.x = +x; hero.z = +z; placeHero(); return { x: hero.x, z: hero.z }; },
+      orbit(deg) { if (deg !== undefined) view.orbit = +deg; return view.orbit; },
+      pitch(deg) { if (deg !== undefined) view.pitch = +deg; return view.pitch; },
+      zoom(n) { if (n !== undefined) view.dist = Math.max(4, +n); return view.dist; },
+      state() { return kit ? kit.buildingState() : null; },
+      counts() { return kit ? Object.assign({}, kit.counts) : null; },
+      hero() { return { x: hero.x, z: hero.z }; },
+      pick(nx = 0, ny = 0) {
+        const rc = new THREE.Raycaster();
+        rc.setFromCamera(new THREE.Vector2(+nx, +ny), camera);
+        const hits = rc.intersectObjects(scene.children, true).slice(0, 6);
+        return hits.map(h => ({ name: h.object.name || h.object.type, d: +h.distance.toFixed(2), y: +h.point.y.toFixed(2) }));
+      },
+      meshes() { const out = []; scene.traverse(o => { if (o.isMesh) out.push({ name: o.name || o.type, inst: o.isInstancedMesh ? o.count : 0, mat: o.material && o.material.type, side: o.material && o.material.side, vis: o.visible }); }); return out; },
+      built() { return built ? Object.fromEntries(Object.entries(built).map(([k, v]) => [k, { x: +v.x.toFixed(2), z: +v.z.toFixed(2), door: v.doorId || null }])) : null; },
+    },
+  };
+});
+
+Scenes.push('demo');
+const inst = () => { const s = Scenes.topScene && Scenes.topScene(); return s && s.api ? s.api : null; };
+const api = (fn, ...a) => { const i = inst(); return i ? i[fn](...a) : null; };
+
+Debug.expose('show', (name) => api('show', name));
+Debug.expose('doors', (v) => api('doors', v));
+Debug.expose('walk', (x, z) => api('walk', x, z));
+Debug.expose('orbit', (d) => api('orbit', d));
+Debug.expose('pitch', (d) => api('pitch', d));
+Debug.expose('zoom', (n) => api('zoom', n));
+Debug.expose('counts', () => api('counts'));
+Debug.expose('built', () => api('built'));
+Debug.expose('meshes', () => api('meshes'));
+Debug.expose('pick', (x, y) => api('pick', x, y));
+Debug.provide('buildings', () => api('state'));
+</script></body></html>

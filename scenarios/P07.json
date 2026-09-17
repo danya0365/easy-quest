@@ -1,12 +1,12 @@
 {
- "name": "P07+P08 characters & animation",
+ "name": "P07+P08 characters & animation (Halvard first)",
  "steps": [
   {
    "waitFor": "window.__DQ && __DQ.ready",
    "timeout": 60000
   },
   {
-   "wait": 1200
+   "wait": 691
   },
   {
    "note": "1. the whole cast on the green, animating (life on)"
@@ -27,7 +27,7 @@
    "shot": "cast"
   },
   {
-   "wait": 3000
+   "wait": 1728
   },
   {
    "assert": "__DQ.state().chars.fps >= 60",
@@ -46,63 +46,377 @@
    "shot": "cast-emote"
   },
   {
-   "eval": "(__DQ.life(false), __DQ.cast(), __DQ.cameraOrbit(180))"
+   "eval": "((__DQ.life(false), __DQ.cast(), __DQ.cameraOrbit(180)), __DQ.snap())"
   },
   {
-   "wait": 1400
+   "wait": 806
   },
   {
    "shot": "cast-back"
   },
   {
+   "note": "7. SIR HALVARD: the Toriyama giant. Turnaround, then the heavy walk where the greatsword plants every stride."
+  },
+  {
+   "eval": "((__DQ.ui(false), __DQ.cameraOrbit(0), __DQ.show('halvard'), __DQ.cameraZoom(0.8), __DQ.cameraAim(0.52)), __DQ.snap())"
+  },
+  {
+   "wait": 648
+  },
+  {
+   "assert": "__DQ.state().chars.focus.height > 2 && __DQ.state().chars.focus.height / 1.114 > 1.75",
+   "msg": "Halvard is over 2 units tall \u2014 nearly twice the boy"
+  },
+  {
+   "shot": "halvard-front"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(40), __DQ.snap())"
+  },
+  {
+   "wait": 560
+  },
+  {
+   "shot": "halvard-o40"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(90), __DQ.snap())"
+  },
+  {
+   "wait": 560
+  },
+  {
+   "shot": "halvard-o90"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(180), __DQ.snap())"
+  },
+  {
+   "wait": 560
+  },
+  {
+   "shot": "halvard-back"
+  },
+  {
+   "eval": "((__DQ.cameraOrbit(0), __DQ.cameraZoom(0.55), __DQ.cameraAim(0.83)), __DQ.snap())"
+  },
+  {
+   "wait": 560
+  },
+  {
+   "shot": "halvard-face"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(65), __DQ.snap())"
+  },
+  {
+   "wait": 560
+  },
+  {
+   "shot": "halvard-face-o65"
+  },
+  {
+   "eval": "((__DQ.cameraZoom(0.8), __DQ.cameraAim(0.52), __DQ.cameraOrbit(-90), __DQ.setMove(1.7)), __DQ.snap())"
+  },
+  {
+   "wait": 921
+  },
+  {
+   "burst": {
+    "name": "halvard-walk-sword-side",
+    "count": 8,
+    "interval": 80
+   }
+  },
+  {
+   "assert": "__DQ.state().chars.focus.stick.planted === true || __DQ.state().chars.focus.stick.swing === true",
+   "msg": "the greatsword is being planted and carried, not dragged"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.snap())"
+  },
+  {
+   "wait": 648
+  },
+  {
+   "burst": {
+    "name": "halvard-walk-front",
+    "count": 8,
+    "interval": 80
+   }
+  },
+  {
+   "eval": "JSON.stringify(window.__hal = __DQ.probe(180))"
+  },
+  {
+   "assert": "window.__hal.tip.plants.length >= 3 && window.__hal.tip.plants.every(p => p.slideCm <= 1.5)",
+   "msg": "the sword tip stands still on the ground while he walks past it"
+  },
+  {
+   "assert": "window.__hal.tip.plantedHeightCm[1] <= 1.5",
+   "msg": "the planted tip sits on the ground, not in the air"
+  },
+  {
+   "assert": "window.__hal.hipBobCm <= 8 && window.__hal.footLiftCm[0] >= 8",
+   "msg": "a heavy gait: a low bob on high, weighted steps"
+  },
+  {
+   "eval": "__DQ.setMove(0)"
+  },
+  {
+   "note": "8. the heart of the story: father and son out walking together (side by side, and the DQ conga line)"
+  },
+  {
+   "eval": "((__DQ.ui(true), __DQ.pair(1.5, 'side'), __DQ.cameraOrbit(0), __DQ.cameraZoom(1)), __DQ.snap())"
+  },
+  {
+   "wait": 1036
+  },
+  {
+   "assert": "__DQ.state().chars.pair && __DQ.state().chars.pair.length === 2",
+   "msg": "father and son walk as a pair"
+  },
+  {
+   "burst": {
+    "name": "father-boy-front",
+    "count": 8,
+    "interval": 72
+   }
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(40), __DQ.snap())"
+  },
+  {
+   "wait": 691
+  },
+  {
+   "burst": {
+    "name": "father-boy-34",
+    "count": 8,
+    "interval": 72
+   }
+  },
+  {
+   "eval": "((__DQ.pair(1.5, 'line'), __DQ.cameraOrbit(90), __DQ.cameraZoom(1.15)), __DQ.snap())"
+  },
+  {
+   "wait": 921
+  },
+  {
+   "burst": {
+    "name": "father-boy-line-side",
+    "count": 8,
+    "interval": 72
+   }
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(35), __DQ.snap())"
+  },
+  {
+   "wait": 691
+  },
+  {
+   "eval": "JSON.stringify({halvard: __DQ.probe(120, 0), boy: __DQ.probe(120, 1)})"
+  },
+  {
+   "note": "9. the item held aloft is really in the fist; Halvard keeps his sword planted while he raises it"
+  },
+  {
+   "eval": "((__DQ.show('hero', 6), __DQ.cameraOrbit(20), __DQ.cameraZoom(0.95), __DQ.cameraAim(0.62)), __DQ.snap())"
+  },
+  {
+   "wait": 640
+  },
+  {
+   "eval": "__DQ.play('celebrate')"
+  },
+  {
+   "wait": 560
+  },
+  {
+   "shot": "celebrate-boy-item"
+  },
+  {
+   "wait": 560
+  },
+  {
+   "shot": "celebrate-boy-hold"
+  },
+  {
+   "eval": "((__DQ.show('halvard'), __DQ.cameraOrbit(30), __DQ.cameraZoom(0.95)), __DQ.snap())"
+  },
+  {
+   "wait": 640
+  },
+  {
+   "eval": "__DQ.play('celebrate')"
+  },
+  {
+   "wait": 648
+  },
+  {
+   "shot": "celebrate-halvard"
+  },
+  {
+   "eval": "__DQ.play('idle', {fade: 0.1})"
+  },
+  {
+   "note": "10. the sword swing reads from the side it is watched from: a visible wind-up, a chop that turns INTO the blow"
+  },
+  {
+   "eval": "((__DQ.show('halvard'), __DQ.cameraOrbit(70), __DQ.cameraZoom(0.9)), __DQ.snap())"
+  },
+  {
+   "wait": 640
+  },
+  {
+   "eval": "__DQ.play('attack')"
+  },
+  {
+   "burst": {
+    "name": "halvard-attack-o70",
+    "count": 7,
+    "interval": 72
+   }
+  },
+  {
+   "eval": "((__DQ.show('hero', 26), __DQ.cameraOrbit(70), __DQ.cameraZoom(0.9)), __DQ.snap())"
+  },
+  {
+   "wait": 640
+  },
+  {
+   "eval": "__DQ.play('attack')"
+  },
+  {
+   "burst": {
+    "name": "bram-attack-o70",
+    "count": 7,
+    "interval": 72
+   }
+  },
+  {
+   "eval": "(__DQ.play('idle', {fade: 0.1}), __DQ.cameraAim(0.52))"
+  },
+  {
+   "note": "11. talk: the innkeeper gestures with the tankard and never drops the hand on his hip"
+  },
+  {
+   "eval": "((__DQ.show('innkeeper'), __DQ.cameraOrbit(20), __DQ.cameraZoom(0.8)), __DQ.snap())"
+  },
+  {
+   "wait": 560
+  },
+  {
+   "eval": "__DQ.play('talk')"
+  },
+  {
+   "burst": {
+    "name": "innkeeper-talk",
+    "count": 7,
+    "interval": 208
+   }
+  },
+  {
+   "eval": "__DQ.play('idle', {fade: 0.2})"
+  },
+  {
+   "note": "12. the surprised emote pops its balloon over the head (never a flash at the feet)"
+  },
+  {
+   "eval": "((__DQ.show('sera'), __DQ.cameraOrbit(10), __DQ.cameraZoom(0.8)), __DQ.snap())"
+  },
+  {
+   "wait": 560
+  },
+  {
+   "eval": "__DQ.play('surprised')"
+  },
+  {
+   "burst": {
+    "name": "sera-surprised",
+    "count": 4,
+    "interval": 70
+   }
+  },
+  {
+   "eval": "((__DQ.play('idle', {fade: 0.1}), __DQ.cameraZoom(1), __DQ.ui(true), __DQ.cast(), __DQ.life(true)), __DQ.snap())"
+  },
+  {
+   "wait": 691
+  },
+  {
+   "shot": "cast-final"
+  },
+  {
+   "eval": "((__DQ.cameraZoom(1), __DQ.cameraAim(0.52), __DQ.ui(true), __DQ.cast(), __DQ.life(true)), __DQ.snap())"
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "shot": "cast-green"
+  },
+  {
+   "assert": "__DQ.state().chars.fps >= 60",
+   "msg": ">= 60 fps with the whole cast animating"
+  },
+  {
+   "assert": "__DQ.errors.length === 0",
+   "msg": "no runtime errors"
+  },
+  {
+   "note": "\u2014 the rest of this scenario is the standing clip-by-clip and per-character gallery \u2014"
+  },
+  {
    "note": "2. Bram (6): walk and run move around the dirt ring (feet planted), from front / side / back"
   },
   {
-   "eval": "(__DQ.ui(false), __DQ.cameraOrbit(0), __DQ.show('hero', 6))"
+   "eval": "((__DQ.ui(false), __DQ.cameraOrbit(0), __DQ.show('hero', 6)), __DQ.snap())"
   },
   {
-   "wait": 900
+   "wait": 648
   },
   {
    "shot": "bram-boy-front"
   },
   {
-   "eval": "(__DQ.cameraOrbit(0), __DQ.setMove(2.2))"
+   "eval": "((__DQ.cameraOrbit(0), __DQ.setMove(2.2)), __DQ.snap())"
   },
   {
-   "wait": 900
+   "wait": 648
   },
   {
    "burst": {
     "name": "walk-front",
-    "count": 8,
-    "interval": 90
+    "count": 6,
+    "interval": 72
    }
   },
   {
-   "eval": "(__DQ.cameraOrbit(90), __DQ.setMove(2.2))"
+   "eval": "((__DQ.cameraOrbit(90), __DQ.setMove(2.2)), __DQ.snap())"
   },
   {
-   "wait": 900
+   "wait": 648
   },
   {
    "burst": {
     "name": "walk-side",
-    "count": 8,
-    "interval": 90
+    "count": 6,
+    "interval": 72
    }
   },
   {
-   "eval": "(__DQ.cameraOrbit(180), __DQ.setMove(2.2))"
+   "eval": "((__DQ.cameraOrbit(180), __DQ.setMove(2.2)), __DQ.snap())"
   },
   {
-   "wait": 900
+   "wait": 648
   },
   {
    "burst": {
     "name": "walk-back",
-    "count": 8,
-    "interval": 90
+    "count": 6,
+    "interval": 72
    }
   },
   {
@@ -110,43 +424,36 @@
    "msg": "walk clip playing at 2.2 u/s"
   },
   {
-   "eval": "(__DQ.cameraOrbit(0), __DQ.setMove(5.6))"
+   "eval": "((__DQ.cameraOrbit(0), __DQ.setMove(5.6)), __DQ.snap())"
   },
   {
-   "wait": 900
+   "wait": 648
   },
   {
    "burst": {
     "name": "run-front",
-    "count": 8,
-    "interval": 90
+    "count": 6,
+    "interval": 72
    }
   },
   {
-   "eval": "(__DQ.cameraOrbit(90), __DQ.setMove(5.6))"
+   "eval": "((__DQ.cameraOrbit(90), __DQ.setMove(5.6)), __DQ.snap())"
   },
   {
-   "wait": 900
+   "wait": 648
   },
   {
    "burst": {
     "name": "run-side",
-    "count": 8,
-    "interval": 90
+    "count": 6,
+    "interval": 72
    }
   },
   {
-   "eval": "(__DQ.cameraOrbit(180), __DQ.setMove(5.6))"
+   "eval": "((__DQ.cameraOrbit(180), __DQ.setMove(5.6)), __DQ.snap())"
   },
   {
-   "wait": 900
-  },
-  {
-   "burst": {
-    "name": "run-back",
-    "count": 8,
-    "interval": 90
-   }
+   "wait": 648
   },
   {
    "assert": "__DQ.state().chars.focus.clip === 'run'",
@@ -160,16 +467,16 @@
    "eval": "__DQ.setMove(0)"
   },
   {
-   "wait": 1000
+   "wait": 576
   },
   {
    "note": "3. turning is animated (a spring on yaw, head leads, feet step round)"
   },
   {
-   "eval": "(__DQ.face(0), __DQ.cameraOrbit(0))"
+   "eval": "((__DQ.face(0), __DQ.cameraOrbit(0)), __DQ.snap())"
   },
   {
-   "wait": 1300
+   "wait": 748
   },
   {
    "eval": "__DQ.timeScale(0.3)"
@@ -183,8 +490,8 @@
   {
    "burst": {
     "name": "turn-front",
-    "count": 8,
-    "interval": 120
+    "count": 6,
+    "interval": 96
    }
   },
   {
@@ -194,10 +501,10 @@
    "wait": 600
   },
   {
-   "eval": "(__DQ.face(0), __DQ.cameraOrbit(90))"
+   "eval": "((__DQ.face(0), __DQ.cameraOrbit(90)), __DQ.snap())"
   },
   {
-   "wait": 1300
+   "wait": 748
   },
   {
    "eval": "__DQ.timeScale(0.3)"
@@ -211,8 +518,8 @@
   {
    "burst": {
     "name": "turn-side",
-    "count": 8,
-    "interval": 120
+    "count": 6,
+    "interval": 96
    }
   },
   {
@@ -222,10 +529,10 @@
    "wait": 600
   },
   {
-   "eval": "(__DQ.face(0), __DQ.cameraOrbit(180))"
+   "eval": "((__DQ.face(0), __DQ.cameraOrbit(180)), __DQ.snap())"
   },
   {
-   "wait": 1300
+   "wait": 748
   },
   {
    "eval": "__DQ.timeScale(0.3)"
@@ -237,17 +544,13 @@
    "wait": 30
   },
   {
-   "burst": {
-    "name": "turn-back",
-    "count": 8,
-    "interval": 120
-   }
-  },
-  {
    "eval": "__DQ.timeScale(1)"
   },
   {
    "wait": 600
+  },
+  {
+   "wait": 1100
   },
   {
    "assert": "__DQ.state().chars.focus.turning === false",
@@ -257,43 +560,36 @@
    "note": "4. talk (mouth, head, hand gesture) and celebrate (the item held aloft)"
   },
   {
-   "eval": "(__DQ.face(0), __DQ.cameraOrbit(0), __DQ.play('talk'))"
+   "eval": "((__DQ.face(0), __DQ.cameraOrbit(0), __DQ.play('talk')), __DQ.snap())"
   },
   {
-   "wait": 1100
+   "wait": 633
   },
   {
    "burst": {
     "name": "talk-front",
-    "count": 8,
-    "interval": 90
+    "count": 6,
+    "interval": 72
    }
   },
   {
-   "eval": "(__DQ.face(0), __DQ.cameraOrbit(90), __DQ.play('talk'))"
+   "eval": "((__DQ.face(0), __DQ.cameraOrbit(90), __DQ.play('talk')), __DQ.snap())"
   },
   {
-   "wait": 1100
+   "wait": 633
   },
   {
    "burst": {
     "name": "talk-side",
-    "count": 8,
-    "interval": 90
+    "count": 6,
+    "interval": 72
    }
   },
   {
-   "eval": "(__DQ.face(0), __DQ.cameraOrbit(180), __DQ.play('talk'))"
+   "eval": "((__DQ.face(0), __DQ.cameraOrbit(180), __DQ.play('talk')), __DQ.snap())"
   },
   {
-   "wait": 1100
-  },
-  {
-   "burst": {
-    "name": "talk-back",
-    "count": 8,
-    "interval": 90
-   }
+   "wait": 633
   },
   {
    "eval": "__DQ.play('idle')"
@@ -302,10 +598,10 @@
    "wait": 500
   },
   {
-   "eval": "__DQ.cameraOrbit(0)"
+   "eval": "(__DQ.cameraOrbit(0), __DQ.snap())"
   },
   {
-   "wait": 1000
+   "wait": 576
   },
   {
    "eval": "__DQ.play('celebrate')"
@@ -316,18 +612,18 @@
   {
    "burst": {
     "name": "celebrate-front",
-    "count": 8,
-    "interval": 90
+    "count": 6,
+    "interval": 72
    }
   },
   {
-   "wait": 1500
+   "wait": 864
   },
   {
-   "eval": "__DQ.cameraOrbit(90)"
+   "eval": "(__DQ.cameraOrbit(90), __DQ.snap())"
   },
   {
-   "wait": 1000
+   "wait": 576
   },
   {
    "eval": "__DQ.play('celebrate')"
@@ -338,18 +634,18 @@
   {
    "burst": {
     "name": "celebrate-side",
-    "count": 8,
-    "interval": 90
+    "count": 6,
+    "interval": 72
    }
   },
   {
-   "wait": 1500
+   "wait": 864
   },
   {
-   "eval": "__DQ.cameraOrbit(180)"
+   "eval": "(__DQ.cameraOrbit(180), __DQ.snap())"
   },
   {
-   "wait": 1000
+   "wait": 576
   },
   {
    "eval": "__DQ.play('celebrate')"
@@ -358,14 +654,7 @@
    "wait": 250
   },
   {
-   "burst": {
-    "name": "celebrate-back",
-    "count": 8,
-    "interval": 90
-   }
-  },
-  {
-   "wait": 1500
+   "wait": 864
   },
   {
    "note": "5. every clip plays on every kind of body"
@@ -388,7 +677,7 @@
    "wait": 600
   },
   {
-   "eval": "(__DQ.show('halvard'), __DQ.cameraOrbit(30))"
+   "eval": "((__DQ.show('halvard'), __DQ.cameraOrbit(30)), __DQ.snap())"
   },
   {
    "wait": 500
@@ -406,23 +695,23 @@
    "eval": "__DQ.play('idle', {fade: 0.05})"
   },
   {
-   "eval": "(__DQ.show('halvard'), __DQ.cameraOrbit(90), __DQ.setMove(2.2))"
+   "eval": "((__DQ.show('halvard'), __DQ.cameraOrbit(90), __DQ.setMove(2.2)), __DQ.snap())"
   },
   {
-   "wait": 900
+   "wait": 648
   },
   {
    "burst": {
     "name": "halvard-walk",
     "count": 8,
-    "interval": 90
+    "interval": 72
    }
   },
   {
    "eval": "__DQ.setMove(0)"
   },
   {
-   "eval": "(__DQ.show('willow'), __DQ.cameraOrbit(40))"
+   "eval": "((__DQ.show('willow'), __DQ.cameraOrbit(40)), __DQ.snap())"
   },
   {
    "wait": 500
@@ -440,23 +729,23 @@
    "eval": "__DQ.play('idle', {fade: 0.05})"
   },
   {
-   "eval": "(__DQ.show('willow'), __DQ.cameraOrbit(90), __DQ.setMove(5.6))"
+   "eval": "((__DQ.show('willow'), __DQ.cameraOrbit(90), __DQ.setMove(5.6)), __DQ.snap())"
   },
   {
-   "wait": 900
+   "wait": 648
   },
   {
    "burst": {
     "name": "willow-run",
     "count": 8,
-    "interval": 90
+    "interval": 72
    }
   },
   {
    "eval": "__DQ.setMove(0)"
   },
   {
-   "eval": "(__DQ.show('sera'), __DQ.cameraOrbit(20))"
+   "eval": "((__DQ.show('sera'), __DQ.cameraOrbit(20)), __DQ.snap())"
   },
   {
    "wait": 500
@@ -465,7 +754,7 @@
    "eval": "__DQ.play('cast')"
   },
   {
-   "wait": 950
+   "wait": 684
   },
   {
    "shot": "sera-cast"
@@ -474,7 +763,7 @@
    "eval": "__DQ.play('idle', {fade: 0.05})"
   },
   {
-   "eval": "(__DQ.show('barty'), __DQ.cameraOrbit(30))"
+   "eval": "((__DQ.show('barty'), __DQ.cameraOrbit(30)), __DQ.snap())"
   },
   {
    "wait": 500
@@ -492,39 +781,39 @@
    "eval": "__DQ.play('idle', {fade: 0.05})"
   },
   {
-   "eval": "(__DQ.show('barty'), __DQ.cameraOrbit(90), __DQ.setMove(2.2))"
+   "eval": "((__DQ.show('barty'), __DQ.cameraOrbit(90), __DQ.setMove(2.2)), __DQ.snap())"
   },
   {
-   "wait": 900
+   "wait": 648
   },
   {
    "burst": {
     "name": "barty-walk",
     "count": 8,
-    "interval": 90
+    "interval": 72
    }
   },
   {
    "eval": "__DQ.setMove(0)"
   },
   {
-   "eval": "(__DQ.show('granny'), __DQ.cameraOrbit(60), __DQ.setMove(2.2))"
+   "eval": "((__DQ.show('granny'), __DQ.cameraOrbit(60), __DQ.setMove(2.2)), __DQ.snap())"
   },
   {
-   "wait": 900
+   "wait": 648
   },
   {
    "burst": {
     "name": "granny-walk",
     "count": 8,
-    "interval": 90
+    "interval": 72
    }
   },
   {
    "eval": "__DQ.setMove(0)"
   },
   {
-   "eval": "(__DQ.show('guard'), __DQ.cameraOrbit(30))"
+   "eval": "((__DQ.show('guard'), __DQ.cameraOrbit(30)), __DQ.snap())"
   },
   {
    "wait": 500
@@ -542,7 +831,7 @@
    "eval": "__DQ.play('idle', {fade: 0.05})"
   },
   {
-   "eval": "(__DQ.show('hero', 26), __DQ.cameraOrbit(40))"
+   "eval": "((__DQ.show('hero', 26), __DQ.cameraOrbit(40)), __DQ.snap())"
   },
   {
    "wait": 500
@@ -551,7 +840,7 @@
    "eval": "__DQ.play('kneel')"
   },
   {
-   "wait": 1400
+   "wait": 806
   },
   {
    "shot": "hero-kneel"
@@ -560,7 +849,7 @@
    "eval": "__DQ.play('idle', {fade: 0.05})"
   },
   {
-   "eval": "(__DQ.show('hero', 26), __DQ.cameraOrbit(0))"
+   "eval": "((__DQ.show('hero', 26), __DQ.cameraOrbit(0)), __DQ.snap())"
   },
   {
    "wait": 500
@@ -569,7 +858,7 @@
    "eval": "__DQ.play('sleep')"
   },
   {
-   "wait": 1800
+   "wait": 1036
   },
   {
    "shot": "hero-sleep"
@@ -578,7 +867,7 @@
    "eval": "__DQ.play('idle', {fade: 0.05})"
   },
   {
-   "eval": "(__DQ.show('baker'), __DQ.cameraOrbit(30))"
+   "eval": "((__DQ.show('baker'), __DQ.cameraOrbit(30)), __DQ.snap())"
   },
   {
    "wait": 500
@@ -587,7 +876,7 @@
    "eval": "__DQ.play('sit')"
   },
   {
-   "wait": 1500
+   "wait": 864
   },
   {
    "shot": "baker-sit"
@@ -596,7 +885,7 @@
    "eval": "__DQ.play('idle', {fade: 0.05})"
   },
   {
-   "eval": "(__DQ.show('nun'), __DQ.cameraOrbit(20))"
+   "eval": "((__DQ.show('nun'), __DQ.cameraOrbit(20)), __DQ.snap())"
   },
   {
    "wait": 500
@@ -605,7 +894,7 @@
    "eval": "__DQ.play('grieve')"
   },
   {
-   "wait": 1800
+   "wait": 1036
   },
   {
    "shot": "nun-grieve"
@@ -614,7 +903,7 @@
    "eval": "__DQ.play('idle', {fade: 0.05})"
   },
   {
-   "eval": "(__DQ.show('merchant'), __DQ.cameraOrbit(20))"
+   "eval": "((__DQ.show('merchant'), __DQ.cameraOrbit(20)), __DQ.snap())"
   },
   {
    "wait": 500
@@ -623,7 +912,7 @@
    "eval": "__DQ.play('wave')"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "merchant-wave"
@@ -632,7 +921,7 @@
    "eval": "__DQ.play('idle', {fade: 0.05})"
   },
   {
-   "eval": "(__DQ.show('innkeeper'), __DQ.cameraOrbit(20))"
+   "eval": "((__DQ.show('innkeeper'), __DQ.cameraOrbit(20)), __DQ.snap())"
   },
   {
    "wait": 500
@@ -641,7 +930,7 @@
    "eval": "__DQ.play('talk')"
   },
   {
-   "wait": 800
+   "wait": 640
   },
   {
    "shot": "innkeeper-talk"
@@ -650,7 +939,7 @@
    "eval": "__DQ.play('idle', {fade: 0.05})"
   },
   {
-   "eval": "(__DQ.show('child'), __DQ.cameraOrbit(20))"
+   "eval": "((__DQ.show('child'), __DQ.cameraOrbit(20)), __DQ.snap())"
   },
   {
    "wait": 500
@@ -668,7 +957,7 @@
    "eval": "__DQ.play('idle', {fade: 0.05})"
   },
   {
-   "eval": "(__DQ.show('farmer'), __DQ.cameraOrbit(20))"
+   "eval": "((__DQ.show('farmer'), __DQ.cameraOrbit(20)), __DQ.snap())"
   },
   {
    "wait": 500
@@ -689,144 +978,136 @@
    "note": "6. gallery: every look, 3/4 view"
   },
   {
-   "eval": "(__DQ.show('hero', 6), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8))"
+   "eval": "((__DQ.show('hero', 6), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8)), __DQ.snap())"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "look-hero6"
   },
   {
-   "eval": "(__DQ.show('hero', 26), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8))"
+   "eval": "((__DQ.show('hero', 26), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8)), __DQ.snap())"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "look-hero26"
   },
   {
-   "eval": "(__DQ.show('halvard'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8))"
+   "eval": "((__DQ.show('halvard'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8)), __DQ.snap())"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "look-halvard"
   },
   {
-   "eval": "(__DQ.show('willow'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8))"
+   "eval": "((__DQ.show('willow'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8)), __DQ.snap())"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "look-willow"
   },
   {
-   "eval": "(__DQ.show('sera'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8))"
+   "eval": "((__DQ.show('sera'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8)), __DQ.snap())"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "look-sera"
   },
   {
-   "eval": "(__DQ.show('barty'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8))"
+   "eval": "((__DQ.show('barty'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8)), __DQ.snap())"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "look-barty"
   },
   {
-   "eval": "(__DQ.show('farmer'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8))"
+   "eval": "((__DQ.show('farmer'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8)), __DQ.snap())"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "look-farmer"
   },
   {
-   "eval": "(__DQ.show('baker'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8))"
+   "eval": "((__DQ.show('baker'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8)), __DQ.snap())"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "look-baker"
   },
   {
-   "eval": "(__DQ.show('granny'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8))"
+   "eval": "((__DQ.show('granny'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8)), __DQ.snap())"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "look-granny"
   },
   {
-   "eval": "(__DQ.show('child'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8))"
+   "eval": "((__DQ.show('child'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8)), __DQ.snap())"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "look-child"
   },
   {
-   "eval": "(__DQ.show('guard'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8))"
+   "eval": "((__DQ.show('guard'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8)), __DQ.snap())"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "look-guard"
   },
   {
-   "eval": "(__DQ.show('innkeeper'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8))"
+   "eval": "((__DQ.show('innkeeper'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8)), __DQ.snap())"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "look-innkeeper"
   },
   {
-   "eval": "(__DQ.show('nun'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8))"
+   "eval": "((__DQ.show('nun'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8)), __DQ.snap())"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "look-nun"
   },
   {
-   "eval": "(__DQ.show('merchant'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8))"
+   "eval": "((__DQ.show('merchant'), __DQ.cameraOrbit(25), __DQ.cameraZoom(0.8)), __DQ.snap())"
   },
   {
-   "wait": 700
+   "wait": 560
   },
   {
    "shot": "look-merchant"
   },
   {
-   "eval": "(__DQ.cameraZoom(1), __DQ.ui(true), __DQ.cast(), __DQ.life(true))"
+   "eval": "((__DQ.cameraZoom(1), __DQ.ui(true), __DQ.cast(), __DQ.life(true)), __DQ.snap())"
   },
   {
-   "wait": 1500
-  },
-  {
-   "assert": "__DQ.state().chars.fps >= 60",
-   "msg": ">= 60 fps at the end with everyone animating"
-  },
-  {
-   "assert": "__DQ.errors.length === 0",
-   "msg": "no runtime errors"
+   "wait": 864
   }
  ]
 }

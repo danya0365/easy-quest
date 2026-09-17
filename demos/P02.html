@@ -1,0 +1,245 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>P02 / P03 — sky, terrain and weather</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:var(--pal-sky-page)}
+#game-canvas{display:block;width:100vw;height:100vh}#ui-root{position:fixed;inset:0;pointer-events:none}
+#cap{position:fixed;left:18px;bottom:16px;padding:10px 16px 12px;border-radius:14px;color:var(--pal-ui-text);
+  font:600 15px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.2px;
+  background:linear-gradient(180deg,var(--pal-ui-win-top),var(--pal-ui-win-bottom));
+  border:3px solid var(--pal-ui-border);box-shadow:0 6px 18px rgba(5,10,32,.45),inset 0 0 0 1px rgba(201,212,242,.5)}
+#cap b{color:var(--pal-ui-cursor)}#cap i{color:var(--pal-ui-label);font-style:normal;font-weight:500}
+</style>
+</head><body>
+<canvas id="game-canvas"></canvas><div id="ui-root"></div><div id="cap"></div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// DEMO — P02 + P03: the world BEYOND the playable ground, and the ground itself.
+//   sky dome with a sun disc, glow and aerial haze · big soft cumulus that drift and billow · three landscape layers
+//   (two rolling hill rings + the painted ranges on the horizon) · FOUR PLACES ON THE SKYLINE — Puddlewick,
+//   Saltmarrow's sea and tide-mill, Coddleston Castle, the Whispering Wood — each on the bearing its signpost
+//   points down, with a pass opened through the hills so the lane runs out of the vale toward it ·
+//   day / dusk / night with a travelling moon and turning stars · gentle rain and snow · and the mask-driven
+//   painterly ground: grass tone, worn lanes with cart ruts, a cobbled green, contact shadows, carved stream
+//   banks, and water with real depth, shallows, a sky in it and a glitter path.
+// Imports ONLY P02/P03's own modules and the shared foundation (no props, buildings or maps): src/art/{sky,terrain,
+// weather} over F1 (app, states, debug, assets) and F3 (palette, tex, toon).
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { App } from '/src/engine/app.js';
+import { Scenes } from '/src/engine/states.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { PAL, applyCssVars, lerp, smooth } from '/src/art/palette.js';
+import { Tex, vnoise } from '/src/art/tex.js';
+import { makeToon, makeLightRig, makeAOMask } from '/src/art/toon.js';
+import { buildBackdrop, ringHill } from '/src/art/sky.js';
+import { paintMasks, distanceGrid, curvePoints, buildGround, terrainRecipes } from '/src/art/terrain.js';
+import { ENV } from '/src/art/weather.js';
+
+applyCssVars();
+Input.init();
+App.start({ canvas: document.getElementById('game-canvas'), version: '0.2.0-P02', beforeUpdate: Input.update });
+
+// ── the little vale this demo builds (all of it from P03's mask + height helpers) ────────────────────────────
+const SPAN = 96, WATER_Y = -0.55, BED = -1.25;
+const LANE = [[8, 46], [5.5, 34], [6.5, 24], [3.0, 15], [0.6, 7], [0, 0], [-1.5, -7], [-4.5, -14], [-4, -22], [-7, -31], [-9, -46]];
+const EAST = [[1.6, 1.2], [8, 2.6], [16, 1.0], [26, -2.5], [35, -4.5], [46, -8]];
+const SPUR = [[-0.8, -3.2], [-6, -4.6], [-11.5, -5.6], [-15.5, -7.5]];
+const BECK = [[-36, -17], [-27, -19.5], [-18, -20.5], [-9, -19.5], [0, -21], [9, -24], [18, -25.5], [27, -28], [34, -31]];
+const PONDS = [{ x: -30.5, z: -15.5, r: 4.2, sx: 1.25, sz: 1 }, { x: 24.5, z: -27, r: 4.6, sx: 1.1, sz: 1 }];
+const GREEN = { x: 0, z: 0, r: 5.4 };
+const STONES = [[-7.6, 5.4, 1.15, 3], [7.4, 6.6, 1.0, 5], [10.4, -4.2, 1.3, 7], [-9.4, -1.6, 0.9, 11], [13.5, 12.5, 1.45, 13],
+  [-15.5, 9.5, 1.2, 17], [19, 4.5, 1.05, 19], [-19, -10.5, 1.35, 23], [22, -14, 1.1, 29], [-24, 3.5, 1.25, 31]];
+
+const lane = curvePoints(LANE, 0.35), east = curvePoints(EAST, 0.35), spur = curvePoints(SPUR, 0.3), beck = curvePoints(BECK, 0.35);
+const masks = paintMasks({
+  N: 1024, span: SPAN,
+  strokes: [
+    { pts: lane, w: 2.4, falloff: 1.05, channel: 0 },
+    { pts: east, w: 2.0, falloff: 1.0, channel: 0, widthAt: (t) => lerp(2.1, 1.6, t) },
+    { pts: spur, w: 1.4, falloff: 0.85, channel: 0 },
+    { pts: beck, w: 4.0, falloff: 1.8, channel: 1 },
+    { pts: curvePoints([[0, 7.5], [0, 0], [-1, -7.5]], 0.3), w: 3.4, falloff: 0.9, channel: 2 },   // the cobbled lane over the green
+  ],
+  discs: [
+    ...PONDS.map(p => ({ x: p.x, z: p.z, r: p.r + 0.7, sx: p.sx, sz: p.sz, falloff: 1.8, channel: 1 })),
+    { x: GREEN.x, z: GREEN.z, r: GREEN.r, falloff: 1.1, channel: 2 },
+  ],
+});
+const water = distanceGrid({ N: 384, span: SPAN, lines: [beck], discs: PONDS, maxR: 14 });
+
+function heightAt(x, z) {
+  let h = 1.5 * vnoise(x * 0.042 + 4.3, z * 0.042 + 1.7, 3) + 0.62 * vnoise(x * 0.1 + 2.1, z * 0.1 + 7.9, 5) + 0.18 * vnoise(x * 0.3, z * 0.3, 9) - 1.05;
+  h += 1.5 * Math.exp(-((x + 18) ** 2 + (z - 14) ** 2) / 100);          // a rise to the north-west
+  h += 1.8 * Math.exp(-((x - 20) ** 2 + (z - 16) ** 2) / 120);          // and one to the north-east
+  const e = Math.hypot(x, z * 1.05), ang = Math.atan2(z, x);
+  const lump = 0.6 * vnoise(Math.cos(ang) * 3 + 5, Math.sin(ang) * 3 + 5, 17) + 0.4 * vnoise(Math.cos(ang) * 7, Math.sin(ang) * 7, 19);
+  h += (2.4 + 5.6 * lump) * smooth(30, 74, e);                          // the bowl rim that meets the hill rings
+  const g = 1 - smooth(GREEN.r - 1.5, GREEN.r + 5, Math.hypot(x - GREEN.x, z - GREEN.z));
+  h = lerp(h, 0.08, g * 0.9);                                           // the green is level, like a village green
+  h -= 0.09 * smooth(0.45, 0.92, masks.sample(0, x, z));                // lanes worn a little lower
+  const dW = water.sample(x, z);
+  h = lerp(WATER_Y + (h - WATER_Y) * 0.3, h, smooth(2.6, 12, dW));      // the beck's gentle valley
+  if (dW < 2.9) h = lerp(BED, h, smooth(1.5, 2.9, dW));                 // the channel and its banks
+  return h;
+}
+
+// ── the scene ────────────────────────────────────────────────────────────────────────────────────────────────
+const S = { view: 'field', hours: 9, weather: 'clear', buildMs: 0, stones: 0, fps: 0 };
+let scene, camera, rig, sky, ao, animators = [];
+
+const VIEWS = {
+  field:   { target: [0, 0.9, 12], orbit: 0, pitch: 26, dist: 11, fov: 50, lookUp: 2.6 },
+  vista:   { target: [0, 1.2, 6], orbit: 10, pitch: 12, dist: 24, fov: 52, lookUp: 6.5 },
+  sky:     { target: [0, 1, 8], orbit: 214, pitch: -14, dist: 14, fov: 56, lookUp: 9 },
+  sun:     { target: [0, 1, 6], orbit: 233, pitch: -28, dist: 12, fov: 54, lookUp: 12 },
+  sunset:  { target: [0, 1, 4], orbit: 250, pitch: 6, dist: 17, fov: 50, lookUp: 3.6 },
+  moon:    { target: [0, 1, 6], orbit: 25, pitch: -8, dist: 14, fov: 54, lookUp: 8 },
+  green:   { target: [0, 0.4, 5.5], orbit: 350, pitch: 22, dist: 8.5, fov: 46, lookUp: 1.2 },
+  lane:    { target: [4.5, 0.3, 19], orbit: 8, pitch: 14, dist: 7, fov: 44, lookUp: 1.4 },
+  water:   { target: [24.5, -0.2, -22], orbit: 205, pitch: 16, dist: 11, fov: 48, lookUp: 1.2 },
+  hills:   { target: [0, 1, -8], orbit: 180, pitch: 9, dist: 26, fov: 52, lookUp: 6 },
+  high:    { target: [0, 0, -4], orbit: 20, pitch: 52, dist: 40, fov: 48, lookUp: 0 },
+  // the four places on the skyline, each framed down its own bearing (P02 buildLandmarks)
+  puddlewick: { target: [0, 1, 2], orbit: 347.9, pitch: 10, dist: 15, fov: 48, lookUp: 5.0 },
+  saltmarrow: { target: [0, 1, 2], orbit: 277.7, pitch: 10, dist: 15, fov: 48, lookUp: 5.0 },
+  coddleston: { target: [0, 1, 2], orbit: 193.9, pitch: 10, dist: 15, fov: 48, lookUp: 5.4 },
+  wood:       { target: [0, 1, 2], orbit: 100.8, pitch: 10, dist: 15, fov: 48, lookUp: 4.6 },
+};
+let view = Object.assign({}, VIEWS.field);
+
+/** A boulder: a lumpy, half-buried stone (the demo needs something that STANDS, to show contact shadows). */
+function stoneGeometry(seed, s) {
+  const g = new THREE.IcosahedronGeometry(0.8 * s, 1), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const k = 0.86 + 0.3 * vnoise(x * 1.6 + seed, z * 1.6 + seed * 0.7, seed);
+    p.setXYZ(i, x * k * 1.05, y * k * 0.78, z * k * 1.05);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+function build() {
+  const t0 = performance.now();
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(50, App.aspect(), 0.3, 1400);
+  rig = makeLightRig({ scene, preset: 'day', extent: 34 });
+  ao = makeAOMask({ span: SPAN, size: 1024, center: [0, 0] });
+
+  // the world beyond: sky, clouds, sun / moon / stars, and the rolling hill rings
+  sky = buildBackdrop(scene, rig, { hills: true });
+  ringHill(scene, 'near', 74, 92, 122, 2, 9, 61, PAL.hill.nearLow, PAL.hill.near, 0.16, { patches: 0.3 });
+
+  // standing stones, each with its own contact shadow painted into the ground's AO mask
+  const stoneMat = makeToon({ map: Tex.stone(), vertexColors: false }, 'stone');
+  const parts = [];
+  for (const [x, z, s, seed] of STONES) {
+    const g = stoneGeometry(seed, s);
+    g.translate(x, heightAt(x, z) + 0.16 * s, z);
+    parts.push(g);
+    ao.disc(x, z, 1.5 * s, 0.7);
+  }
+  for (const p of PONDS) ao.disc(p.x, p.z, p.r * 1.25, 0.18);
+  const stones = new THREE.Mesh(mergeGeometries(parts), stoneMat);
+  stones.name = 'stones'; stones.castShadow = true; stones.receiveShadow = true; scene.add(stones);
+  S.stones = STONES.length;
+
+  // the ground last: it samples the finished AO mask
+  buildGround(scene, { heightAt, masks, ao, inner: 36, step: 0.9, outer: 120, rings: 9 });
+
+  // water: the beck and its two ponds, one level sheet; the carved banks decide the shore
+  const kit = { scene, heightAt, animators };
+  terrainRecipes(kit);
+  kit.water({ stream: beck, width: 4.6, ponds: PONDS.map(p => ({ x: p.x, z: p.z, r: p.r + 2.9, sx: p.sx, sz: p.sz })), y: WATER_Y, shoreDepth: 0.45 });
+
+  S.buildMs = Math.round(performance.now() - t0);
+}
+const tgt = new THREE.Vector3();
+function placeCam() {
+  const [tx, ty, tz] = view.target;
+  tgt.set(tx, heightAt(tx, tz) + ty, tz);
+  const r = THREE.MathUtils.degToRad(view.orbit), ph = THREE.MathUtils.degToRad(view.pitch);
+  camera.fov = view.fov; camera.aspect = App.aspect(); camera.updateProjectionMatrix();
+  camera.position.set(tgt.x + Math.sin(r) * Math.cos(ph) * view.dist, tgt.y + Math.sin(ph) * view.dist + 0.6, tgt.z + Math.cos(r) * Math.cos(ph) * view.dist);
+  camera.lookAt(tgt.x, tgt.y + view.lookUp, tgt.z);
+}
+
+function caption() {
+  const el = document.getElementById('cap');
+  const h = S.hours, hh = String(Math.floor(h)).padStart(2, '0') + ':' + String(Math.round((h % 1) * 60)).padStart(2, '0');
+  S.weather = ENV.weather.kind;                                        // the caption follows __DQ.weather(...) too
+  el.innerHTML = `<b>${hh}</b> &nbsp;${S.weather}&nbsp; <i>· view</i> ${S.view} <i>· T</i> time <i>· W</i> weather <i>· V</i> view <i>· ←→</i> orbit`;
+}
+
+Scenes.register('demo', () => ({
+  opaque: true,
+  enter() {
+    try { build(); } catch (e) { reportError('P02 demo build', e); }
+    try { setView('field'); } catch (e) { reportError('P02 demo view', e); }
+    caption();
+  },
+  update() {},
+  render(alpha) {
+    try {
+      const t = App.clock.time;
+      for (const fn of animators) { try { fn(t, App.clock.dt, camera); } catch (e) { reportError('P02 animator', e); } }
+      placeCam();
+      if (rig) rig.follow(tgt);
+      App.render(scene, camera);
+    } catch (e) { reportError('P02 demo render', e); }
+  },
+  onInput(btn) {
+    if (btn === 'left') view.orbit -= 12;
+    else if (btn === 'right') view.orbit += 12;
+    else if (btn === 'up') view.pitch = Math.min(70, view.pitch + 5);
+    else if (btn === 'down') view.pitch = Math.max(-40, view.pitch - 5);
+    return true;
+  },
+}));
+Scenes.push('demo');
+
+// ── controls a critic (or a curious child) can drive ─────────────────────────────────────────────────────────
+const HOURS = [9, 12, 15, 17.5, 18.5, 20, 22, 3, 6, 7.5];
+const WEATHERS = ['clear', 'cloudy', 'rain', 'snow'];
+function setView(name) {
+  if (!VIEWS[name]) return { ok: false, views: Object.keys(VIEWS) };
+  view = Object.assign({}, VIEWS[name]); S.view = name; caption();
+  return { ok: true, view: name, camera: { orbit: view.orbit, pitch: view.pitch, dist: view.dist, fov: view.fov } };
+}
+function setHours(h) {
+  S.hours = ((+h % 24) + 24) % 24;
+  if (sky) sky.setHours(S.hours);
+  caption();
+  return S.hours;
+}
+function setWeather(kind, opts) {
+  const r = sky ? sky.setWeather(kind, opts) : { ok: false };
+  if (r.ok) { S.weather = r.weather; caption(); }
+  return r;
+}
+Debug.implement('timeOfDay', (h) => (h === undefined ? S.hours : setHours(h)));
+Debug.implement('cameraOrbit', (deg) => { if (Number.isFinite(+deg)) view.orbit = +deg; return { ok: true, orbit: view.orbit }; });
+Debug.implement('cameraZoom', (n) => { if (Number.isFinite(+n)) view.dist = Math.max(3, +n); return { ok: true, dist: view.dist }; });
+Debug.expose('view', (name) => (name === undefined ? { view: S.view, views: Object.keys(VIEWS) } : setView(String(name))));
+Debug.expose('camera', (o = {}) => { for (const k of ['orbit', 'pitch', 'dist', 'fov', 'lookUp']) if (Number.isFinite(+o[k])) view[k] = +o[k]; return Object.assign({}, view); });
+Debug.expose('nextTime', () => setHours(HOURS[(HOURS.indexOf(S.hours) + 1) % HOURS.length] ?? 9));
+Debug.expose('nextWeather', () => setWeather(WEATHERS[(WEATHERS.indexOf(S.weather) + 1) % WEATHERS.length]));
+Debug.expose('nextView', () => { const k = Object.keys(VIEWS); return setView(k[(k.indexOf(S.view) + 1) % k.length]); });
+Debug.expose('ground', (x = 0, z = 0) => ({ x, z, y: +heightAt(x, z).toFixed(3), path: +masks.sample(0, x, z).toFixed(3), water: +masks.sample(1, x, z).toFixed(3), cobble: +masks.sample(2, x, z).toFixed(3), ao: +ao.sample(x, z).toFixed(3) }));
+Debug.provide('demo', () => ({ piece: 'P02+P03', view: S.view, hours: S.hours, weather: S.weather, buildMs: S.buildMs, stones: S.stones,
+  sky: sky ? sky.state() : null, rig: rig ? rig.state() : null,
+  landmarks: sky && sky.landmarks ? sky.landmarks.describe() : [] }));
+Debug.implement('screenshotReady', () => true);
+
+addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  const k = e.key.toLowerCase();
+  if (k === 't') Debug.api.nextTime();
+  else if (k === 'w') Debug.api.nextWeather();
+  else if (k === 'v') Debug.api.nextView();
+});
+setInterval(caption, 500);
+</script></body></html>

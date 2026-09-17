@@ -23,6 +23,18 @@ export function midi(n) {
 export const noteName = (m) => NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
 export const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 export const dyn = (d) => (typeof d === 'number' ? d : DYN[d] ?? 0.6);
+/** compact hand-written line: "D5:.5 D5:.5 F5:.5 R:1 A5:2" -> [['D5',.5],['D5',.5],['F5',.5],['R',1],['A5',2]] */
+export const N = (str) => str.trim().split(/\s+/).map((t) => { const [n, d] = t.split(':'); return [n, Number(d)]; });
+/**
+ * Slice a hand-written line by BARS, not by note index: bars(line, fromBar, countBars, meter).
+ * Quoting half a tune ("the antecedent only") must never depend on how many notes happen to be in it.
+ */
+export function bars(notes, from, count, meter = 4) {
+  const a = from * meter, b = (from + count) * meter, out = [];
+  let t = 0;
+  for (const [n, d] of notes) { if (t >= a - 1e-6 && t < b - 1e-6) out.push([n, d]); t += d; }
+  return out;
+}
 
 // ---------------------------------------------------------------------------------------------- chords
 const Q = {
@@ -262,6 +274,20 @@ function makePart(T, name, cfg) {
   };
   P.note = (beat, n, d, o = {}) => { P.push({ b: beat, d, m: midi(n), v: dyn(o.dyn ?? cfg.dyn ?? 'mf'), ...o, g: (o.gain ?? 1) * cfg.gain }); return P; };
   P.chord = (beat, ns, d, o = {}) => { ns.forEach((n, k) => P.push({ b: beat, d, m: midi(n), v: dyn(o.dyn ?? cfg.dyn ?? 'mf'), ci: k, ...o, g: (o.gain ?? 1) * cfg.gain })); return P; };
+  /** hand-voiced chord figures, one per slot: figs = [[beat, [notes], kind?]...]; kind 'roll' (spread `spread` s, rings
+   * `d` beats), 'up'/'down' (the notes in turn, `step` beats apart, each ringing `len`), 'block' (together). */
+  P.figs = (figs, o = {}) => {
+    for (const [beat, ns, kind = o.kind || 'roll', dd] of figs) {
+      const v = dyn(o.dyn ?? cfg.dyn ?? 'p'); const list = kind === 'down' ? [...ns].reverse() : ns;
+      list.forEach((n, k) => {
+        if (n === 'R') return;
+        if (kind === 'roll') P.push({ b: beat, sec: k * (o.spread ?? 0.045), d: dd ?? o.d ?? 1.5, m: midi(n), v: v * (k ? 0.92 : 1), shape: false, g: cfg.gain, ci: k });
+        else if (kind === 'block') P.push({ b: beat, d: dd ?? o.d ?? 1, m: midi(n), v, shape: false, g: cfg.gain, ci: k, art: o.art });
+        else P.push({ b: beat + k * (o.step ?? 0.5), d: o.len ?? 1, m: midi(n), v: v * (k === 0 ? 1.06 : 1), shape: false, g: cfg.gain, art: o.art });
+      });
+    }
+    return P;
+  };
   /** unpitched/pitched hits at beats within bars. */
   P.hits = (bars, beats, n, d, o = {}) => { for (const bar of bars) for (const bt of beats) P.note(T.bar(bar, bt), n, d, o); return P; };
   /** roll from beat a to beat b, `rate` strokes per second (needs the local bpm). */
@@ -317,6 +343,96 @@ export function tempoFn(meta, totalBeats) {
 }
 
 // ---------------------------------------------------------------------------------------------- analysis
+/**
+ * Counterpoint report for a compiled theme: are there independent lines, or one tune over a machine-made bed?
+ *   parts[]        per part: notes, genPct (made by the pad/arp/bass generators), dblPct (same onset AND pitch class
+ *                  as a note of another melody-bus part = doubling the tune), syncPct (onsets shared with the tune),
+ *                  chordPct (strong-beat chord tones), stepPct (melodic steps, monophonic lines only), range
+ *   independent    hand-written non-tune lines (genPct < 20 and dblPct < 35)
+ *   maxDoubling    the worst dblPct among those lines
+ *   parallels      parallel fifths/octaves between adjacent hand-written lines (unison-doubled pairs excluded)
+ *   overrun        notes written at or past the loop end (they make the engine skip the loop's opening beats)
+ *   bassStepPct    share of steps in the bass-bus lines' motion
+ *   tune           {notes, quarterPct, barRhythms} — how square the tune's rhythm is
+ */
+export function counterpointOf(th) {
+  const PERC = new Set(['timp', 'snare', 'cymbal', 'tri']);
+  const E = 1e-6, pc = (m) => ((m % 12) + 12) % 12;
+  const evs = th.events.filter((e) => e.m != null && !PERC.has(e.voice) && e.b < th.totalBeats - E);
+  const byPart = new Map();
+  for (const e of evs) { if (!byPart.has(e.part)) byPart.set(e.part, []); byPart.get(e.part).push(e); }
+  const melParts = new Set(th.melodyParts);
+  const tuneOn = new Map();
+  for (const e of evs) if (melParts.has(e.part)) { const k = e.b.toFixed(3); if (!tuneOn.has(k)) tuneOn.set(k, []); tuneOn.get(k).push(e); }
+  const chordAt = (x) => th.harm.find((h) => x >= h.b - E && x < h.b + h.d - E);
+  const strong = (x) => { const inBar = ((x % th.meter) + th.meter) % th.meter; return th.pulse.some((p) => Math.abs(inBar - p) < E); };
+  const parts = [];
+  for (const [name, list] of byPart) {
+    list.sort((a, b) => a.b - b.b || a.m - b.m);
+    const n = list.length;
+    let gen = 0, dbl = 0, sync = 0, sb = 0, sbOk = 0;
+    for (const e of list) {
+      if (e.gen) gen++;
+      const at = tuneOn.get(e.b.toFixed(3)) || [];
+      if (at.some((t) => t.part !== e.part)) sync++;
+      if (at.some((t) => t.part !== e.part && pc(t.m) === pc(e.m))) dbl++;
+      if (strong(e.b)) { const c = chordAt(e.b); if (c) { sb++; if (c.pcs.has(pc(e.m))) sbOk++; } }
+    }
+    let mono = true;
+    for (let i = 1; i < n; i++) if (list[i].b < list[i - 1].b + list[i - 1].d - 0.02) { mono = false; break; }
+    let moves = 0, steps = 0;
+    if (mono) for (let i = 1; i < n; i++) { const iv = Math.abs(list[i].m - list[i - 1].m); if (!iv) continue; moves++; if (iv <= 2) steps++; }
+    parts.push({ part: name, voice: list[0].voice, bus: list[0].bus, notes: n, genPct: Math.round(100 * gen / n), dblPct: Math.round(100 * dbl / n),
+      syncPct: Math.round(100 * sync / n), chordPct: sb ? Math.round(100 * sbOk / sb) : null, mono, stepPct: moves ? Math.round(100 * steps / moves) : null,
+      range: [noteName(Math.min(...list.map((e) => e.m))), noteName(Math.max(...list.map((e) => e.m)))].join('-'), melody: melParts.has(name) });
+  }
+  parts.sort((a, b) => (b.melody - a.melody) || a.part.localeCompare(b.part));
+  const hand = parts.filter((p) => p.genPct < 20 && p.dblPct < 35);
+  const independentParts = hand.filter((p) => !p.melody);
+  // parallel perfect intervals between adjacent hand-written monophonic lines
+  const noteAt = (list, x) => list.find((e) => e.b <= x + E && e.b + e.d > x + E);
+  const lines = parts.filter((p) => p.mono && p.genPct < 20).map((p) => byPart.get(p.part));
+  let parallels = 0; const parList = [], doubled = [];
+  for (let i = 0; i < lines.length; i++) for (let j = i + 1; j < lines.length; j++) {
+    const A = lines[i], B = lines[j];
+    const on = [...new Set([...A, ...B].map((e) => +e.b.toFixed(3)))].sort((a, b) => a - b);
+    let both = 0, same = 0;
+    for (const x of on) { const a = noteAt(A, x), b = noteAt(B, x); if (!a || !b) continue; both++; if ((a.m - b.m) % 12 === 0) same++; }
+    if (both >= 4 && same / both > 0.6) { doubled.push(`${A[0].part}+${B[0].part}`); continue; } // one line, two instruments
+    let prev = null;
+    for (const x of on) {
+      const a = noteAt(A, x), b = noteAt(B, x);
+      if (!a || !b) { prev = null; continue; }
+      const iv = pc(a.m - b.m);
+      if (prev && Math.abs(a.m - b.m) <= 24 && (iv === 0 || iv === 7) && prev.iv === iv && a.m !== prev.a && b.m !== prev.b && Math.sign(a.m - prev.a) === Math.sign(b.m - prev.b)) {
+        parallels++;
+        if (parList.length < 12) parList.push(`${A[0].part}/${B[0].part} beat ${x} ${noteName(a.m)}-${noteName(b.m)}${iv === 0 ? ' (8ve)' : ' (5th)'}`);
+      }
+      prev = { iv, a: a.m, b: b.m };
+    }
+  }
+  const first = new Map();
+  for (const e of evs) if (melParts.has(e.part)) { const k = e.b.toFixed(3); if (!first.has(k) || first.get(k).d < e.d) first.set(k, e); }
+  const tl = [...first.values()].sort((a, b) => a.b - b.b);
+  const rhythms = new Set();
+  for (let bar = 0; bar * th.meter < th.totalBeats; bar++) {
+    const r = tl.filter((e) => e.b >= bar * th.meter - E && e.b < (bar + 1) * th.meter - E).map((e) => `${(e.b - bar * th.meter).toFixed(2)}:${e.d}`).join(',');
+    if (r) rhythms.add(r);
+  }
+  const genNotes = parts.reduce((s2, p) => s2 + p.notes * p.genPct / 100, 0), all = parts.reduce((s2, p) => s2 + p.notes, 0) || 1;
+  const bassParts = parts.filter((p) => p.bus === 'bass' && p.stepPct != null);
+  const loopEnd = th.introBeats + th.loopBeats;
+  return {
+    id: th.id, bars: th.bars, parts, independent: independentParts.length, independentParts: independentParts.map((p) => p.part),
+    maxDoubling: Math.max(0, ...parts.filter((p) => !p.melody).map((p) => p.dblPct)),
+    generatedPct: Math.round(100 * genNotes / all), parallels, parList, doubled,
+    overrun: th.kind === 'loop' ? th.events.filter((e) => e.b >= loopEnd - E).length : 0,
+    bassStepPct: bassParts.length ? Math.round(bassParts.reduce((s2, p) => s2 + p.stepPct, 0) / bassParts.length) : null,
+    tune: { notes: tl.length, quarterPct: Math.round(100 * tl.filter((e) => Math.abs(e.d - 1) < E).length / Math.max(1, tl.length)), barRhythms: rhythms.size },
+  };
+}
+
+
 /**
  * Melody vs harmony on strong beats. Returns {checked, ok, color, app, clash:[...]} where
  *  ok = chord tone, color = 6th/9th on a triad or maj7 on a major chord, app = non-chord tone resolving by step

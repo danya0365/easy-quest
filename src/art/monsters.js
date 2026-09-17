@@ -15,6 +15,14 @@
  *   m.dispose()
  *   Monsters.list() -> ['gloop', 'bobble', ...]  Monsters.info(id) -> {id, name, family, boss, death, height, radius}
  *
+ * THE FACE LAYER (§6) — the thing that makes them monsters rather than plush toys:
+ *   Every face is a state machine, not a sticker. A wild monster is sly: half-lidded painted eyes (a body-coloured lid
+ *   slides down over them, with an ink lash), a brow wedge, pupils that glance sideways, and a lopsided smirk. It
+ *   squints and grits its teeth to wind up, yells as it lunges, squeezes its eyes shut (> <) when hit, goes dizzy
+ *   (spirals, tongue out) as it poofs — and on 'join' the lids snap open into the big beaming face it keeps for good
+ *   (mood 'friend'). Every state is tuned per species in `spec.face`; `monster.mood` / `setMood()` switch wild/friend,
+ *   and `monster.state().face` reports {state, eyes, mouth, lids} so a critic can see it.
+ *
  * The monster object:
  *   root        THREE.Group, origin = ground contact, faces +Z (toward the battle camera)
  *   radius      half-width in world units (formation spacing, targeting)    height  top of the body at rest
@@ -23,6 +31,7 @@
  *        hurt opts:   {dir: Vector3 knock direction (local)}      defeat opts: {vanish: true} forces the poof on
  *        story bosses that normally stay (the Sunmane lies down, Bogwallop sulks)
  *   update(dt)  onHit(point?)  dispose()
+ *   mood        'wild' (the sly enemy face) | 'friend' (after it joins you); also setMood(m)
  *   clip / defeated / visible (getters)   state() -> JSON summary   center() -> local Vector3 (mid-body)
  *   top() -> local Vector3 (above the head: damage numbers)   on(event, fn) events: 'impact', 'end', 'defeated'
  *
@@ -54,7 +63,7 @@ const pick = (key, derived) => (PAL.monster && typeof PAL.monster[key] === 'stri
 const MON = Object.freeze(Object.fromEntries(Object.entries({
   gloop: PAL.slime.body, gloopLight: PAL.slime.light, gloopDeep: sc('slime.body', 0.72),
   gloopG: sc('paint.shutterGreen', 1.3), gloopR: mx('cloth.purple', 'flower.red', 0.7),
-  bloop: mx('cloth.purple', 'cloth.pink', 0.9), glop: mx('thatch.dark', 'water.deep', 0.15),
+  bloop: mx('cloth.purple', 'cloth.pink', 0.9), glop: mx('stone.moss', 'thatch.dark', 0.42),
   glimmer: mx('sky.sunGlow', 'hill.far', 0.8), glimmerDeep: mx('hill.far', 'cloud.core', 0.55),
   bat: mx('cloth.purple', 'hill.mid', 0.2), batWing: mx('cloth.purpleDark', 'shadow.aoCool', 0.35), batBelly: mx('cloth.pink', 'cloth.purple', 0.35),
   chick: mx('stone.light', 'flower.yellow', 0.75), chickLight: mx('flower.yellow', 'plaster.light', 0.55), beak: mx('stone.cobbleA', 'char.carrot', 0.85),
@@ -93,6 +102,17 @@ const MON = Object.freeze(Object.fromEntries(Object.entries({
   chrome: mx('snow.light', 'sky.page', 0.18), chromeSky: mx('sky.page', 'snow.ice', 0.35), chromeGround: mx('stone.dark', 'bark.dark', 0.35), chromeDeep: mx('water.deep', 'char.hair', 0.45),
   ghostLit: mx('snow.light', 'sky.haze', 0.25), ghostShade: mx('snow.shade', 'cloud.shade', 0.5),
   tabard: 'cloth.blue', tabardDark: 'cloth.blueDark', lighthouse: 'plaster.light', lamp: mx('flower.yellow', 'sky.sunGlow', 0.4),
+  // tier three / four / five (MONSTER-BIBLE §9: M_SHADOW, M_CATEYE, M_CLOUD, M_BOLT, M_CHITIN, M_JEST_*, M_MOLE, M_FLAME, …)
+  shadow: mx('cloth.purpleDark', 'char.hair', 0.45), shadowLit: mx('cloth.purple', 'char.hair', 0.35), catEye: mx('grass.tip', 'snow.ice', 0.45),
+  cloud: mx('cloud.lit', 'sky.page', 0.22), cloudDark: mx('cloud.shade', 'hill.farLow', 0.4), bolt: mx('flower.yellow', 'cloud.lit', 0.42),
+  chitin: mx('water.deep', 'paint.shutterBlue', 0.5), chitinLight: mx('paint.shutterBlue', 'sky.page', 0.35), stripe: mx('char.carrot', 'flower.yellow', 0.4),
+  jestA: 'cloth.red', jestB: mx('cloth.mustard', 'flower.yellow', 0.3), jestDark: mx('cloth.purpleDark', 'char.hair', 0.25), jestGold: mx('cloth.mustard', 'char.carrot', 0.22),
+  skinPale: mx('char.skin', 'plaster.light', 0.35), mole: mx('cloth.purpleDark', 'stone.mid', 0.42), moleBelly: mx('animal.cheek', 'plaster.light', 0.42),
+  flame: mx('flower.yellow', 'char.carrot', 0.45), flameCore: mx('flower.yellow', 'char.white', 0.55), wax: mx('plaster.light', 'sand.light', 0.3),
+  brass: mx('cloth.mustard', 'char.carrot', 0.28), silver: mx('snow.light', 'sky.page', 0.3), bronze: mx('wood.mid', 'cloth.mustard', 0.45),
+  darkGold: mx('cloth.mustard', 'bark.dark', 0.42), frost: mx('snow.light', 'water.light', 0.22), iceBlue: mx('water.light', 'snow.ice', 0.45),
+  squid: mx('cloth.purpleDark', 'water.mid', 0.38), dragon: mx('foliage.mid', 'paint.shutterGreen', 0.35), belly: mx('sand.light', 'plaster.light', 0.35),
+  cassock: mx('char.hair', 'water.deep', 0.3), cardinal: mx('cloth.red', 'char.hair', 0.35), wingDark: mx('char.hair', 'cloth.purpleDark', 0.35),
 }).map(([k, v]) => [k, pick(k, v.startsWith('#') ? v : mixHex(v, v, 0))])));
 
 const outlineOf = (hex) => mixHex(scaleHex(hex, 0.45), PAL.outline.char, 0.6);
@@ -161,6 +181,12 @@ function ellSurf(rx, ry, rz, c = [0, 0, 0]) {
     r(Y, th) { const k = 1 - Math.pow((Y - c[1]) / ry, 2); if (k <= 0) return 0; const q = Math.sqrt(k); return ellipseR(rx * q, rz * q, th); },
   };
 }
+/**
+ * A nearly FLAT surface for painting a face on a flat part (a sword's guard, a chest lid, a mask): a huge sphere sitting
+ * just behind the plane z = zAt, so decals wrap with almost no curvature. (A thin ellipsoid would smear them round its edge.)
+ */
+function flatSurf(zAt, yc = 0, x = 0, R = 1.6) { return ellSurf(R, R, R, [x, yc, zAt - R]); }
+
 /** Angle theta at height Y whose surface point has the given x offset from the surface centre. */
 function thetaFor(surf, Y, x) {
   let th = 0;
@@ -299,9 +325,10 @@ function strokeShape(pts, hw) {
   return s;
 }
 const sample = (n, fn) => Array.from({ length: n }, (_, i) => fn(i / (n - 1)));
-/** Flat (thin-extruded) decal geometry from shapes; depth scales with the feature so tiny faces stay crisp. */
-function flatGeo(shapes, depth = 0.004) {
-  const g = new THREE.ExtrudeGeometry(shapes, { depth, bevelEnabled: false, curveSegments: 8 });
+/** Flat decal geometry from shapes. depth 0 = a single-sided sheet (cheapest; used for everything that lies flat). */
+function flatGeo(shapes, depth = 0.004, curveSegments = 8) {
+  if (depth <= 0) return new THREE.ShapeGeometry(shapes, curveSegments);
+  const g = new THREE.ExtrudeGeometry(shapes, { depth, bevelEnabled: false, curveSegments });
   g.translate(0, 0, -depth / 2);
   return g;
 }
@@ -314,8 +341,8 @@ function shutEyeShape(r, side) {
 /** Happy closed eye "^" arch. */
 function happyEyeShape(r) { return strokeShape(sample(15, (u) => { const x = lerp(-0.74, 0.74, u); return [x * r, (0.42 * (1 - (x * x) / 0.55) - 0.12) * r]; }), r * 0.14); }
 /** Dizzy spiral. */
-function spiralShape(r, side) {
-  return strokeShape(sample(46, (u) => { const a = side * u * 2.25 * TAU + 0.6, rr = r * (0.1 + 0.7 * u); return [Math.cos(a) * rr, Math.sin(a) * rr]; }), (u) => r * (0.075 + 0.045 * u));
+function spiralShape(r, side, rot = 0) {
+  return strokeShape(sample(34, (u) => { const a = side * u * 2.25 * TAU + 0.6 + rot, rr = r * (0.1 + 0.7 * u); return [Math.cos(a) * rr, Math.sin(a) * rr]; }), (u) => r * (0.075 + 0.045 * u));
 }
 /** An eyebrow for the eye on `side`: inner end thicker, a small arch. Centred on the origin. */
 function browShape(r, side, len = 1.3) {
@@ -355,6 +382,14 @@ function mouthLayers(kind, w, h, lop = 1) {
       add(strokeShape(sample(6, (u) => [cx + lop * (0.01 + u * 0.05) * w * 1.2, cy + (u * 0.55 - 0.1) * h - u * u * 0.3 * h]), Math.max(0.0035, h * 0.1)), 'line', 1);
       if (kind === 'fang' || kind === 'fangTongue') fangs(kind === 'fang' ? [lop * w * 0.2] : [-w * 0.2, w * 0.2], (x) => smirkLipY(w, h, lop, x), h * 0.62);
       if (kind === 'fangTongue') hangTongue(-lop * w * 0.06, -h * 0.55, h * 1.35, w * 0.13, -lop * 0.12);
+      break;
+    }
+    case 'fangUp': {
+      // the hooligan grin: a lopsided smirk with two little teeth poking UP from the lower lip
+      const s = new THREE.Shape(), yl = lop > 0 ? h * 0.08 : h * 0.45, yr = lop > 0 ? h * 0.45 : h * 0.08;
+      s.moveTo(-w / 2, yl); s.quadraticCurveTo(0, -h * 0.25, w / 2, yr); s.quadraticCurveTo(lop * w * 0.1, -h * 1.9, -w / 2, yl);
+      add(s, 'in');
+      for (const x of [-w * 0.2, w * 0.14]) { const t = new THREE.Shape(), fw = Math.max(w * 0.05, h * 0.2), yb = -h * 0.72 + Math.abs(x) * h * 1.2; t.moveTo(x - fw, yb - h * 0.1); t.lineTo(x + fw, yb - h * 0.1); t.quadraticCurveTo(x + fw * 0.2, yb + h * 0.35, x, yb + h * 0.55); t.quadraticCurveTo(x - fw * 0.2, yb + h * 0.35, x - fw, yb - h * 0.1); add(t, 'tooth', 1); }
       break;
     }
     case 'grimace': {
@@ -414,6 +449,7 @@ function starGeometry() {
 // 3. The builder: bones + parts -> merged skinned buckets
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 const BUCKETS = ['toon', 'unlit', 'trans', 'hull'];
+const LID_LEVELS = [0.22, 0.4, 0.58, 0.76, 1.0];
 
 class Builder {
   constructor(id) {
@@ -511,7 +547,8 @@ class Builder {
    *     pupilColor, scleraColor, outline, forward (extra push), bulge (0..1 of the ball that shows), names}
    */
   eyes(o) {
-    // r is the radius the eye SHOWS on the body; the ball behind it is bigger and sunk so only a gentle dome bulges
+    if (!o.ball) return this.paintedEyes(o);
+    // ball eyes on a surface: r is the radius the eye SHOWS; the ball behind it is bigger and sunk so only a dome bulges
     const { surf, y, gap, r, xOff = 0, forward = 0, bulge = 0.3, zScale = 0.84, names = ['eyeL', 'eyeR'] } = o;
     const R = r / Math.sqrt(1 - (1 - bulge) * (1 - bulge));
     const pts = [-1, 1].map((side) => {
@@ -522,6 +559,72 @@ class Builder {
       return { pos: [c.x, c.y, c.z], yaw: th, side, Y: y, th, x, lift: Math.max(0.002, forward * 0.5) };
     });
     return this.eyesAt(pts, Object.assign({ zScale }, o, { names, surf, r: R, rVis: r }));
+  }
+  /**
+   * PAINTED eyes — the Dragon Quest way: they lie ON the body as gently domed decals (an ink rim, a white oval, a pupil
+   * that glances, two highlights), so nothing floats past the outline at 3/4. The expression is a body-coloured LID that
+   * slides down over them (six closures, each with its ink lash; the driver picks one and slants it) plus the brows and
+   * the > <, spiral and ^ ^ decals from _eyeExtras. o: {surf, y, gap, r, xOff, forward, sy (oval), pupil (ratio),
+   * pupilShape 'round'|'slit'|'bar', rim (ink rim, eye radii), tilt (resting lid slant), lid (colour), lidVcol, brows...}
+   */
+  paintedEyes(o) {
+    const { surf, y, gap, r, xOff = 0, forward = 0, names = ['eyeL', 'eyeR'], parent = 'body', sy = 1.16, pupil = 0.5, hl = true,
+      pupilColor = MON.pupil, scleraColor = MON.white, rim = 0.09, rimColor = PAL.outline.char, tilt = 0, pupilShape = 'round',
+      lash = PAL.outline.char, dome = 0.12, lidVcol = null } = o;
+    const lidCol = o.lid === false ? null : (o.lid || this.skin || null);
+    const d = Math.max(0.0011, r * 0.028), L0 = 0.0025 + forward;
+    const domeZ = (X, Yy) => r * dome * Math.sqrt(Math.max(0, 1 - (X / (r * 1.04)) ** 2 - (Yy / (r * sy * 1.04)) ** 2));
+    const out = [];
+    [-1, 1].forEach((side, k) => {
+      const x = side * gap / 2 + xOff, th = thetaFor(surf, y, x - surf.c.x), c = surfPoint(surf, y, th, 0);
+      const name = this.bone(names[k] || ('eye' + k), parent, [c.x, c.y, c.z]);
+      this.meta.eyes.push(name);
+      // a lid must clear its neighbour's dome too (touching eyes are the Gloop look)
+      const nx = -side * gap, both = (X, Yy) => Math.max(domeZ(X, Yy), domeZ(X - nx, Yy));
+      const put = (geo, layer, { at = [0, 0], clampY = null, over = false } = {}) => {
+        const g = geo.index ? geo.toNonIndexed() : geo, p = g.attributes.position;
+        for (let i = 0; i < p.count; i++) {
+          let X = p.getX(i) + at[0], Yy = p.getY(i) + at[1];
+          if (clampY != null && Yy < clampY) Yy = clampY;
+          p.setXYZ(i, X, Yy, p.getZ(i) + (over ? both(X, Yy) : domeZ(X, Yy)));
+        }
+        return wrapOn(g, surf, y, th, L0 + layer * d);
+      };
+      if (rim > 0) this.unlit(put(discGeo(r * (1 + rim), r * sy + r * rim, 24, 3), 0), { bone: name, color: rimColor });
+      this.unlit(put(discGeo(r, r * sy, 24, 4), 1), { bone: name, color: scleraColor });
+      const pupilBone = this.bone(name + 'Pupil', name, [c.x, c.y, c.z]);
+      const pr = r * pupil, px = -side * r * 0.08, py = -r * 0.06;
+      const [pw, ph] = pupilShape === 'slit' ? [0.3, 1.3] : pupilShape === 'bar' ? [1.35, 0.62] : [1, 1.14];
+      this.unlit(put(discGeo(pr * pw, pr * ph, 20, 2), 2, { at: [px, py] }), { bone: pupilBone, color: pupilColor });
+      if (hl) {
+        this.unlit(put(discGeo(pr * 0.36, pr * 0.4, 12, 1), 3, { at: [px - pr * 0.36, py + pr * 0.44] }), { bone: pupilBone, color: MON.white });
+        this.unlit(put(discGeo(pr * 0.15, pr * 0.15, 8, 1), 3, { at: [px + pr * 0.34, py - pr * 0.42] }), { bone: pupilBone, color: MON.white });
+      }
+      const lids = [];
+      const tn = [Math.cos(th), 0, -Math.sin(th)];
+      const lidShear = (inner, outer) => (X, Y2, Z) => { const xl = (X - c.x) * tn[0] + (Z - c.z) * tn[2]; const wi = clamp01(0.5 - side * xl / (2 * r * 1.2)); return [[inner, wi], [outer, 1 - wi]]; };
+      if (lidCol) {
+        const E = 1.2;
+        for (const lv of LID_LEVELS) {
+          const lb = this.bone(`${name}Lid${Math.round(lv * 100)}`, name, [c.x, c.y, c.z], 0);
+          const lI = this.bone(lb + 'I', lb, [c.x, c.y, c.z]), lO = this.bone(lb + 'O', lb, [c.x, c.y, c.z]);
+          lids.push(lb);
+          const yc = lv >= 1 ? -r * sy * E : r * sy * (1 - 2 * lv);
+          const vc = lidVcol ? ((X, Y2, Z, ny, tmp) => lidVcol(X, Y2, Z, ny, tmp)) : null;
+          const wts = lidShear(lI, lO);
+          this.toon(put(discGeo(r * E, r * sy * E, 20, 4), 4, { clampY: yc, over: true }), { bone: lb, color: lidCol, vcol: vc, weights: wts });
+          // the lash: the lid's edge, a touch of sag; a closed lid is one soft curve across the middle
+          const closed = lv >= 1, yl = closed ? -r * sy * 0.28 : yc, hw = closed ? r * 1.04 : r * Math.sqrt(Math.max(0.02, 1 - (yc / (r * sy)) ** 2)) * 1.06;
+          const sag = closed ? r * 0.2 : r * 0.07;
+          const lg = flatGeo(strokeShape(sample(9, (u) => { const X = lerp(-hw, hw, u); return [X, yl - sag * (1 - (X / hw) ** 2)]; }), (u) => r * (0.085 + 0.05 * Math.sin(Math.PI * u))), 0, 5);
+          this.unlit(put(lg, 5, { over: true }), { bone: lb, color: lash, weights: wts });
+        }
+      }
+      const e = this._eyeExtras(name, { pos: [c.x, c.y, c.z], side, parent, Y: y, th, x, r, zScale: 0.84, lift: L0 + d * 2 }, Object.assign({}, o, { surf, sy }));
+      Object.assign(e, { pupil: pupilBone, lids, lidHalf: r * 1.2, kind: 'painted', baseTilt: tilt, R: r, zs: 0, sy, th });
+      out.push({ name, pos: V3(c.x, c.y, c.z), th });
+    });
+    return out;
   }
   /** Eyes at explicit points: [{pos:[x,y,z], yaw, pitch?, side, parent?}] (lids, stalks, sockets). Same options as eyes(). */
   eyesAt(points, o) {
@@ -577,30 +680,45 @@ class Builder {
     const side = P.side, r = P.r ?? o.r, par = P.parent || 'body', c = P.pos, zs = P.zScale ?? 0.84;
     const q = P.q || new THREE.Quaternion().setFromEuler(new THREE.Euler(-(P.pitch || 0) * DEG, P.yaw || 0, 0, 'YXZ'));
     const surf = o.surf && P.Y != null ? o.surf : null;
-    const ink = o.decalColor || PAL.outline.char, depth = Math.max(0.003, r * 0.07), lift = (P.lift || 0.002) + r * 0.05;
+    const ink = o.decalColor || PAL.outline.char, depth = 0, lift = (P.lift || 0.002) + r * 0.05;
     const decal = (bone, shape, color, dy = 0, fwd = 0.45, dth = 0) => {
       const g = flatGeo(shape, depth);
       if (surf) this.unlit(wrapOn(g, surf, P.Y + dy, P.th + dth, lift), { bone, color });
       else { const m = new THREE.Matrix4().compose(V3(c[0], c[1], c[2]), q, V3(1, 1, 1)).multiply(MT([0, dy, r * zs * fwd])); this.unlit(g, { m, bone, color }); }
     };
-    const entry = { eye: name, side, r, q: [q.x, q.y, q.z, q.w], pupil: null, lid: null, brow: null, shut: null, dizzy: null, happy: null, kind: o.kind || 'flat', baseTilt: 0, zs, sy: 1 };
+    // the local frame the driver moves things in: on a body, "up" follows the surface (a vertical move also slides in
+    // or out by the slope, so a slanted lid or brow never sinks into a sloping body); off a body, the eye's own up
+    const fr = surf ? (() => { const e2 = 0.004, sl = (surf.r(P.Y + e2, P.th) - surf.r(P.Y - e2, P.th)) / (2 * e2); return { up: [Math.sin(P.th) * sl, 1, Math.cos(P.th) * sl], tan: [Math.cos(P.th), 0, -Math.sin(P.th)] }; })()
+      : (() => { const u = V3(0, 1, 0).applyQuaternion(q), t = V3(1, 0, 0).applyQuaternion(q); return { up: [u.x, u.y, u.z], tan: [t.x, t.y, t.z] }; })();
+    const entry = { eye: name, side, r, q: [q.x, q.y, q.z, q.w], pupil: null, lid: null, brow: null, shut: null, dizzy: null, happy: null, kind: o.kind || 'flat', baseTilt: 0, zs, sy: 1, up: fr.up, tan: fr.tan };
+    /** skin weights that split a part between an inner-end bone and an outer-end bone by its local x (a slant = a shear) */
+    const shear = (pivot, half, inner, outer) => (x, y, z) => { const xl = (x - pivot[0]) * fr.tan[0] + (y - pivot[1]) * fr.tan[1] + (z - pivot[2]) * fr.tan[2]; const wi = clamp01(0.5 - side * xl / (2 * half)); return [[inner, wi], [outer, 1 - wi]]; };
+    entry.shear = shear;
     const brows = o.brows ?? this.brows;
     if (brows) {
-      const bl = o.browLift ?? 1.38, dy = r * bl;
+      const bl = o.browLift ?? 1.38, dy = r * bl, len = o.browLen ?? 1.25;
       const dth = surf ? (thetaFor(surf, P.Y + dy, (P.x ?? Math.sin(P.th) * surf.r(P.Y, P.th)) + side * r * 0.1 - surf.c.x) - P.th) : 0;
       const pos = surf ? surfPoint(surf, P.Y + dy, P.th + dth, 0) : V3(c[0], c[1], c[2]).add(V3(0, dy, r * zs * 0.55).applyQuaternion(q));
-      entry.brow = this.bone(name + 'Brow', par, [pos.x, pos.y, pos.z]);
+      const pv = [pos.x, pos.y, pos.z];
+      entry.brow = this.bone(name + 'Brow', par, pv);
+      entry.browI = this.bone(name + 'BrowI', entry.brow, pv); entry.browO = this.bone(name + 'BrowO', entry.brow, pv);
+      entry.browHalf = 0.5 * len * r;
       const bc = o.browColor || this.browColor || mixHex(this.skin || PAL.outline.char, PAL.outline.char, 0.72);
-      const g = flatGeo(browShape(r, side, o.browLen ?? 1.25), depth);
-      if (surf) this.unlit(wrapOn(g, surf, P.Y + dy, P.th + dth, lift + depth * 0.4), { bone: entry.brow, color: bc });
-      else this.unlit(g, { m: new THREE.Matrix4().compose(V3(c[0], c[1], c[2]), q, V3(1, 1, 1)).multiply(MT([side * r * 0.1, dy, r * zs * 0.55])), bone: entry.brow, color: bc });
+      const wts = shear(pv, entry.browHalf, entry.browI, entry.browO);
+      entry.browWeights = wts; entry.browPos = pv;
+      if (o.browShape !== false) {
+        const g = flatGeo(browShape(r, side, len), depth);
+        if (surf) this.unlit(wrapOn(g, surf, P.Y + dy, P.th + dth, lift + 0.0012), { bone: entry.brow, color: bc, weights: wts });
+        else this.unlit(g, { m: new THREE.Matrix4().compose(V3(c[0], c[1], c[2]), q, V3(1, 1, 1)).multiply(MT([side * r * 0.1, dy, r * zs * 0.55])), bone: entry.brow, color: bc, weights: wts });
+      }
     }
     if (o.decals !== false) {
       const pos = surf ? surfPoint(surf, P.Y, P.th, 0) : V3(c[0], c[1], c[2]).add(V3(0, 0, r * zs * 0.45).applyQuaternion(q));
       const at = [pos.x, pos.y, pos.z];
       entry.shut = this.bone(name + 'Shut', par, at, 0); decal(entry.shut, shutEyeShape(r, side), ink);
       entry.happy = this.bone(name + 'Happy', par, at, 0); decal(entry.happy, happyEyeShape(r), ink);
-      entry.dizzy = this.bone(name + 'Dizzy', par, at, 0); decal(entry.dizzy, spiralShape(r, side), ink);
+      // dizzy spirals spin by flipping through four pre-turned frames (a turning decal would sink into a curved body)
+      entry.dizzy = [0, 1, 2, 3].map((f) => { const bn = this.bone(name + 'Dizzy' + f, par, at, 0); decal(bn, spiralShape(r, side, -side * f * Math.PI / 2), ink); return bn; });
     }
     this.meta.face.eyes.push(entry);
     return entry;
@@ -860,7 +978,7 @@ function gloopBody(B, o = {}) {
       // the lid is the body's own colour at eye height, so a half-shut eye reads as the body closing over it
       const Y = at[1] + E.y * sy, vc = o.vcol || ((x, y, z, ny, tmp) => tmp.copy(deep).lerp(light, smooth(0.0, topY + at[1], y)));
       const skin = '#' + (vc(at[0], Y, at[2] + 0.3, 0, new THREE.Color()) || C3(color)).getHexString();
-      B.eyes(Object.assign({ surf, y: Y, gap: E.gap * sx, r: E.r * Math.cbrt(sx * sy * sz), tilt: E.tilt, parent: bodyBone, lid: o.lid === false ? false : skin, brows: o.brows ?? B.brows,
+      B.eyes(Object.assign({ surf, y: Y, gap: E.gap * sx, r: E.r * Math.cbrt(sx * sy * sz), tilt: E.tilt, parent: bodyBone, lid: o.lid === false ? false : skin, lidVcol: vc, brows: o.brows ?? B.brows,
         browColor: o.browColor || mixHex(scaleHex(color, 0.62), PAL.outline.char, 0.45) }, prefix ? { names: [prefix + 'eyeL', prefix + 'eyeR'] } : {}, o.eyeOpts || {}));
     }
     const Mo = Object.assign({ w: 0.16, h: 0.055, xOff: 0, y: 0.2 }, o.mouth || {});
@@ -906,6 +1024,7 @@ function hover(ctx, t, base, amp, period) { const y = (base + amp * Math.sin(TAU
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 species('gloop', {
   name: 'Gloop', family: 'gloop', toon: 'slime', death: 'pop',
+  // the default face set IS the Gloop: sly smirk, heavy lids, shifty glance (FACE_STATES)
   build(B) { const g = gloopBody(B); return { height: g.height, radius: g.radius }; },
   idle(ctx, t, dt) {
     // every fourth hop goes sideways by 0.1 and has to come back, embarrassed
@@ -922,6 +1041,12 @@ species('gloop', {
 
 species('bobble', {
   name: 'Bobble', family: 'gloop', toon: 'slime', death: 'pop', story: true,
+  // pompous: the monocle eye held wide under a raised brow, the other squinting, a "Frankly—" smirk
+  face: {
+    wild: { lid: [0.1, 0.56], tilt: 6, brow: [[0.4, -14], [-0.08, 16]], look: [0.2, 0.05], glance: 0.3, glancePeriod: 4.4, mouth: 'smirk' },
+    taunt: { eyes: ['open', 'happy'], lid: [0.05, 1], tilt: 4, brow: [[0.42, -16], [0.1, 6]], look: [-0.3, 0.1], mouth: 'tongue' },
+    bothered: { lid: [0.3, 0.3], tilt: -10, brow: [[0.3, -22], [0.3, -22]], look: [-0.5, -0.6], mouth: 'worry' },   // where did it go
+  },
   build(B) {
     const g = gloopBody(B, { eyes: { r: 0.078 }, mouth: { w: 0.17, h: 0.06 } });
     // the monocle he does not need and cannot keep on: over his right eye (viewer's left)
@@ -950,8 +1075,9 @@ species('bobble', {
       const drop = dang * (1 - easeOutBack(back, 1.6));
       mono.position.y -= 0.1 * drop; mono.position.x -= 0.07 * drop; mono.position.z += 0.03 * drop;
       mono.rotation.z += Math.sin((k - 5.6) * 9) * 0.35 * drop * (1 - seg(k, 6.2, 7.1) * 0.7);
-      ctx.eyeScale *= 1 + 0.18 * hump(k, 5.62, 6.4);
-      if (k > 5.62 && k < 6.3) ctx.showOh = true;
+      ctx.eyeScale *= 1 + 0.12 * hump(k, 5.62, 6.4);
+      if (k > 5.62 && k < 6.3) { ctx.showOh = true; ctx.faceKey = 'surprise'; }
+      else if (k >= 6.3 && k < 7.15) ctx.faceKey = 'bothered';
     }
   },
 });
@@ -960,10 +1086,18 @@ species('bobble', {
 // 5b. The rest of the first-build roster (MONSTER-BIBLE §1-§6b)
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 species('bloop', {
-  name: 'Bloop', family: 'gloop', toon: 'slime', death: 'deflate', say: 'Sorry!', color: MON.bloop,
+  name: 'Bloop', family: 'gloop', toon: 'slime', death: 'deflate', say: 'Sorry!', color: MON.bloop, keepShape: ['hat'],
+  // a worrier: brows up in the middle, eyes darting, a wobbly little smile
+  face: {
+    wild: { lid: 0.2, tilt: -14, brow: [[0.28, -28], [0.24, -24]], look: [0, 0.12], glance: 0.8, glancePeriod: 1.7, mouth: 'worry' },
+    windup: { lid: 0.52, tilt: 10, brow: [[0.02, 18], [0.02, 18]], mouth: 'grimace' },
+    taunt: { eyes: ['happy', 'open'], lid: [1, 0.2], tilt: -8, brow: [[0.1, -10], [0.34, -24]], mouth: 'tongue' },
+    friend: { lid: 0, tilt: -8, brow: [[0.34, -16], [0.34, -16]], mouth: 'beam' },
+  },
   build(B) {
     const S = [1.02, 0.94, 1.02];
-    const g = gloopBody(B, { s: S, color: MON.bloop, eyes: { r: 0.085, gap: 0.15, tilt: -10, y: 0.3 }, mouth: { w: 0.1, h: 0.042, xOff: -0.02, y: 0.185 } });
+    const g = gloopBody(B, { s: S, color: MON.bloop, eyes: { r: 0.08, gap: 0.15, y: 0.3 }, eyeOpts: { browLift: 1.22 }, browColor: mx(sc(MON.bloop, 0.45), PAL.outline.char, 0.35),
+      mouth: { w: 0.11, h: 0.045, xOff: -0.02, y: 0.185, lop: -1, sizes: { worry: [1.3, 1.1], beam: [1.2, 1.1] } } });
     // the nurse's cap, perched on the tip (the tip hides inside it), with a little red cross
     const capY = 0.415;
     const hat = B.bone('hat', 'tip', [0, capY, 0]);
@@ -989,9 +1123,16 @@ species('bloop', {
 
 species('grumbleglop', {
   name: 'Grumbleglop', family: 'gloop', toon: 'slime', death: 'deflate', color: MON.glop,
+  // in a mood since the marsh: heavy lids, low brows, a flat unamused line; befriended, a grudging little smile
+  face: {
+    wild: { lid: 0.62, tilt: 18, brow: [[-0.14, 26], [-0.1, 20]], look: [0, -0.25], glance: 0.3, glancePeriod: 5.5, mouth: 'line' },
+    recover: { lid: 0.6, tilt: 18, brow: [[-0.14, 26], [-0.1, 20]], mouth: 'line' },
+    taunt: { lid: 0.72, tilt: 20, brow: [[-0.16, 30], [-0.16, 30]], look: [0, 0], mouth: 'tongue' },
+    friend: { lid: 0.34, tilt: 2, brow: [[0.1, -6], [0.14, -10]], look: [0, 0], mouth: 'worry' },
+  },
   build(B) {
-    const g = gloopBody(B, { s: [1.2, 0.86, 1.2], color: MON.glop, drip: 0.16, eyes: { r: 0.07, gap: 0.16, tilt: 16, y: 0.29 },
-      lid: sc(MON.glop, 0.92), lidCover: 0.4, mouth: { kind: 'line', w: 0.2, h: 0.022, y: 0.165 }, glossColor: mx(MON.glop, 'char.white', 0.55) });
+    const g = gloopBody(B, { s: [1.2, 0.86, 1.2], color: MON.glop, drip: 0.16, eyes: { r: 0.068, gap: 0.16, y: 0.29 }, browColor: mx(sc(MON.glop, 0.45), PAL.outline.char, 0.5),
+      mouth: { w: 0.15, h: 0.05, y: 0.165, kinds: ['beam', 'line', 'grimace', 'shout', 'ow', 'dizzy', 'tongue', 'worry', 'oh'], sizes: { line: [1.2, 0.42] } }, glossColor: mx(MON.glop, 'char.white', 0.55) });
     return { height: g.height, radius: g.radius * 1.12, shadow: g.radius * 2.5 };
   },
   idle(ctx, t, dt) {
@@ -1008,6 +1149,12 @@ species('grumbleglop', {
 
 species('sir_gloopalot', {
   name: 'Sir Gloopalot', family: 'gloop', toon: 'slime', color: MON.gloopG,
+  // the steed is not listening: gazing up and away, tongue out; only a hit gets its attention
+  face: {
+    wild: { lid: 0.3, tilt: -8, brow: [[0.2, -8], [0.32, -16]], look: [0.55, 0.7], glance: 0, mouth: 'tongue' },
+    recover: { lid: 0.3, tilt: -8, brow: [[0.2, -8], [0.32, -16]], look: [0.55, 0.7], mouth: 'tongue' },
+    friend: { lid: 0.1, tilt: -6, look: [0.3, 0.4], mouth: 'beam' },
+  },
   build(B) {
     const g = gloopBody(B, { s: [1.15, 1.15, 1.15], color: MON.gloopG, eyes: { r: 0.072, gap: 0.14, y: 0.26 }, mouth: { w: 0.15, h: 0.05, y: 0.165 } });
     const y0 = 0.5;
@@ -1089,7 +1236,13 @@ species('sir_gloopalot', {
 });
 
 species('glimmergloop', {
-  name: 'Glimmergloop', family: 'gloop', death: 'unwind', color: MON.glimmer,
+  name: 'Glimmergloop', family: 'gloop', death: 'unwind', color: MON.glimmer, brows: false,
+  // restraint: slits and a flat line — busy, not unkind. It still squeezes shut, goes dizzy, and smiles when it joins.
+  face: {
+    wild: { mouth: 'line', glance: 0 }, windup: { mouth: 'line' }, strike: { mouth: 'oh' }, recover: { mouth: 'line' },
+    taunt: { eyes: ['happy', 'open'], mouth: 'line' }, castIn: { mouth: 'line' }, castOut: { mouth: 'oh' },
+    friend: { mouth: 'worry' }, surprise: { mouth: 'oh' },
+  },
   toon: { edge: 0.06, soft: 0.02, mid: 0.97, midEdge: 0.04, shadeSat: 1.05 },
   build(B) {
     const S = [0.9, 0.9, 0.9], H = 0.535 * 0.9;
@@ -1106,8 +1259,9 @@ species('glimmergloop', {
       const geo = extrude(ovalShape(0.046, 0.011), 0.012, 0.004); geo.rotateZ(side * -8 * DEG);
       B.unlit(wrapOn(geo, g.surf, Y, th, 0.004), { bone: name, color: MON.pupil });
       eyes.push(name);
+      B._eyeExtras(name, { pos: [c.x, c.y, c.z], side, parent: 'body', Y, th, r: 0.048, lift: 0.004 }, { surf: g.surf, brows: false });
     }
-    B.mouth('line', { surf: g.surf, y: 0.19 * S[1], w: 0.07, h: 0.01, color: MON.mouth });
+    B.faceMouths({ surf: g.surf, y: 0.19 * S[1], w: 0.08, h: 0.03, beam: 'line', kinds: ['line', 'ow', 'dizzy', 'oh', 'worry'], sizes: { line: [0.9, 0.5] }, lift: 0.004 });
     B.gloss(g.surf, 0.3, -0.72, 0.06, 0.12, { rot: 0.4 });
     B.unlit(wrapOn(discGeo(0.022, 0.05, 20, 4), g.surf, 0.14, 0.95, 0.005), { color: MON.white });
     const glint = B.bone('glint', 'body', [0, 0, 0], 0);
@@ -1125,6 +1279,10 @@ species('glimmergloop', {
 
 species('gloopold', {
   name: 'Gloopold the Grand', family: 'gloop', toon: 'slime', color: MON.gloop, winky: true,
+  // eight Gloops voting, one face: regal, one brow up, looking down its nose
+  face: {
+    wild: { lid: [0.52, 0.3], tilt: 6, brow: [[-0.05, 12], [0.36, -14]], look: [0, -0.3], glance: 0.35, glancePeriod: 4.8, mouth: 'smirk' },
+  },
   build(B) {
     const small = 0.85;
     const spots = [[-0.5, 0, 0.14], [0, 0, 0.2], [0.5, 0, 0.14], [-0.26, 0.02, -0.28], [0.26, 0.02, -0.28], [-0.27, 0.36, -0.04], [0.27, 0.36, -0.04]];
@@ -1182,6 +1340,12 @@ species('gloopold', {
 
 species('flapjack', {
   name: 'Flapjack', family: 'bat', death: 'fold', hover: 0.55, color: MON.bat, winky: true,
+  // a pancake with ambition: a cheeky fanged grin with its tongue hanging out
+  face: {
+    wild: { lid: 0.36, tilt: 12, brow: [[0.0, 16], [0.14, 2]], look: [0, 0], glance: 0.55, glancePeriod: 2.6, mouth: 'fangTongue' },
+    recover: { lid: 0.3, tilt: 10, mouth: 'fangTongue' },
+    friend: { lid: 0, tilt: -4, brow: [[0.3, -10], [0.3, -10]], mouth: 'beam' },
+  },
   build(B) {
     const cy = 0.2;
     B.setBone('body', [0, cy, 0]);
@@ -1201,9 +1365,8 @@ species('flapjack', {
       const inner = new THREE.ConeGeometry(0.03, 0.09, 10); inner.translate(0, 0.05, 0);
       B.toon(inner, { m: m.clone().multiply(MT([0, 0.01, 0.02], [0, 0, 0], [1, 1, 0.5])), bone: ear, color: MON.batBelly });
     }
-    B.eyes({ surf, y: cy + 0.045, gap: 0.1, r: 0.07, forward: 0.01 });
-    B.mouth('fang', { surf, y: cy - 0.03, w: 0.09, h: 0.03, teeth: 2, tongue: false });
-    B.mouth('oh', { surf, y: cy - 0.03, w: 0.05, h: 0.05, hidden: true });
+    B.eyes({ surf, y: cy + 0.045, gap: 0.105, r: 0.062, forward: 0.004, browLift: 1.3, browColor: mx(sc(MON.bat, 0.4), PAL.outline.char, 0.5) });
+    B.faceMouths({ surf, y: cy - 0.035, w: 0.1, h: 0.034, kinds: ['beam', 'fangTongue', 'fang', 'grimace', 'shout', 'ow', 'dizzy', 'tongue', 'oh'], sizes: { fangTongue: [1.15, 1.1] } });
     // wings: a scallop of three arcs, hinged at the shoulder
     for (const side of [-1, 1]) {
       const name = B.bone(side < 0 ? 'wingL' : 'wingR', 'body', [side * 0.16, cy + 0.03, -0.03]);
@@ -1240,6 +1403,11 @@ species('flapjack', {
 
 species('peckish', {
   name: 'Peckish', family: 'bird', death: 'pop', color: MON.chick,
+  // 40% beak and 100% certain it is enormous: a cocky squint under a determined brow
+  face: {
+    wild: { lid: 0.44, tilt: 16, brow: [[-0.06, 22], [-0.02, 18]], look: [0, 0.1], glance: 0.4, glancePeriod: 2.2 },
+    friend: { lid: 0, tilt: -4, brow: [[0.3, -8], [0.3, -8]] },
+  },
   build(B) {
     const cy = 0.215, r = 0.19;
     const surf = ellSurf(r, r, r, [0, cy, 0]);
@@ -1251,7 +1419,7 @@ species('peckish', {
       const c = new THREE.ConeGeometry(0.08, len, 4); c.rotateY(Math.PI / 4); c.rotateX(Math.PI / 2); c.scale(1, sy, 1); c.translate(0, dy, len / 2);
       B.toon(c, { m: MT([0, cy - 0.02, 0.15]), bone: bn, color: name === 'beakU' ? MON.beak : sc(MON.beak, 0.88), outline: 0.01 });
     }
-    B.eyes({ surf, y: cy + 0.07, gap: 0.115, r: 0.055, forward: 0.004 });
+    B.eyes({ surf, y: cy + 0.065, gap: 0.12, r: 0.052, forward: 0.003, browLift: 1.35, browColor: mx(MON.beak, PAL.outline.char, 0.55) });
     for (const side of [-1, 1]) { const Y = cy + 0.005, th = thetaFor(surf, Y, side * 0.12); B.unlit(wrapOn(discGeo(0.028, 0.016, 20, 4), surf, Y, th, 0.003), { color: MON.blush }); }
     // wings
     for (const side of [-1, 1]) {
@@ -1299,6 +1467,13 @@ species('peckish', {
 
 species('grumpleroot', {
   name: 'Grumpleroot', family: 'plant', death: 'topple', say: '…typical.', color: MON.root,
+  // a vegetable with a grievance: a scowl that deepens; befriended, the grievance lifts (a little)
+  face: {
+    wild: { lid: 0.46, tilt: 16, brow: [[-0.08, 26], [-0.08, 26]], look: [0, -0.1], glance: 0.25, glancePeriod: 5, mouth: 'frown' },
+    recover: { lid: 0.46, tilt: 16, brow: [[-0.08, 26], [-0.08, 26]], mouth: 'frown' },
+    taunt: { lid: 0.58, tilt: 22, brow: [[-0.18, 34], [-0.18, 34]], look: [0, 0], mouth: 'grimace' },
+    friend: { lid: 0.3, tilt: 4, brow: [[0.06, 6], [0.1, 2]], mouth: 'worry' },
+  },
   build(B) {
     const lift = 0.07;
     const prof = smoothProfile([[0, 0], [0.12, 0.012], [0.22, 0.06], [0.245, 0.18], [0.21, 0.29], [0.15, 0.36], [0.06, 0.42], [0, 0.44]], 26);
@@ -1321,17 +1496,8 @@ species('grumpleroot', {
       B.toon(lg, { m: MT([0, crownY - 0.02, 0], [30 * DEG, a, 0]), bone: leaf, color: MON.leaf, outline: 0.01,
         vcol: (x, y, z, ny, tmp) => tmp.copy(C3(PAL.foliage.mid)).lerp(C3(MON.leaf), smooth(crownY, crownY + 0.15, y)) });
     }
-    const eyes = B.eyes({ surf, y: lift + 0.25, gap: 0.12, r: 0.06, tilt: 14, forward: 0.004 });
-    // eyebrows: wedges angled down-inward
-    eyes.forEach((e, k) => {
-      const side = k === 0 ? -1 : 1;
-      const brow = B.bone(side < 0 ? 'browL' : 'browR', 'body', [e.pos.x, e.pos.y + 0.075, e.pos.z]);
-      const s = new THREE.Shape(); s.moveTo(-0.045, -0.008); s.lineTo(0.045, -0.014); s.lineTo(0.04, 0.012); s.lineTo(-0.042, 0.016); s.lineTo(-0.045, -0.008);
-      const g = extrude(s, 0.02, 0.006);
-      B.toon(g, { m: MT([e.pos.x, e.pos.y + 0.07, e.pos.z + 0.012], [0, e.th, side * 22 * DEG]), bone: brow, color: MON.eyebrow, outline: 0.006 });
-    });
-    B.mouth('frown', { surf, y: lift + 0.15, w: 0.12, h: 0.04 });
-    B.mouth('oh', { surf, y: lift + 0.15, w: 0.05, h: 0.06, hidden: true });
+    B.eyes({ surf, y: lift + 0.25, gap: 0.125, r: 0.056, forward: 0.003, browLift: 1.5, browLen: 1.55, browColor: MON.eyebrow });
+    B.faceMouths({ surf, y: lift + 0.15, w: 0.12, h: 0.04, beam: 'frown', kinds: ['frown', 'beam', 'grimace', 'shout', 'ow', 'dizzy', 'worry', 'oh', 'tongue'] });
     B.gloss(surf, lift + 0.3, -0.8, 0.04, 0.08, { dot: false });
     return { height: crownY + 0.2, radius: 0.25, shadow: 0.5 };
   },
@@ -1341,20 +1507,26 @@ species('grumpleroot', {
     ctx.b.root.position.y -= 0.04 * br * w * 0.6;
     ctx.b.body.scale.multiply(V3(1 + 0.02 * br * w, 1 - 0.015 * br * w, 1 + 0.02 * br * w));
     for (let i = 0; i < 3; i++) { const l = ctx.b['leaf' + i]; if (l) { l.rotation.z += Math.sin(TAU * 1.6 * t + i * 2.1) * 0.08; l.rotation.x += Math.sin(TAU * 0.8 * t + i) * 0.05; } }
-    const scowl = ((t % 4) / 4);
-    if (ctx.b.browL) { ctx.b.browL.rotation.z -= 14 * DEG * scowl * w; ctx.b.browL.position.y -= 0.01 * scowl; }
-    if (ctx.b.browR) { ctx.b.browR.rotation.z += 14 * DEG * scowl * w; ctx.b.browR.position.y -= 0.01 * scowl; }
-    ctx.eyeTilt += 6 * DEG * scowl * w;
+    // the scowl deepens over 4 s, then resets (only while it is still wild)
+    const scowl = ((t % 4) / 4) * (ctx.mood === 'wild' ? 1 : 0);
+    for (const n of ['eyeLBrow', 'eyeRBrow']) if (ctx.b[n]) ctx.b[n].position.y -= 0.012 * scowl * w;
+    for (const n of ['eyeLBrowI', 'eyeRBrowI']) if (ctx.b[n]) ctx.b[n].position.y -= 0.01 * scowl * w;
+    ctx.eyeTilt += 8 * DEG * scowl * w;
   },
   attackPose(ctx, ct) {
     // Root Wallop: the leaves whip down at the impact
     for (let i = 0; i < 3; i++) { const l = ctx.b['leaf' + i]; if (l) l.rotation.x += -0.6 * seg(ct, 0.0, 0.14) * (ct < 0.25 ? 1 : 0) + 0.9 * hump(ct, 0.22, 0.45); }
   },
-  hurtPose(ctx, ct) { if (ctx.b.browL) ctx.b.browL.position.y += 0.02 * hump(ct, 0, 0.35); if (ctx.b.browR) ctx.b.browR.position.y += 0.02 * hump(ct, 0, 0.35); },
 });
 
 species('toadstooligan', {
   name: 'Toadstooligan', family: 'plant', death: 'pop', color: MON.cap,
+  // a hooligan in a big hat: one brow up, one down, eyes shifting with the cap, the tooth-poking grin
+  face: {
+    wild: { lid: 0.5, tilt: 12, brow: [[0.24, -8], [-0.06, 20]], look: [0.2, 0], glance: 0.85, glancePeriod: 2, mouth: 'fangUp' },
+    recover: { lid: 0.45, tilt: 12, mouth: 'fangUp' },
+    friend: { lid: 0, tilt: -4, brow: [[0.28, -8], [0.28, -8]], mouth: 'beam' },
+  },
   build(B) {
     const stemP = smoothProfile([[0, 0], [0.12, 0.0], [0.132, 0.04], [0.12, 0.13], [0.102, 0.22], [0.09, 0.27], [0, 0.275]], 20);
     B.toon(lathe(stemP, 24), { color: MON.stem, outline: 0.014, vcol: (x, y, z, ny, tmp) => tmp.copy(C3(MON.stem)).multiplyScalar(lerp(0.86, 1, smooth(0.0, 0.1, y))) });
@@ -1369,9 +1541,9 @@ species('toadstooligan', {
     [[cy + 0.17, 0.0, 0.05], [cy + 0.1, 0.95, 0.045], [cy + 0.1, -0.95, 0.042], [cy + 0.06, 2.0, 0.045], [cy + 0.07, -2.1, 0.04], [cy + 0.16, 2.9, 0.045], [cy + 0.2, -0.6, 0.03]].forEach(([Y, th, rr]) => {
       B.unlit(wrapOn(discGeo(rr, rr * 0.8, 20, 4), cs, Y, th, 0.004), { bone: cap, color: MON.cream });
     });
-    B.eyes({ surf: stem, y: 0.165, gap: 0.12, r: 0.065, tilt: 10, forward: 0.006 });
-    B.mouth('fang', { surf: stem, y: 0.075, w: 0.11, h: 0.04, teeth: 2, teethUp: true, tongue: false });
-    B.mouth('oh', { surf: stem, y: 0.075, w: 0.05, h: 0.05, hidden: true });
+    B.skin = MON.stem;
+    B.eyes({ surf: stem, y: 0.158, gap: 0.12, r: 0.056, forward: 0.003, browLift: 1.28, browColor: mx(MON.gill, PAL.outline.char, 0.7) });
+    B.faceMouths({ surf: stem, y: 0.078, w: 0.11, h: 0.036, kinds: ['beam', 'fangUp', 'grimace', 'shout', 'ow', 'dizzy', 'tongue', 'oh'] });
     // tiny arms that fold
     for (const side of [-1, 1]) {
       const arm = B.bone(side < 0 ? 'armL' : 'armR', 'body', [side * 0.115, 0.13, 0.02]);
@@ -1406,6 +1578,13 @@ species('toadstooligan', {
 
 species('bumbleblunder', {
   name: 'Bumbleblunder', family: 'bug', death: 'deflate', hover: 0.5, color: MON.beeY, transDouble: true, scale: 1.4,
+  // extremely apologetic about the stinging: brows up, a sheepish wobble of a smile; it goes WIDE-eyed as it charges
+  face: {
+    wild: { lid: 0.24, tilt: -12, brow: [[0.26, -26], [0.26, -26]], look: [0, -0.15], glance: 0.5, glancePeriod: 2.4, mouth: 'worry' },
+    windup: { lid: 0.56, tilt: 14, brow: [[-0.08, 20], [-0.08, 20]], mouth: 'grimace' },
+    strike: { lid: 0, tilt: -6, brow: [[0.4, -20], [0.4, -20]], look: [0, 0], mouth: 'shout', eyeScale: 1.12 },
+    recover: { lid: 0.2, tilt: -14, brow: [[0.3, -28], [0.3, -28]], mouth: 'worry' },
+  },
   build(B) {
     const cy = 0.16;
     B.setBone('body', [0, cy, 0]);
@@ -1423,9 +1602,8 @@ species('bumbleblunder', {
     const hc = [0, cy + 0.07, 0.1], hr = 0.13;
     B.toon(new THREE.SphereGeometry(hr, 24, 18), { m: MT(hc), color: MON.beeY, outline: 0.014 });
     const hs = ellSurf(hr, hr, hr, hc);
-    B.eyes({ surf: hs, y: hc[1] + 0.03, gap: 0.11, r: 0.06, forward: 0.004 });
-    B.mouth('grin', { surf: hs, y: hc[1] - 0.05, w: 0.07, h: 0.028 });
-    B.mouth('oh', { surf: hs, y: hc[1] - 0.05, w: 0.045, h: 0.05, hidden: true });
+    B.eyes({ surf: hs, y: hc[1] + 0.03, gap: 0.11, r: 0.055, forward: 0.003, browLift: 1.32, browColor: mx(MON.beeDark, PAL.outline.char, 0.3) });
+    B.faceMouths({ surf: hs, y: hc[1] - 0.05, w: 0.075, h: 0.03, kinds: ['beam', 'worry', 'grimace', 'shout', 'ow', 'dizzy', 'tongue', 'oh'], sizes: { worry: [1.2, 1.1] } });
     for (const side of [-1, 1]) { const Y = hc[1] - 0.025, th = thetaFor(hs, Y, side * 0.085); B.unlit(wrapOn(discGeo(0.022, 0.013, 20, 4), hs, Y, th, 0.003), { color: MON.blush }); }
     B.gloss(hs, hc[1] + 0.08, -0.7, 0.03, 0.04, { dot: false });
     // antennae that wobble with lag
@@ -1465,51 +1643,76 @@ species('bumbleblunder', {
 
 species('boohoo', {
   name: 'Boohoo', family: 'ghost', death: 'wisp', hover: 0.35, color: MON.ghost, ghostGlow: MON.ghost, transShadow: false,
-  ghostOpacity: (t) => 0.62 + 0.23 * (0.5 + 0.5 * Math.sin(TAU * t / 2.8)),
+  // a ghost, drawn properly: ONE clean translucent layer (a depth pre-pass, so no sorting band through the body), a soft
+  // outline of its own, a deep wavy hem, tapered sleeves — and a face that is sad about being a ghost
+  ghost: true, brows: true, ghostOpacity: (t) => 0.86 + 0.08 * (0.5 + 0.5 * Math.sin(TAU * t / 2.8)),
+  face: {
+    wild: { lid: 0, tilt: 0, brow: [[0.16, -26], [0.1, -20]], look: [0.05, -0.1], glance: 0.4, glancePeriod: 3.2, mouth: 'oh' },
+    windup: { lid: 0, brow: [[-0.06, 16], [-0.06, 16]], mouth: 'shout' },
+    strike: { lid: 0, brow: [[-0.12, 20], [-0.12, 20]], mouth: 'shout' },
+    recover: { lid: 0, brow: [[0.18, -26], [0.14, -22]], mouth: 'oh' },
+    hurt: { eyes: 'shut', brow: [[0.22, -30], [0.22, -30]], mouth: 'ow' },
+    stunned: { lid: 0, brow: [[0.26, -26], [0.26, -26]], mouth: 'oh' },
+    taunt: { eyes: 'shut', brow: [[0.24, -30], [0.24, -30]], mouth: 'ow' },            // it cries at you. that is the taunt
+    castIn: { eyes: 'shut', brow: [[0.1, -14], [0.1, -14]], mouth: 'worry' },
+    castOut: { lid: 0, brow: [[0.2, -8], [0.2, -8]], mouth: 'shout' },
+    defeat: { eyes: 'happy', brow: [[0.2, -18], [0.2, -18]], mouth: 'worry' },          // relieved, not frightened
+    dizzy: { eyes: 'happy', brow: [[0.2, -18], [0.2, -18]], mouth: 'worry' },
+    friend: { lid: 0, tilt: -4, brow: [[0.24, -12], [0.24, -12]], look: [0, 0.05], mouth: 'worry' },
+  },
   build(B) {
-    const prof = smoothProfile([[0.2, 0], [0.245, 0.025], [0.225, 0.16], [0.212, 0.36], [0.19, 0.5], [0.12, 0.6], [0, 0.625]], 26);
-    const geo = lathe(prof, 32);
+    const prof = smoothProfile([[0.19, 0], [0.252, 0.035], [0.238, 0.16], [0.224, 0.36], [0.2, 0.5], [0.13, 0.605], [0, 0.635]], 30);
+    const geo = lathe(prof, 44);
     const p = geo.attributes.position;
-    for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), th = Math.atan2(x, z), k = 1 - smooth(0.0, 0.07, y); const f = 1 + (0.03 * Math.sin(4 * th) / 0.23) * k; p.setXYZ(i, x * f, y - 0.03 * k * (0.5 + 0.5 * Math.cos(4 * th)), z * f); }
+    // the hem: five deep rounded lobes, points hanging down — a sheet, not a bucket
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i), th = Math.atan2(x, z);
+      const k = 1 - smooth(0.0, 0.26, y), lobe = Math.pow(Math.abs(Math.cos(2.5 * th)), 0.7) * Math.sign(Math.cos(2.5 * th));
+      const f = 1 + 0.2 * k * Math.max(0, lobe) - 0.05 * k * Math.max(0, -lobe);
+      p.setXYZ(i, x * f, y + k * (0.075 * lobe - 0.02), z * f);
+    }
     geo.computeVertexNormals();
-    // hem bones carry a travelling ripple
-    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; B.bone('hem' + i, 'body', [Math.sin(a) * 0.23, 0.02, Math.cos(a) * 0.23]); }
-    B.trans(geo, { color: MON.ghost, alpha: 1,
-      weights: (x, y, z) => {
-        const f = 1 - smooth(0.0, 0.28, y); if (f <= 0) return [['body', 1]];
-        let a = Math.atan2(x, z) / TAU * 8; a = (a % 8 + 8) % 8; const i0 = Math.floor(a) % 8, i1 = (i0 + 1) % 8, u = a - Math.floor(a);
-        return [['body', 1 - f], ['hem' + i0, f * (1 - u)], ['hem' + i1, f * u]];
-      },
-      vcol: (x, y, z, ny, tmp) => tmp.copy(C3(mx(MON.ghost, 'hill.farLow', 0.35))).lerp(C3(MON.white), smooth(0.05, 0.55, y)) });
+    for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; B.bone('hem' + i, 'body', [Math.sin(a) * 0.23, 0.02, Math.cos(a) * 0.23]); }
+    const hemWeights = (x, y, z) => {
+      const f = 1 - smooth(0.0, 0.3, y); if (f <= 0) return [['body', 1]];
+      let a = Math.atan2(x, z) / TAU * 10; a = (a % 10 + 10) % 10; const i0 = Math.floor(a) % 10, i1 = (i0 + 1) % 10, u = a - Math.floor(a);
+      return [['body', 1 - f], ['hem' + i0, f * (1 - u)], ['hem' + i1, f * u]];
+    };
+    const vcol = (x, y, z, ny, tmp) => tmp.copy(C3(mx(MON.ghost, 'hill.farLow', 0.3))).lerp(C3(MON.white), smooth(0.02, 0.5, y));
+    B.trans(geo, { color: MON.ghost, alpha: 1, weights: hemWeights, vcol });
+    B.hull(geo, { th: 0.016, color: mx(sc(MON.ghost, 0.6), PAL.outline.char, 0.35), weights: hemWeights });
     const surf = latheSurf(prof);
-    // eyes are holes, with a pale light drifting inside each
-    const eyes = [];
+    // eyes are holes with a pale light adrift inside each; the face layer adds the brows and the > < / ^ ^ decals
     for (const side of [-1, 1]) {
-      const Y = 0.42, th = thetaFor(surf, Y, side * 0.078), c = surfPoint(surf, Y, th, 0.004);
+      const Y = 0.43, th = thetaFor(surf, Y, side * 0.082), c = surfPoint(surf, Y, th, 0.004);
       const name = B.bone(side < 0 ? 'eyeL' : 'eyeR', 'body', [c.x, c.y, c.z]);
       B.meta.eyes.push(name);
-      B.unlit(wrapOn(discGeo(0.058, 0.066, 20, 4), surf, Y, th, 0.005), { bone: name, color: MON.ghostEye });
+      B.unlit(wrapOn(discGeo(0.056, 0.07, 22, 5), surf, Y, th, 0.006), { bone: name, color: MON.ghostEye });
       const iris = B.bone(side < 0 ? 'irisL' : 'irisR', name, [c.x, c.y, c.z + 0.01]);
-      B.unlit(new THREE.SphereGeometry(0.022, 10, 8), { m: MT([c.x + side * -0.006, c.y + 0.008, c.z + 0.008], [0, th, 0], [1, 1, 0.4]), bone: iris, color: MON.ghostIris });
-      B.unlit(new THREE.SphereGeometry(0.008, 6, 5), { m: MT([c.x + side * -0.014, c.y + 0.024, c.z + 0.012], [0, th, 0], [1, 1, 0.4]), bone: iris, color: MON.white });
-      eyes.push(name);
+      const ig = discGeo(0.021, 0.024, 14, 3);
+      B.unlit(wrapOn(ig, surf, Y + 0.006, th + side * -0.03, 0.009), { bone: iris, color: MON.ghostIris });
+      B.unlit(wrapOn(discGeo(0.008, 0.009, 10, 2), surf, Y + 0.026, th + side * -0.07, 0.011), { bone: iris, color: MON.white });
+      B._eyeExtras(name, { pos: [c.x, c.y, c.z], side, parent: 'body', Y, th, x: side * 0.082, r: 0.062, lift: 0.006 },
+        { surf, brows: true, browColor: mx(MON.ghostEye, MON.ghost, 0.25), browLift: 1.15, browLen: 1.15, decalColor: MON.ghostEye });
     }
-    B.mouth('oh', { surf, y: 0.3, w: 0.07, h: 0.09, bone: 'mouthRound', color: MON.ghostEye });
-    B.meta.ohs.length = 0;
-    // sleeves
+    B.faceMouths({ surf, y: 0.3, w: 0.09, h: 0.055, beam: 'oh', kinds: ['oh', 'ow', 'worry', 'shout', 'dizzy', 'beam'], lift: 0.006,
+      colors: { in: MON.ghostEye, line: MON.ghostEye, tongue: mx(MON.ghostIris, 'flower.pink', 0.35), tooth: MON.white, inkSoft: MON.ghostEye },
+      sizes: { oh: [0.85, 1.5], shout: [0.9, 0.8], worry: [1.1, 1.1] } });
+    // sleeves: tapered, with a soft mitten tip — not stub capsules
     for (const side of [-1, 1]) {
       const arm = B.bone(side < 0 ? 'armL' : 'armR', 'body', [side * 0.19, 0.4, 0.02]);
-      const c = new THREE.CapsuleGeometry(0.035, 0.14, 4, 12); c.translate(0, -0.08, 0);
-      B.trans(c, { m: MT([side * 0.195, 0.4, 0.03], [0.1, 0, side * 0.45]), bone: arm, color: MON.ghost, alpha: 1 });
+      const pts = [[side * 0.2, 0.42, 0.02], [side * 0.255, 0.35, 0.05], [side * 0.285, 0.27, 0.07], [side * 0.28, 0.21, 0.08]];
+      B.trans(taperTube(pts, taper([[0, 0.055], [0.45, 0.045], [0.8, 0.036], [1, 0.012]]), 10, 16), { bone: arm, color: MON.ghost, alpha: 1, vcol });
+      B.trans(new THREE.SphereGeometry(0.036, 12, 10), { m: MT([side * 0.281, 0.213, 0.08]), bone: arm, color: MON.ghost, alpha: 1, vcol });
     }
-    return { height: 0.62, radius: 0.26, shadow: 0.42 };
+    return { height: 0.64, radius: 0.28, shadow: 0.44 };
   },
   idle(ctx, t) {
     hover(ctx, t, 0.35, 0.07, 2.2);
-    for (let i = 0; i < 8; i++) { const h = ctx.b['hem' + i]; if (!h) continue; const ph = TAU * 0.8 * t - i * TAU / 4; h.position.y += 0.022 * Math.sin(ph); const a = i / 8 * TAU; h.position.x += Math.sin(a) * 0.012 * Math.cos(ph); h.position.z += Math.cos(a) * 0.012 * Math.cos(ph); }
+    for (let i = 0; i < 10; i++) { const h = ctx.b['hem' + i]; if (!h) continue; const ph = TAU * 0.8 * t - i * TAU / 5; h.position.y += 0.03 * Math.sin(ph); const a = i / 10 * TAU; h.position.x += Math.sin(a) * 0.014 * Math.cos(ph); h.position.z += Math.cos(a) * 0.014 * Math.cos(ph); }
     const lag = Math.sin(TAU * (t - 0.2) / 2.2);
-    if (ctx.b.armL) ctx.b.armL.rotation.z -= 0.18 * lag + 0.1;
-    if (ctx.b.armR) ctx.b.armR.rotation.z += 0.18 * lag + 0.1;
+    if (ctx.b.armL) ctx.b.armL.rotation.z -= 0.18 * lag + 0.12;
+    if (ctx.b.armR) ctx.b.armR.rotation.z += 0.18 * lag + 0.12;
     for (const n of ['irisL', 'irisR']) { const b = ctx.b[n]; if (b) { b.position.x += 0.008 * Math.sin(t * 0.9 + (n === 'irisL' ? 0 : 1)); b.position.y += 0.006 * Math.sin(t * 1.3); } }
     ctx._tear = (ctx._tear || 0) + (ctx.dt || 0);
     if (ctx._tear > 6 && ctx.idleW > 0.5) {
@@ -1520,10 +1723,29 @@ species('boohoo', {
   },
   attackPose(ctx, ct) { const k = hump(ct, 0.1, 0.45); if (ctx.b.armL) ctx.b.armL.rotation.x -= 1.4 * k; if (ctx.b.armR) ctx.b.armR.rotation.x -= 1.4 * k; },
   castPose(ctx, ct) { const k = hump(ct, 0.15, 0.85); if (ctx.b.armL) ctx.b.armL.rotation.z -= 1.2 * k; if (ctx.b.armR) ctx.b.armR.rotation.z += 1.2 * k; },
+  taunt(ctx, ct) {
+    // it sobs: a shudder, a wipe of a sleeve, two tears
+    ctx.faceKey = 'taunt';
+    const sh = hump(ct, 0.05, 0.95);
+    ctx.mover.rotation.z += Math.sin(ct * 26) * 4 * DEG * sh;
+    ctx.b.root.position.y -= 0.05 * sh;
+    if (ctx.b.armL) ctx.b.armL.rotation.x -= 1.1 * hump(ct, 0.15, 0.6);
+    if (ct > 0.2 && !ctx._sob) {
+      ctx._sob = true;
+      for (const sx of [-1, 1]) ctx.fx.spawn('blob', { pos: ctx.center().add(V3(sx * 0.08, 0.06, 0.2)), vel: V3(sx * 0.25, 0.3, 0.35), grav: 2.4, life: 1.0, s0: 0.022, s1: 0.018, color: MON.ghostIris, flat: 1.4, floor: 0.01, delay: sx > 0 ? 0.12 : 0 });
+    }
+    if (ct < 0.1) ctx._sob = false;
+    return ct >= 1.05;
+  },
 });
 
 species('chestnut', {
   name: 'Chestnut', family: 'mimic', death: 'snap', coins: true, winky: true, color: MON.wood,
+  // nuts, and knows it: shifty wooden lids over eyes that dart, a wink for the reveal
+  face: {
+    wild: { lid: 0.52, tilt: 16, brow: [[0.02, 20], [0.24, -6]], look: [0, -0.1], glance: 0.8, glancePeriod: 1.8 },
+    taunt: { eyes: ['open', 'happy'], lid: [0, 1], tilt: 0, brow: [[0.34, -10], [0.1, 6]], look: [0, 0], eyeScale: 1.12 },
+  },
   build(B) {
     const W = 0.46, H = 0.28, D = 0.34;
     const wood = C3(MON.wood), woodD = C3(MON.woodDark);
@@ -1553,7 +1775,7 @@ species('chestnut', {
     for (const x of [-0.1, 0.0, 0.1]) { const c = new THREE.ConeGeometry(0.026, 0.065, 8); c.rotateZ(Math.PI); B.toon(c, { m: MT([x + 0.05 * (x === 0 ? -1 : 0), H - 0.03, D / 2 - 0.035]), bone: lid, color: MON.tooth, outline: 0.005 }); }
     B.toon(new THREE.ConeGeometry(0.026, 0.065, 8).rotateZ(Math.PI), { m: MT([0.2, H - 0.03, D / 2 - 0.035]), bone: lid, color: MON.tooth, outline: 0.005 });
     const ang = 50 * DEG, ey = H + Math.sin(ang) * (D / 2) + 0.01, ez = Math.cos(ang) * (D / 2) + 0.012;
-    B.eyesAt([{ pos: [-0.1, ey, ez], yaw: 0, pitch: 38, side: -1 }, { pos: [0.1, ey, ez], yaw: 0, pitch: 38, side: 1 }], { r: 0.06, parent: lid, forward: 0 });
+    B.eyesAt([{ pos: [-0.1, ey, ez], yaw: 0, pitch: 38, side: -1 }, { pos: [0.1, ey, ez], yaw: 0, pitch: 38, side: 1 }], { r: 0.06, parent: lid, forward: 0, zScale: 0.9, browColor: MON.woodDark, browLift: 1.5 });
     return { height: H + D / 2 + 0.06, radius: 0.26, shadow: 0.62 };
   },
   idle(ctx, t) {
@@ -1583,6 +1805,15 @@ species('chestnut', {
 
 species('clankworthy', {
   name: 'Clankworthy', family: 'knight', death: 'crumble', noBlink: true, color: MON.steel,
+  // no eyes, no mouth: the two embers in the visor do all of it — narrowed on watch, slits to strike, out when it falls
+  face: {
+    wild: { lid: 0.42, tilt: 0, look: [0, 0], glance: 0.3, glancePeriod: 7 },
+    windup: { lid: 0.68, tilt: 0 }, strike: { lid: 0.0, eyeScale: 1.35 }, recover: { lid: 0.4 },
+    hurt: { lid: 0.9, eyes: 'open', eyeScale: 0.8 }, stunned: { lid: 0.2, eyeScale: 1.1 },
+    taunt: { lid: 0.55 }, castIn: { lid: 0.8 }, castOut: { lid: 0, eyeScale: 1.4 },
+    dizzy: { lid: 0.75, eyes: 'open', eyeScale: 0.85 },
+    surprise: { lid: 0, eyeScale: 1.3 }, happy: { lid: 0.25, eyeScale: 1.25 }, friend: { lid: 0.12, eyeScale: 1.2 },
+  },
   crumbleOrder: ['helm', 'armR', 'armL', 'body', 'legL', 'legR'], rollPart: 'helm', crumbleEnd: 1.25,
   build(B) {
     const steel = MON.steel, dark = MON.steelDark, lightS = MON.steelLight;
@@ -1613,8 +1844,11 @@ species('clankworthy', {
     B.toon(plumeC, { m: MT([0, hy + 0.21, -0.02], [-0.5, 0, 0], [1, 1, 0.5]), bone: helm, color: MON.cap, outline: 0.008 });
     for (const side of [-1, 1]) {
       const p = surfPoint(hs, hy + 0.11, side * 0.3, 0.008);
-      B.unlit(new THREE.SphereGeometry(0.02, 10, 8), { m: MT([p.x, p.y, p.z]), bone: helm, color: MON.glowDot });
-      B.trans(new THREE.CircleGeometry(0.045, 16), { m: MT([p.x, p.y, p.z + 0.004], [0, side * 0.3, 0]), bone: helm, color: MON.ember, alpha: 0.35 });
+      const dot = B.bone(side < 0 ? 'eyeL' : 'eyeR', helm, [p.x, p.y, p.z]);
+      B.meta.eyes.push(dot);
+      B.unlit(new THREE.SphereGeometry(0.021, 10, 8), { m: MT([p.x, p.y, p.z], [0, side * 0.3, 0], [1, 1, 0.7]), bone: dot, color: MON.glowDot });
+      B.trans(new THREE.CircleGeometry(0.05, 16), { m: MT([p.x, p.y, p.z + 0.004], [0, side * 0.3, 0]), bone: dot, color: MON.ember, alpha: 0.35 });
+      B._eyeExtras(dot, { pos: [p.x, p.y, p.z], side, parent: helm, r: 0.022, q: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, side * 0.3, 0)) }, { brows: false, decals: false, kind: 'glow' });
     }
     // arms: shoulder -> elbow -> gauntlet, sword in the right hand (viewer's left)
     for (const side of [-1, 1]) {
@@ -1657,6 +1891,18 @@ species('clankworthy', {
 
 species('boulderdash', {
   name: 'Boulderdash', family: 'golem', death: 'crumble', color: MON.stone, crumbleOrder: ['armR', 'armL', 'head', 'body', 'pebbles', 'legL', 'legR', 'eyeL', 'eyeR'], crumbleEnd: 1.5,
+  // enormous, slow, and hugely embarrassed about it: stone brow-slabs that tilt, and a crack of a mouth that can smile
+  face: {
+    wild: { lid: 0.34, tilt: 6, brow: [[0.12, -14], [0.08, -10]], look: [0, -0.15], glance: 0.25, glancePeriod: 6, mouth: 'line' },
+    windup: { lid: 0.62, tilt: 22, brow: [[-0.22, 28], [-0.22, 28]], mouth: 'grimace' },
+    strike: { lid: 0, tilt: 10, brow: [[-0.1, 20], [-0.1, 20]], mouth: 'grimace', eyeScale: 1.15 },
+    recover: { lid: 0.3, tilt: 4, brow: [[0.14, -16], [0.1, -12]], mouth: 'line' },
+    hurt: { lid: 0.85, tilt: -10, brow: [[0.2, -26], [0.2, -26]], mouth: 'ow', eyes: 'open' },
+    stunned: { lid: 0.1, brow: [[0.26, -20], [0.26, -20]], mouth: 'oh' },
+    taunt: { lid: 0.5, tilt: -8, brow: [[0.2, -22], [0.2, -22]], look: [0, -0.3], mouth: 'worry' },
+    dizzy: { lid: 0.7, tilt: -6, brow: [[0.24, -18], [0.1, -8]], mouth: 'ow', eyes: 'open' },
+    friend: { lid: 0.08, tilt: -6, brow: [[0.28, -18], [0.28, -18]], look: [0, 0], mouth: 'worry', eyeScale: 1.1 },
+  },
   build(B) {
     const stone = C3(MON.stone), stoneL = C3(MON.stoneLight), moss = C3(MON.moss);
     const rock = (x, y, z, ny, tmp) => tmp.copy(stone).lerp(stoneL, smooth(-0.6, 0.6, ny) * 0.5).lerp(moss, smooth(0.55, 0.85, ny) * 0.85);
@@ -1681,9 +1927,29 @@ species('boulderdash', {
       B.unlit(new THREE.SphereGeometry(0.055, 14, 10), { m: MT([side * 0.1, 1.86, 0.39], [0, 0, 0], [1, 1, 0.55]), bone: e, color: MON.glowstone });
       B.unlit(new THREE.SphereGeometry(0.016, 8, 6), { m: MT([side * 0.1 - 0.018, 1.878, 0.42]), bone: e, color: MON.white });
       B.trans(new THREE.CircleGeometry(0.1, 18), { m: MT([side * 0.1, 1.86, 0.4], [-0.1, side * 0.15, 0]), bone: e, color: MON.glowstone, alpha: 0.28 });
+      // register the glowstone with the face layer: brow SLABS of stone on the brow bones, and the > < / ^ ^ decals
+      const ent = B._eyeExtras(e, { pos: [side * 0.1, 1.86, 0.39], side, parent: head, r: 0.085, q: new THREE.Quaternion(), lift: 0.012 },
+        { brows: true, browShape: false, browLift: 1.5, browLen: 1.5, decalColor: MON.socket, kind: 'glow' });
+      const bp = ent.browPos;
+      for (const [dx, sc2] of [[-0.055, 0.9], [0.055, 0.8]]) {
+        B.toon(new THREE.DodecahedronGeometry(0.075, 0), { m: MT([bp[0] + dx, bp[1] + 0.01, bp[2] - 0.03], [0.2, dx * 6, side * 0.2], [1.35 * sc2, 0.5, 0.8]), bone: ent.brow, color: MON.stone, outline: 0.02,
+          weights: ent.browWeights, vcol: rock });
+      }
     }
+    // the mouth is a crack in the stone: flat when it is being careful, curved when it is pleased, jagged when it heaves
     const crack = B.bone('crack', head, [0, 1.73, 0.37]);
     B.unlit(extrude(ovalShape(0.09, 0.008), 0.01, 0.002), { m: MT([0, 1.72, 0.405], [-0.25, 0, 0.1]), bone: crack, color: MON.socket });
+    const mouthAt = (kind, layers, rest = 0) => {
+      const bn = B.bone('gmouth_' + kind, head, [0, 1.71, 0.4], rest);
+      B.meta.face.mouths[kind] = bn;
+      if (kind === 'line') B.meta.mouths.push(bn); else if (kind === 'oh') B.meta.ohs.push(bn);
+      for (const Ly of layers) B.unlit(flatGeo(Ly.shape, 0.012), { m: MT([0, 1.71, 0.404 + Ly.layer * 0.006], [-0.25, 0, 0.1]), bone: bn, color: Ly.col });
+    };
+    mouthAt('line', [{ shape: ovalShape(0.095, 0.009), col: MON.socket, layer: 0 }], 1);
+    mouthAt('worry', [{ shape: strokeShape(sample(13, (u) => { const x = lerp(-0.085, 0.085, u); return [x, -0.03 * (1 - (x * x) / 0.0072)]; }), 0.011), col: MON.socket, layer: 0 }]);
+    mouthAt('grimace', [{ shape: strokeShape(sample(15, (u) => [lerp(-0.12, 0.12, u), 0.022 * Math.sin(u * 3 * Math.PI)]), 0.016), col: MON.socket, layer: 0 }]);
+    mouthAt('ow', [{ shape: strokeShape(sample(18, (u) => [lerp(-0.075, 0.075, u), 0.022 * Math.sin(u * 1.5 * TAU)]), 0.013), col: MON.socket, layer: 0 }]);
+    mouthAt('oh', [{ shape: ovalShape(0.045, 0.055), col: MON.socket, layer: 0 }]);
     for (const side of [-1, 1]) {
       const arm = B.bone(side < 0 ? 'armR' : 'armL', 'root', [side * 0.76, 1.48, 0]);
       piece(new THREE.DodecahedronGeometry(0.25, 0), MT([side * 0.74, 1.46, 0], [0.3, 0.2, side * 0.4]), arm);
@@ -1722,9 +1988,11 @@ species('boulderdash', {
 });
 
 /** The Sunspot Cub rig (Pip). k = scale; mane for the grown Sunmane. */
-function catRig(B, { k = 1, mane = false, bell = true }) {
+function catRig(B, { k = 1, mane = false, bell = true, coat = null, eye = null, whiskers = false }) {
   const K = (a) => a.map(v => v * k);
-  const orange = MON.sunspot, dark = MON.sunspotDark, cream = MON.muzzle;
+  const C = Object.assign({ body: MON.sunspot, dark: MON.sunspotDark, muzzle: MON.muzzle, nose: MON.nose, tooth: MON.tooth }, coat || {});
+  const E = Object.assign({ pupilShape: 'round', pupilColor: MON.pupil, sclera: MON.white, rim: 0.09 }, eye || {});
+  const orange = C.body, dark = C.dark, cream = C.muzzle;
   const th = 0.012 * Math.max(1, k * 0.85);
   const fur = (lo, hi) => (x, y, z, ny, tmp) => tmp.copy(C3(orange)).lerp(C3(cream), smooth(-0.3, -0.8, ny) * 0.9).multiplyScalar(lerp(0.94, 1.04, smooth(lo, hi, y)));
   // body along Z
@@ -1753,30 +2021,45 @@ function catRig(B, { k = 1, mane = false, bell = true }) {
   // head
   const hc = [0, 0.255, 0.1], hr = 0.13;
   const head = B.bone('head', 'body', K([0, 0.2, 0.08]));
-  B.toon(new THREE.SphereGeometry(hr, 28, 20), { m: MT(K(hc), [0, 0, 0], [k * 1.08, k * 0.95, k * 0.95]), bone: head, color: orange, outline: th * 1.1, vcol: fur(0.18 * k, 0.36 * k) });
+  // the grown Sunmane's head is framed by the mane, so it takes NO outline shell of its own (that shell read as a
+  // stack of rings across its face); the kitten keeps its outline.
+  B.toon(new THREE.SphereGeometry(hr, 28, 20), { m: MT(K(hc), [0, 0, 0], [k * 1.08, k * 0.95, k * 0.95]), bone: head, color: orange, outline: mane ? 0 : th * 1.1, vcol: fur(0.18 * k, 0.36 * k) });
   const hs = ellSurf(hr * k * 1.08, hr * k * 0.95, hr * k * 0.95, K(hc));
   for (const [dx, a] of [[-0.03, -0.2], [0, 0], [0.03, 0.2]]) B.unlit(wrapOn(discGeo(0.008 * k, 0.03 * k, 20, 4), hs, (hc[1] + 0.1) * k, dx * k / 0.13 + a * 0.2, 0.003 * k), { bone: head, color: dark });
   for (const side of [-1, 1]) {
     B.toon(new THREE.SphereGeometry(0.046, 14, 10), { m: MT(K([side * 0.034, 0.212, 0.205]), [0, 0, 0], [k, k * 0.82, k * 0.75]), bone: head, color: cream, outline: th * 0.6 });
     const ear = B.bone(side < 0 ? 'earL' : 'earR', head, K([side * 0.08, 0.34, 0.07]));
-    const eg = new THREE.ConeGeometry(0.052, 0.1, 12); eg.translate(0, 0.05, 0);
-    const em = MT(K([side * 0.08, 0.33, 0.07]), [-0.1, 0, -side * 0.35], [k, k, k * 0.55]);
-    B.toon(eg, { m: em, bone: ear, color: orange, outline: th * 0.8 });
-    B.toon(new THREE.SphereGeometry(0.014, 8, 6), { m: em.clone().multiply(MT([0, 0.1, 0])), bone: ear, color: orange });
-    const ei = new THREE.ConeGeometry(0.03, 0.065, 10); ei.translate(0, 0.035, 0.012);
-    B.toon(ei, { m: em, bone: ear, color: MON.nose });
+    // the lion's ears are small and round and tucked into the mane; the kitten's are proper tufty triangles
+    const eh = mane ? 0.075 : 0.1, er = mane ? 0.062 : 0.052;
+    const eg = new THREE.ConeGeometry(er, eh, 14); eg.translate(0, eh / 2, 0);
+    const em = MT(K([side * 0.08, mane ? 0.315 : 0.33, mane ? 0.03 : 0.07]), [-0.1, 0, -side * (mane ? 0.5 : 0.35)], [k, k, k * (mane ? 0.75 : 0.55)]);
+    B.toon(eg, { m: em, bone: ear, color: orange, outline: mane ? 0 : th * 0.8 });
+    B.toon(new THREE.SphereGeometry(mane ? er * 0.85 : 0.014, 10, 8), { m: em.clone().multiply(MT([0, eh, 0], [0, 0, 0], mane ? [1, 0.7, 1] : 1)), bone: ear, color: orange, outline: mane ? 0 : 0 });
+    const ei = new THREE.ConeGeometry(er * 0.55, eh * 0.62, 10); ei.translate(0, eh * 0.34, 0.012);
+    B.toon(ei, { m: em, bone: ear, color: C.nose });
     // sabre teeth (the Sunmane's are 0.25 u)
     const tl = mane ? 0.25 / k : 0.05;
     const tooth = new THREE.ConeGeometry(0.012 * (mane ? 1.6 : 1), tl, 10); tooth.rotateZ(Math.PI); tooth.translate(0, -tl / 2, 0);
-    B.toon(tooth, { m: MT(K([side * 0.03, 0.2, 0.225]), [0, 0, side * 0.05], k), bone: head, color: MON.tooth, outline: th * 0.5 });
+    B.toon(tooth, { m: MT(K([side * 0.03, 0.2, 0.225]), [0, 0, side * 0.05], k), bone: head, color: C.tooth, outline: th * 0.5 });
   }
-  B.toon(new THREE.SphereGeometry(0.022, 10, 8), { m: MT(K([0, 0.245, 0.232]), [0, 0, 0], [k * 1.2, k * 0.8, k * 0.8]), bone: head, color: MON.nose, outline: th * 0.5 });
-  B.eyes({ surf: hs, y: 0.28 * k, gap: 0.105 * k, r: 0.046 * k, parent: head, forward: 0.004 * k, outline: 0.008 * k, pupil: 0.52 });
-  B.mouth('oh', { surf: hs, y: 0.178 * k, w: 0.05 * k, h: 0.045 * k, parent: head, hidden: true, lift: 0.02 * k });
+  B.toon(new THREE.SphereGeometry(0.022, 10, 8), { m: MT(K([0, 0.245, 0.232]), [0, 0, 0], [k * 1.2, k * 0.8, k * 0.8]), bone: head, color: C.nose, outline: th * 0.5 });
+  if (whiskers) for (const side of [-1, 1]) for (const [dy, a] of [[0.012, 0.1], [-0.004, -0.02], [-0.02, -0.14]]) {
+    const A = K([side * 0.045, 0.225 + dy, 0.2]), M = K([side * 0.11, 0.225 + dy + a * 0.3, 0.225]), Bp = K([side * 0.165, 0.225 + dy + a * 0.9, 0.225]);
+    B.unlit(taperTube([A, M, Bp], taper([[0, 0.0035 * k], [0.7, 0.0025 * k], [1, 0.001 * k]]), 5, 8), { bone: head, color: mx(C.muzzle, 'stone.mid', 0.35) });
+  }
+  // painted eyes on the head (the grown Sunmane's are smaller under heavy brows: a lion, not a bug-eyed kitten)
+  B.eyes({ surf: hs, y: (mane ? 0.285 : 0.28) * k, gap: (mane ? 0.112 : 0.105) * k, r: (mane ? 0.038 : 0.046) * k, parent: head, forward: 0.003 * k, pupil: mane ? 0.56 : 0.52,
+    lidVcol: fur(0.18 * k, 0.36 * k), browLift: mane ? 1.25 : 1.3, browLen: mane ? 1.7 : 1.25, browColor: mane ? MON.maneDeep : mx(dark, PAL.outline.char, 0.35), rim: E.rim,
+    pupilShape: E.pupilShape, pupilColor: E.pupilColor, scleraColor: E.sclera });
+  // the mouth lives on the muzzle, just under the nose
+  const ms = ellSurf(0.085 * k, 0.04 * k, 0.04 * k, [0, 0.212 * k, 0.207 * k]);
+  B.faceMouths({ surf: ms, y: 0.2 * k, w: 0.07 * k, h: 0.024 * k, parent: head, lift: 0.003 * k, beam: 'cat', kinds: ['cat', 'beam', 'grimace', 'shout', 'ow', 'dizzy', 'tongue', 'oh', 'smirk'],
+    sizes: { beam: [0.9, 1.2], shout: [1.1, 1.1], oh: [1.2, 1.1], grimace: [1.1, 1.1] } });
   // collar + bell
   const neck = MT(K([0, 0.205, 0.075]), [1.25, 0, 0], k);
-  B.toon(new THREE.TorusGeometry(0.075, 0.014, 8, 22), { m: neck, bone: 'body', color: MON.ribbon, outline: th * 0.6 });
+  if (bell) B.toon(new THREE.TorusGeometry(0.075, 0.014, 8, 22), { m: neck, bone: 'body', color: MON.ribbon, outline: th * 0.6 });
   if (bell) { B.toon(new THREE.SphereGeometry(0.024, 12, 10), { m: MT(K([0, 0.155, 0.135]), [0, 0, 0], k), bone: 'body', color: MON.gold, outline: th * 0.6 }); B.unlit(new THREE.BoxGeometry(0.03 * k, 0.004 * k, 0.01 * k), { m: MT(K([0, 0.148, 0.158])), color: MON.woodDark }); }
+  else if (!mane) B.toon(new THREE.TorusGeometry(0.075, 0.014, 8, 22), { m: MT(K([0, 0.205, 0.075]), [1.25, 0, 0], k), bone: 'body', color: C.dark, outline: th * 0.6 });
   if (mane) {
     const maneB = B.bone('mane', head, K(hc));
     const ring = (n, rad, len, wid, z, col, rot = 0) => {
@@ -1788,8 +2071,9 @@ function catRig(B, { k = 1, mane = false, bell = true }) {
         B.toon(pg, { m, bone: maneB, color: col, outline: th * 0.7 });
       }
     };
+    // the ruff and the backing sphere sit INSIDE the mane: no outline shells (theirs cut rings across the face)
     const ruff = new THREE.TorusGeometry(0.115, 0.065, 12, 28);
-    B.toon(ruff, { m: MT(K([hc[0], hc[1] - 0.005, hc[2] - 0.05]), [0, 0, 0], [k, k * 0.95, k * 0.9]), bone: maneB, color: MON.maneDeep, outline: th * 0.9 });
+    B.toon(ruff, { m: MT(K([hc[0], hc[1] - 0.005, hc[2] - 0.05]), [0, 0, 0], [k, k * 0.95, k * 0.9]), bone: maneB, color: MON.maneDeep, outline: 0 });
     B.toon(new THREE.SphereGeometry(0.16, 18, 12), { m: MT(K([hc[0], hc[1], hc[2] - 0.08]), [0, 0, 0], [k, k * 0.95, k * 0.6]), bone: maneB, color: MON.maneDeep });
     ring(12, 0.135, 0.085, 0.085, -0.055, MON.mane);
     ring(9, 0.12, 0.06, 0.07, -0.025, MON.maneDeep, 0.35);
@@ -1816,13 +2100,12 @@ function catAttack(ctx, ct) {
   b.root.position.y += 0.22 * S * hump(ct, 0.14, 0.33);
   for (const n of ['legFL', 'legFR']) if (b[n]) b[n].rotation.x -= 1.2 * hump(ct, 0.14, 0.4);
   for (const n of ['legBL', 'legBR']) if (b[n]) b[n].rotation.x += 0.8 * hump(ct, 0.14, 0.33);
-  if (ct > 0.14 && ct < 0.45) ctx.showOh = true;
 }
 function catRoar(ctx, ct) {
   const b = ctx.b, k = hump(ct, 0.05, 0.95);
+  if (ct > 0.05 && ct < 0.92) ctx.faceKey = 'roar';
   if (b.head) { b.head.rotation.x -= 0.35 * k; b.head.rotation.z += 0.05 * Math.sin(ct * 50) * k; }
   if (b.mane) b.mane.scale.multiplyScalar(1 + 0.18 * k);
-  ctx.showOh = ct > 0.05 && ct < 0.9; ctx.eyeScale *= 1 - 0.35 * k;
   for (const n of ['legFL', 'legFR']) if (b[n]) b[n].rotation.x -= 0.2 * k;
   if (ct > 0.2 && !ctx._roar) { ctx._roar = true; ctx.fx.sparkle(ctx.center().add(V3(0, ctx.height * 0.3, ctx.radius)), 6, ctx.radius * 1.2, { size: 0.08 * Math.sqrt(ctx.size), life: 0.5, speed: 2 }); }
   if (ct < 0.1) ctx._roar = false;
@@ -1830,6 +2113,13 @@ function catRoar(ctx, ct) {
 }
 species('pip', {
   name: 'Pip', family: 'cat', death: 'pop', story: true, color: MON.sunspot,
+  // a mischief of a kitten: sly half-lids, a little ω smirk under the nose
+  face: {
+    wild: { lid: 0.42, tilt: 10, brow: [[0.0, 14], [0.2, -6]], look: [0.1, 0], glance: 0.6, glancePeriod: 3, mouth: 'cat' },
+    recover: { lid: 0.4, tilt: 10, mouth: 'cat' },
+    roar: { lid: 0.2, tilt: 16, brow: [[-0.1, 22], [-0.1, 22]], look: [0, 0], mouth: 'shout' },
+    friend: { lid: 0, tilt: -4, brow: [[0.28, -8], [0.28, -8]], mouth: 'beam' },
+  },
   build(B) { return catRig(B, { k: 1.25, mane: false, bell: true }); },
   idle(ctx, t) { catIdle(ctx, t, false); },
   attackPose: catAttack,
@@ -1837,6 +2127,17 @@ species('pip', {
 });
 species('sunmane', {
   name: 'The Sunmane', family: 'cat', boss: true, story: true, death: 'pop', color: MON.sunspot,
+  // wild and grand: a heavy-browed glare and a snarl — until it sees the ribbon, and its whole face remembers
+  face: {
+    wild: { lid: 0.46, tilt: 20, brow: [[-0.12, 26], [-0.12, 26]], look: [0, 0.05], glance: 0.25, glancePeriod: 4, mouth: 'grimace' },
+    windup: { lid: 0.6, tilt: 24, brow: [[-0.2, 32], [-0.2, 32]], mouth: 'grimace' },
+    strike: { lid: 0.2, tilt: 20, brow: [[-0.18, 30], [-0.18, 30]], mouth: 'shout' },
+    recover: { lid: 0.46, tilt: 20, brow: [[-0.12, 26], [-0.12, 26]], mouth: 'grimace' },
+    roar: { lid: 0.3, tilt: 22, brow: [[-0.2, 32], [-0.2, 32]], look: [0, 0], mouth: 'shout' },
+    defeat: { eyes: 'happy', brow: [[0.24, -14], [0.24, -14]], mouth: 'cat' },
+    dead: { lid: 0.64, tilt: -12, brow: [[0.2, -14], [0.2, -14]], mouth: 'cat' },
+    friend: { lid: 0.1, tilt: -6, brow: [[0.24, -10], [0.24, -10]], mouth: 'beam' },
+  },
   build(B) { const r = catRig(B, { k: 4.5, mane: true, bell: false }); return { height: r.height, radius: r.radius * 1.15, shadow: 2.2 }; },
   idle(ctx, t) { catIdle(ctx, t, true); },
   attackPose: catAttack,
@@ -1862,7 +2163,16 @@ function catLie(ctx, k, t) {
 }
 
 species('bogwallop', {
-  name: 'Bogwallop the Bulbous', family: 'toad', boss: true, death: 'deflate', winkAll: true, color: MON.toad,
+  name: 'Bogwallop the Bulbous', family: 'toad', boss: true, death: 'deflate', winkAll: true, color: MON.toad, brows: false,
+  // enormous and lonely: sleepy heavy lids, a lopsided grin; defeated, a sulk (and he stays to talk)
+  face: {
+    wild: { lid: 0.5, tilt: -6, look: [0, -0.1], glance: 0.3, glancePeriod: 5, mouth: 'smirk' },
+    recover: { lid: 0.46, tilt: -6, mouth: 'smirk' },
+    taunt: { lid: [0.2, 0.2], tilt: 0, look: [0, 0.2], mouth: 'oh' },
+    defeat: { lid: 0.72, tilt: -18, look: [0, -0.4], mouth: 'frown' },
+    burp: { lid: 0.9, tilt: -4, look: [0, 0], mouth: 'oh' },
+    dead: { lid: 0.72, tilt: -18, look: [0.3, -0.4], mouth: 'frown' },
+  },
   build(B) {
     const bc = [0, 0.95, 0], R = [1.61, 1.0, 1.4];
     const toad = C3(MON.toad), toadL = C3(mx(MON.toad, 'grass.light', 0.35));
@@ -1881,8 +2191,8 @@ species('bogwallop', {
     const sac = B.bone('sac', 'body', [0, 0.52, 1.1]);
     B.toon(new THREE.SphereGeometry(0.55, 24, 16), { m: MT([0, 0.52, 1.02], [0, 0, 0], [1, 0.8, 0.75]), bone: sac, color: mx(MON.toadBelly, 'flower.pink', 0.18), outline: 0.03 });
     // the enormous grin across the whole head, with a lolling tongue
-    B.mouth('grin', { surf, y: 1.0, w: 1.5, h: 0.22, tongue: false, lift: 0.01, depth: 0.03 });
-    B.mouth('oh', { surf, y: 0.98, w: 0.5, h: 0.4, hidden: true, lift: 0.012 });
+    B.faceMouths({ surf, y: 1.0, w: 1.5, h: 0.2, lift: 0.01, kinds: ['beam', 'smirk', 'frown', 'grimace', 'shout', 'ow', 'dizzy', 'oh', 'worry'],
+      sizes: { oh: [0.5, 1.4], ow: [0.7, 1], worry: [0.8, 1], dizzy: [0.6, 1], grimace: [0.8, 0.8], shout: [0.8, 0.8] } });
     const tongue = B.bone('tongue', 'body', [0.42, 0.92, 1.3]);
     const tg = new THREE.CapsuleGeometry(0.07, 0.18, 4, 10); tg.translate(0, -0.12, 0);
     B.toon(tg, { m: MT([0.42, 0.93, 1.33], [0.5, 0, 0.1], [1, 1, 0.45]), bone: tongue, color: MON.tongue, outline: 0.015 });
@@ -1894,7 +2204,7 @@ species('bogwallop', {
       B.toon(new THREE.SphereGeometry(0.34, 22, 16), { m: MT([sp.x, sp.y, sp.z]), color: MON.toad, outline: 0.04 });
       pts.push({ pos: [sp.x * 1.02, sp.y + 0.2, sp.z + 0.2], yaw: side * 0.22, pitch: 6, side });
     }
-    B.eyesAt(pts, { r: 0.3, tilt: -8, pupilShape: 'bar', outline: 0.022, pupil: 0.46, zScale: 0.7 });
+    B.eyesAt(pts, { r: 0.3, pupilShape: 'bar', outline: 0.022, pupil: 0.46, zScale: 0.85, brows: false });
     // legs: front pair, and the big folded back pair
     for (const side of [-1, 1]) {
       const fl = B.bone(side < 0 ? 'legFL' : 'legFR', 'root', [side * 0.95, 0.5, 0.85]);
@@ -1936,7 +2246,7 @@ species('bogwallop', {
     // Enormous Burp (does nothing at all)
     const k = hump(ct, 0.1, 0.9);
     if (ctx.b.sac) ctx.b.sac.scale.multiplyScalar(1 + 0.9 * hump(ct, 0.0, 0.55));
-    ctx.showOh = ct > 0.5 && ct < 0.85; ctx.eyeScale *= 1 - 0.6 * hump(ct, 0.5, 0.9);
+    ctx.showOh = ct > 0.5 && ct < 0.85; if (ct > 0.5 && ct < 0.9) ctx.faceKey = 'burp';
     ctx.b.body.scale.multiply(V3(1 + 0.05 * k, 1 - 0.04 * k, 1));
     if (ct > 0.55 && !ctx._burp) { ctx._burp = true; ctx.fx.puff(V3(0, 1.1, 1.6), 5, 0.6, 0.18, { up: 0.8, life: 0.7 }); }
     if (ct < 0.1) ctx._burp = false;
@@ -1952,12 +2262,19 @@ function bogSulk(ctx, k, t) {
   b.root.position.y -= 0.05 * k;
   if (b.sac) b.sac.scale.multiplyScalar(1 - 0.35 * k);
   if (b.reeds) b.reeds.rotation.z += 0.35 * k;
-  ctx.eyeScale *= 1 - 0.55 * k;
-  ctx.eyeTilt -= 10 * DEG * k;
 }
 
 species('cactuddle', {
   name: 'Cactuddle', family: 'plant', death: 'deflate', color: MON.cactus,
+  // wants a hug more than anything: hopeful brows, big soft eyes, a wobbly smile; its attack is a hug (eyes shut, beaming)
+  face: {
+    wild: { lid: 0.1, tilt: -14, brow: [[0.3, -28], [0.3, -28]], look: [0, 0.18], glance: 0.3, glancePeriod: 4, mouth: 'worry' },
+    windup: { lid: 0.2, tilt: -10, brow: [[0.34, -24], [0.34, -24]], look: [0, 0.2], mouth: 'worry', eyeScale: 1.08 },
+    strike: { eyes: 'happy', brow: [[0.3, -16], [0.3, -16]], mouth: 'beam' },
+    recover: { eyes: 'shut', brow: [[0.2, -26], [0.2, -26]], mouth: 'ow' },
+    taunt: { lid: 0.05, tilt: -16, brow: [[0.36, -30], [0.36, -30]], look: [0, 0.3], mouth: 'oh', eyeScale: 1.1 },
+    friend: { lid: 0, tilt: -8, brow: [[0.34, -14], [0.34, -14]], look: [0, 0.1], mouth: 'beam' },
+  },
   build(B) {
     const prof = smoothProfile([[0, 0], [0.22, 0.03], [0.25, 0.24], [0.24, 0.52], [0.18, 0.62], [0, 0.64]], 26);
     const rib = (geo, amp = 0.018) => { const p = geo.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), r = Math.hypot(x, z); if (r < 1e-4) continue; const th = Math.atan2(x, z), f = (r + amp * Math.sin(12 * th)) / r; p.setXYZ(i, x * f, y, z * f); } geo.computeVertexNormals(); return geo; };
@@ -1965,38 +2282,49 @@ species('cactuddle', {
     const col = (h0) => (x, y, z, ny, tmp) => tmp.copy(green).multiplyScalar(0.92).lerp(top, smooth(h0 * 0.45, h0 * 0.95, y));
     B.toon(rib(lathe(prof, 48)), { color: MON.cactus, outline: 0.016, vcol: col(0.64) });
     const surf = latheSurf(prof);
-    // arms: two elbowed segments each, held open for a hug that never comes
+    // arms: OPEN for a hug — out from the shoulder, then the forearm swung forward, ending in a soft round paw
     for (const side of [-1, 1]) {
       const arm = B.bone(side < 0 ? 'armL' : 'armR', 'body', [side * 0.22, 0.34, 0]);
       const segA = rib(lathe(smoothProfile([[0, 0], [0.09, 0.02], [0.1, 0.1], [0.09, 0.2], [0, 0.22]], 12), 24), 0.008);
-      B.toon(segA, { m: MT([side * 0.2, 0.34, 0.02], [0, 0, -side * 1.35], [1, 0.95, 1]), bone: arm, color: MON.cactus, outline: 0.012 });
-      const segB = rib(lathe(smoothProfile([[0, 0], [0.08, 0.02], [0.085, 0.1], [0.07, 0.19], [0, 0.21]], 12), 24), 0.007);
-      B.toon(segB, { m: MT([side * 0.38, 0.37, 0.05], [0.25, 0, -side * 0.25]), bone: arm, color: MON.cactusTop, outline: 0.012 });
+      B.toon(segA, { m: MT([side * 0.2, 0.34, 0.02], [0, 0, -side * 1.22], [1, 0.95, 1]), bone: arm, color: MON.cactus, outline: 0.012 });
+      const segB = rib(lathe(smoothProfile([[0, 0], [0.082, 0.02], [0.088, 0.1], [0.072, 0.2], [0, 0.22]], 12), 24), 0.007);
+      const elbow = [side * 0.4, 0.412, 0.02];
+      const rz = -side * 0.16, rx = 1.0;
+      const dir = V3(0, 1, 0).applyEuler(new THREE.Euler(rx, 0, rz, 'YXZ'));
+      B.toon(segB, { m: MT(elbow, [rx, 0, rz]), bone: arm, color: MON.cactusTop, outline: 0.012 });
+      B.toon(new THREE.SphereGeometry(0.075, 16, 12), { m: MT([elbow[0] + dir.x * 0.21, elbow[1] + dir.y * 0.21, elbow[2] + dir.z * 0.21], [0, 0, 0], [1, 0.94, 0.94]), bone: arm, color: MON.cactusTop, outline: 0.012 });
     }
-    // soft-tipped spines along the flute ridges
+    // spines: little three-needle tufts, short and soft-tipped — not toothpicks
     const rs = rng(7);
-    for (let i = 0; i < 40; i++) {
-      const k = Math.floor(rs() * 12), th = (Math.PI / 2 + TAU * k) / 12, Y = 0.08 + rs() * 0.5;
-      if (Math.abs(Math.sin(th)) < 0.35 && Math.cos(th) > 0 && Y > 0.18 && Y < 0.5) continue;
-      const p = surfPoint(surf, Y, th, 0.016);
-      const dir = V3(Math.sin(th), 0.25, Math.cos(th)).normalize();
-      const q = new THREE.Quaternion().setFromUnitVectors(V3(0, 1, 0), dir);
-      const m = new THREE.Matrix4().compose(p, q, V3(1, 1, 1));
-      const c = new THREE.ConeGeometry(0.008, 0.045, 6); c.translate(0, 0.022, 0);
-      B.toon(c, { m, color: MON.spine });
-      B.toon(new THREE.SphereGeometry(0.008, 6, 5), { m: m.clone().multiply(MT([0, 0.045, 0])), color: MON.spine });
+    for (let i = 0; i < 17; i++) {
+      const k = Math.floor(rs() * 12), th = (Math.PI / 2 + TAU * k) / 12, Y = 0.1 + rs() * 0.46;
+      if (Math.abs(Math.sin(th)) < 0.42 && Math.cos(th) > 0 && Y > 0.2 && Y < 0.52) continue;
+      const p = surfPoint(surf, Y, th, 0.012);
+      for (const [ax, ay] of [[-0.5, 0.25], [0, 0.55], [0.5, 0.2]]) {
+        const dir = V3(Math.sin(th) + Math.cos(th) * ax * 0.5, ay, Math.cos(th) - Math.sin(th) * ax * 0.5).normalize();
+        const q = new THREE.Quaternion().setFromUnitVectors(V3(0, 1, 0), dir);
+        const m = new THREE.Matrix4().compose(p, q, V3(1, 1, 1));
+        const c = new THREE.ConeGeometry(0.0105, 0.03, 5); c.translate(0, 0.015, 0);
+        B.toon(c, { m, color: MON.spine });
+        B.toon(new THREE.SphereGeometry(0.0042, 5, 4), { m: m.clone().multiply(MT([0, 0.03, 0])), color: MON.spine });
+      }
     }
-    // the flower hat: it droops when sad and lifts when happy — its whole emotional life
+    // the flower: a real five-petal bloom on a short stalk, yellow-hearted — it droops when sad and lifts when happy
     const flower = B.bone('flower', 'body', [0, 0.62, 0]);
+    B.toon(new THREE.CylinderGeometry(0.014, 0.018, 0.05, 8), { m: MT([0, 0.645, 0]), bone: flower, color: MON.cactusTop, outline: 0.008 });
     for (let i = 0; i < 5; i++) {
-      const a = i / 5 * TAU;
-      B.toon(new THREE.CircleGeometry(0.05, 14).rotateX(-Math.PI / 2 + 0.35), { m: MT([Math.sin(a) * 0.05, 0.66, Math.cos(a) * 0.05], [0, a, 0]), bone: flower, color: MON.flowerP, outline: 0 });
-      B.toon(new THREE.CircleGeometry(0.05, 14).rotateX(Math.PI / 2 - 0.35), { m: MT([Math.sin(a) * 0.05, 0.655, Math.cos(a) * 0.05], [0, a, 0]), bone: flower, color: sc(MON.flowerP, 0.85), outline: 0 });
+      const a = i / 5 * TAU + 0.3;
+      const pet = extrude(petalShape(0.105, 0.062, 0.45), 0.014, 0.005);
+      const pp = pet.attributes.position;
+      for (let v = 0; v < pp.count; v++) { const yy = pp.getY(v); pp.setZ(v, pp.getZ(v) - 0.55 * yy * yy); }   // cup the petal
+      pet.computeVertexNormals();
+      B.toon(pet, { m: MT([Math.sin(a) * 0.03, 0.668, Math.cos(a) * 0.03], [1.02, a, 0]), bone: flower, color: MON.flowerP, outline: 0.008,
+        vcol: (x, y, z, ny, tmp) => tmp.copy(C3(sc(MON.flowerP, 0.9))).lerp(C3(mx(MON.flowerP, 'char.white', 0.3)), smooth(0.66, 0.73, y)) });
     }
-    B.toon(new THREE.SphereGeometry(0.03, 12, 10), { m: MT([0, 0.675, 0]), bone: flower, color: PAL.flower.yellow, outline: 0.006 });
-    B.eyes({ surf, y: 0.43, gap: 0.15, r: 0.085, tilt: -12, pupil: 0.55, forward: 0.02 });
-    B.mouth('grin', { surf, y: 0.3, w: 0.09, h: 0.035, lift: 0.02 });
-    B.mouth('oh', { surf, y: 0.3, w: 0.05, h: 0.06, hidden: true, lift: 0.02 });
+    B.toon(new THREE.SphereGeometry(0.032, 14, 12), { m: MT([0, 0.686, 0], [0, 0, 0], [1, 0.72, 1]), bone: flower, color: PAL.flower.yellow, outline: 0.006 });
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; B.unlit(new THREE.SphereGeometry(0.006, 5, 4), { m: MT([Math.sin(a) * 0.016, 0.706, Math.cos(a) * 0.016]), bone: flower, color: mx('flower.center', 'flower.yellow', 0.3) }); }
+    B.eyes({ surf, y: 0.43, gap: 0.158, r: 0.076, pupil: 0.58, forward: 0.021, browLift: 1.36, browColor: mx(sc(MON.cactus, 0.45), PAL.outline.char, 0.5) });
+    B.faceMouths({ surf, y: 0.3, w: 0.1, h: 0.038, lift: 0.022, kinds: ['beam', 'worry', 'grimace', 'shout', 'ow', 'dizzy', 'tongue', 'oh'], sizes: { worry: [1.25, 1.2] } });
     for (const side of [-1, 1]) { const Y = 0.33, th = thetaFor(surf, Y, side * 0.15); B.unlit(wrapOn(discGeo(0.032, 0.018, 20, 4), surf, Y, th, 0.022), { color: MON.blush }); }
     B.gloss(surf, 0.5, -0.65, 0.03, 0.09, { dot: false, lift: 0.02 });
     return { height: 0.7, radius: 0.42, shadow: 0.7 };
@@ -2020,13 +2348,2284 @@ species('cactuddle', {
     if (ctx.b.armL) ctx.b.armL.rotation.y -= 1.0 * hug;
     if (ctx.b.armR) ctx.b.armR.rotation.y += 1.0 * hug;
     if (ct > 0.3 && ct < 0.4) ctx.flash = Math.max(ctx.flash, 0.3);
-    ctx.eyeScale *= 1 - 0.5 * hump(ct, 0.26, 0.5);
   },
   hurtPose(ctx, ct) { if (ctx.b.flower) ctx.b.flower.rotation.x -= 0.35 * hump(ct, 0, 0.42); },
   joinPose(ctx, ct) { if (ctx.b.flower) ctx.b.flower.rotation.x += 0.3 * hump(ct, 0.2, 1.35); },
   post(ctx, t, dt, clip) {
     // sad flower while defeated / deflating
     if ((clip === 'defeat' || clip === 'dead') && ctx.b.flower) ctx.b.flower.rotation.x -= 20 * DEG;
+  },
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// 5c. TIER TWO — the Whispering Wood, Saltmarrow Coast, Cobwell Manor (MONSTER-BIBLE §2 #12-15)
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+const dying = (clip) => clip === 'defeat' || clip === 'dead';
+/** Options a BOSS sets before reusing a smaller monster's build (MONSTER-BIBLE §6/§6b build on the same rigs). */
+let REUSE = {};
+
+/** Skin weights along a chain of bones laid from point a (bones[0]) to point b (last bone); beyond b = last bone. */
+function chainWeights(a, b, bones) {
+  const ax = b[0] - a[0], ay = b[1] - a[1], az = b[2] - a[2], L2 = (ax * ax + ay * ay + az * az) || 1, n = bones.length;
+  return (x, y, z) => {
+    const t = clamp01(((x - a[0]) * ax + (y - a[1]) * ay + (z - a[2]) * az) / L2) * (n - 1);
+    const i = Math.min(n - 2, Math.floor(t)), u = smooth(0.15, 0.85, t - i);
+    return [[bones[i], 1 - u], [bones[i + 1], u]];
+  };
+}
+/** Radially reshape a geometry laid along +Y: radius multiplied by f(y). */
+function shapeAlongY(geo, f) {
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) { const k = f(p.getY(i)); p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k); }
+  return geo;
+}
+
+// ── 12. CRABBIT ───────────────────────────────────────────────────────────────────────────────────────────────
+species('crabbit', {
+  name: 'Crabbit', family: 'crab', color: MON.crab,
+  // sidles everywhere, including towards things it is trying to leave: eyes on stalks that dart, a crooked grin
+  face: {
+    wild: { lid: 0.36, tilt: 12, brow: [[0.02, 14], [0.18, -4]], look: [0, 0], glance: 0.85, glancePeriod: 1.5, mouth: 'smirk' },
+    recover: { lid: 0.34, tilt: 12, mouth: 'smirk' },
+    taunt: { lid: 0.25, tilt: -6, brow: [[0.24, -18], [0.24, -18]], look: [0.6, 0], glance: 0.9, glancePeriod: 0.7, mouth: 'oh' },
+    friend: { lid: 0, tilt: -6, brow: [[0.3, -10], [0.3, -10]], mouth: 'beam' },
+  },
+  build(B) {
+    const cy = 0.25, R = [0.3, 0.15, 0.24];
+    B.setBone('body', [0, 0.1, 0]);
+    // the shell: a squashed sphere, flat on top, pale underneath, a darker rim at its waist
+    const shell = new THREE.SphereGeometry(1, 36, 22);
+    { const p = shell.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (y > 0.78) p.setY(i, 0.78 + (y - 0.78) * 0.3); if (y < -0.85) p.setY(i, -0.85 + (y + 0.85) * 0.3); } }
+    const crab = C3(MON.crab), light = C3(MON.crabLight), belly = C3(MON.crabBelly), rim = C3(sc(MON.crab, 0.84));
+    B.toon(smoothNormals(shell), { m: MT([0, cy, 0], [0, 0, 0], R), color: MON.crab, outline: 0.016,
+      vcol: (x, y, z, ny, tmp) => ny < -0.4 ? tmp.copy(belly) : tmp.copy(rim).lerp(crab, smooth(-0.35, 0.05, ny)).lerp(light, smooth(0.6, 0.97, ny) * 0.6) });
+    const surf = ellSurf(R[0], R[1], R[2], [0, cy, 0]);
+    for (const [Y, th, rr] of [[cy + 0.07, -1.05, 0.03], [cy + 0.05, -1.55, 0.022], [cy + 0.07, 1.1, 0.028], [cy + 0.04, 1.6, 0.02]]) B.unlit(wrapOn(discGeo(rr, rr * 0.8, 16, 3), surf, Y, th, 0.004), { color: MON.crabLight });
+    B.faceMouths({ surf, y: cy - 0.035, w: 0.12, h: 0.042, lop: -1, kinds: ['beam', 'smirk', 'grimace', 'shout', 'ow', 'dizzy', 'tongue', 'worry', 'oh'] });
+    for (const side of [-1, 1]) { const Y = cy - 0.01, th = thetaFor(surf, Y, side * 0.165); B.unlit(wrapOn(discGeo(0.032, 0.018, 18, 3), surf, Y, th, 0.004), { color: MON.blush }); }
+    B.gloss(surf, cy + 0.075, -0.62, 0.055, 0.03, { rot: 1.3, dot: false });
+    // eyes on stalks, which wobble with a lag and cross when it is confused
+    const eyePts = [];
+    for (const side of [-1, 1]) {
+      const S = side < 0 ? 'L' : 'R', base = [side * 0.075, 0.33, 0.1], top = [side * 0.088, 0.47, 0.118];
+      const st = B.bone('stalk' + S, 'body', base);
+      B.toon(capsuleAB(base, top, 0.02, 3, 10), { bone: st, color: sc(MON.crab, 0.95), outline: 0.008 });
+      eyePts.push({ pos: [side * 0.09, 0.505, 0.124], yaw: -side * 0.08, side, parent: st });
+    }
+    B.eyesAt(eyePts, { r: 0.066, zScale: 0.9, pupil: 0.5, outline: 0.009 });
+    // long soft rabbit ears on a 3-bone chain each, riding the body (glued) until the death lets them go
+    const earBase = B.bone('earBase', 'root', [0, 0.1, 0]);
+    for (const side of (REUSE.ears === false ? [] : [-1, 1])) {
+      const S = side < 0 ? 'L' : 'R', base = [side * 0.1, 0.33, -0.07];
+      const m = MT(base, [-0.24, 0, -side * 0.34]);
+      const dir = V3(0, 1, 0).applyMatrix4(new THREE.Matrix4().extractRotation(m));
+      const P = (t) => [base[0] + dir.x * t, base[1] + dir.y * t, base[2] + dir.z * t];
+      const e0 = B.bone('ear' + S + '0', earBase, P(0)), e1 = B.bone('ear' + S + '1', e0, P(0.12)), e2 = B.bone('ear' + S + '2', e1, P(0.24));
+      const L = 0.36, taperEar = (y) => { const t = clamp01(y / L); return 0.62 + 0.5 * Math.sin(Math.PI * Math.min(1, t * 1.05)) * (t < 0.85 ? 1 : 1 - (t - 0.85) * 1.2); };
+      const outer = new THREE.CapsuleGeometry(0.05, L - 0.1, 6, 16); outer.translate(0, L / 2, 0); shapeAlongY(outer, taperEar); outer.scale(1, 1, 0.5);
+      const inner = new THREE.CapsuleGeometry(0.03, L - 0.16, 4, 12); inner.translate(0, L / 2 + 0.01, 0); shapeAlongY(inner, taperEar); inner.scale(1, 1, 0.3); inner.translate(0, 0, 0.017);
+      const wts = chainWeights(P(0), P(0.24), [e0, e1, e2]);
+      B.toon(outer, { m, bone: e0, color: MON.crabEar, outline: 0.011, weights: wts, vcol: (x, y, z, ny, tmp) => tmp.copy(C3(sc(MON.crabEar, 0.9))).lerp(C3(MON.crabEar), smooth(0.33, 0.55, y)) });
+      B.toon(inner, { m, bone: e0, color: MON.earInner, weights: wts });
+    }
+    // two claws: each a sphere split into hinged halves (the top half opens), on a short arm
+    for (const side of [-1, 1]) {
+      const S = side < 0 ? 'L' : 'R', yaw = side * 0.28, cr = 0.094, SC = [1, 0.74, 1.28];
+      const sh = [side * 0.24, 0.21, 0.1], cc = [side * 0.37, 0.235, 0.27];
+      const arm = B.bone('arm' + S, 'body', sh);
+      B.toon(capsuleAB(sh, [side * 0.345, 0.228, 0.2], 0.03, 4, 10), { bone: arm, color: sc(MON.crab, 0.93), outline: 0.009 });
+      const tipLight = (x, y, z, ny, tmp) => tmp.copy(crab).lerp(light, smooth(cc[2] + 0.02, cc[2] + 0.12, z) * 0.7);
+      B.toon(new THREE.SphereGeometry(cr, 20, 8, 0, TAU, Math.PI / 2, Math.PI / 2), { m: MT(cc, [0, yaw, 0], SC), bone: arm, color: MON.crab, outline: 0.011, vcol: tipLight });
+      B.toon(new THREE.CircleGeometry(cr * 0.97, 20).rotateX(-Math.PI / 2), { m: MT([cc[0], cc[1] + 0.001, cc[2]], [0, yaw, 0], SC), bone: arm, color: MON.clawIn });
+      const back = [cc[0] - Math.sin(yaw) * cr * 1.0, cc[1], cc[2] - Math.cos(yaw) * cr * 1.0];
+      const pin = B.bone('pin' + S, arm, back);
+      B.toon(new THREE.SphereGeometry(cr, 20, 8, 0, TAU, 0, Math.PI / 2), { m: MT(cc, [0, yaw, 0], SC), bone: pin, color: MON.crab, outline: 0.011, vcol: tipLight });
+      B.toon(new THREE.CircleGeometry(cr * 0.97, 20).rotateX(Math.PI / 2), { m: MT([cc[0], cc[1] - 0.001, cc[2]], [0, yaw, 0], SC), bone: pin, color: MON.clawIn });
+      B.gloss(ellSurf(cr * SC[0], cr * SC[1], cr * SC[2], cc), cc[1] + 0.035, -0.4, 0.03, 0.016, { bone: pin, rot: 1.2, dot: false, lift: 0.006 });
+    }
+    // six legs, two joints each, walking in alternating tripods
+    for (let i = 0; i < 6; i++) {
+      const side = i < 3 ? -1 : 1, j = i % 3, z = 0.1 - j * 0.1, zo = (1 - j) * 0.05;
+      const hip = [side * 0.19, 0.17, z], knee = [side * 0.315, 0.19, z + zo], foot = [side * 0.37, 0.016, z + zo * 1.5];
+      const leg = B.bone('leg' + i, 'root', hip);
+      B.toon(taperTube([hip, [side * 0.26, 0.2, z + zo * 0.6], knee, [side * 0.36, 0.1, z + zo * 1.3], foot], taper([[0, 0.026], [0.5, 0.022], [1, 0.015]]), 8, 18), { bone: leg, color: sc(MON.crab, 0.88), outline: 0.008 });
+      B.toon(new THREE.SphereGeometry(0.021, 10, 8), { m: MT(foot), bone: leg, color: sc(MON.crab, 0.88) });
+    }
+    return { height: 0.6, radius: 0.36, shadow: 0.8 };
+  },
+  idle(ctx, t) {
+    const w = ctx.idleW, b = ctx.b, P = 2.8;
+    // it sidles, ±0.12 over 1.4 s, the ears trailing 180 ms behind
+    const vAt = (tt) => 0.12 * (TAU / P) * Math.cos(TAU * tt / P) * w;
+    b.root.position.x += 0.12 * Math.sin(TAU * t / P) * w;
+    const speed = Math.abs(Math.cos(TAU * t / P)), g = TAU * 2.4 * t;
+    for (let i = 0; i < 6; i++) {
+      const L = b['leg' + i]; if (!L) continue;
+      const side = i < 3 ? -1 : 1, grp = ((i % 3) + (side > 0 ? 1 : 0)) % 2, s = Math.sin(g + grp * Math.PI);
+      L.rotation.z += side * Math.max(0, s) * (0.12 + 0.32 * speed) * w;
+      L.rotation.y += side * 0.12 * Math.cos(g + grp * Math.PI) * speed * w;
+    }
+    const bob = Math.abs(Math.sin(g));
+    b.body.position.y += 0.014 * bob * w;
+    b.body.scale.multiply(V3(1 + 0.035 * (1 - bob) * w, 1 - 0.05 * (1 - bob) * w, 1 + 0.035 * (1 - bob) * w));
+    b.body.rotation.z -= 0.35 * vAt(t);
+    const lag = vAt(t - 0.18);
+    for (const [S, side] of [['L', -1], ['R', 1]]) {
+      const k = side * 0.08 * Math.sin(t * 1.7 + side);
+      if (b['ear' + S + '0']) { b['ear' + S + '0'].rotation.z += 0.5 * lag + k; b['ear' + S + '0'].rotation.x += 0.05 * Math.sin(t * 2.3 + side); }
+      if (b['ear' + S + '1']) { b['ear' + S + '1'].rotation.z += 0.8 * lag + k * 0.8; b['ear' + S + '1'].rotation.x -= 0.12 + 0.08 * bob * w; }
+      if (b['ear' + S + '2']) { b['ear' + S + '2'].rotation.z += 1.0 * lag; b['ear' + S + '2'].rotation.x -= 0.22 + 0.1 * bob * w; }
+      // claws open and close at 0.7 Hz, a little out of step with each other
+      const op = 0.5 + 0.5 * Math.sin(TAU * 0.7 * t + (side > 0 ? 0.9 : 0));
+      if (b['pin' + S]) b['pin' + S].rotation.x -= 0.62 * op * w;
+      if (b['arm' + S]) { b['arm' + S].rotation.x -= 0.08 * op * w; b['arm' + S].rotation.y -= side * 0.06 * Math.sin(TAU * 0.35 * t) * w; }
+      if (b['stalk' + S]) { b['stalk' + S].rotation.z -= 0.6 * vAt(t - 0.15); b['stalk' + S].rotation.x += 0.06 * Math.sin(t * 2.9 + side) * w; }
+    }
+  },
+  attackPose(ctx, ct) {
+    // Pinch: claws up and open in the wind-up, SNAP shut on the impact
+    const b = ctx.b, up = ct < 0.14 ? easeOutCubic(ct / 0.14) : ct < 0.26 ? 1 : 1 - seg(ct, 0.26, 0.55);
+    const open = ct < 0.245 ? 0.85 * seg(ct, 0.0, 0.18) : 0;
+    for (const S of ['L', 'R']) {
+      if (b['arm' + S]) b['arm' + S].rotation.x -= 0.55 * up;
+      if (b['pin' + S]) b['pin' + S].rotation.x -= open;
+      if (b['ear' + S + '0']) b['ear' + S + '0'].rotation.x -= 0.55 * hump(ct, 0.14, 0.55);
+    }
+  },
+  hurtPose(ctx, ct) { for (const S of ['L', 'R']) { const e = ctx.b['ear' + S + '0']; if (e) e.rotation.x -= 0.7 * hump(ct, 0, 0.38); const st = ctx.b['stalk' + S]; if (st) st.rotation.x -= 0.4 * hump(ct, 0, 0.3); } },
+  castPose(ctx, ct) {
+    // Sand Kick: the back legs scrabble and a spray of sand flies forward
+    const b = ctx.b, k = hump(ct, 0.15, 0.7);
+    for (let i = 0; i < 6; i++) { const L = b['leg' + i]; if (L) L.rotation.x += Math.sin(ct * 60 + i) * 0.35 * k; }
+    if (ct > 0.3 && !ctx._sand) { ctx._sand = true; for (let i = 0; i < 8; i++) ctx.fx.spawn('blob', { pos: V3((Math.random() - 0.5) * 0.3, 0.06, 0.25), vel: V3((Math.random() - 0.5) * 0.8, 0.9 + Math.random() * 0.8, 1.2 + Math.random()), grav: 5, life: 0.6, s0: 0.03, s1: 0.02, color: PAL.sand.mid, floor: 0.01 }); }
+    if (ct < 0.2) ctx._sand = false;
+  },
+  taunt(ctx, ct) {
+    // confused: it scuttles on the spot, the eye-stalks cross, the claws clack
+    const b = ctx.b, k = hump(ct, 0, 1.1);
+    if (b.stalkL) b.stalkL.rotation.z -= 0.5 * k;
+    if (b.stalkR) b.stalkR.rotation.z += 0.5 * k;
+    b.root.position.x += 0.07 * Math.sin(ct * 16) * k;
+    for (let i = 0; i < 6; i++) { const L = b['leg' + i]; if (L) L.rotation.z += (i < 3 ? -1 : 1) * Math.max(0, Math.sin(ct * 32 + (i % 2) * Math.PI)) * 0.4 * k; }
+    for (const S of ['L', 'R']) if (b['pin' + S]) b['pin' + S].rotation.x -= 0.55 * Math.abs(Math.sin(ct * 13)) * k;
+    ctx.showOh = ct > 0.15 && ct < 0.85;
+    return ct >= 1.1;
+  },
+  post(ctx, t, dt, clip) { if (!dying(clip)) glue(ctx, 'earBase', ['body']); },
+  // POP — and the two ears fall off last, landing separately, which is funnier than it should be
+  defeat(ctx, ct, o) {
+    const b = ctx.b;
+    if (ct < 0.09) {
+      const k = easeOutCubic(ct / 0.09);
+      b.body.scale.multiplyScalar(lerp(1, 1.25, k)); ctx.eyeScale *= 1.25; ctx.showOh = true; ctx.flash = 0.25 * k;
+      glue(ctx, 'earBase', ['body']);
+      return false;
+    }
+    if (!o._pop) {
+      o._pop = true;
+      const c = V3(0, 0.3, 0);
+      ctx.fx.puff(c, 9, 0.46, 0.12, { life: 0.5 });
+      ctx.fx.chunks(c, 8, 0.36, MON.crab, { size: 0.05, speed: 2.4 });
+      ctx.fx.sparkle(c, 6, 0.7, { size: 0.09, life: 0.65, speed: 1.4, up: 0.8, delay: 0.06 });
+      ctx.emit('poof', o);
+    }
+    b.body.scale.setScalar(0.0001);
+    for (let i = 0; i < 6; i++) if (b['leg' + i]) b['leg' + i].scale.setScalar(0.0001);
+    ctx.shadowK = 0.35;
+    for (const [S, side, t0, t1] of [['L', -1, 0.09, 0.62], ['R', 1, 0.2, 0.86]]) {
+      const e0 = b['ear' + S + '0']; if (!e0) continue;
+      const rest = ctx.boneRest['ear' + S + '0'];
+      const k = seg(ct, t0, t1), fall = easeInQuad(k);
+      e0.position.x += side * 0.3 * k; e0.position.z += 0.16 * k;
+      e0.position.y += (0.05 - rest.y) * fall + 0.42 * 4 * k * (1 - k) * (1 - fall * 0.4);
+      e0.rotation.z -= side * 1.5 * easeOutCubic(k);
+      e0.rotation.x += 0.4 * Math.sin(k * 7) * (1 - k);
+      const land = ct > t1 ? Math.exp(-(ct - t1) * 10) * Math.abs(Math.sin((ct - t1) * 26)) : 0;
+      e0.position.y += 0.05 * land;
+      const e1 = b['ear' + S + '1'], e2 = b['ear' + S + '2'], flop = ct > t1 ? 1 : Math.sin(k * 12) * (1 - k);
+      if (e1) e1.rotation.x += 0.35 * flop; if (e2) e2.rotation.x += 0.45 * flop;
+      if (ct > t1 && !o['_land' + S]) { o['_land' + S] = true; ctx.fx.puff(V3(side * 0.42, 0.04, 0.16), 3, 0.16, 0.045, { color: PAL.dirt.light, up: 0.15, life: 0.35 }); }
+    }
+    if (ct >= 1.3 && !o._gone) {
+      o._gone = true;
+      for (const side of [-1, 1]) { const c = V3(side * 0.5, 0.06, 0.16); ctx.fx.puff(c, 4, 0.16, 0.06, { life: 0.4 }); ctx.fx.sparkle(c, 3, 0.25, { size: 0.06, life: 0.45 }); }
+      ctx.setVisible(false);
+    }
+    return ct >= 1.75;
+  },
+});
+
+// ── 13. HOOT COUTURE ──────────────────────────────────────────────────────────────────────────────────────────
+species('hoot_couture', {
+  name: 'Hoot Couture', family: 'bird', color: MON.owl, noWinkDefault: true,
+  // thinks your outfit is fine, dear, for what it is: heavy lids, brows up, looking just past you
+  face: {
+    wild: { lid: 0.34, tilt: -8, brow: [[0.32, -14], [0.26, -10]], look: [0.2, -0.22], glance: 0.25, glancePeriod: 5.5 },
+    windup: { lid: 0.6, tilt: 18, brow: [[-0.12, 22], [-0.12, 22]] },
+    strike: { lid: 0.12, tilt: 14, brow: [[-0.06, 18], [-0.06, 18]], eyeScale: 1.1 },
+    recover: { lid: 0.34, tilt: -8, brow: [[0.32, -14], [0.26, -10]], look: [0.2, -0.22] },
+    friend: { lid: 0.06, tilt: -6, brow: [[0.32, -12], [0.32, -12]], look: [0, 0] },
+  },
+  build(B) {
+    const lift = 0.045, neck = lift + 0.3, hem = lift + 0.03;
+    const prof = smoothProfile([[0, 0], [0.14, 0.005], [0.2, 0.05], [0.228, 0.15], [0.225, 0.27], [0.195, 0.37], [0.13, 0.44], [0.05, 0.475], [0, 0.48]], 30);
+    const head = B.bone('head', 'body', [0, neck, 0]);
+    const owl = C3(MON.owl), owlL = C3(mx(MON.owl, 'plaster.light', 0.2));
+    B.toon(lathe(prof, 34), { m: MT([0, lift, 0]), color: MON.owl, outline: 0.016,
+      weights: (x, y) => { const k = smooth(neck - 0.02, neck + 0.05, y); return [['body', 1 - k], ['head', k]]; },
+      vcol: (x, y, z, ny, tmp) => tmp.copy(owl).multiplyScalar(0.88).lerp(owlL, smooth(lift + 0.04, lift + 0.46, y)) });
+    const surf = latheSurf(prof, { y: lift });
+    // belly: a pale bib with little chevron feathers
+    B.unlit(wrapOn(discGeo(0.12, 0.115, 22, 5), surf, lift + 0.135, 0, 0.003), { color: MON.owlBelly });
+    for (const [dx, dy] of [[-0.05, 0.19], [0.05, 0.19], [-0.085, 0.13], [0, 0.135], [0.085, 0.13], [-0.045, 0.075], [0.045, 0.075]]) {
+      for (const s2 of [-1, 1]) { const g = discGeo(0.019, 0.0055, 10, 2); g.rotateZ(s2 * 0.62); g.translate(s2 * 0.012, 0, 0); const th = thetaFor(surf, lift + dy, dx); B.unlit(wrapOn(g, surf, lift + dy, th, 0.005), { color: MON.owlDark }); }
+    }
+    // the heart-shaped face: two cream discs round the eyes and a chin
+    const eyeY = lift + 0.36, gap = 0.165, er = 0.08;
+    for (const side of [-1, 1]) { const th = thetaFor(surf, eyeY, side * gap / 2); B.unlit(wrapOn(discGeo(0.098, 0.104, 24, 5), surf, eyeY + 0.004, th, 0.003 + (side > 0 ? 0.0006 : 0)), { bone: head, color: MON.owlFace }); }
+    B.unlit(wrapOn(discGeo(0.06, 0.05, 18, 4), surf, lift + 0.295, 0, 0.0025), { bone: head, color: MON.owlFace });
+    const eyes = B.eyes({ surf, y: eyeY, gap, r: er, tilt: -6, pupil: 0.32, parent: head, forward: 0.004, lid: MON.owlFace, browLift: 1.2, browColor: mx(MON.owlDark, PAL.outline.char, 0.4) });
+    // gold spectacles, because one must
+    eyes.forEach((e) => {
+      const d = V3(Math.sin(e.th), 0, Math.cos(e.th)), c = e.pos.clone().addScaledVector(d, er * 0.42);
+      B.toon(new THREE.TorusGeometry(er * 1.17, 0.0105, 8, 30), { m: MT([c.x, c.y, c.z], [0, e.th, 0]), bone: head, color: MON.gold, outline: 0.004 });
+    });
+    { const a = eyes[0].pos, c = eyes[1].pos; B.toon(tube([[a.x + er * 1.1, a.y + 0.012, a.z + 0.05], [0, a.y + 0.03, a.z + 0.075], [c.x - er * 1.1, c.y + 0.012, c.z + 0.05]], 0.007, 6, 10), { bone: head, color: MON.gold }); }
+    // beak, pointing down between the eyes
+    { const bz = surf.r(lift + 0.3, 0); const c = new THREE.ConeGeometry(0.036, 0.085, 10); c.rotateX(Math.PI); c.translate(0, -0.03, 0); B.toon(c, { m: MT([0, lift + 0.325, bz + 0.012], [0.38, 0, 0], [1, 1, 0.8]), bone: head, color: MON.beak, outline: 0.008 }); }
+    B.faceMouths({ surf, y: lift + 0.255, w: 0.05, h: 0.045, parent: head, beam: 'oh', kinds: ['oh'], lift: 0.006 });
+    // ear tufts
+    for (const side of [-1, 1]) {
+      const S = side < 0 ? 'L' : 'R', p = [side * 0.105, lift + 0.425, -0.005];
+      const tuft = B.bone('tuft' + S, head, p);
+      const c = new THREE.ConeGeometry(0.042, 0.12, 12); c.translate(0, 0.06, 0);
+      const m = MT(p, [-0.15, 0, -side * 0.55], [1, 1, 0.55]);
+      B.toon(c, { m, bone: tuft, color: MON.owlDark, outline: 0.008 });
+      B.toon(new THREE.SphereGeometry(0.012, 8, 6), { m: m.clone().multiply(MT([0, 0.118, 0])), bone: tuft, color: MON.owlDark });
+    }
+    B.gloss(surf, lift + 0.43, -0.75, 0.035, 0.02, { bone: head, rot: 0.9, dot: false });
+    // folded wings peeking out of the cape
+    for (const side of [-1, 1]) {
+      const S = side < 0 ? 'L' : 'R', p = [side * 0.2, lift + 0.27, 0.0];
+      const wing = B.bone('wing' + S, 'body', p);
+      const g = new THREE.SphereGeometry(0.11, 16, 12); g.translate(0, -0.08, 0);
+      B.toon(g, { m: MT(p, [0.1, 0, side * 0.12], [0.34, 1, 0.6]), bone: wing, color: MON.owlDark, outline: 0.009 });
+    }
+    // feet: three orange toes each
+    for (const side of [-1, 1]) for (const a of [-0.45, 0, 0.45]) B.toon(new THREE.SphereGeometry(0.024, 10, 8), { m: MT([side * 0.075 + Math.sin(a) * 0.035, 0.02, 0.11 + Math.cos(a) * 0.035], [0, a, 0], [0.8, 0.7, 1.5]), bone: 'root', color: MON.beak, outline: 0.006 });
+    // the velvet cape: a thin lathe shell round the back, gold-hemmed, on its own bones (glued to the body)
+    const capeBase = B.bone('capeBase', 'root', [0, 0, 0]);
+    const capeB = B.bone('capeB', capeBase, [0, neck, -0.22]), capeL = B.bone('capeL', capeBase, [-0.2, neck, -0.05]), capeR = B.bone('capeR', capeBase, [0.2, neck, -0.05]);
+    const loop = v2([[0.272, hem], [0.264, lift + 0.16], [0.246, lift + 0.25], [0.222, neck], [0.205, neck + 0.004], [0.232, lift + 0.25], [0.25, lift + 0.16], [0.258, hem + 0.007], [0.272, hem]]);
+    const capeG = new THREE.LatheGeometry(loop, 44, Math.PI * 0.29, Math.PI * 1.42);
+    { const p = capeG.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); if (y < hem + 0.012) { const th = Math.atan2(x, z); p.setY(i, y + 0.012 * Math.abs(Math.sin(th * 5))); } } }
+    const velvet = C3(MON.velvet), deep = C3(MON.velvetDeep), gold = C3(MON.gold);
+    B.toon(capeG, { color: MON.velvet, outline: 0.009,
+      weights: (x, y) => { const k = 1 - smooth(hem, neck, y), l = clamp01(-x / 0.24), r = clamp01(x / 0.24), c = Math.max(0, 1 - l - r); return [[capeBase, 1 - k], [capeL, k * l], [capeR, k * r], [capeB, k * c]]; },
+      vcol: (x, y, z, ny, tmp, nx, nz) => { const rad = Math.hypot(x, z) || 1, inward = (nx * x + nz * z) / rad < 0; if (y < hem + 0.028 && !inward) return tmp.copy(gold); return tmp.copy(inward ? deep : velvet).multiplyScalar(lerp(0.9, 1.06, smooth(hem, neck, y))); } });
+    // a gold cord across the chest with a ruby clasp
+    B.toon(tube([[-0.2, lift + 0.24, 0.14], [-0.1, lift + 0.215, 0.228], [0, lift + 0.205, 0.25], [0.1, lift + 0.215, 0.228], [0.2, lift + 0.24, 0.14]], 0.009, 6, 18), { bone: capeBase, color: MON.gold, outline: 0.004 });
+    B.toon(new THREE.TorusGeometry(0.03, 0.01, 8, 18), { m: MT([0, lift + 0.205, 0.256]), bone: capeBase, color: MON.gold, outline: 0.005 });
+    B.unlit(new THREE.SphereGeometry(0.017, 10, 8), { m: MT([0, lift + 0.205, 0.258], [0, 0, 0], [1, 1, 0.6]), bone: capeBase, color: MON.ruby });
+    return { height: lift + 0.52, radius: 0.28, shadow: 0.62 };
+  },
+  idle(ctx, t) {
+    const w = ctx.idleW, b = ctx.b;
+    // the head turns 140° over 1.2 s, holds 0.8 s, and snaps back in 120 ms. The body does not move. It does not need to.
+    const P = 4.4, n = Math.floor(t / P), k = t - n * P, dir = n % 2 ? -1 : 1;
+    const turn = k < 1.2 ? easeInOutQuad(k / 1.2) : k < 2.0 ? 1 : k < 2.12 ? 1 - easeInQuad((k - 2.0) / 0.12) : 0;
+    const snap = hump(k, 2.1, 2.5);
+    if (b.head) { b.head.rotation.y += dir * 140 * DEG * turn * w; b.head.rotation.z += (0.04 * Math.sin(t * 1.3) - dir * 0.08 * snap) * w; }
+    // a tiny indignant ruffle when the head snaps home
+    b.body.scale.multiply(V3(1 + 0.05 * snap * w, 1 - 0.035 * snap * w, 1 + 0.05 * snap * w));
+    const br = Math.sin(TAU * t / 2.6);
+    b.body.scale.multiply(V3(1 + 0.012 * br * w, 1 + 0.016 * br * w, 1 + 0.012 * br * w));
+    if (b.tuftL) b.tuftL.rotation.z += (0.45 * snap + 0.05 * Math.sin(t * 3.1)) * w;
+    if (b.tuftR) b.tuftR.rotation.z -= (0.45 * snap + 0.05 * Math.sin(t * 2.7)) * w;
+    // the cape sways
+    if (b.capeB) b.capeB.rotation.x += (0.05 + 0.05 * Math.sin(TAU * t / 2.3) + 0.12 * snap) * w;
+    if (b.capeL) b.capeL.rotation.z -= (0.03 + 0.04 * Math.sin(TAU * t / 2.3 + 0.8) + 0.1 * snap) * w;
+    if (b.capeR) b.capeR.rotation.z += (0.03 + 0.04 * Math.sin(TAU * t / 2.3 + 1.6) + 0.1 * snap) * w;
+    ctx.lids[0] = ctx.lids[1] = 0.12 * turn;
+  },
+  attackPose(ctx, ct) {
+    // Whiffle: wings out and the cape billows on the gust
+    const b = ctx.b, k = hump(ct, 0.08, 0.55);
+    if (b.wingL) b.wingL.rotation.z -= 1.2 * k * (1 + 0.3 * Math.sin(ct * 40));
+    if (b.wingR) b.wingR.rotation.z += 1.2 * k * (1 + 0.3 * Math.sin(ct * 40));
+    if (b.capeB) b.capeB.rotation.x += 0.55 * k;
+    if (b.capeL) b.capeL.rotation.z -= 0.4 * k;
+    if (b.capeR) b.capeR.rotation.z += 0.4 * k;
+    if (b.head) b.head.rotation.x -= 0.15 * hump(ct, 0.0, 0.2);
+  },
+  castPose(ctx, ct) {
+    // Muddle: the head goes all the way round. Owls can. It is upsetting.
+    const b = ctx.b;
+    if (b.head) b.head.rotation.y += TAU * easeInOutQuad(seg(ct, 0.18, 0.72));
+    const k = hump(ct, 0.15, 0.85);
+    if (b.capeL) b.capeL.rotation.z -= 0.5 * k;
+    if (b.capeR) b.capeR.rotation.z += 0.5 * k;
+    if (b.wingL) b.wingL.rotation.z -= 0.6 * k;
+    if (b.wingR) b.wingR.rotation.z += 0.6 * k;
+  },
+  hurtPose(ctx, ct) { const k = hump(ct, 0, 0.35); if (ctx.b.tuftL) ctx.b.tuftL.rotation.z -= 0.6 * k; if (ctx.b.tuftR) ctx.b.tuftR.rotation.z += 0.6 * k; ctx.b.body.scale.multiplyScalar(1 + 0.06 * k); },
+  taunt(ctx, ct) {
+    // "Fine, dear. For what it is." — a slow head tilt, a look down the beak, the lids lower
+    const b = ctx.b, k = smooth(0, 0.3, ct) * (1 - smooth(0.9, 1.25, ct));
+    if (b.head) { b.head.rotation.z += 0.32 * k; b.head.rotation.x -= 0.14 * k; }
+    ctx.lids[0] = ctx.lids[1] = 0.45 * k;
+    if (b.tuftL) b.tuftL.rotation.z -= 0.25 * k;
+    if (b.tuftR) b.tuftR.rotation.z -= 0.1 * k;
+    b.body.scale.multiply(V3(1, 1 + 0.04 * k, 1));
+    return ct >= 1.3;
+  },
+  post(ctx, t, dt, clip) { if (!dying(clip)) glue(ctx, 'capeBase', ['body']); },
+  // WISP — the owl drifts away upward; the cape falls to the ground last and folds itself neatly
+  defeat(ctx, ct, o) {
+    const b = ctx.b;
+    const k = seg(ct, 0, 0.7), ek = easeInQuad(k);
+    if (ct < 0.7) {
+      b.body.position.y += 0.42 * ek;
+      b.body.scale.multiply(V3(1 - 0.85 * ek, 1 + 0.25 * k - 0.95 * ek, 1 - 0.85 * ek));
+      ctx.showOh = ct < 0.3; ctx.eyeScale *= 1 + 0.25 * hump(ct, 0, 0.3);
+      if (!o._wisps) { o._wisps = true; for (let i = 0; i < 12; i++) ctx.fx.spawn('blob', { pos: V3((Math.random() - 0.5) * 0.4, 0.15 + Math.random() * 0.35, (Math.random() - 0.5) * 0.25), vel: V3((Math.random() - 0.5) * 0.3, 0.8 + Math.random() * 0.9, 0), life: 0.6 + Math.random() * 0.25, s0: 0.05, s1: 0, color: i % 3 ? MON.owl : MON.white, delay: i * 0.035 }); }
+    } else {
+      b.body.scale.setScalar(0.0001);
+      if (!o._up) { o._up = true; ctx.fx.sparkle(V3(0, 0.75, 0), 6, 0.5, { size: 0.08, life: 0.6, up: 1.0 }); ctx.emit('poof', o); }
+    }
+    for (const n of ['wingL', 'wingR']) if (b[n]) b[n].scale.multiplyScalar(1 - ek);
+    const c = b.capeBase;
+    if (c) {
+      const drop = easeInQuad(seg(ct, 0.38, 0.72)), fold = easeInOutQuad(seg(ct, 0.9, 1.15));
+      const bounce = ct > 0.72 ? 0.25 * Math.exp(-(ct - 0.72) * 12) * Math.abs(Math.sin((ct - 0.72) * 30)) : 0;
+      c.scale.y *= lerp(1, 0.07, drop) * (1 + 3 * bounce) * lerp(1, 1.8, fold);
+      c.scale.x *= lerp(1, 1.1, drop) * lerp(1, 0.52, fold);
+      c.scale.z *= lerp(1, 1.05, drop);
+      c.position.x -= 0.06 * fold;
+      if (ct > 0.72 && !o._flump) { o._flump = true; ctx.fx.puff(V3(0, 0.03, 0), 6, 0.5, 0.06, { color: PAL.dirt.light, up: 0.12, life: 0.4 }); }
+    }
+    ctx.shadowK = lerp(1, 0.45, seg(ct, 0.3, 0.72));
+    if (ct >= 1.6 && !o._gone) { o._gone = true; ctx.fx.puff(V3(-0.05, 0.05, 0), 6, 0.35, 0.08, { life: 0.45 }); ctx.fx.sparkle(V3(-0.05, 0.1, 0), 5, 0.5, { size: 0.08, life: 0.55 }); ctx.setVisible(false); }
+    return ct >= 2.0;
+  },
+});
+
+// ── 14. BATTERFLY ─────────────────────────────────────────────────────────────────────────────────────────────
+function mothUpperWing() {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0.03);
+  s.bezierCurveTo(0.06, 0.2, 0.24, 0.27, 0.3, 0.19);
+  s.quadraticCurveTo(0.335, 0.08, 0.24, -0.015);
+  s.quadraticCurveTo(0.12, -0.05, 0, -0.01);
+  s.lineTo(0, 0.03);
+  return s;
+}
+function mothLowerWing() {
+  const s = new THREE.Shape();
+  s.moveTo(0, -0.005);
+  s.quadraticCurveTo(0.12, 0.0, 0.2, -0.06);
+  s.quadraticCurveTo(0.225, -0.1, 0.19, -0.14);
+  s.quadraticCurveTo(0.17, -0.17, 0.13, -0.16);
+  s.quadraticCurveTo(0.1, -0.19, 0.07, -0.16);
+  s.quadraticCurveTo(0.03, -0.14, 0, -0.06);
+  s.lineTo(0, -0.005);
+  return s;
+}
+species('batterfly', {
+  name: 'Batterfly', family: 'bug', hover: 0.55, color: MON.moth,
+  // a moth built like a boxer: chin down, brows in, and a grin that has taken a few
+  face: {
+    wild: { lid: 0.38, tilt: 16, brow: [[-0.06, 20], [-0.02, 16]], look: [0, 0.12], glance: 0.45, glancePeriod: 2.2, mouth: 'smirk' },
+    windup: { lid: 0.66, tilt: 24, brow: [[-0.2, 30], [-0.2, 30]], mouth: 'grimace' },
+    recover: { lid: 0.36, tilt: 16, mouth: 'smirk' },
+    friend: { lid: 0.02, tilt: -4, brow: [[0.28, -10], [0.28, -10]], mouth: 'beam' },
+  },
+  build(B) {
+    const cy = 0.2;
+    B.setBone('body', [0, cy, 0]);
+    const moth = C3(MON.moth), mothL = C3(mx(MON.moth, 'plaster.light', 0.3)), dark = C3(MON.mothDark);
+    // a big round fuzzy head
+    const hc = [0, cy + 0.1, 0.03], hr = 0.108;
+    B.toon(new THREE.SphereGeometry(hr, 28, 20), { m: MT(hc), color: MON.moth, outline: 0.014, vcol: (x, y, z, ny, tmp) => tmp.copy(moth).lerp(mothL, smooth(hc[1] - 0.02, hc[1] + 0.1, y) * 0.8) });
+    const hs = ellSurf(hr, hr, hr, hc);
+    // a fluffy ruff and a round striped body below it (boxer's stance: upright)
+    for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; B.toon(new THREE.SphereGeometry(0.044, 12, 9), { m: MT([Math.sin(a) * 0.085, cy - 0.02 + 0.012 * Math.cos(a * 2), Math.cos(a) * 0.07 + 0.01]), color: MON.mothFuzz, outline: 0.006 }); }
+    const stripes = (x, y, z, ny, tmp) => { const f = ((y * 26) % 1 + 1) % 1; return tmp.copy(moth).lerp(dark, f < 0.36 ? 0.55 : 0).multiplyScalar(lerp(0.9, 1.04, smooth(-0.6, 0.8, ny))); };
+    B.toon(new THREE.SphereGeometry(0.085, 20, 14), { m: MT([0, cy - 0.09, -0.02], [0, 0, 0], [1, 1.02, 0.94]), color: MON.moth, outline: 0.012, vcol: stripes });
+    B.toon(new THREE.SphereGeometry(0.066, 18, 12), { m: MT([0, cy - 0.18, -0.045]), color: MON.moth, outline: 0.011, vcol: stripes });
+    // boxing trunks, obviously
+    B.toon(new THREE.SphereGeometry(0.07, 22, 6, 0, TAU, Math.PI * 0.36, Math.PI * 0.3), { m: MT([0, cy - 0.175, -0.045]), color: MON.glove, outline: 0.006 });
+    B.toon(new THREE.TorusGeometry(0.066, 0.008, 6, 22), { m: MT([0, cy - 0.152, -0.045], [Math.PI / 2, 0, 0]), color: MON.cuff });
+    // eyes (determined), brows, a small game grin
+    B.eyes({ surf: hs, y: hc[1] + 0.022, gap: 0.118, r: 0.064, tilt: 8, forward: 0.004, pupil: 0.48 });
+    for (const side of [-1, 1]) {
+      const th = thetaFor(hs, hc[1] + 0.098, side * 0.058), p = surfPoint(hs, hc[1] + 0.098, th, 0.012);
+      const brow = new THREE.Shape(); brow.moveTo(-0.034, -0.006); brow.quadraticCurveTo(0, 0.012, 0.034, 0.004); brow.lineTo(0.03, 0.016); brow.quadraticCurveTo(0, 0.026, -0.034, 0.008); brow.lineTo(-0.034, -0.006);
+      B.toon(extrude(brow, 0.012, 0.004), { m: MT([p.x, p.y, p.z], [0, th, side * 0.28]), color: MON.mothDark });
+    }
+    B.faceMouths({ surf: hs, y: hc[1] - 0.055, w: 0.062, h: 0.026, kinds: ['beam', 'smirk', 'grimace', 'shout', 'ow', 'dizzy', 'tongue', 'oh'] });
+    B.gloss(hs, hc[1] + 0.07, -0.78, 0.028, 0.02, { rot: 0.9, dot: false });
+    // feathered antennae that trail with lag
+    for (const side of [-1, 1]) {
+      const S = side < 0 ? 'L' : 'R', base = [side * 0.035, hc[1] + 0.098, hc[2] + 0.01];
+      const ant = B.bone('ant' + S, 'body', base);
+      const top = [side * 0.105, hc[1] + 0.2, hc[2] + 0.02];
+      B.toon(tube([base, [side * 0.06, hc[1] + 0.15, hc[2] + 0.03], top], 0.006, 5, 10), { bone: ant, color: MON.mothDark });
+      const comb = extrude(combShape(0.11, 0.032, 5), 0.008, 0.003);
+      B.toon(comb, { m: MT([side * 0.07, hc[1] + 0.14, hc[2] + 0.02], [0, 0, -side * 0.62]), bone: ant, color: MON.mothDark, outline: 0.004 });
+    }
+    // four wings, hinged at the back of the thorax, each upper with an eyespot
+    for (const side of [-1, 1]) {
+      const S = side < 0 ? 'L' : 'R', hinge = [side * 0.04, cy - 0.03, -0.075];
+      const wing = B.bone('wing' + S, 'body', hinge);
+      const wm = MT(hinge, [0, side < 0 ? Math.PI : 0, 0]).multiply(MT([0, 0, 0], [0, 0.22, 0.08]));
+      const edge = (x, y, z, ny, tmp) => { const d = Math.hypot(x - hinge[0], (y - hinge[1]) * 1.1); return tmp.copy(C3(MON.mothWing)).lerp(C3(MON.mothEdge), smooth(0.16, 0.3, d)); };
+      B.toon(extrude(mothUpperWing(), 0.012, 0.004), { m: wm, bone: wing, color: MON.mothWing, outline: 0.008, vcol: edge });
+      B.toon(extrude(mothLowerWing(), 0.012, 0.004), { m: wm.clone().multiply(MT([0.01, -0.012, -0.004], [0, 0, -0.1])), bone: wing, color: MON.mothWing, outline: 0.008, vcol: edge });
+      for (const face of [1, -1]) {
+        const fm = wm.clone().multiply(MT([0.19, 0.12, face * 0.0105], [0, face < 0 ? Math.PI : 0, 0]));
+        B.toon(new THREE.CircleGeometry(0.047, 18), { m: fm, bone: wing, color: MON.eyespot });
+        B.toon(new THREE.CircleGeometry(0.024, 14), { m: fm.clone().multiply(MT([0.004, 0.004, 0.001])), bone: wing, color: MON.eyespotRing });
+        B.toon(new THREE.CircleGeometry(0.02, 12), { m: wm.clone().multiply(MT([0.12, -0.1, face * 0.0105], [0, face < 0 ? Math.PI : 0, 0])), bone: wing, color: MON.eyespot });
+      }
+    }
+    // short arms and big red boxing gloves, held up in a guard
+    for (const side of [-1, 1]) {
+      const S = side < 0 ? 'L' : 'R', sh = [side * 0.062, cy - 0.06, 0.04], gc = [side * 0.1, cy - 0.035, 0.155];
+      const glove = B.bone('glove' + S, 'body', sh);
+      B.toon(capsuleAB(sh, [side * 0.09, cy - 0.045, 0.115], 0.017, 3, 8), { bone: glove, color: MON.mothDark, outline: 0.006 });
+      B.toon(new THREE.SphereGeometry(0.054, 18, 14), { m: MT(gc, [0, 0, 0], [1, 0.95, 1.08]), bone: glove, color: MON.glove, outline: 0.01, vcol: (x, y, z, ny, tmp) => tmp.copy(C3(MON.glove)).lerp(C3(mx(MON.glove, 'char.white', 0.25)), smooth(0.3, 0.95, ny) * 0.6) });
+      B.toon(new THREE.SphereGeometry(0.022, 10, 8), { m: MT([gc[0] - side * 0.04, gc[1] + 0.02, gc[2] - 0.005]), bone: glove, color: MON.glove, outline: 0.005 });
+      B.toon(new THREE.TorusGeometry(0.034, 0.012, 8, 18), { m: MT([gc[0] - side * 0.012, gc[1] - 0.006, gc[2] - 0.048], [0.2, -side * 0.35, 0]), bone: glove, color: MON.cuff, outline: 0.004 });
+      B.unlit(wrapOn(discGeo(0.014, 0.008, 10, 2), ellSurf(0.054, 0.051, 0.058, gc), gc[1] + 0.03, -side * 0.35, 0.002), { bone: glove, color: MON.white });
+    }
+    // two little dangling feet
+    const feet = B.bone('feet', 'body', [0, cy - 0.22, -0.03]);
+    for (const side of [-1, 1]) { B.toon(capsuleAB([side * 0.03, cy - 0.21, -0.03], [side * 0.04, cy - 0.27, -0.01], 0.011, 3, 6), { bone: feet, color: MON.mothDark }); B.toon(new THREE.SphereGeometry(0.018, 8, 6), { m: MT([side * 0.04, cy - 0.28, -0.005]), bone: feet, color: MON.mothDark }); }
+    return { height: cy + 0.26, radius: 0.36, shadow: 0.55 };
+  },
+  idle(ctx, t) {
+    const w = ctx.idleW, b = ctx.b, P = 2.4;
+    // figure-of-eight hover; wings at 6 Hz; a boxer's bob in the gloves and a one-two every few seconds
+    const y = 0.55 + 0.06 * Math.sin(2 * TAU * t / P);
+    b.root.position.y += y * (0.35 + 0.65 * w); ctx.hopY = y; ctx.hopMax = 0.61; ctx.flying = true;
+    b.root.position.x += 0.14 * Math.sin(TAU * t / P) * w;
+    b.body.rotation.z -= 0.14 * Math.cos(TAU * t / P) * w;
+    const f = 6 * TAU * t, s = 0.5 + 0.5 * Math.sin(f);
+    if (b.wingR) { b.wingR.rotation.y += 0.1 + 0.9 * s; b.wingR.rotation.z += 0.12 * Math.sin(f + 0.5); }
+    if (b.wingL) { b.wingL.rotation.y -= 0.1 + 0.9 * Math.max(0, 0.5 + 0.5 * Math.sin(f + 0.35)); b.wingL.rotation.z -= 0.12 * Math.sin(f + 0.85); }
+    b.body.scale.multiply(V3(1 + 0.02 * s * w, 1 - 0.025 * s * w, 1));
+    const k = t % 3.4, jabL = hump(k, 2.5, 2.7), jabR = hump(k, 2.78, 2.98);
+    for (const [S, side, jab, ph] of [['L', -1, jabL, 0], ['R', 1, jabR, Math.PI]]) {
+      const g = b['glove' + S]; if (!g) continue;
+      g.position.y += 0.014 * Math.sin(TAU * 2 * t + ph) * w;
+      g.position.z += 0.1 * jab * w; g.position.x -= side * 0.03 * jab * w;
+      g.rotation.x -= 0.3 * jab * w;
+    }
+    b.body.rotation.y += (0.18 * jabL - 0.18 * jabR) * w;
+    if (b.antL) b.antL.rotation.z += 0.12 * Math.sin(TAU * (t - 0.12) / 0.9) * w;
+    if (b.antR) b.antR.rotation.z -= 0.12 * Math.sin(TAU * (t - 0.2) / 0.9) * w;
+    if (b.feet) b.feet.rotation.x += 0.2 * Math.sin(TAU * t / 1.2);
+  },
+  attackPose(ctx, ct) {
+    // Wing Batter: a left on the first impact, the right on a second dip
+    const b = ctx.b, f = 10 * TAU * ct;
+    if (b.wingR) b.wingR.rotation.y += 0.6 * (0.5 + 0.5 * Math.sin(f));
+    if (b.wingL) b.wingL.rotation.y -= 0.6 * (0.5 + 0.5 * Math.sin(f));
+    const l = hump(ct, 0.16, 0.34), r = hump(ct, 0.34, 0.52);
+    if (b.gloveL) { b.gloveL.position.z += 0.14 * l; b.gloveL.position.x += 0.04 * l; }
+    if (b.gloveR) { b.gloveR.position.z += 0.14 * r; b.gloveR.position.x -= 0.04 * r; }
+    b.body.rotation.y += 0.3 * l - 0.3 * r;
+    if (ct > 0.36 && ct < 0.5) { const k = hump(ct, 0.36, 0.5); ctx.mover.position.z += 0.22 * k; }
+  },
+  castPose(ctx, ct) {
+    // Dustup: wings clap and throw a cloud of wing-dust
+    const b = ctx.b, k = hump(ct, 0.15, 0.8), f = Math.sin(ct * 55);
+    if (b.wingR) b.wingR.rotation.y -= 0.9 * k * (0.5 + 0.5 * f);
+    if (b.wingL) b.wingL.rotation.y += 0.9 * k * (0.5 + 0.5 * f);
+    if (ct > 0.45 && !ctx._dust) { ctx._dust = true; ctx.fx.puff(V3(0, 0.62, 0.3), 8, 0.45, 0.06, { color: MON.mothWing, up: 0.1, life: 0.8 }); ctx.fx.sparkle(V3(0, 0.62, 0.35), 5, 0.4, { size: 0.05, life: 0.6, color: MON.mothWing, alt: MON.white }); }
+    if (ct < 0.2) ctx._dust = false;
+  },
+  taunt(ctx, ct) {
+    // the gloves tap together — tap, tap, tap — with a boxer's shuffle
+    const b = ctx.b, k = smooth(0, 0.15, ct) * (1 - smooth(0.95, 1.15, ct)), tap = Math.abs(Math.sin(ct * 3 * Math.PI / 0.9));
+    if (b.gloveL) { b.gloveL.position.x += 0.045 * tap * k; b.gloveL.position.z += 0.02 * k; }
+    if (b.gloveR) { b.gloveR.position.x -= 0.045 * tap * k; b.gloveR.position.z += 0.02 * k; }
+    b.root.position.x += 0.05 * Math.sin(ct * 14) * k;
+    b.root.position.y += 0.03 * Math.abs(Math.sin(ct * 14)) * k;
+    return ct >= 1.15;
+  },
+  // FOLD — the wings close like a book, then away it spins
+  defeat(ctx, ct, o) {
+    const b = ctx.b, k = easeInOutQuad(seg(ct, 0, 0.2));
+    if (b.wingR) b.wingR.rotation.y -= 1.45 * k;
+    if (b.wingL) b.wingL.rotation.y += 1.45 * k;
+    if (ct < 0.22) { ctx.showOh = true; ctx.eyeScale *= 1 + 0.3 * k; return false; }
+    return DEATHS.fold(ctx, ct - 0.22, o);
+  },
+});
+
+// ── 15. TWIGLET ───────────────────────────────────────────────────────────────────────────────────────────────
+species('twiglet', {
+  name: 'Twiglet', family: 'plant',
+  // sincerely believes you cannot see it: eyes wide and still, then one worried blink
+  face: {
+    wild: { lid: 0.12, tilt: 0, brow: [[0.22, -16], [0.2, -14]], look: [0, 0], glance: 0.15, glancePeriod: 6.5, mouth: 'line' },
+    windup: { lid: 0.5, tilt: 20, brow: [[-0.1, 26], [-0.1, 26]], mouth: 'grimace' },
+    recover: { lid: 0.16, tilt: 0, mouth: 'line' },
+    friend: { lid: 0, tilt: -6, brow: [[0.28, -12], [0.28, -12]], mouth: 'beam' },
+  }, color: MON.bark, noBlinkWhileRigid: true,
+  build(B) {
+    const base = 0.1;
+    B.setBone('body', [0, base, 0]);
+    const rs = rng(1515);
+    const bark = C3(MON.bark), barkL = C3(MON.barkLight), barkD = C3(MON.barkDark);
+    // nine chunky sticks in a bundle, each on its own bone (pivot at its foot) so the death can scatter them
+    const ring = [[0, 0]];
+    for (let i = 0; i < 8; i++) { const a = (i + 0.5) / 8 * TAU; ring.push([Math.sin(a) * 0.086, Math.cos(a) * 0.086]); }
+    ring.forEach(([x, z], i) => {
+      const h = 0.44 + (rs() - 0.5) * 0.09 + (i === 0 ? 0.05 : 0), r0 = 0.034 + rs() * 0.006;
+      const tx = (rs() - 0.5) * 0.14 * (i ? 1 : 0.4), tz = (rs() - 0.5) * 0.1, ox = (rs() - 0.5) * 0.012, oz = (rs() - 0.5) * 0.012;
+      const p = [x + ox, base, z + oz];
+      const bone = B.bone('s' + i, 'body', p);
+      const g = new THREE.CylinderGeometry(r0 * 0.86, r0, h, 10, 4); g.translate(0, h / 2, 0);
+      const bend = (rs() - 0.5) * 0.03;
+      { const q = g.attributes.position; for (let k = 0; k < q.count; k++) q.setX(k, q.getX(k) + bend * Math.sin(Math.PI * q.getY(k) / h)); }
+      const tone = 0.9 + rs() * 0.2, yaw = rs() * TAU;
+      const m = MT(p, [tz, yaw, tx]);
+      B.toon(g, { m, bone, color: MON.bark, outline: 0.011, vcol: (xx, yy, zz, ny, tmp, nx, nz) => tmp.copy(bark).multiplyScalar(tone).lerp(barkD, 0.45 * smooth(0.55, 0.95, Math.sin(Math.atan2(nx, nz) * 3 + yy * 9 + i))).lerp(barkL, 0.35 * smooth(0.4, 0.9, ny)) });
+      // the cut end on top, pale with a ring
+      const top = m.clone().multiply(MT([bend * 0, h, 0]));
+      B.toon(new THREE.SphereGeometry(r0 * 0.86, 12, 5, 0, TAU, 0, Math.PI / 2), { m: top.clone().multiply(MT([0, -0.004, 0], [0, 0, 0], [1, 0.35, 1])), bone, color: MON.woodCut });
+      B.unlit(new THREE.RingGeometry(r0 * 0.35, r0 * 0.5, 14).rotateX(-Math.PI / 2), { m: top.clone().multiply(MT([0, r0 * 0.86 * 0.35 - 0.002, 0])), bone, color: MON.woodRing });
+      if (i % 3 === 1) { const c = new THREE.ConeGeometry(0.014, 0.07, 8); c.translate(0, 0.035, 0); B.toon(c, { m: m.clone().multiply(MT([0, h * (0.35 + rs() * 0.3), 0], [0, rs() * TAU, 1.0])).multiply(MT([r0 * 0.7, 0, 0])), bone, color: MON.bark }); }
+      if (i % 4 === 2) B.toon(new THREE.SphereGeometry(0.013, 8, 6), { m: m.clone().multiply(MT([0, h * 0.6, 0], [0, rs() * TAU, 0])).multiply(MT([0, 0, r0 * 0.92])), bone, color: MON.barkDark });
+    });
+    // a leafy sprig out of the middle stick
+    const sprig = B.bone('sprig', 's0', [0, base + 0.49, 0]);
+    for (const [a, rz, len] of [[0.3, -0.55, 0.11], [2.4, 0.6, 0.09]]) {
+      const lg = extrude(petalShape(len, 0.045, 0.3), 0.008, 0.003);
+      B.toon(lg, { m: MT([0, base + 0.485, 0], [0.2, a, rz]), bone: sprig, color: MON.leaf, outline: 0.006, vcol: (x, y, z, ny, tmp) => tmp.copy(C3(PAL.foliage.mid)).lerp(C3(MON.leaf), smooth(base + 0.49, base + 0.56, y)) });
+    }
+    // twine bands, with a little bow at the front of the lower one
+    const twine = B.bone('twine', 'body', [0, base + 0.25, 0]);
+    for (const y of [base + 0.1, base + 0.385]) B.toon(new THREE.TorusGeometry(0.125, 0.016, 8, 30), { m: MT([0, y, 0], [Math.PI / 2, 0, 0], [1, 1.02, 1]), bone: twine, color: MON.twine, outline: 0.006 });
+    for (const side of [-1, 1]) { const c = new THREE.TorusGeometry(0.022, 0.009, 6, 14); B.toon(c, { m: MT([side * 0.026, base + 0.1, 0.14], [0, side * 0.35, side * 0.5], [1.2, 0.8, 1]), bone: twine, color: MON.twine, outline: 0.004 }); }
+    B.toon(new THREE.SphereGeometry(0.013, 8, 6), { m: MT([0, base + 0.1, 0.142]), bone: twine, color: MON.twine });
+    // the face: googly eyes squeezed between the sticks, a slot of a mouth, a twig moustache that lifts when it speaks
+    const face = B.bone('face', 'body', [0, base + 0.26, 0.12]);
+    const fs = cylSurf(0.118, 0.118);
+    B.eyes({ surf: fs, y: base + 0.275, gap: 0.104, r: 0.056, parent: face, forward: 0.006, pupil: 0.5 });
+    B.faceMouths({ surf: fs, y: base + 0.185, w: 0.075, h: 0.028, parent: face, lift: 0.012, beam: 'line',
+      kinds: ['line', 'beam', 'ow', 'dizzy', 'oh', 'worry', 'grimace'], colors: { in: MON.barkDark, line: MON.barkDark }, sizes: { line: [0.95, 0.5] } });
+    const lip = B.bone('lip', face, [0.05, base + 0.215, 0.135]);
+    B.toon(capsuleAB([-0.055, base + 0.212, 0.138], [0.058, base + 0.222, 0.132], 0.013, 3, 8), { bone: lip, color: MON.barkLight, outline: 0.005 });
+    // the hiding twig: a leafy twig across one eye, because it is DEFINITELY hiding
+    const hider = B.bone('hider', face, [-0.02, base + 0.16, 0.14]);
+    B.toon(taperTube([[-0.02, base + 0.16, 0.14], [-0.05, base + 0.25, 0.165], [-0.085, base + 0.33, 0.17]], taper([[0, 0.013], [1, 0.007]]), 6, 12), { bone: hider, color: MON.bark, outline: 0.005 });
+    B.toon(extrude(petalShape(0.07, 0.034, 0.3), 0.006, 0.002), { m: MT([-0.083, base + 0.325, 0.17], [0.1, 0, 0.55]), bone: hider, color: MON.leaf, outline: 0.005 });
+    // two twig arms and two stick legs
+    for (const side of [-1, 1]) {
+      const S = side < 0 ? 'L' : 'R', sh = [side * 0.115, base + 0.22, -0.01];
+      const arm = B.bone('arm' + S, 'body', sh);
+      B.toon(taperTube([sh, [side * 0.18, base + 0.26, 0.0], [side * 0.25, base + 0.33, 0.01]], taper([[0, 0.018], [1, 0.01]]), 7, 10), { bone: arm, color: MON.bark, outline: 0.006 });
+      B.toon(taperTube([[side * 0.2, base + 0.28, 0.004], [side * 0.23, base + 0.26, 0.02], [side * 0.265, base + 0.265, 0.03]], taper([[0, 0.009], [1, 0.006]]), 6, 6), { bone: arm, color: MON.bark });
+      if (side > 0) B.toon(extrude(petalShape(0.055, 0.028, 0.3), 0.006, 0.002), { m: MT([0.25, base + 0.33, 0.01], [0, 0, -0.5]), bone: arm, color: MON.leaf, outline: 0.004 });
+      const hip = [side * 0.045, base + 0.02, 0.0];
+      const leg = B.bone('leg' + S, 'root', hip);
+      B.toon(capsuleAB(hip, [side * 0.07, 0.02, 0.025], 0.022, 3, 8), { bone: leg, color: MON.barkLight, outline: 0.007 });
+      B.toon(new THREE.SphereGeometry(0.026, 10, 8), { m: MT([side * 0.075, 0.018, 0.04], [0, 0, 0], [1, 0.7, 1.4]), bone: leg, color: MON.barkDark, outline: 0.006 });
+    }
+    return { height: base + 0.52, radius: 0.2, shadow: 0.5 };
+  },
+  idle(ctx, t) {
+    const w = ctx.idleW, b = ctx.b, P = 5.0, n = Math.floor(t / P), k = t - n * P;
+    // absolutely rigid… except the eyes, which dart about to see whether you have noticed
+    const looks = n % 2 ? [[0.35, -1], [1.2, 1], [1.95, 0.2], [2.6, -0.7]] : [[0.5, 1], [1.4, -1], [2.2, 0], [2.9, 1]];
+    let look = 0, prev = 0; for (const [at, v] of looks) { look += (v - prev) * smooth(at, at + 0.07, k); prev = v; }
+    look *= 1 - smooth(3.15, 3.3, k);
+    for (const e of ['eyeL', 'eyeR']) if (b[e]) b[e].rotation.y += 0.42 * look * w;
+    // the scratch: one twig reaches round to its back — bliss — then it FREEZES again
+    const sc = smooth(3.25, 3.45, k) * (1 - smooth(4.05, 4.25, k)), osc = Math.sin(TAU * 8 * k);
+    if (b.armR) { b.armR.rotation.z += 1.5 * sc * w; b.armR.rotation.y -= 1.0 * sc * w; b.armR.rotation.x += 0.28 * osc * sc * w; }
+    b.body.rotation.z += 0.045 * osc * sc * w;
+    b.body.rotation.y -= 0.12 * sc * w;
+    if (b.legL) b.legL.rotation.z -= 0.3 * sc * w * (0.6 + 0.4 * osc);
+    ctx.lids[0] = ctx.lids[1] = 0.55 * sc * w;
+    if (b.sprig) b.sprig.rotation.z += 0.3 * sc * osc * w;
+    const fr = hump(k, 4.22, 4.5);
+    b.body.scale.multiply(V3(1 + 0.06 * fr * w, 1 - 0.08 * fr * w, 1 + 0.06 * fr * w));
+    ctx.eyeScale *= 1 + 0.28 * fr * w;
+    // the leaves don't know they are supposed to be keeping still
+    if (b.sprig) { b.sprig.rotation.z += 0.1 * Math.sin(t * 4.1) * w; b.sprig.rotation.x += 0.07 * Math.sin(t * 2.7); }
+    if (b.hider) b.hider.rotation.z += 0.03 * Math.sin(t * 3.3) * w;
+    b.body.scale.multiply(V3(1, 1 + 0.008 * Math.sin(TAU * t / 3.1) * w, 1));
+  },
+  attackPose(ctx, ct) {
+    // Whippy Branch: the twig arm draws back and WHIPS
+    const b = ctx.b, back = ct < 0.14 ? easeOutCubic(ct / 0.14) : 1 - seg(ct, 0.14, 0.24);
+    const whip = hump(ct, 0.2, 0.46);
+    if (b.armR) { b.armR.rotation.y += 0.9 * back - 1.9 * whip; b.armR.rotation.z += 0.5 * back + 0.3 * whip; }
+    if (b.lip) b.lip.rotation.z += 0.3 * whip;
+    ctx.lids[1] = 0.6 * whip;
+  },
+  castPose(ctx, ct) { const k = hump(ct, 0.15, 0.85); if (ctx.b.lip) { ctx.b.lip.position.y += 0.02 * Math.abs(Math.sin(ct * 30)) * k; ctx.b.lip.rotation.z += 0.2 * Math.sin(ct * 22) * k; } if (ctx.b.armL) ctx.b.armL.rotation.z -= 1.1 * k; if (ctx.b.armR) ctx.b.armR.rotation.z += 1.1 * k; },
+  hurtPose(ctx, ct) {
+    // the bundle splays with the knock and snaps back
+    const k = hump(ct, 0, 0.32);
+    for (let i = 1; i < 9; i++) { const s = ctx.b['s' + i]; if (!s) continue; const a = (i - 0.5) / 8 * TAU; s.rotation.z -= Math.sin(a) * 0.22 * k; s.rotation.x += Math.cos(a) * 0.22 * k; }
+  },
+  taunt(ctx, ct) {
+    // Stand Very Still: it crouches, shuts its eyes very tight… and one eye peeks
+    const b = ctx.b, k = smooth(0, 0.18, ct) * (1 - smooth(1.2, 1.4, ct));
+    b.root.position.y -= 0.035 * k;
+    if (b.legL) b.legL.scale.y *= 1 - 0.55 * k;
+    if (b.legR) b.legR.scale.y *= 1 - 0.55 * k;
+    if (b.armL) b.armL.rotation.z -= 0.9 * k;
+    if (b.armR) b.armR.rotation.z += 0.9 * k;
+    const peek = smooth(0.62, 0.7, ct) * (1 - smooth(0.98, 1.05, ct));
+    ctx.lids[0] = k; ctx.lids[1] = k * (1 - peek * 0.85);
+    b.body.rotation.z += 0.012 * Math.sin(ct * 70) * k * (1 - peek);
+    return ct >= 1.4;
+  },
+  // CRUMBLE — the twine gives, and it falls apart into loose sticks that clatter
+  defeat(ctx, ct, o) {
+    const b = ctx.b;
+    if (!o._sticks) { const r = rng(ctx.id.length * 97 + 11); o._sticks = Array.from({ length: 9 }, (_, i) => ({ a: (i ? (i - 0.5) / 8 * TAU : r() * TAU) + (r() - 0.5) * 0.9, d: 0.1 + r() * 0.22, dist: 0.12 + r() * 0.28, spin: (r() - 0.5) * 1.4 })); }
+    if (ct < 0.12) { ctx.eyeScale *= 1.35; ctx.showOh = true; b.root.position.y += 0.05 * hump(ct, 0, 0.12); }
+    if (b.twine) { b.twine.scale.multiplyScalar(Math.max(0.0001, 1 - seg(ct, 0.08, 0.22))); b.twine.position.y -= 0.1 * seg(ct, 0.08, 0.22); }
+    if (ct > 0.09 && !o._snap) { o._snap = true; ctx.fx.sparkle(V3(0, 0.3, 0.15), 4, 0.3, { size: 0.06, life: 0.35, speed: 1.6 }); }
+    const q = new THREE.Quaternion(), axis = V3();
+    o._sticks.forEach((s, i) => {
+      const bn = b['s' + i]; if (!bn) return;
+      const tt = ct - s.d; if (tt <= 0) return;
+      const fall = easeInQuad(clamp01(tt / 0.3)), after = Math.max(0, tt - 0.3);
+      const bounce = 0.05 * Math.exp(-after * 8) * Math.abs(Math.sin(after * 24));
+      axis.set(Math.cos(s.a), 0, -Math.sin(s.a));
+      q.setFromAxisAngle(axis, 1.5 * fall + 0.12 * bounce / 0.05 * (after > 0 ? 0.3 : 0));
+      bn.quaternion.premultiply(q);
+      bn.rotation.y += s.spin * fall;
+      bn.position.x += Math.sin(s.a) * s.dist * fall; bn.position.z += Math.cos(s.a) * s.dist * fall;
+      bn.position.y += (0.03 - 0.1) * fall + bounce;
+      if (after > 0 && !o['_c' + i]) { o['_c' + i] = true; if (i % 3 === 0) ctx.fx.puff(V3(Math.sin(s.a) * (s.dist + 0.2), 0.03, Math.cos(s.a) * (s.dist + 0.2)), 2, 0.1, 0.04, { color: PAL.dirt.light, up: 0.15, life: 0.3 }); }
+    });
+    for (const [n, side] of [['armL', -1], ['armR', 1], ['legL', -1], ['legR', 1]]) {
+      const bn = b[n]; if (!bn) continue; const f = easeInQuad(seg(ct, 0.12, 0.42));
+      bn.position.y -= (n.startsWith('arm') ? 0.3 : 0.08) * f; bn.position.x += side * 0.15 * f; bn.rotation.z -= side * 1.2 * f;
+    }
+    if (b.face) { const f = easeInQuad(seg(ct, 0.2, 0.55)); b.face.position.y -= 0.32 * f; b.face.position.z += 0.1 * f; b.face.scale.multiplyScalar(Math.max(0.0001, 1 - seg(ct, 0.75, 1.0))); }
+    if (b.hider) { const f = seg(ct, 0.15, 0.5); b.hider.rotation.z += 1.6 * easeInQuad(f); b.hider.position.y -= 0.1 * f; }
+    if (ct > 0.42 && !o._clatter) { o._clatter = true; ctx.fx.puff(V3(0, 0.05, 0.05), 7, 0.55, 0.07, { color: PAL.dirt.light, up: 0.2, life: 0.5 }); }
+    ctx.shadowK = lerp(1, 1.3, seg(ct, 0.2, 0.5));
+    if (ct >= 1.3 && !o._poof) { o._poof = true; ctx.fx.puff(V3(0, 0.08, 0.05), 9, 0.6, 0.09, { life: 0.5 }); ctx.fx.sparkle(V3(0, 0.15, 0.05), 6, 0.7, { size: 0.08, life: 0.6, up: 0.7 }); ctx.setVisible(false); ctx.emit('poof', o); }
+    return ct >= 1.75;
+  },
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// 5d. ACT I STORY CREATURES — the Order's footsoldier and the manor's grief (MONSTER-BIBLE §6b)
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+/** The Quietling rig: a small grey hooded robe, a porcelain mask, mitten hands. pose 'shh' | 'hark'. */
+function quietlingRig(B, { pose = 'shh', sleepy = true } = {}) {
+  const robe = C3(MON.robe), robeL = C3(MON.robeLight), robeS = C3(MON.robeShade);
+  // the robe: a round bell, a soft scalloped hem
+  const prof = smoothProfile([[0, 0], [0.2, 0.0], [0.262, 0.018], [0.27, 0.07], [0.252, 0.2], [0.222, 0.34], [0.2, 0.44], [0.17, 0.52], [0.1, 0.58], [0, 0.6]], 30);
+  const rg = lathe(prof, 36);
+  { const p = rg.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); if (y < 0.05) { const th = Math.atan2(x, z), k = 1 - y / 0.05; p.setY(i, y + 0.014 * k * (0.5 + 0.5 * Math.cos(th * 7))); } } }
+  B.toon(rg, { color: MON.robe, outline: 0.016, vcol: (x, y, z, ny, tmp) => tmp.copy(robeS).lerp(robe, smooth(0.0, 0.25, y)).lerp(robeL, smooth(0.3, 0.6, y) * 0.5) });
+  const surf = latheSurf(prof);
+  // rope belt with a knot and two tassels
+  const beltY = 0.31, br = surf.r(beltY, 0) + 0.008;
+  B.toon(new THREE.TorusGeometry(br, 0.017, 8, 34), { m: MT([0, beltY, 0], [Math.PI / 2, 0, 0], [1, 1, 1]), color: MON.rope, outline: 0.005 });
+  const knotP = surfPoint(surf, beltY, 0.45, 0.02);
+  B.toon(new THREE.SphereGeometry(0.026, 10, 8), { m: MT([knotP.x, knotP.y, knotP.z]), color: MON.rope, outline: 0.005 });
+  const tassel = B.bone('tassel', 'body', [knotP.x, knotP.y, knotP.z]);
+  for (const dx of [-0.018, 0.02]) { B.toon(capsuleAB([knotP.x + dx * 0.5, knotP.y - 0.01, knotP.z + 0.01], [knotP.x + dx, knotP.y - 0.12, knotP.z + 0.03], 0.009, 3, 6), { bone: tassel, color: MON.rope }); B.toon(new THREE.SphereGeometry(0.016, 8, 6), { m: MT([knotP.x + dx, knotP.y - 0.13, knotP.z + 0.03]), bone: tassel, color: MON.rope }); }
+  // the hood, with a floppy nightcap tip (the Order's footsoldiers are very, very tired)
+  const head = B.bone('head', 'body', [0, 0.5, 0.0]);
+  const hc = [0, 0.64, 0], HR = [0.205, 0.215, 0.205];
+  const hood = new THREE.SphereGeometry(1, 30, 20, 0, TAU, 0, Math.PI * 0.64);
+  B.toon(hood, { m: MT(hc, [0, 0, 0], HR), bone: head, color: MON.robe, outline: 0.016, vcol: (x, y, z, ny, tmp) => tmp.copy(robe).lerp(robeL, smooth(0.62, 0.84, y) * 0.55) });
+  const hs = ellSurf(HR[0], HR[1], HR[2], hc);
+  B.unlit(wrapOn(discGeo(0.14, 0.15, 26, 6), hs, 0.625, 0, 0.002), { bone: head, color: MON.hood });
+  B.toon(new THREE.TorusGeometry(0.143, 0.026, 10, 32), { m: MT([0, 0.625, 0.162], [-0.12, 0, 0], [1, 1.07, 0.7]), bone: head, color: MON.robe, outline: 0.008, vcol: (x, y, z, ny, tmp) => tmp.copy(robeL).lerp(robe, 0.35) });
+  const tipBase = [0, 0.83, -0.05];
+  const t0 = B.bone('tip0', head, tipBase), t1 = B.bone('tip1', t0, [0, 0.9, -0.12]), t2 = B.bone('tip2', t1, [0, 0.9, -0.2]);
+  const cone = lathe(smoothProfile([[0, 0], [0.11, 0.0], [0.095, 0.07], [0.06, 0.15], [0.03, 0.21], [0, 0.24]], 14), 20);
+  const cm = MT(tipBase, [-1.05, 0, 0.08]);
+  const tipEnd = V3(0, 0.24, 0).applyMatrix4(cm);
+  B.toon(cone, { m: cm, bone: t0, color: MON.robe, outline: 0.012, weights: chainWeights(tipBase, [tipEnd.x, tipEnd.y, tipEnd.z], [t0, t1, t2]), vcol: (x, y, z, ny, tmp) => tmp.copy(robeL).lerp(robe, 0.4) });
+  B.toon(new THREE.SphereGeometry(0.038, 12, 10), { m: MT([tipEnd.x, tipEnd.y - 0.01, tipEnd.z - 0.01]), bone: t2, color: MON.robeLight, outline: 0.008 });
+  // the porcelain mask (on its own bone, glued to the head, so it can sit on the folded robe at the end)
+  const maskBase = B.bone('maskBase', 'root', [0, 0.5, 0.0]);
+  const mc = [0, 0.625, 0.14], MR = [0.118, 0.13, 0.062];
+  const maskG = new THREE.SphereGeometry(1, 26, 16, 0, TAU, 0, Math.PI * 0.42); maskG.rotateX(Math.PI / 2);
+  B.toon(maskG, { m: MT(mc, [0, 0, 0], MR), bone: maskBase, color: MON.porcelain, outline: 0.008 });
+  const ms = ellSurf(MR[0], MR[1], MR[2], mc);
+  const eyes = [];
+  for (const side of [-1, 1]) {
+    const S = side < 0 ? 'L' : 'R', Y = 0.645, th = thetaFor(ms, Y, side * 0.043), c = surfPoint(ms, Y, th, 0.003);
+    const name = B.bone('eye' + S, maskBase, [c.x, c.y, c.z]); B.meta.eyes.push(name); eyes.push(name);
+    if (sleepy) {
+      const slit = new THREE.Shape(); slit.moveTo(-0.03, 0.004); slit.quadraticCurveTo(0, -0.02, 0.03, 0.004); slit.quadraticCurveTo(0, 0.004, -0.03, 0.004);
+      B.unlit(wrapOn(extrude(slit, 0.004, 0.003).rotateZ(side * -0.12), ms, Y, th, 0.004), { bone: name, color: MON.hood });
+      B.unlit(wrapOn(discGeo(0.006, 0.006, 8, 1), ms, Y - 0.006, th + side * -0.06, 0.008), { bone: name, color: MON.white });
+    } else {
+      B.unlit(wrapOn(discGeo(0.022, 0.026, 16, 3), ms, Y, th, 0.004), { bone: name, color: MON.hood });
+      B.unlit(wrapOn(discGeo(0.007, 0.007, 8, 1), ms, Y + 0.008, th + side * -0.08, 0.007), { bone: name, color: MON.white });
+    }
+  }
+  for (const side of [-1, 1]) { const Y = 0.61, th = thetaFor(ms, Y, side * 0.075); B.unlit(wrapOn(discGeo(0.02, 0.011, 14, 2), ms, Y, th, 0.004), { bone: maskBase, color: mx(MON.porcelain, MON.blush, 0.45) }); }
+  B.faceMouths({ surf: ms, y: 0.58, w: 0.045, h: 0.04, parent: maskBase, beam: 'oh', kinds: ['oh'], lift: 0.004, colors: { in: MON.hood, tongue: MON.hood } });
+  B.gloss(ms, 0.675, -0.5, 0.026, 0.015, { bone: maskBase, rot: 0.8, dot: false, lift: 0.004 });
+  // hands: one raised to the mask (a finger to the lips: shh — or cupped to the ear: hark), one at the side
+  const handMain = B.bone('handMain', 'body', [-0.17, 0.44, 0.02]);
+  if (pose === 'hark') {
+    const hand = [-0.2, 0.62, 0.05];
+    B.toon(capsuleAB([-0.17, 0.44, 0.02], [-0.215, 0.575, 0.03], 0.046, 4, 10), { bone: handMain, color: MON.robe, outline: 0.012 });
+    B.toon(new THREE.SphereGeometry(0.055, 14, 10, 0, TAU, 0, Math.PI * 0.62), { m: MT(hand, [0.0, -0.4, -1.45], [1, 0.8, 1.05]), bone: handMain, color: MON.robeLight, outline: 0.008 });
+  } else {
+    const hand = [-0.035, 0.53, 0.225];
+    B.toon(capsuleAB([-0.17, 0.44, 0.02], [-0.07, 0.505, 0.18], 0.046, 4, 10), { bone: handMain, color: MON.robe, outline: 0.012 });
+    B.toon(new THREE.TorusGeometry(0.043, 0.013, 8, 18), { m: MT([-0.08, 0.508, 0.19], [0.9, 0.9, 0]), bone: handMain, color: MON.robeLight });
+    B.toon(new THREE.SphereGeometry(0.048, 14, 10), { m: MT(hand, [0, 0, 0], [1, 0.9, 0.9]), bone: handMain, color: MON.robeLight, outline: 0.009 });
+    B.toon(capsuleAB([hand[0] + 0.012, hand[1] + 0.03, hand[2] + 0.028], [hand[0] + 0.03, hand[1] + 0.1, hand[2] + 0.024], 0.014, 3, 8), { bone: handMain, color: MON.robeLight, outline: 0.006 });
+  }
+  const handOff = B.bone('handOff', 'body', [0.17, 0.44, 0.0]);
+  B.toon(capsuleAB([0.17, 0.44, 0.0], [0.245, 0.3, 0.04], 0.046, 4, 10), { bone: handOff, color: MON.robe, outline: 0.012 });
+  B.toon(new THREE.SphereGeometry(0.046, 14, 10), { m: MT([0.26, 0.26, 0.055]), bone: handOff, color: MON.robeLight, outline: 0.009 });
+  return { height: 0.86, radius: 0.28, shadow: 0.62, eyes };
+}
+function quietlingIdle(ctx, t, { big = false } = {}) {
+  const w = ctx.idleW, b = ctx.b;
+  b.root.rotation.z += 3 * DEG * Math.sin(TAU * t / 2.9) * w;
+  hop(ctx, t, { period: big ? 1.9 : 1.45, amp: big ? 0.02 : 0.04, squash: 0.7 });
+  const P = 7.3, n = Math.floor(t / P), k = t - n * P;
+  // nodding off… slowly… and then awake with a jerk
+  const nod = k < 3.4 ? easeInQuad(seg(k, 0.6, 3.4)) : k < 3.55 ? 1 - easeOutCubic(seg(k, 3.4, 3.55)) : 0;
+  const jerk = hump(k, 3.4, 3.8);
+  if (b.head) b.head.rotation.x += (0.3 * nod - 0.08 * jerk) * w;
+  ctx.lids[0] = ctx.lids[1] = 0.75 * nod * w;
+  ctx.eyeScale *= 1 + 0.3 * jerk * w;
+  b.root.position.y += 0.025 * jerk * w;
+  // …and a huge yawn every other cycle: arms up, mask back, the hand forgets its shh
+  if (n % 2 === 1) {
+    const y = smooth(4.4, 4.9, k) * (1 - smooth(5.9, 6.4, k));
+    b.body.scale.multiply(V3(1 - 0.04 * y * w, 1 + 0.09 * y * w, 1 - 0.04 * y * w));
+    if (b.head) b.head.rotation.x -= 0.26 * y * w;
+    if (b.handMain) { b.handMain.rotation.z -= 0.35 * y * w; b.handMain.rotation.x += 0.25 * y * w; }
+    if (b.handOff) b.handOff.rotation.z += 1.5 * y * w;
+    ctx.lids[0] = ctx.lids[1] = Math.max(ctx.lids[0], y * w);
+    if (y > 0.35 && w > 0.5) ctx.showOh = true;
+  }
+  for (let i = 0; i < 3; i++) { const tb = b['tip' + i]; if (tb) { tb.rotation.x += 0.1 * Math.sin(TAU * (t - 0.12 * (i + 1)) / (big ? 1.9 : 1.45)) * w + 0.04 * nod; tb.rotation.z += 0.08 * Math.sin(t * 1.3 - i * 0.6) * w; } }
+  if (b.tassel) b.tassel.rotation.z += 0.18 * Math.sin(TAU * t / 1.45 - 0.5) * w;
+}
+const QUIETLING_CLIPS = {
+  attackPose(ctx, ct) {
+    // Poke
+    const b = ctx.b, k = hump(ct, 0.14, 0.42);
+    if (b.handMain) { b.handMain.position.z += 0.1 * k; b.handMain.rotation.x -= 0.4 * k; }
+    ctx.lids[0] = ctx.lids[1] = 0.4 * (1 - k);
+  },
+  castPose(ctx, ct) {
+    // Shush: the finger to the lips, a big SHH, and rings of hush roll outward
+    const b = ctx.b, k = hump(ct, 0.1, 0.9);
+    if (b.handMain) b.handMain.position.z += 0.03 * k;
+    if (b.head) b.head.rotation.x -= 0.1 * k;
+    for (const at of [0.35, 0.55]) if (ct > at && !ctx['_shh' + at]) { ctx['_shh' + at] = true; ctx.fx.sparkle(ctx.center().add(V3(0, ctx.height * 0.25, ctx.radius)), 8, ctx.radius * 1.6, { ring: true, size: 0.05 * Math.sqrt(ctx.size), life: 0.7, speed: 0.9 * Math.sqrt(ctx.size), color: MON.robeLight, alt: MON.white }); }
+    if (ct < 0.2) { ctx['_shh0.35'] = false; ctx['_shh0.55'] = false; }
+  },
+  taunt(ctx, ct) {
+    // an enormous, contagious yawn
+    const b = ctx.b, y = smooth(0, 0.35, ct) * (1 - smooth(1.0, 1.35, ct));
+    b.body.scale.multiply(V3(1 - 0.05 * y, 1 + 0.11 * y, 1 - 0.05 * y));
+    if (b.head) b.head.rotation.x -= 0.3 * y;
+    if (b.handOff) b.handOff.rotation.z += 1.6 * y;
+    if (b.handMain) { b.handMain.rotation.z -= 0.35 * y; b.handMain.rotation.x += 0.25 * y; }
+    ctx.lids[0] = ctx.lids[1] = y;
+    ctx.showOh = y > 0.3;
+    return ct >= 1.4;
+  },
+  post(ctx, t, dt, clip) { if (!dying(clip)) glue(ctx, 'maskBase', ['body', 'head']); },
+  // FOLD — the robe folds itself neatly, and the mask comes to rest on top
+  defeat(ctx, ct, o) {
+    const b = ctx.b;
+    if (ct < 0.14) { ctx.eyeScale *= 1.35; ctx.showOh = true; b.root.position.y += 0.06 * hump(ct, 0, 0.14); glue(ctx, 'maskBase', ['body', 'head']); return false; }
+    const f = easeInOutQuad(seg(ct, 0.14, 0.52)), f2 = easeInOutQuad(seg(ct, 0.5, 0.74));
+    b.body.scale.multiply(V3(lerp(1, 1.02, f) * lerp(1, 0.6, f2), lerp(1, 0.15, f), lerp(1, 0.8, f)));
+    for (const n of ['handMain', 'handOff', 'tassel', 'tip0']) if (b[n]) b[n].scale.multiplyScalar(Math.max(0.0001, 1 - f));
+    const m = b.maskBase;
+    if (m) {
+      const d = easeInOutQuad(seg(ct, 0.2, 0.74)), rest = ctx.boneRest.maskBase;
+      m.position.y += lerp(0, 0.115 - rest.y, d) + 0.05 * hump(ct, 0.2, 0.5);
+      m.position.z -= 0.155 * d;
+      m.rotation.x -= 1.42 * d;
+      const settle = ct > 0.74 ? Math.exp(-(ct - 0.74) * 12) * Math.sin((ct - 0.74) * 30) : 0;
+      m.rotation.z += 0.12 * settle; m.position.y += 0.012 * Math.abs(settle);
+    }
+    ctx.lids[0] = ctx.lids[1] = seg(ct, 0.5, 0.8);
+    if (ct > 0.74 && !o._pat) { o._pat = true; ctx.fx.puff(V3(0, 0.03, 0), 5, 0.4, 0.05 * Math.sqrt(ctx.size), { color: PAL.dirt.light, up: 0.1, life: 0.35 }); }
+    ctx.shadowK = lerp(1, 0.85, f);
+    if (ct >= 1.3 && !o._poof) { o._poof = true; poof(ctx, o, { scale: 0.6, chunks: 0, at: V3(0, 0.1 * ctx.size, 0) }); }
+    return ct >= 1.75;
+  },
+};
+species('quietling', {
+  // more sleepy than cruel: lids always half down, a yawn on the taunt
+  face: {
+    wild: { lid: 0.52, tilt: -6, brow: [[0.16, -12], [0.12, -10]], look: [0, -0.1], glance: 0.2, glancePeriod: 6 },
+    windup: { lid: 0.7, tilt: 14, brow: [[-0.08, 18], [-0.08, 18]] },
+    strike: { lid: 0.2, tilt: 10, eyeScale: 1.08 },
+    recover: { lid: 0.55, tilt: -6 },
+    friend: { lid: 0.1, tilt: -8, brow: [[0.26, -14], [0.26, -14]] },
+  },
+  name: 'Quietling', family: 'quiet', color: MON.robe, noBlink: false,
+  build(B) { return quietlingRig(B, { pose: 'shh', sleepy: true }); },
+  idle(ctx, t) { quietlingIdle(ctx, t); },
+  ...QUIETLING_CLIPS,
+});
+
+// ── MUMBLEROOT THE GRUDGE (Act I boss, Cobwell Manor belfry) ─────────────────────────────────────────────────
+species('mumbleroot', {
+  // grief that grew roots: a low, slow glare that never quite looks at you
+  face: {
+    wild: { lid: 0.54, tilt: 16, brow: [[-0.1, 22], [-0.06, 18]], look: [0, -0.3], glance: 0.2, glancePeriod: 7, mouth: 'frown' },
+    windup: { lid: 0.68, tilt: 26, brow: [[-0.2, 30], [-0.2, 30]], mouth: 'grimace' },
+    recover: { lid: 0.54, tilt: 16, mouth: 'frown' },
+    friend: { lid: 0.3, tilt: 0, brow: [[0.1, -4], [0.12, -6]], mouth: 'worry' },
+  },
+  name: 'Mumbleroot the Grudge', family: 'root', boss: true, story: true, color: MON.bark,
+  build(B) {
+    const bark = C3(MON.bark), barkL = C3(MON.barkLight), barkD = C3(MON.barkDark);
+    const HC = [0, 1.47, 0.0], HR = 0.25, OL = 0.03;
+    const head = B.bone('head', 'body', [0, 1.24, 0.0]);
+    const woody = (x, y, z, ny, tmp, nx, nz) => tmp.copy(bark).lerp(barkD, 0.5 * smooth(0.5, 0.95, Math.sin(Math.atan2(nx, nz) * 5 + y * 13))).lerp(barkL, 0.45 * smooth(0.35, 0.9, ny));
+    // eight roots rise from the floor, twist up through the coat and wrap the head, then droop like a willow
+    const lons = [70, 290, 101, 259, 133, 227, 164, 196].map(d => d * DEG);
+    const feet = [];
+    for (let k = 0; k < 8; k++) {
+      const a = (k + 0.5) / 8 * TAU + (k % 2 ? 0.12 : -0.1);
+      const at = (r, y, da = 0) => [Math.sin(a + da) * r, y, Math.cos(a + da) * r];
+      const L = lons.slice().sort((p, q) => Math.abs(Math.atan2(Math.sin(p - a - 1.2), Math.cos(p - a - 1.2))) - Math.abs(Math.atan2(Math.sin(q - a - 1.2), Math.cos(q - a - 1.2))))[0];
+      lons.splice(lons.indexOf(L), 1);
+      const sp = (lat, lon, rr = HR + 0.03) => [HC[0] + Math.sin(lon) * Math.cos(lat) * rr, HC[1] + Math.sin(lat) * rr, HC[2] + Math.cos(lon) * Math.cos(lat) * rr];
+      const pts = [at(0.7, 0.03), at(0.5, 0.06), at(0.3, 0.22, 0.25), at(0.17, 0.55, 0.55), at(0.13, 0.9, 0.85), at(0.12, 1.16, 1.1),
+        sp(-40 * DEG, L - 0.25 * Math.sign(Math.sin(L))), sp(10 * DEG, L), sp(55 * DEG, L * 0.92 + 0.08 * Math.PI), sp(80 * DEG, L, HR + 0.02),
+        [Math.sin(L) * 0.26, HC[1] + HR + 0.02, Math.cos(L) * 0.26], [Math.sin(L) * 0.38, HC[1] + 0.12, Math.cos(L) * 0.38]];
+      const foot = B.bone('foot' + k, 'root', pts[1]); feet.push(foot);
+      const rOf = taper([[0, 0.02], [0.08, 0.05], [0.2, 0.06], [0.5, 0.058], [0.72, 0.048], [0.9, 0.03], [1, 0.014]]);
+      B.toon(taperTube(pts, rOf, 8, 64), { color: MON.bark, outline: OL, vcol: woody,
+        weights: (x, y, z) => { const rad = Math.hypot(x, z), f = (1 - smooth(0.08, 0.2, y)) * smooth(0.36, 0.5, rad), h = smooth(1.2, 1.3, y); return [[foot, f], ['body', Math.max(0, 1 - f - h)], ['head', h]]; } });
+    }
+    // the knot: a trunk core, and the head core the roots are wound round
+    B.toon(lathe(smoothProfile([[0, 0.12], [0.22, 0.14], [0.17, 0.4], [0.13, 0.8], [0.12, 1.15], [0, 1.2]], 16), 18), { color: MON.barkDark, vcol: woody });
+    B.toon(new THREE.SphereGeometry(HR, 30, 22), { m: MT(HC), bone: head, color: MON.bark, outline: OL, vcol: woody });
+    const hs = ellSurf(HR, HR, HR, HC);
+    // two warm, sad, glowing eyes deep in the knot, sad root-brows over them, a small crack of a mouth
+    for (const side of [-1, 1]) {
+      const S = side < 0 ? 'L' : 'R', Y = HC[1] + 0.015, th = thetaFor(hs, Y, side * 0.092), c = surfPoint(hs, Y, th, -0.01);
+      const e = B.bone('eye' + S, head, [c.x, c.y, c.z]); B.meta.eyes.push(e);
+      B.unlit(wrapOn(discGeo(0.07, 0.062, 20, 4), hs, Y, th, 0.003), { bone: head, color: MON.socket });
+      const em = MT([c.x, c.y, c.z], [0, th, side * -0.3]);
+      B.unlit(new THREE.SphereGeometry(0.044, 16, 12), { m: em.clone().multiply(MT([0, -0.004, 0.012], [0, 0, 0], [1, 0.78, 0.5])), bone: e, color: MON.glowstone });
+      B.unlit(new THREE.SphereGeometry(0.012, 8, 6), { m: em.clone().multiply(MT([-side * 0.012 - 0.008, 0.012, 0.032], [0, 0, 0], [1, 1, 0.4])), bone: e, color: MON.white });
+      B.trans(discGeo(0.1, 0.085, 20, 3), { m: MT([c.x, c.y, c.z + 0.02], [0, th, 0]), bone: e, color: MON.glowstone, alpha: 0.26 });
+      B.toon(taperTube([sp2(hs, HC, Y + 0.085, side * 0.02), sp2(hs, HC, Y + 0.098, side * 0.09), sp2(hs, HC, Y + 0.07, side * 0.165)], taper([[0, 0.024], [1, 0.012]]), 7, 10), { bone: head, color: MON.barkLight, outline: 0.012 });
+    }
+    B.faceMouths({ surf: hs, y: HC[1] - 0.105, w: 0.105, h: 0.032, parent: head, beam: 'frown', lift: 0.004,
+      kinds: ['frown', 'beam', 'grimace', 'shout', 'ow', 'dizzy', 'oh', 'worry'], colors: { in: MON.socket, line: MON.socket } });
+    for (const [Y, th, r] of [[HC[1] + 0.17, -0.5, 0.035], [HC[1] - 0.06, 0.62, 0.028], [HC[1] + 0.12, 0.85, 0.024]]) { const p = surfPoint(hs, Y, th, -0.01); B.toon(new THREE.SphereGeometry(r, 10, 8), { m: MT([p.x, p.y, p.z]), bone: head, color: MON.barkDark, outline: 0.01 }); }
+    // the battered top hat of a groom who waited
+    const hatBase = B.bone('hatBase', 'root', [0, 1.24, 0.0]);
+    const hatP = [0.06, HC[1] + HR - 0.02, -0.02];
+    const hat = B.bone('hat', hatBase, hatP);
+    const hm = MT(hatP, [-0.05, 0.2, -0.22]);
+    B.toon(new THREE.CylinderGeometry(0.2, 0.21, 0.025, 28), { m: hm, bone: hat, color: MON.coat, outline: 0.012, vcol: (x, y, z, ny, tmp) => tmp.copy(C3(MON.coat)).lerp(C3(MON.coatLight), smooth(0.5, 1, ny) * 0.5) });
+    B.toon(new THREE.CylinderGeometry(0.12, 0.13, 0.24, 26), { m: hm.clone().multiply(MT([0, 0.13, 0], [0, 0, 0.05])), bone: hat, color: MON.coat, outline: 0.012, vcol: (x, y, z, ny, tmp) => tmp.copy(C3(MON.coat)).lerp(C3(MON.coatLight), smooth(0.6, 1, ny) * 0.6) });
+    B.toon(new THREE.CylinderGeometry(0.133, 0.134, 0.05, 26, 1, true), { m: hm.clone().multiply(MT([0, 0.045, 0], [0, 0, 0.05])), bone: hat, color: MON.wilt });
+    // the groom's tail-coat: a round chest, lapels, shirt front, bow tie, two gold buttons, and a wilted buttonhole
+    const coatBase = B.bone('coatBase', 'root', [0, 0, 0]);
+    const cp = smoothProfile([[0.25, 0.72], [0.285, 0.8], [0.315, 0.93], [0.325, 1.05], [0.305, 1.16], [0.24, 1.23], [0.15, 1.27]], 22);
+    const coatC = C3(MON.coat), coatL = C3(MON.coatLight);
+    B.toon(lathe(cp, 36), { bone: coatBase, color: MON.coat, outline: OL, vcol: (x, y, z, ny, tmp) => tmp.copy(coatC).lerp(coatL, smooth(0.3, 0.95, ny) * 0.55 + smooth(1.0, 1.25, y) * 0.15) });
+    const cs = latheSurf(cp);
+    B.toon(new THREE.TorusGeometry(0.155, 0.045, 10, 30), { m: MT([0, 1.25, 0], [Math.PI / 2 - 0.12, 0, 0]), bone: coatBase, color: MON.coat, outline: 0.015 });
+    const shirt = new THREE.Shape(); shirt.moveTo(-0.09, 0.12); shirt.lineTo(0.09, 0.12); shirt.lineTo(0.0, -0.13); shirt.lineTo(-0.09, 0.12);
+    B.unlit(wrapOn(extrude(shirt, 0.004, 0.002), cs, 1.1, 0, 0.004), { bone: coatBase, color: MON.shirt });
+    for (const side of [-1, 1]) {
+      const lap = new THREE.Shape(); lap.moveTo(0, 0.13); lap.lineTo(side * 0.05, 0.13); lap.lineTo(side * 0.105, 0.02); lap.lineTo(side * 0.02, -0.14); lap.lineTo(0, 0.13);
+      B.unlit(wrapOn(extrude(lap, 0.004, 0.002), cs, 1.1, side * 0.2, 0.007), { bone: coatBase, color: MON.satin });
+    }
+    for (const side of [-1, 1]) { const c = new THREE.ConeGeometry(0.035, 0.07, 10); c.rotateZ(side * Math.PI / 2); B.toon(c, { m: MT([side * 0.032, 1.215, 0.25], [0, 0, 0], [1, 1, 0.55]), bone: coatBase, color: MON.coat, outline: 0.006 }); }
+    B.toon(new THREE.SphereGeometry(0.02, 10, 8), { m: MT([0, 1.215, 0.265]), bone: coatBase, color: MON.coat });
+    for (const Y of [0.93, 0.82]) { const p = surfPoint(cs, Y, 0.0, 0.012); B.toon(new THREE.SphereGeometry(0.024, 12, 10), { m: MT([p.x, p.y, p.z], [0, 0, 0], [1, 1, 0.6]), bone: coatBase, color: MON.gold, outline: 0.006 }); }
+    { const p = surfPoint(cs, 1.1, 0.46, 0.02); const fl = B.bone('flower', coatBase, [p.x, p.y, p.z]);
+      for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; const pg = discGeo(0.026, 0.017, 12, 2); pg.translate(0.02, 0, 0); B.toon(pg, { m: MT([p.x, p.y, p.z], [0.9, 0.46, a], [1, 1, 1]).multiply(MT([0, 0, 0], [0.5, 0, 0])), bone: fl, color: MON.wilt }); B.toon(pg.clone().rotateY(Math.PI), { m: MT([p.x, p.y, p.z], [0.9, 0.46, a]).multiply(MT([0, 0, 0], [0.5, 0, 0])), bone: fl, color: sc(MON.wilt, 0.85) }); }
+      B.toon(new THREE.SphereGeometry(0.014, 8, 6), { m: MT([p.x, p.y, p.z + 0.01]), bone: fl, color: PAL.flower.center }); }
+    // tails, split at the back
+    for (const side of [-1, 1]) {
+      const S = side < 0 ? 'L' : 'R', top = [side * 0.1, 0.8, -0.27];
+      const tail = B.bone('tail' + S, coatBase, top);
+      const sh = new THREE.Shape(); sh.moveTo(-0.09, 0); sh.lineTo(0.09, 0); sh.quadraticCurveTo(0.08, -0.3, side * 0.03 + 0.02, -0.5); sh.lineTo(side * 0.03 - 0.05, -0.47); sh.quadraticCurveTo(-0.09, -0.25, -0.09, 0);
+      B.toon(extrude(sh, 0.022, 0.01), { m: MT(top, [0.12, side * 0.28, 0]), bone: tail, color: MON.coat, outline: 0.012, vcol: (x, y, z, ny, tmp, nx, nz) => tmp.copy(coatC).lerp(coatL, smooth(0.2, 0.9, -nz) * 0.25) });
+    }
+    // sleeves (part of the coat) and knotted root fists hanging out of the cuffs
+    for (const side of [-1, 1]) {
+      const S = side < 0 ? 'L' : 'R', sh = [side * 0.29, 1.13, 0.0], el = [side * 0.4, 0.88, 0.06], cu = [side * 0.39, 0.68, 0.14];
+      const arm = B.bone('arm' + S, coatBase, sh), fore = B.bone('fore' + S, arm, el);
+      B.toon(capsuleAB(sh, el, 0.085, 4, 14), { bone: arm, color: MON.coat, outline: 0.02, vcol: (x, y, z, ny, tmp) => tmp.copy(coatC).lerp(coatL, smooth(0.3, 1, ny) * 0.5) });
+      B.toon(capsuleAB(el, cu, 0.075, 4, 14), { bone: fore, color: MON.coat, outline: 0.02, vcol: (x, y, z, ny, tmp) => tmp.copy(coatC).lerp(coatL, smooth(0.3, 1, ny) * 0.5) });
+      B.toon(new THREE.TorusGeometry(0.065, 0.02, 8, 20), { m: MT([cu[0] * 0.99, cu[1] + 0.01, cu[2] - 0.01], [Math.PI / 2 - 0.3, 0, side * 0.05]), bone: fore, color: MON.shirt, outline: 0.006 });
+      const hand = B.bone('hand' + S, fore, cu);
+      B.toon(new THREE.SphereGeometry(0.075, 16, 12), { m: MT([cu[0], cu[1] - 0.07, cu[2] + 0.02], [0.3, 0, 0], [1, 1.1, 0.9]), bone: hand, color: MON.bark, outline: 0.018, vcol: woody });
+      B.toon(taperTube([[cu[0], cu[1] - 0.12, cu[2] + 0.03], [cu[0] + side * 0.03, cu[1] - 0.22, cu[2] + 0.06], [cu[0] - side * 0.01, cu[1] - 0.3, cu[2] + 0.1], [cu[0] - side * 0.05, cu[1] - 0.27, cu[2] + 0.13]], taper([[0, 0.035], [1, 0.01]]), 7, 14), { bone: hand, color: MON.bark, outline: 0.012, vcol: woody });
+    }
+    return { height: 1.95, radius: 0.72, shadow: 1.6, color: MON.bark };
+  },
+  idle(ctx, t) {
+    const w = ctx.idleW, b = ctx.b;
+    // the sigh: a long breath in, a heavy breath out, the head bowing on it
+    const P = 3.4, n = Math.floor(t / P), k = t - n * P;
+    const inh = k < 2.5 ? easeInOutQuad(k / 2.5) : 1 - easeOutCubic((k - 2.5) / 0.9);
+    b.body.scale.multiply(V3(1 + 0.022 * inh * w, 1 + 0.035 * inh * w, 1 + 0.022 * inh * w));
+    if (b.head) { b.head.rotation.x += (0.1 - 0.13 * inh) * w; b.head.rotation.z += 0.05 * Math.sin(TAU * t / 5.1) * w; }
+    for (const [S, side] of [['L', -1], ['R', 1]]) {
+      if (b['arm' + S]) b['arm' + S].rotation.z += side * 0.05 * inh * w;
+      if (b['fore' + S]) b['fore' + S].rotation.x -= (0.08 + 0.05 * Math.sin(TAU * t / 3.9 + side)) * w;
+      if (b['hand' + S]) b['hand' + S].rotation.z += side * 0.12 * Math.sin(TAU * t / 2.7 + side) * w;
+      if (b['tail' + S]) b['tail' + S].rotation.x += (0.06 + 0.05 * Math.sin(TAU * (t - 0.3) / 4.6 + side)) * w;
+    }
+    b.root.rotation.z += 2.2 * DEG * Math.sin(TAU * t / 4.6) * w;
+    // the roots on the floor writhe, very slowly
+    for (let i = 0; i < 8; i++) { const f = b['foot' + i]; if (!f) continue; const a = (i + 0.5) / 8 * TAU; f.rotation.y += 0.14 * Math.sin(t * 1.1 + i * 0.9) * w; f.rotation.x += -Math.cos(a) * 0.1 * (0.5 + 0.5 * Math.sin(t * 1.7 + i)) * w; f.rotation.z += Math.sin(a) * 0.1 * (0.5 + 0.5 * Math.sin(t * 1.7 + i)) * w; }
+    // a mumbled breath on each out-breath
+    if (k >= 2.55 && ctx._sighed !== n && w > 0.5) { ctx._sighed = n; ctx.fx.puff(V3(0, 1.36, 0.3), 3, 0.18, 0.055, { color: MON.breath, up: 0.35, life: 0.9 }); }
+    ctx.eyeScale *= 1 + 0.06 * Math.sin(t * 2.3);
+    ctx.showOh = k >= 2.5 && k < 2.85 && w > 0.5;
+    if (b.hat) b.hat.rotation.z += 0.04 * Math.sin(t * 0.9) * w;
+    if (b.flower) b.flower.rotation.x += 0.1 * Math.sin(t * 1.2) * w;
+  },
+  attackPose(ctx, ct) {
+    // Bind: the front roots whip up off the floor and the root-fists reach
+    const b = ctx.b, k = hump(ct, 0.12, 0.5);
+    for (const i of [0, 7, 1, 6]) { const f = b['foot' + i]; if (!f) continue; const a = (i + 0.5) / 8 * TAU; f.rotation.x += -Math.cos(a) * 0.9 * k; f.rotation.z += Math.sin(a) * 0.9 * k; }
+    for (const S of ['L', 'R']) { if (b['arm' + S]) b['arm' + S].rotation.x -= 0.8 * k; if (b['fore' + S]) b['fore' + S].rotation.x -= 0.5 * k; }
+  },
+  castPose(ctx, ct) {
+    // Cold Draught: a long breath in, then out it blows, and the candles would go out
+    const b = ctx.b, draw = hump(ct, 0.05, 0.45), blow = hump(ct, 0.4, 0.9);
+    if (b.head) b.head.rotation.x -= 0.25 * draw - 0.2 * blow;
+    b.body.scale.multiply(V3(1 + 0.04 * draw, 1 + 0.05 * draw, 1 + 0.04 * draw));
+    ctx.showOh = ct > 0.4 && ct < 0.9;
+    if (ct > 0.45 && !ctx._draught) { ctx._draught = true; for (let i = 0; i < 9; i++) ctx.fx.spawn('blob', { pos: V3((Math.random() - 0.5) * 0.1, 1.36, 0.32), vel: V3((Math.random() - 0.5) * 0.9, (Math.random() - 0.4) * 0.4, 2.2 + Math.random() * 1.2), drag: 1.6, life: 0.9, s0: 0.05, s1: 0.13, color: MON.breath, pop: true, delay: i * 0.04 }); }
+    if (ct < 0.2) ctx._draught = false;
+  },
+  taunt(ctx, ct) {
+    // mumbles: a slow grumbling no-no-no, fists trembling
+    const b = ctx.b, k = smooth(0, 0.2, ct) * (1 - smooth(1.2, 1.5, ct));
+    if (b.head) { b.head.rotation.y += 0.3 * Math.sin(ct * 7) * k; b.head.rotation.x += 0.12 * k; }
+    for (const S of ['L', 'R']) if (b['hand' + S]) b['hand' + S].rotation.x += 0.08 * Math.sin(ct * 50) * k;
+    ctx.lids[0] = ctx.lids[1] = 0.4 * k;
+    if (ct > 0.3 && !ctx._mum) { ctx._mum = true; for (let i = 0; i < 3; i++) ctx.fx.puff(V3(0, 1.4, 0.32), 1, 0.05, 0.05, { color: MON.breath, up: 0.5, life: 0.7, delay: i * 0.25 }); }
+    if (ct < 0.2) ctx._mum = false;
+    return ct >= 1.5;
+  },
+  post(ctx, t, dt, clip) { if (!dying(clip)) { glue(ctx, 'coatBase', ['body']); glue(ctx, 'hatBase', ['body', 'head']); } },
+  // UNWIND — the roots unwind into nothing and leave a plain black coat lying on the floor ({vanish:true} poofs it)
+  defeat(ctx, ct, o) {
+    mumbleGone(ctx, ct, o);
+    return ct >= 1.9;
+  },
+  deadPose(ctx) { mumbleGone(ctx, 1.9, { _p: true, _thump: true, _glow: true, _rise: 99 }); },
+});
+function sp2(surf, c, Y, x) { const th = thetaFor(surf, Y, x); const p = surfPoint(surf, Y, th, 0.012); return [p.x, p.y, p.z]; }
+function mumbleGone(ctx, ct, o) {
+  const b = ctx.b;
+  if (ct < 0.15) { ctx.eyeScale *= 1.3; ctx.showOh = true; b.body.scale.multiplyScalar(1 + 0.05 * hump(ct, 0, 0.15)); glue(ctx, 'coatBase', ['body']); glue(ctx, 'hatBase', ['body', 'head']); return; }
+  const k = seg(ct, 0.15, 1.05);
+  b.body.rotation.y += 9 * Math.PI * k * k;
+  const sh = k >= 1 ? 0.0001 : Math.max(0.0001, 1 - easeInQuad(k));
+  b.body.scale.multiply(V3(sh, k >= 1 ? 0.0001 : lerp(1, 0.5, easeInQuad(k)), sh));
+  for (let i = 0; i < 8; i++) if (b['foot' + i]) b['foot' + i].scale.multiplyScalar(sh);
+  for (const S of ['L', 'R']) if (b['hand' + S]) b['hand' + S].scale.multiplyScalar(Math.max(0.0001, 1 - easeInQuad(seg(ct, 0.15, 0.7))));
+  const due = Math.floor(k * 8);
+  if (ct < 1.05 && (o._rise ?? -1) < due) { o._rise = due; const a = k * 20; ctx.fx.sparkle(V3(Math.sin(a) * 0.4, 0.3 + k * 1.3, Math.cos(a) * 0.4), 2, 0.2, { size: 0.09, life: 0.5, up: 0.6, color: MON.glowstone, alt: MON.white }); }
+  if (ct >= 1.0 && !o._glow) { o._glow = true; for (const side of [-1, 1]) ctx.fx.spawn('blob', { pos: V3(side * 0.09, 1.45, 0.25), vel: V3(side * 0.05, 0.5, 0.05), drag: 0.8, life: 1.0, s0: 0.05, s1: 0.0, color: MON.glowstone }); ctx.emit('poof', o); }
+  // the coat is left behind: it hangs a moment, empty, then falls flat on its back, sleeves out
+  const c = b.coatBase, d = easeInQuad(seg(ct, 0.75, 1.1));
+  if (c) {
+    const bounce = ct > 1.1 ? 0.18 * Math.exp(-(ct - 1.1) * 10) * Math.abs(Math.sin((ct - 1.1) * 24)) : 0;
+    c.rotation.x = -Math.PI / 2 * d * (1 - 0.1 * bounce);
+    c.scale.z *= lerp(1, 0.2, d);
+    c.position.y += 0.08 * d + 0.06 * bounce;
+    c.position.z += 0.72 * d;
+    for (const [S, side] of [['L', -1], ['R', 1]]) { if (b['arm' + S]) b['arm' + S].rotation.z += side * 0.9 * d; if (b['tail' + S]) b['tail' + S].rotation.y -= side * 0.3 * d; }
+  }
+  const h = b.hatBase, hd = easeInQuad(seg(ct, 0.6, 1.0));
+  if (h) {
+    const rest = ctx.boneRest.hatBase;
+    h.position.y += (0.12 - rest.y - 0.25) * hd + 0.25 * hump(ct, 0.6, 0.85);
+    h.position.x += 0.55 * seg(ct, 0.6, 1.3); h.position.z += 0.35 * seg(ct, 0.6, 1.3);
+    h.rotation.z -= 1.35 * hd; h.rotation.y += 1.2 * seg(ct, 0.6, 1.4);
+  }
+  if (ct >= 1.1 && !o._thump) { o._thump = true; ctx.fx.puff(V3(0, 0.05, 0.3), 9, 1.1, 0.12, { color: PAL.dirt.light, up: 0.2, life: 0.55 }); }
+  ctx.shadowK = lerp(1, 0.9, d);
+  if (o.vanish && ct > 1.45 && !o._vanish) { o._vanish = true; poof(ctx, o, { at: V3(0, 0.2, 0.3), chunks: 0 }); }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// 5d. TIER THREE / FOUR / FIVE and the rest of the story creatures (MONSTER-BIBLE §3-§6b), built on the shared rigs
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+// ── 31. GRIMALKITTEN — a cat-shaped hole in the light ─────────────────────────────────────────────────────────
+species('grimalkitten', {
+  name: 'Grimalkitten', family: 'cat', color: MON.shadow, death: 'wisp', winky: true,
+  toon: { edge: 0.05, soft: 0.05, mid: 0.86, midEdge: 0.5, shadeSat: 1.05, rim: 0.4 },
+  // purrs, and will sit on the map you are reading: slit eyes that widen when it pounces
+  face: {
+    wild: { lid: 0.44, tilt: 12, brow: [[0.0, 14], [0.18, -4]], look: [0.15, 0], glance: 0.7, glancePeriod: 2.8, mouth: 'cat' },
+    windup: { lid: 0.62, tilt: 22, brow: [[-0.16, 28], [-0.16, 28]], mouth: 'grimace' },
+    strike: { lid: 0, tilt: 8, brow: [[-0.08, 18], [-0.08, 18]], mouth: 'shout', eyeScale: 1.25 },
+    recover: { lid: 0.4, tilt: 12, mouth: 'cat' },
+    taunt: { eyes: 'shut', brow: [[0.24, -16], [0.24, -16]], mouth: 'shout' },          // the enormous yawn
+    friend: { lid: 0.06, tilt: -6, brow: [[0.28, -10], [0.28, -10]], mouth: 'beam' },
+  },
+  build(B) {
+    B.skin = MON.shadow;
+    const r = catRig(B, { k: 1.6, mane: false, bell: false, whiskers: true,
+      coat: { body: MON.shadow, dark: sc(MON.shadow, 0.72), muzzle: mx(MON.shadow, 'cloth.purple', 0.35), nose: mx('cloth.purple', 'flower.pink', 0.35), tooth: MON.white },
+      eye: { pupilShape: 'slit', pupilColor: sc(MON.shadow, 0.5), sclera: MON.catEye, rim: 0.12 } });
+    return { height: r.height, radius: r.radius * 1.2, shadow: r.radius * 3.4 };
+  },
+  idle(ctx, t) {
+    catIdle(ctx, t, false);
+    // it sits. The tail describes a slow S. Every 8 s: one enormous yawn.
+    const k = t % 8.2;
+    if (k > 7.2 && ctx.idleW > 0.5) { ctx.faceKey = 'taunt'; if (ctx.b.head) ctx.b.head.rotation.x -= 0.25 * hump(k, 7.2, 8.0); }
+  },
+  attackPose: catAttack,
+  taunt: catRoar,
+});
+
+// ── B5b. HUSH & HARK, THE QUIET TWINS — Whistfell Abbey (Act III) ─────────────────────────────────────────────
+const TWIN_FACE = {
+  wild: { lid: 0.5, tilt: -4, brow: [[0.18, -12], [0.14, -10]], look: [0.2, -0.1], glance: 0.3, glancePeriod: 5 },
+  windup: { lid: 0.68, tilt: 16, brow: [[-0.1, 20], [-0.1, 20]] },
+  strike: { lid: 0.15, tilt: 10, eyeScale: 1.1 },
+  recover: { lid: 0.52, tilt: -4 },
+  friend: { lid: 0.08, tilt: -8, brow: [[0.26, -14], [0.26, -14]] },
+};
+species('hush', {
+  name: 'Hush', family: 'quiet', boss: true, color: MON.robe, scale: 2.4, face: TWIN_FACE,
+  build(B) { const r = quietlingRig(B, { pose: 'shh', sleepy: false }); return { height: r.height, radius: r.radius, shadow: r.shadow }; },
+  idle(ctx, t) { quietlingIdle(ctx, t, { big: true }); },
+  ...QUIETLING_CLIPS,
+});
+species('hark', {
+  name: 'Hark', family: 'quiet', boss: true, color: MON.robe, scale: 2.4, face: TWIN_FACE,
+  build(B) { const r = quietlingRig(B, { pose: 'hark', sleepy: false }); return { height: r.height, radius: r.radius, shadow: r.shadow }; },
+  idle(ctx, t) { quietlingIdle(ctx, t + 1.7, { big: true }); },
+  ...QUIETLING_CLIPS,
+});
+
+// ── 29. THUNDERPUFF — a small cloud with a big grudge and a lovely singing voice ──────────────────────────────
+species('thunderpuff', {
+  name: 'Thunderpuff', family: 'cloud', death: 'deflate', hover: 0.62, color: MON.cloud, winky: true,
+  toon: { edge: 0.03, soft: 0.06, mid: 0.86, midEdge: 0.3, shadeSat: 1.0 },
+  face: {
+    wild: { lid: 0.42, tilt: 20, brow: [[-0.1, 26], [-0.06, 22]], look: [0, -0.05], glance: 0.35, glancePeriod: 3.4, mouth: 'frown' },
+    windup: { lid: 0.66, tilt: 26, brow: [[-0.22, 32], [-0.22, 32]], mouth: 'grimace' },
+    strike: { lid: 0.1, tilt: 18, brow: [[-0.12, 26], [-0.12, 26]], mouth: 'shout', eyeScale: 1.1 },
+    recover: { lid: 0.44, tilt: 20, mouth: 'frown' },
+    taunt: { lid: 0.2, tilt: -8, brow: [[0.3, -14], [0.3, -14]], look: [0, 0.2], mouth: 'beam', eyeScale: 1.1 },   // Fluff Up: enormously pleased
+    friend: { lid: 0.04, tilt: -6, brow: [[0.28, -12], [0.28, -12]], mouth: 'beam' },
+  },
+  build(B) {
+    const cy = 0.3;
+    B.setBone('body', [0, cy, 0]);
+    const lit = C3(MON.cloud), dark = C3(MON.cloudDark);
+    // seven lumps merged into one cloud, dark underneath
+    const lobes = [[0, 0.02, 0, 0.3], [-0.26, -0.02, 0.02, 0.22], [0.26, -0.01, 0.0, 0.23], [-0.14, 0.14, -0.04, 0.2], [0.15, 0.15, -0.03, 0.19], [-0.05, -0.06, 0.16, 0.18], [0.08, -0.07, -0.16, 0.17]];
+    for (const [x, y, z, r] of lobes) {
+      B.toon(new THREE.SphereGeometry(r, 20, 14), { m: MT([x, cy + y, z], [0, 0, 0], [1, 0.92, 1]), color: MON.cloud, outline: 0.018,
+        vcol: (X, Y, Z, ny, tmp) => tmp.copy(dark).lerp(lit, smooth(cy - 0.2, cy + 0.12, Y)) });
+    }
+    const surf = ellSurf(0.3, 0.27, 0.3, [0, cy + 0.02, 0.02]);
+    B.eyes({ surf, y: cy + 0.06, gap: 0.2, r: 0.075, forward: 0.006, browLift: 1.3, browColor: mx(MON.cloudDark, PAL.outline.char, 0.55), lid: MON.cloud });
+    B.faceMouths({ surf, y: cy - 0.09, w: 0.15, h: 0.05, lift: 0.005, beam: 'beam',
+      kinds: ['beam', 'frown', 'grimace', 'shout', 'ow', 'dizzy', 'tongue', 'oh', 'worry'] });
+    for (const side of [-1, 1]) B.toon(new THREE.SphereGeometry(0.055, 14, 10), { m: MT([side * 0.215, cy - 0.055, 0.17], [0, 0, 0], [1, 0.85, 0.8]), color: mx('flower.pink', 'cloud.lit', 0.5), outline: 0.008 });
+    // the bolt it throws: a hard-edged zigzag, three frames long, never a particle system
+    const bolt = B.bone('bolt', 'root', [0, cy, 0.5], 0);
+    const zz = new THREE.Shape();
+    zz.moveTo(-0.06, 0.5); zz.lineTo(0.05, 0.16); zz.lineTo(-0.02, 0.14); zz.lineTo(0.08, -0.28); zz.lineTo(-0.01, -0.06); zz.lineTo(-0.075, -0.02); zz.lineTo(-0.02, 0.2); zz.lineTo(-0.06, 0.5);
+    B.unlit(extrude(zz, 0.02, 0.006), { m: MT([0, cy - 0.05, 0.42], [0, 0, 0], [1.6, 1.6, 1]), bone: bolt, color: MON.bolt });
+    B.unlit(extrude(zz, 0.024, 0.004), { m: MT([0, cy - 0.05, 0.4], [0, 0, 0], [2.1, 1.75, 1]), bone: bolt, color: mx(MON.bolt, 'char.white', 0.6) });
+    return { height: cy + 0.36, radius: 0.5, shadow: 0.95 };
+  },
+  idle(ctx, t) {
+    // drifts in a slow figure eight, the lobes counter-rotating; every 6 s a flash inside and a distant rumble
+    const w = ctx.idleW;
+    const y = 0.62 + 0.05 * Math.sin(TAU * t / 3.1);
+    ctx.b.root.position.y += y; ctx.hopY = y; ctx.hopMax = 0.67; ctx.flying = true;
+    ctx.b.root.position.x += 0.16 * Math.sin(TAU * t / 6.2) * w;
+    ctx.b.body.rotation.y += 0.1 * Math.sin(TAU * t / 5.3);
+    ctx.b.body.rotation.z += 0.05 * Math.sin(TAU * t / 3.7);
+    ctx.b.body.scale.multiply(V3(1 + 0.02 * Math.sin(t * 1.3), 1 - 0.02 * Math.sin(t * 1.3), 1));
+    const k = t % 6;
+    if (k < 0.12 && w > 0.5) { ctx.glow = 0.5 * (1 - k / 0.12); ctx.flash = Math.max(ctx.flash, 0.25 * (1 - k / 0.12)); }
+  },
+  attackPose(ctx, ct) {
+    // Zapple: the bolt snaps into being for three frames at the impact
+    const b = ctx.b.bolt;
+    if (b) b.scale.setScalar(ct > 0.24 && ct < 0.33 ? 1 : 0.0001);
+    if (ct > 0.24 && ct < 0.36) ctx.glow = 0.6;
+    ctx.b.body.scale.multiply(V3(1 + 0.06 * hump(ct, 0.0, 0.2), 1 - 0.05 * hump(ct, 0.0, 0.2), 1));
+  },
+  castPose(ctx, ct) {
+    const b = ctx.b.bolt;
+    if (b) b.scale.setScalar(ct > 0.62 && ct < 0.72 ? 1.4 : 0.0001);
+    if (ct > 0.6 && ct < 0.8) ctx.glow = Math.max(ctx.glow, 0.55);
+  },
+  taunt(ctx, ct) {
+    // Fluff Up: it doubles in fluff and looks enormously pleased about it
+    const k = ct < 0.3 ? easeOutBack(ct / 0.3, 2.4) : 1 - easeInOutQuad(seg(ct, 0.75, 1.05));
+    ctx.b.body.scale.multiplyScalar(1 + 0.3 * k);
+    ctx.b.root.position.y += 0.06 * k;
+    if (ct > 0.28 && !ctx._fluff) { ctx._fluff = true; ctx.fx.puff(ctx.center(), 7, 0.6, 0.12, { color: MON.cloud, up: 0.4, life: 0.6 }); }
+    if (ct < 0.1) ctx._fluff = false;
+    return ct >= 1.1;
+  },
+  post(ctx, t, dt, clip) {
+    if (clip === 'defeat' && !ctx.visible && !ctx._rain) {
+      ctx._rain = true;
+      // DEFLATE into rain — and then a tiny rainbow, which children will farm deliberately
+      for (let i = 0; i < 18; i++) {
+        const a = ctx.rand() * TAU, r = ctx.rand() * 0.45;
+        ctx.fx.spawn('blob', { pos: V3(Math.cos(a) * r, 0.5 + ctx.rand() * 0.2, Math.sin(a) * r * 0.6), vel: V3(0, -1.2 - ctx.rand(), 0), grav: 3, life: 0.9, s0: 0.022, s1: 0.02, color: mx('water.mid', 'cloud.lit', 0.45), flat: 2.4, floor: 0.015, delay: ctx.rand() * 0.25 });
+      }
+      for (let i = 0; i < 9; i++) { const a = Math.PI * (i / 8); ctx.fx.spawn('star', { pos: V3(Math.cos(a) * 0.55, 0.06 + Math.sin(a) * 0.5, 0), vel: V3(0, 0, 0), life: 0.9, s0: 0.07, s1: 0.07, color: [PAL.flower.red, PAL.char.carrot, PAL.flower.yellow, PAL.grass.light, PAL.water.mid, PAL.cloth.purple, PAL.flower.pink][i % 7], delay: 0.5 + i * 0.03, twinkle: true }); }
+    }
+    if (clip !== 'defeat' && clip !== 'dead') ctx._rain = false;
+  },
+});
+
+// ── 21. JINGLEBOTTOM — the jester (part one). One joke, told constantly, and he is having a lovely time ───────
+function jesterRig(B, { k = 1, colA = MON.jestA, colB = MON.jestB, bells = 3, cracked = false, teeth = 0, grin = 0.14, hl = true }) {
+  const K = (a) => a.map(v => v * k), th = 0.014 * Math.max(1, k * 0.8);
+  // the harlequin body: the same lathe swept twice, one half each colour
+  const prof = smoothProfile([[0, 0], [0.12, 0.02], [0.17, 0.1], [0.19, 0.3], [0.145, 0.44], [0.1, 0.54], [0.085, 0.57]], 24);
+  for (const [phi, col] of [[0, colA], [Math.PI, colB]]) {
+    B.toon(new THREE.LatheGeometry(prof.map(p => p.clone()), 18, phi, Math.PI), { m: MT([0, 0, 0], [0, 0, 0], k), color: col, outline: th,
+      vcol: (x, y, z, ny, tmp) => tmp.copy(C3(col)).multiplyScalar(lerp(0.88, 1.05, smooth(0, 0.57 * k, y))) });
+  }
+  const surf = latheSurf(prof, { sx: k, sy: k, sz: k });
+  // the scalloped ruff
+  const ruffY = 0.55 * k;
+  for (let i = 0; i < 9; i++) { const a = i / 9 * TAU; B.toon(new THREE.SphereGeometry(0.062 * k, 12, 10), { m: MT([Math.sin(a) * 0.115 * k, ruffY, Math.cos(a) * 0.115 * k], [0, 0, 0], [1, 0.8, 1]), color: MON.cream, outline: th * 0.7 }); }
+  // head + hat
+  const head = B.bone('head', 'body', K([0, 0.62, 0]));
+  const hc = [0, 0.71 * k, 0], hr = 0.16 * k;
+  B.toon(new THREE.SphereGeometry(hr, 26, 18), { m: MT(hc), bone: head, color: MON.skinPale, outline: th, vcol: (x, y, z, ny, tmp) => tmp.copy(C3(MON.skinPale)).multiplyScalar(lerp(0.94, 1.04, smooth(hc[1] - hr, hc[1] + hr, y))) });
+  const hs = ellSurf(hr, hr, hr, hc);
+  // the painted diamonds round the eyes, then the eyes themselves
+  const eyeY = hc[1] + 0.03 * k, gap = 0.13 * k, er = 0.058 * k;
+  for (const side of [-1, 1]) {
+    const thh = thetaFor(hs, eyeY, side * gap / 2);
+    const dia = new THREE.Shape(); dia.moveTo(0, 0.095 * k); dia.lineTo(0.052 * k, 0); dia.lineTo(0, -0.105 * k); dia.lineTo(-0.052 * k, 0); dia.lineTo(0, 0.095 * k);
+    B.unlit(wrapOn(flatGeo(dia, 0), hs, eyeY, thh, 0.002 * k), { bone: head, color: side < 0 ? colA : colB });
+  }
+  B.skin = MON.skinPale;
+  B.eyes({ surf: hs, y: eyeY, gap, r: er, parent: head, forward: 0.002 * k, hl, browLift: 1.35, browColor: mx(MON.jestDark, PAL.outline.char, 0.4) });
+  B.faceMouths({ surf: hs, y: hc[1] - 0.07 * k, w: grin * k, h: 0.036 * k, parent: head, lift: 0.002 * k,
+    kinds: ['beam', 'smirk', 'fang', 'grimace', 'shout', 'ow', 'dizzy', 'tongue', 'worry', 'oh'], sizes: teeth ? { smirk: [1, 1], fang: [1, 1.1] } : {} });
+  // the hat: S-curved cones, each with a bell on a two-segment pendulum
+  const hatBase = B.bone('hat', head, K([0, 0.86, 0]));
+  for (let i = 0; i < bells; i++) {
+    const a = (i - (bells - 1) / 2) * 0.62, lean = 0.5 + Math.abs(a) * 0.35;
+    const bn = B.bone('bell' + i, hatBase, K([Math.sin(a) * 0.2, 0.96, Math.cos(a) * 0.1 - 0.04]));
+    const c = new THREE.ConeGeometry(0.055 * k, 0.26 * k, 10); c.translate(0, 0.13 * k, 0);
+    const cm = MT(K([0, 0.84, -0.01]), [-0.1, a, -a * lean * 1.4]);
+    B.toon(c, { m: cm, bone: hatBase, color: i % 2 ? colB : colA, outline: th * 0.8 });
+    const tip = V3(0, 0.26 * k, 0).applyMatrix4(cm);
+    const bell = cracked && i === 2 ? new THREE.SphereGeometry(0.042 * k, 12, 10, 0, Math.PI * 1.8) : new THREE.SphereGeometry(0.042 * k, 12, 10);
+    B.toon(bell, { m: MT([tip.x, tip.y, tip.z]), bone: bn, color: MON.gold, outline: th * 0.7 });
+  }
+  // arms and legs: striped capsules, oversized hands, curled-toe shoes
+  for (const side of [-1, 1]) {
+    const S = side < 0 ? 'L' : 'R';
+    const arm = B.bone('arm' + S, 'body', K([side * 0.16, 0.46, 0.02]));
+    B.toon(capsuleAB(K([side * 0.16, 0.46, 0.02]), K([side * 0.3, 0.3, 0.06]), 0.036 * k, 4, 10), { bone: arm, color: side < 0 ? colB : colA, outline: th * 0.8 });
+    B.toon(new THREE.SphereGeometry(0.062 * k, 14, 10), { m: MT(K([side * 0.33, 0.26, 0.07])), bone: arm, color: MON.cream, outline: th * 0.8 });
+    const leg = B.bone('leg' + S, 'root', K([side * 0.09, 0.2, 0]));
+    B.toon(capsuleAB(K([side * 0.09, 0.2, 0]), K([side * 0.11, 0.06, 0.01]), 0.04 * k, 4, 10), { bone: leg, color: side < 0 ? colA : colB, outline: th * 0.8 });
+    const shoe = lathe(smoothProfile([[0, 0], [0.05, 0.005], [0.055, 0.04], [0.03, 0.07], [0, 0.075]], 10), 14);
+    B.toon(shoe, { m: MT(K([side * 0.11, 0.015, 0.05]), [-1.3, 0, 0], [k, k * 1.5, k]), bone: leg, color: side < 0 ? colB : colA, outline: th * 0.7 });
+    B.toon(new THREE.SphereGeometry(0.028 * k, 10, 8), { m: MT(K([side * 0.11, 0.075, 0.12])), bone: leg, color: MON.gold, outline: th * 0.6 });
+  }
+  return { height: 1.06 * k, radius: 0.3 * k, shadow: 0.62 * k, surf };
+}
+function jesterIdle(ctx, t, { big = false } = {}) {
+  const w = ctx.idleW, b = ctx.b, S = ctx.size;
+  // weight foot to foot at 1.2 Hz, the three bells jingling a triplet (120 ms of lag each)
+  const sh = Math.sin(TAU * 1.2 * t);
+  b.root.position.x += 0.035 * sh * w * S * 0.5;
+  b.root.rotation.z += 4 * DEG * sh * w;
+  if (b.head) b.head.rotation.z -= 6 * DEG * sh * w;
+  for (let i = 0; i < 5; i++) { const bn = b['bell' + i]; if (!bn) continue; const l = Math.sin(TAU * 1.2 * (t - i * 0.12)); bn.rotation.z += 0.3 * l * w; bn.rotation.x += 0.12 * Math.sin(TAU * 0.7 * t - i) * w; }
+  if (b.armL) b.armL.rotation.z += (0.2 + 0.25 * sh) * w;
+  if (b.armR) b.armR.rotation.z -= (0.2 - 0.25 * sh) * w;
+  const y = hop(ctx, t, { period: 1 / 1.2, amp: big ? 0.02 : 0.035, squash: 0.6 });
+  void y;
+  // every 5 s: a cartwheel in place
+  const P = 5, k = t % P;
+  if (k < 0.9 && w > 0.5) {
+    const f = easeInOutQuad(k / 0.9);
+    ctx.mover.rotation.z += TAU * f;
+    ctx.mover.position.y += 0.22 * S * Math.sin(Math.PI * f);
+  }
+}
+species('jinglebottom', {
+  name: 'Jinglebottom', family: 'jester', death: 'unwind', color: MON.jestA, winky: true,
+  // one joke, told constantly. It is not a good joke.
+  face: {
+    wild: { lid: 0.3, tilt: 14, brow: [[0.02, 16], [0.26, -10]], look: [0.3, 0], glance: 0.7, glancePeriod: 2, mouth: 'smirk' },
+    windup: { lid: 0.6, tilt: 22, brow: [[-0.14, 26], [-0.14, 26]], mouth: 'grimace' },
+    strike: { lid: 0.08, tilt: 12, brow: [[0.1, 14], [0.1, 14]], mouth: 'shout', eyeScale: 1.1 },
+    recover: { lid: 0.26, tilt: 14, mouth: 'smirk' },
+    taunt: { eyes: ['happy', 'open'], lid: [1, 0.1], tilt: 8, brow: [[-0.06, 14], [0.36, -14]], look: [0.5, 0], mouth: 'tongue' },
+    friend: { lid: 0, tilt: -4, brow: [[0.3, -10], [0.3, -10]], mouth: 'beam' },
+  },
+  build(B) { const r = jesterRig(B, { k: 1 }); return { height: r.height, radius: r.radius, shadow: r.shadow }; },
+  idle(ctx, t) { jesterIdle(ctx, t); },
+  attackPose(ctx, ct) {
+    // Bell Bonk: he swings the whole hat at you
+    const b = ctx.b, k = hump(ct, 0.08, 0.45);
+    if (b.hat) { b.hat.rotation.x -= 1.2 * k; b.hat.rotation.z += 0.4 * Math.sin(ct * 30) * k; }
+    if (b.armR) b.armR.rotation.x -= 1.6 * k;
+    for (let i = 0; i < 5; i++) { const bn = b['bell' + i]; if (bn) bn.rotation.z += 1.1 * Math.sin(ct * 26 - i * 0.6) * k; }
+  },
+  castPose(ctx, ct) { const b = ctx.b, k = hump(ct, 0.1, 0.9); if (b.armL) b.armL.rotation.x -= 2.2 * k; if (b.armR) b.armR.rotation.x -= 2.2 * k; if (b.hat) b.hat.rotation.x -= 0.3 * k; },
+});
+
+// ── 26. MIRTHQUAKE — the jester (part two). Laughing at something that was not funny then either ─────────────
+species('mirthquake', {
+  name: 'Mirthquake', family: 'jester', boss: true, death: 'unwind', color: MON.jestDark, scale: 1.9, winky: false, noBlink: false,
+  face: {
+    // no highlight in the eye: the one monster in the book allowed to be wrong
+    wild: { lid: 0.34, tilt: 20, brow: [[-0.06, 24], [0.2, -6]], look: [0, 0.05], glance: 0.2, glancePeriod: 4.5, mouth: 'fang' },
+    windup: { lid: 0.62, tilt: 28, brow: [[-0.2, 32], [-0.2, 32]], mouth: 'grimace' },
+    strike: { lid: 0.05, tilt: 18, brow: [[0.05, 20], [0.05, 20]], mouth: 'shout', eyeScale: 1.12 },
+    recover: { lid: 0.3, tilt: 20, mouth: 'fang' },
+    taunt: { eyes: 'shut', brow: [[-0.05, 22], [-0.05, 22]], mouth: 'shout' },     // the Belly Laugh
+    friend: { lid: 0.08, tilt: 0, brow: [[0.28, -8], [0.28, -8]], mouth: 'beam' },
+  },
+  build(B) { const r = jesterRig(B, { k: 1, colA: MON.jestDark, colB: MON.jestGold, bells: 5, cracked: true, teeth: 4, grin: 0.22, hl: false }); return { height: r.height, radius: r.radius * 1.1, shadow: r.shadow * 1.1 }; },
+  idle(ctx, t) {
+    // holds his sides and shakes with silent laughter, 3 Hz, growing over 8 s, then resetting
+    const w = ctx.idleW, b = ctx.b, P = 8, k = (t % P) / P;
+    const amp = 0.3 + 0.7 * k;
+    ctx.mover.rotation.z += 3 * DEG * Math.sin(TAU * 3 * t) * amp * w;
+    ctx.b.root.position.y += 0.012 * Math.abs(Math.sin(TAU * 3 * t)) * amp * w * ctx.size;
+    ctx.b.body.scale.multiply(V3(1 + 0.02 * amp * Math.sin(TAU * 3 * t), 1 - 0.02 * amp * Math.sin(TAU * 3 * t), 1));
+    if (b.armL) { b.armL.rotation.z += 0.9 * w; b.armL.rotation.x -= 0.5 * w; }
+    if (b.armR) { b.armR.rotation.z -= 0.9 * w; b.armR.rotation.x -= 0.5 * w; }
+    if (b.head) b.head.rotation.x -= (0.12 + 0.08 * Math.sin(TAU * 3 * t)) * amp * w;
+    for (let i = 0; i < 5; i++) { const bn = b['bell' + i]; if (bn) bn.rotation.z += 0.5 * Math.sin(TAU * 3 * (t - i * 0.1)) * amp * w; }
+  },
+  attackPose(ctx, ct) { const b = ctx.b, k = hump(ct, 0.08, 0.45); if (b.armR) { b.armR.rotation.x -= 2.0 * k; b.armR.rotation.z -= 0.6 * k; } if (b.hat) b.hat.rotation.x -= 0.8 * k; },
+  taunt(ctx, ct) {
+    // Belly Laugh: the ground shakes
+    ctx.faceKey = 'taunt';
+    const k = hump(ct, 0.05, 1.0), b = ctx.b;
+    ctx.mover.rotation.z += 6 * DEG * Math.sin(ct * 40) * k;
+    ctx.b.root.position.y += 0.05 * Math.abs(Math.sin(ct * 22)) * k * ctx.size;
+    if (b.head) b.head.rotation.x -= 0.4 * k;
+    if (ct > 0.2 && !ctx._quake) { ctx._quake = true; ctx.fx.puff(V3(0, 0.05, 0.4), 10, 1.2, 0.16, { color: PAL.dirt.light, up: 0.3, life: 0.7 }); }
+    if (ct < 0.1) ctx._quake = false;
+    return ct >= 1.15;
+  },
+});
+
+// ── 20. DUNE BUGGY — a beetle the size of a footstool with racing stripes it painted on itself ────────────────
+species('dune_buggy', {
+  name: 'Dune Buggy', family: 'bug', death: 'topple', color: MON.chitin,
+  face: {
+    wild: { lid: 0.4, tilt: 16, brow: [[-0.04, 20], [0.0, 16]], look: [0, 0.05], glance: 0.5, glancePeriod: 2.4, mouth: 'smirk' },
+    windup: { lid: 0.64, tilt: 24, brow: [[-0.18, 30], [-0.18, 30]], mouth: 'grimace' },
+    strike: { lid: 0.1, tilt: 16, mouth: 'shout', eyeScale: 1.1 },
+    recover: { lid: 0.38, tilt: 16, mouth: 'smirk' },
+    friend: { lid: 0.02, tilt: -4, brow: [[0.28, -10], [0.28, -10]], mouth: 'beam' },
+  },
+  build(B) {
+    const cy = 0.3, R = [0.37, 0.2, 0.46];
+    B.setBone('body', [0, cy, 0]);
+    const chit = C3(MON.chitin), lit = C3(MON.chitinLight);
+    const shade = (x, y, z, ny, tmp) => tmp.copy(chit).lerp(lit, smooth(-0.1, 0.9, ny) * 0.75);
+    // two elytra, hinged down the middle, that pop open when it burrows
+    for (const side of [-1, 1]) {
+      const S = side < 0 ? 'L' : 'R';
+      const el = B.bone('elytra' + S, 'body', [0, cy + 0.02, -0.05]);
+      const half = new THREE.SphereGeometry(1, 22, 14, side < 0 ? Math.PI : 0, Math.PI, 0, Math.PI * 0.62);
+      B.toon(half, { m: MT([0, cy, 0], [0, 0, 0], R), bone: el, color: MON.chitin, outline: 0.02, vcol: shade });
+      const strip = roundBox(0.075, 0.03, 0.52, 0.012);
+      B.toon(strip, { m: MT([side * 0.12, cy + 0.185, -0.02], [0.06, 0, side * 0.2], [1, 1, 1]), bone: el, color: MON.stripe, outline: 0.008 });
+    }
+    // the underside, so it reads when it topples onto its back
+    B.toon(new THREE.SphereGeometry(1, 20, 10, 0, TAU, Math.PI * 0.5, Math.PI * 0.5), { m: MT([0, cy, 0], [0, 0, 0], [R[0] * 0.95, R[1], R[2] * 0.95]), color: sc(MON.chitin, 0.8), outline: 0.014 });
+    // head, horns, headlamps
+    const hc = [0, cy - 0.01, 0.42], hr = 0.14;
+    const head = B.bone('head', 'body', hc);
+    B.toon(new THREE.SphereGeometry(hr, 22, 16), { m: MT(hc, [0, 0, 0], [1.05, 0.9, 0.95]), bone: head, color: sc(MON.chitin, 0.92), outline: 0.016, vcol: shade });
+    const hs = ellSurf(hr * 1.05, hr * 0.9, hr * 0.95, hc);
+    for (const side of [-1, 1]) {
+      const pts = [[side * 0.07, cy + 0.03, 0.5], [side * 0.1, cy + 0.1, 0.6], [side * 0.06, cy + 0.15, 0.7], [side * 0.02, cy + 0.16, 0.76]];
+      B.toon(taperTube(pts, taper([[0, 0.032], [0.6, 0.02], [1, 0.006]]), 8, 14), { bone: head, color: MON.stripe, outline: 0.01 });
+    }
+    B.skin = sc(MON.chitin, 0.92);
+    B.eyes({ surf: hs, y: cy + 0.03, gap: 0.14, r: 0.052, parent: head, forward: 0.004, browLift: 1.3, browColor: mx(MON.chitin, PAL.outline.char, 0.5) });
+    B.faceMouths({ surf: hs, y: cy - 0.07, w: 0.08, h: 0.03, parent: head, kinds: ['beam', 'smirk', 'grimace', 'shout', 'ow', 'dizzy', 'tongue', 'oh'] });
+    for (const side of [-1, 1]) B.unlit(new THREE.CircleGeometry(0.055, 16), { m: MT([side * 0.17, cy + 0.06, 0.33], [0, side * 0.5, 0]), color: mx(MON.lamp, 'char.white', 0.3) });
+    // six legs, three joints, in two alternating tripods
+    for (let i = 0; i < 6; i++) {
+      const side = i < 3 ? -1 : 1, j = i % 3, z = 0.2 - j * 0.22;
+      const hip = [side * 0.24, cy - 0.04, z], knee = [side * 0.42, cy + 0.02, z + 0.04], foot = [side * 0.46, 0.02, z + 0.08];
+      const leg = B.bone('leg' + i, 'root', hip);
+      B.toon(taperTube([hip, [side * 0.34, cy - 0.02, z + 0.02], knee, [side * 0.46, cy * 0.5, z + 0.07], foot], taper([[0, 0.03], [0.5, 0.024], [1, 0.014]]), 8, 16), { bone: leg, color: sc(MON.chitin, 0.82), outline: 0.009 });
+      B.toon(new THREE.SphereGeometry(0.024, 10, 8), { m: MT(foot), bone: leg, color: sc(MON.chitin, 0.82) });
+    }
+    B.gloss(ellSurf(R[0], R[1], R[2], [0, cy, 0]), cy + 0.13, -0.6, 0.1, 0.05, { rot: 1.1, dot: false });
+    return { height: cy + 0.24, radius: 0.5, shadow: 1.05 };
+  },
+  idle(ctx, t) {
+    const w = ctx.idleW, b = ctx.b, g = TAU * 0.9 * t;
+    // the legs cycle even standing still, and the shell lifts and settles
+    for (let i = 0; i < 6; i++) {
+      const L = b['leg' + i]; if (!L) continue;
+      const side = i < 3 ? -1 : 1, grp = ((i % 3) + (side > 0 ? 1 : 0)) % 2, sN = Math.sin(g + grp * Math.PI);
+      L.rotation.x -= Math.max(0, sN) * 0.35 * w;
+      L.rotation.y += side * 0.1 * Math.cos(g + grp * Math.PI) * w;
+      if (Math.max(0, sN) > 0.95 && ctx.rand() < 0.02 && w > 0.5) ctx.fx.puff(V3(side * 0.46, 0.03, 0.2 - (i % 3) * 0.22), 2, 0.1, 0.03, { color: PAL.sand.mid, up: 0.1, life: 0.3 });
+    }
+    b.body.position.y += 0.02 * (0.5 + 0.5 * Math.sin(g)) * w;
+    b.body.rotation.z += 0.03 * Math.sin(g * 0.5) * w;
+    if (b.head) b.head.rotation.y += 0.12 * Math.sin(TAU * t / 3.7) * w;
+  },
+  attackPose(ctx, ct) {
+    // Barge: head down, shell flat, and shove
+    const b = ctx.b, k = hump(ct, 0.0, 0.3);
+    if (b.head) b.head.rotation.x += 0.3 * k;
+    b.body.rotation.x += 0.12 * k;
+  },
+  castPose(ctx, ct) {
+    // Sandspray: the elytra pop open 30° and a sheet of sand goes up
+    const b = ctx.b, k = hump(ct, 0.1, 0.8);
+    if (b.elytraL) b.elytraL.rotation.z += 0.52 * k;
+    if (b.elytraR) b.elytraR.rotation.z -= 0.52 * k;
+    if (ct > 0.3 && !ctx._spray) { ctx._spray = true; for (let i = 0; i < 10; i++) ctx.fx.spawn('blob', { pos: V3((ctx.rand() - 0.5) * 0.5, 0.35, 0.3), vel: V3((ctx.rand() - 0.5) * 1.2, 1.4 + ctx.rand(), 1.6 + ctx.rand()), grav: 6, life: 0.7, s0: 0.035, s1: 0.02, color: PAL.sand.mid, floor: 0.01 }); }
+    if (ct < 0.2) ctx._spray = false;
+  },
+  taunt(ctx, ct) {
+    // Burrow: it digs in, vanishes to the eyebrows, and pops back out
+    const k = hump(ct, 0.1, 0.95), b = ctx.b;
+    ctx.b.root.position.y -= 0.3 * k;
+    if (b.elytraL) b.elytraL.rotation.z += 0.4 * k;
+    if (b.elytraR) b.elytraR.rotation.z -= 0.4 * k;
+    ctx.shadowK = 1 - 0.5 * k;
+    if (ct > 0.15 && !ctx._dig) { ctx._dig = true; ctx.fx.puff(V3(0, 0.05, 0.1), 9, 0.7, 0.1, { color: PAL.sand.mid, up: 0.5, life: 0.6 }); }
+    if (ct < 0.1) ctx._dig = false;
+    return ct >= 1.1;
+  },
+});
+
+// ── 22. BARROWMOLE — a blind miner with a barrow, cross about the interruption, glad of the company ──────────
+species('barrowmole', {
+  name: 'Barrowmole', family: 'mole', death: 'pop', color: MON.mole, coins: true,
+  face: {
+    // it never opens its eyes… until the moment it decides to come with you
+    wild: { lid: 1, tilt: -6, brow: [[0.06, 14], [0.02, 10]], look: [0, 0], glance: 0, mouth: 'line' },
+    windup: { lid: 1, tilt: 16, brow: [[-0.16, 26], [-0.16, 26]], mouth: 'grimace' },
+    strike: { lid: 1, tilt: 14, brow: [[-0.1, 22], [-0.1, 22]], mouth: 'shout' },
+    recover: { lid: 1, tilt: -4, brow: [[0.04, 12], [0.02, 10]], mouth: 'line' },
+    hurt: { eyes: 'shut', brow: [[0.16, -24], [0.16, -24]], mouth: 'ow' },
+    stunned: { lid: 0.85, brow: [[0.24, -18], [0.24, -18]], mouth: 'oh' },
+    taunt: { lid: 1, tilt: -8, brow: [[0.2, -14], [0.2, -14]], mouth: 'worry' },
+    dizzy: { eyes: 'dizzy', brow: [[0.2, -16], [0.08, -8]], mouth: 'dizzy' },
+    friend: { lid: 0.12, tilt: -8, brow: [[0.3, -16], [0.3, -16]], look: [0, 0.1], mouth: 'beam', eyeScale: 1.05 },
+  },
+  build(B) {
+    const cy = 0.26, hy = 0.56;
+    B.setBone('body', [0, 0.2, 0]);
+    const mole = C3(MON.mole), moleL = C3(mx(MON.mole, 'plaster.light', 0.22));
+    const fur = (x, y, z, ny, tmp) => tmp.copy(mole).lerp(moleL, smooth(cy - 0.24, hy + 0.1, y) * 0.8);
+    B.toon(new THREE.CapsuleGeometry(0.19, 0.16, 8, 22), { m: MT([0, cy, -0.02], [0.08, 0, 0], [1, 1, 0.92]), color: MON.mole, outline: 0.016, vcol: fur });
+    B.toon(new THREE.SphereGeometry(0.14, 18, 12), { m: MT([0, cy - 0.02, 0.13], [0, 0, 0], [1, 1.1, 0.45]), color: MON.moleBelly, outline: 0.01 });
+    // the head: no neck, a big soft muzzle, and the eyes it never opens
+    const head = B.bone('head', 'body', [0, hy - 0.07, 0]);
+    const HR = 0.165;
+    B.toon(new THREE.SphereGeometry(HR, 24, 18), { m: MT([0, hy, 0.01], [0, 0, 0], [1, 0.95, 1]), bone: head, color: MON.mole, outline: 0.016, vcol: fur });
+    const surf = ellSurf(HR, HR * 0.95, HR, [0, hy, 0.01]);
+    // the snout: it twitches at 3 Hz, because it is smelling you
+    const snout = B.bone('snout', head, [0, hy - 0.02, 0.15]);
+    const sn = new THREE.ConeGeometry(0.072, 0.13, 14); sn.rotateX(Math.PI / 2); sn.translate(0, 0, 0.065);
+    B.toon(sn, { m: MT([0, hy - 0.025, 0.13]), bone: snout, color: mx(MON.moleBelly, 'flower.pink', 0.5), outline: 0.01 });
+    B.toon(new THREE.SphereGeometry(0.028, 12, 10), { m: MT([0, hy - 0.025, 0.195], [0, 0, 0], [1.2, 0.8, 1]), bone: snout, color: mx('flower.pink', 'char.hair', 0.25), outline: 0.008 });
+    B.skin = MON.mole;
+    B.eyes({ surf, y: hy + 0.05, gap: 0.135, r: 0.048, parent: head, forward: 0.004, browLift: 1.3, browColor: mx(sc(MON.mole, 0.5), PAL.outline.char, 0.4) });
+    B.faceMouths({ surf, y: hy - 0.095, w: 0.08, h: 0.028, parent: head, beam: 'line', kinds: ['line', 'beam', 'grimace', 'shout', 'ow', 'dizzy', 'worry', 'oh'], sizes: { line: [0.9, 0.5] } });
+    // the miner's helmet, with a lamp — the only monster carrying a light
+    const helm = new THREE.SphereGeometry(0.175, 20, 10, 0, TAU, 0, Math.PI * 0.52);
+    B.toon(helm, { m: MT([0, hy + 0.075, -0.02], [-0.12, 0, 0], [1.08, 0.8, 1.08]), bone: head, color: MON.iron, outline: 0.014 });
+    B.toon(new THREE.TorusGeometry(0.185, 0.016, 6, 24), { m: MT([0, hy + 0.072, -0.02], [Math.PI / 2 - 0.12, 0, 0], [1.02, 1.02, 1]), bone: head, color: sc(MON.iron, 0.85) });
+    B.toon(new THREE.CylinderGeometry(0.03, 0.036, 0.05, 14), { m: MT([0, hy + 0.13, 0.1], [1.3, 0, 0]), bone: head, color: MON.brass, outline: 0.008 });
+    B.unlit(new THREE.CircleGeometry(0.028, 16), { m: MT([0, hy + 0.14, 0.126], [-0.3, 0, 0]), bone: head, color: mx(MON.lamp, 'char.white', 0.4) });
+    B.trans(new THREE.ConeGeometry(0.15, 0.46, 14, 1, true), { m: MT([0, hy + 0.22, 0.38], [1.35, 0, 0]), bone: head, color: MON.lamp, alpha: 0.16 });
+    // claws
+    for (const side of [-1, 1]) {
+      const arm = B.bone(side < 0 ? 'armL' : 'armR', 'body', [side * 0.16, cy + 0.02, 0.06]);
+      B.toon(new THREE.SphereGeometry(0.072, 14, 10), { m: MT([side * 0.19, cy, 0.1], [0, 0, side * 0.3], [1, 0.9, 1]), bone: arm, color: MON.mole, outline: 0.012 });
+      for (const a of [-0.4, 0, 0.4]) { const c = new THREE.ConeGeometry(0.017, 0.07, 8); c.rotateX(Math.PI / 2); c.translate(0, 0, 0.037); B.toon(c, { m: MT([side * 0.19 + Math.sin(a) * 0.05, cy - 0.012, 0.145], [0.25, a, 0]), bone: arm, color: MON.cream, outline: 0.006 }); }
+    }
+    // the barrow: a tray, a wheel, two handles — and it squeaks
+    const barrow = B.bone('barrow', 'root', [0, 0.16, -0.3]);
+    B.toon(roundBox(0.34, 0.16, 0.28, 0.035), { m: MT([0, 0.24, -0.38], [0.18, 0, 0]), bone: barrow, color: MON.wood, outline: 0.014 });
+    B.toon(roundBox(0.3, 0.02, 0.24, 0.01), { m: MT([0, 0.3, -0.36], [0.18, 0, 0]), bone: barrow, color: MON.woodDark });
+    for (const c of [[-0.06, 0.32, -0.34], [0.05, 0.33, -0.39], [0.0, 0.335, -0.3]]) B.toon(new THREE.SphereGeometry(0.036, 12, 10), { m: MT(c, [0, 0, 0], [1, 0.7, 1]), bone: barrow, color: MON.stone, outline: 0.008 });
+    B.toon(new THREE.TorusGeometry(0.1, 0.022, 8, 22), { m: MT([0, 0.1, -0.24], [0, Math.PI / 2, 0]), bone: barrow, color: MON.iron, outline: 0.01 });
+    for (const side of [-1, 1]) B.toon(new THREE.CylinderGeometry(0.016, 0.016, 0.3, 8), { m: MT([side * 0.13, 0.22, -0.46], [1.35, 0, 0]), bone: barrow, color: MON.wood, outline: 0.008 });
+    return { height: hy + 0.24, radius: 0.34, shadow: 0.82 };
+  },
+  idle(ctx, t) {
+    const w = ctx.idleW, b = ctx.b;
+    // it pushes the barrow forward 0.1 and back, snuffling, the wheel squeaking
+    const P = 2.6, k = Math.sin(TAU * t / P);
+    ctx.b.root.position.z += 0.05 * k * w;
+    b.body.rotation.x += 0.05 * (0.5 + 0.5 * k) * w;
+    if (b.barrow) { b.barrow.position.z += 0.05 * k * w; b.barrow.rotation.z += 0.03 * Math.sin(TAU * t / P * 2) * w; }
+    if (b.snout) { b.snout.rotation.x += 0.09 * Math.sin(TAU * 3 * t) * w; b.snout.position.z += 0.004 * Math.sin(TAU * 3 * t) * w; }
+    if (b.armL) b.armL.rotation.x -= (0.15 + 0.1 * k) * w;
+    if (b.armR) b.armR.rotation.x -= (0.15 + 0.1 * k) * w;
+    hop(ctx, t, { period: P / 2, amp: 0.02, squash: 0.5 });
+  },
+  attackPose(ctx, ct) {
+    // Shovel Swing: both claws up and over
+    const b = ctx.b, up = ct < 0.2 ? easeOutCubic(ct / 0.2) : ct < 0.3 ? 1 - 1.6 * easeInQuad(seg(ct, 0.2, 0.3)) : -0.6 * (1 - seg(ct, 0.5, 0.75));
+    for (const n of ['armL', 'armR']) if (b[n]) b[n].rotation.x -= 1.8 * up;
+    if (b.snout) b.snout.rotation.x -= 0.2 * hump(ct, 0.2, 0.5);
+  },
+  castPose(ctx, ct) { const k = hump(ct, 0.1, 0.85); if (ctx.b.barrow) { ctx.b.barrow.rotation.x -= 0.5 * k; ctx.b.barrow.position.y += 0.06 * k; } },
+});
+
+// ── 23. CANDELABRACADABRA — learned magic by listening at the door, now dangerously overqualified ────────────
+species('candelabracadabra', {
+  name: 'Candelabracadabra', family: 'object', death: 'wisp', hover: 0.4, color: MON.brass,
+  face: {
+    wild: { lid: 0.42, tilt: 14, brow: [[0.0, 18], [0.22, -6]], look: [0.2, -0.15], glance: 0.35, glancePeriod: 4, mouth: 'smirk' },
+    windup: { lid: 0.62, tilt: 24, brow: [[-0.16, 28], [-0.16, 28]], mouth: 'grimace' },
+    strike: { lid: 0.08, tilt: 14, brow: [[0.1, 16], [0.1, 16]], mouth: 'shout', eyeScale: 1.12 },
+    recover: { lid: 0.4, tilt: 14, mouth: 'smirk' },
+    castIn: { lid: 1, tilt: 6, brow: [[-0.1, 16], [-0.1, 16]], mouth: 'oh' },
+    castOut: { lid: 0, tilt: 12, brow: [[0.26, 10], [0.26, 10]], mouth: 'shout', eyeScale: 1.15 },
+    friend: { lid: 0.04, tilt: -6, brow: [[0.3, -10], [0.3, -10]], mouth: 'beam' },
+  },
+  build(B) {
+    const prof = smoothProfile([[0, 0], [0.14, 0.015], [0.09, 0.06], [0.062, 0.1], [0.08, 0.18], [0.05, 0.3], [0.105, 0.44], [0.1, 0.5], [0.045, 0.56], [0.055, 0.62], [0, 0.63]], 32);
+    B.toon(lathe(prof, 26), { color: MON.brass, outline: 0.014,
+      vcol: (x, y, z, ny, tmp) => tmp.copy(C3(sc(MON.brass, 0.85))).lerp(C3(mx(MON.brass, 'char.white', 0.25)), smooth(0.05, 0.55, y)) });
+    const surf = latheSurf(prof);
+    B.skin = MON.brass;
+    B.eyes({ surf, y: 0.475, gap: 0.1, r: 0.043, forward: 0.006, browLift: 1.4, browLen: 1.4, browColor: mx(MON.darkGold, PAL.outline.char, 0.35) });
+    B.faceMouths({ surf, y: 0.395, w: 0.08, h: 0.026, lift: 0.006, kinds: ['beam', 'smirk', 'grimace', 'shout', 'ow', 'dizzy', 'tongue', 'oh'] });
+    // three arms, three candles, three flames — and never the same height
+    const H = [0.24, 0.3, 0.2];
+    for (let i = 0; i < 3; i++) {
+      const a = i / 3 * TAU + 0.5, arm = B.bone('arm' + i, 'body', [Math.sin(a) * 0.18, 0.4, Math.cos(a) * 0.18]);
+      B.toon(new THREE.TorusGeometry(0.15, 0.019, 8, 18, Math.PI * 0.8), { m: MT([Math.sin(a) * 0.02, 0.34, Math.cos(a) * 0.02], [0, a, -1.3]), bone: arm, color: MON.brass, outline: 0.009 });
+      const cx = Math.sin(a) * 0.19, cz = Math.cos(a) * 0.19;
+      B.toon(lathe(smoothProfile([[0, 0], [0.05, 0.0], [0.055, 0.025], [0.035, 0.03], [0.032, 0.05], [0, 0.05]], 10), 14), { m: MT([cx, 0.39, cz]), bone: arm, color: MON.brass, outline: 0.008 });
+      B.toon(new THREE.CylinderGeometry(0.028, 0.03, H[i], 12), { m: MT([cx, 0.42 + H[i] / 2, cz]), bone: arm, color: MON.wax, outline: 0.008 });
+      const fl = B.bone('flame' + i, arm, [cx, 0.44 + H[i], cz]);
+      const cone = new THREE.ConeGeometry(0.035, 0.11, 10); cone.translate(0, 0.055, 0);
+      B.unlit(cone, { m: MT([cx, 0.43 + H[i], cz]), bone: fl, color: MON.flame });
+      const inner = new THREE.ConeGeometry(0.018, 0.06, 8); inner.translate(0, 0.03, 0);
+      B.unlit(inner, { m: MT([cx, 0.44 + H[i], cz]), bone: fl, color: MON.flameCore });
+      B.trans(new THREE.SphereGeometry(0.07, 12, 10), { m: MT([cx, 0.47 + H[i], cz]), bone: fl, color: MON.flame, alpha: 0.18 });
+    }
+    return { height: 0.78, radius: 0.24, shadow: 0.5 };
+  },
+  idle(ctx, t) {
+    const w = ctx.idleW;
+    const y = 0.4 + 0.03 * Math.sin(TAU * t / 2.6);
+    ctx.b.root.position.y += y; ctx.hopY = y; ctx.hopMax = 0.43; ctx.flying = true;
+    ctx.b.body.rotation.y += t * 0.21 * w;
+    for (let i = 0; i < 3; i++) { const f = ctx.b['flame' + i]; if (!f) continue; const hz = [7.3, 8.1, 6.7][i]; f.scale.set(1 + 0.12 * Math.sin(hz * t), 1 + 0.22 * Math.sin(hz * t + 1), 1 + 0.12 * Math.sin(hz * t + 2)); f.rotation.z += 0.08 * Math.sin(hz * 0.4 * t); }
+    // wax drips
+    ctx._wax = (ctx._wax || 0) + (ctx.dt || 0);
+    if (ctx._wax > 3 && w > 0.5) { ctx._wax = 0; const a = ctx.rand() * TAU; ctx.fx.spawn('blob', { pos: V3(Math.sin(a) * 0.19, 0.5 + ctx.b.root.position.y, Math.cos(a) * 0.19), vel: V3(0, -0.15, 0), grav: 2.4, life: 0.9, s0: 0.016, s1: 0.013, color: MON.wax, flat: 1.5, floor: 0.01 }); }
+  },
+  attackPose(ctx, ct) { for (let i = 0; i < 3; i++) { const f = ctx.b['flame' + i]; if (f) f.scale.multiplyScalar(1 + 1.1 * hump(ct, 0.1, 0.45)); } if (ct > 0.2 && ct < 0.4) ctx.glow = 0.5; },
+  castPose(ctx, ct) {
+    for (let i = 0; i < 3; i++) { const f = ctx.b['flame' + i]; if (f) f.scale.multiplyScalar(1 + 1.6 * hump(ct, 0.15, 0.85)); }
+    if (ct > 0.55) ctx.glow = Math.max(ctx.glow, 0.6 * hump(ct, 0.55, 0.9));
+    if (ct > 0.6 && !ctx._fire) { ctx._fire = true; for (let i = 0; i < 9; i++) { const a = ctx.rand() * TAU; ctx.fx.spawn('blob', { pos: V3(Math.sin(a) * 0.2, 0.62, Math.cos(a) * 0.2), vel: V3(Math.sin(a) * 0.5, 0.9 + ctx.rand() * 0.6, Math.cos(a) * 0.5 + 0.4), drag: 1.4, life: 0.6, s0: 0.05, s1: 0.02, color: i % 2 ? MON.flame : MON.flameCore }); } }
+    if (ct < 0.3) ctx._fire = false;
+  },
+  post(ctx, t, dt, clip) {
+    // WISP: the three flames blow out one by one, left, right, centre, and then the brass falls
+    if (clip === 'defeat' || clip === 'dead') {
+      const ct = ctx.spec._t || 0; void ct;
+      for (let i = 0; i < 3; i++) { const f = ctx.b['flame' + i]; if (f) f.scale.multiplyScalar(Math.max(0.0001, 1 - clamp01((ctx.clipT || 0) * 3 - i * 0.6))); }
+    }
+  },
+});
+
+// ── 32. HEXCALIBUR — a sword that got tired of being held ─────────────────────────────────────────────────────
+species('hexcalibur', {
+  name: 'Hexcalibur', family: 'blade', death: 'unwind', hover: 0.75, color: MON.blade, noBlink: false,
+  face: {
+    // the face is in the guard: two ruby eyes and no mouth at all — its words simply appear
+    wild: { lid: 0.44, tilt: 20, brow: [[-0.1, 26], [-0.06, 22]], look: [0.1, 0], glance: 0.3, glancePeriod: 3.4 },
+    windup: { lid: 0.68, tilt: 28, brow: [[-0.22, 34], [-0.22, 34]] },
+    strike: { lid: 0.0, tilt: 18, brow: [[-0.08, 24], [-0.08, 24]], eyeScale: 1.2 },
+    recover: { lid: 0.42, tilt: 20 },
+    friend: { lid: 0.06, tilt: -4, brow: [[0.26, -10], [0.26, -10]], eyeScale: 1.1 },
+  },
+  build(B) {
+    // authored POINT-DOWN: the tip is at the bottom, the guard is the face, the grip and pommel are above it
+    const GY = 0.86;
+    B.setBone('body', [0, GY, 0]);
+    const blade = new THREE.Shape();
+    blade.moveTo(-0.07, 0); blade.lineTo(0.07, 0); blade.lineTo(0.062, -0.72); blade.quadraticCurveTo(0, -0.96, -0.062, -0.72); blade.lineTo(-0.07, 0);
+    B.toon(extrude(blade, 0.042, 0.012), { m: MT([0, GY - 0.02, 0]), color: MON.blade, outline: 0.012,
+      vcol: (x, y, z, ny, tmp) => tmp.copy(C3(MON.bladeDark)).lerp(C3(MON.blade), smooth(-0.4, 0.5, ny)).lerp(C3(MON.white), smooth(0.75, 1, ny) * 0.5) });
+    const fuller = new THREE.Shape(); fuller.moveTo(-0.018, -0.06); fuller.lineTo(0.018, -0.06); fuller.lineTo(0.014, -0.68); fuller.lineTo(-0.014, -0.68); fuller.lineTo(-0.018, -0.06);
+    B.toon(extrude(fuller, 0.05, 0.004), { m: MT([0, GY - 0.02, 0]), color: MON.bladeDark });
+    // the guard: a crescent, and the eyes set into it
+    const cres = new THREE.Shape();
+    cres.moveTo(-0.3, -0.02); cres.quadraticCurveTo(0, -0.17, 0.3, -0.02); cres.quadraticCurveTo(0.34, 0.14, 0.24, 0.15); cres.quadraticCurveTo(0, 0.02, -0.24, 0.15); cres.quadraticCurveTo(-0.34, 0.14, -0.3, -0.02);
+    B.toon(extrude(cres, 0.07, 0.014), { m: MT([0, GY, 0]), color: MON.darkGold, outline: 0.014 });
+    // the face is painted on the flat front of the guard
+    const gs = flatSurf(0.036, GY + 0.01);
+    B.skin = MON.darkGold;
+    B.eyes({ surf: gs, y: GY + 0.025, gap: 0.21, r: 0.058, forward: 0.004, pupil: 0.5, scleraColor: mx(MON.ruby, 'char.white', 0.42), pupilColor: sc(MON.ruby, 0.4),
+      browLift: 1.15, browLen: 1.3, browColor: mx(MON.darkGold, PAL.outline.char, 0.5), rim: 0.13, lid: MON.darkGold });
+    // grip + pommel, above the guard
+    B.toon(new THREE.CylinderGeometry(0.035, 0.03, 0.2, 12), { m: MT([0, GY + 0.13, 0]), color: MON.wood, outline: 0.008 });
+    for (let i = 0; i < 7; i++) B.toon(new THREE.TorusGeometry(0.037, 0.008, 6, 14), { m: MT([0, GY + 0.05 + i * 0.026, 0], [Math.PI / 2, 0, 0]), color: MON.darkGold });
+    const pom = B.bone('pommel', 'body', [0, GY + 0.26, 0]);
+    B.unlit(new THREE.OctahedronGeometry(0.055, 0), { m: MT([0, GY + 0.26, 0]), bone: pom, color: MON.ruby });
+    B.trans(new THREE.SphereGeometry(0.1, 12, 10), { m: MT([0, GY + 0.26, 0]), bone: pom, color: MON.ruby, alpha: 0.2 });
+    return { height: GY + 0.34, radius: 0.22, shadow: 0.42 };
+  },
+  idle(ctx, t) {
+    // hangs point-down in the air, turning slowly on its own axis, bobbing; the pommel gem pulses
+    const w = ctx.idleW;
+    const y = 0.12 + 0.05 * Math.sin(TAU * t / 2.4);
+    ctx.b.root.position.y += y; ctx.hopY = y; ctx.hopMax = 0.17; ctx.flying = true;
+    ctx.b.body.rotation.y += t * 0.35 * w;
+    ctx.b.body.rotation.z += 0.05 * Math.sin(TAU * t / 3.1) * w;
+    const p = ctx.b.pommel;
+    if (p) p.scale.multiplyScalar(1 + 0.12 * Math.sin(TAU * 0.5 * t));
+    ctx.glow = 0.08 + 0.06 * Math.sin(TAU * 0.5 * t);
+  },
+  attackPose(ctx, ct) {
+    // Rebuke: it turns point-first and stabs
+    ctx.b.body.rotation.x -= 0.9 * hump(ct, 0.05, 0.5);
+    ctx.b.body.rotation.y += 12 * ct * hump(ct, 0.1, 0.6);
+    if (ct > 0.24 && ct < 0.34) ctx.glow = 0.6;
+  },
+  castPose(ctx, ct) { ctx.b.body.rotation.y += 10 * hump(ct, 0.1, 0.9); ctx.glow = Math.max(ctx.glow, 0.5 * hump(ct, 0.4, 0.9)); },
+});
+
+// ── 25. SIR CUMFERENCE — the roundest knight in the world, unfailingly courteous ──────────────────────────────
+species('sir_cumference', {
+  name: 'Sir Cumference', family: 'knight', death: 'topple', color: MON.steel, noBlink: true,
+  face: {
+    // two warm embers behind a visor that pings open a crack, because a knight does not stare
+    wild: { lid: 0.4, tilt: 0, look: [0, 0], glance: 0.25, glancePeriod: 6 },
+    windup: { lid: 0.66 }, strike: { lid: 0, eyeScale: 1.3 }, recover: { lid: 0.38 },
+    hurt: { lid: 0.88, eyes: 'open', eyeScale: 0.85 }, stunned: { lid: 0.15, eyeScale: 1.1 },
+    taunt: { lid: 0.3 }, castIn: { lid: 0.8 }, castOut: { lid: 0, eyeScale: 1.3 },
+    dizzy: { lid: 0.7, eyes: 'open', eyeScale: 0.9 }, surprise: { lid: 0, eyeScale: 1.25 },
+    happy: { lid: 0.3, eyeScale: 1.2 }, friend: { lid: 0.15, eyeScale: 1.15 },
+  },
+  build(B) {
+    const steel = MON.steel, dark = MON.steelDark, lightS = MON.steelLight, cy = 0.66, R = 0.62;
+    B.setBone('body', [0, cy, 0]);
+    const shade = (x, y, z, ny, tmp) => tmp.copy(C3(dark)).lerp(C3(lightS), smooth(-0.5, 0.8, ny) * 0.85);
+    B.toon(new THREE.SphereGeometry(R, 30, 22), { m: MT([0, cy, 0], [0, 0, 0], [1, 0.92, 1]), color: steel, outline: 0.03, vcol: shade });
+    for (const [y, r] of [[cy + 0.26, 0.57], [cy - 0.02, 0.62], [cy - 0.3, 0.52]]) B.toon(new THREE.TorusGeometry(r, 0.018, 8, 34), { m: MT([0, y, 0], [Math.PI / 2, 0, 0], [1, 1, 1]), color: dark });
+    // the helm: sunk into the body. No neck, ever.
+    const helm = B.bone('helm', 'body', [0, cy + 0.5, 0]);
+    const hp = smoothProfile([[0, 0], [0.2, 0.01], [0.225, 0.13], [0.21, 0.24], [0.15, 0.32], [0, 0.34]], 22);
+    const hy = cy + 0.44;
+    B.toon(lathe(hp, 26), { m: MT([0, hy, 0]), bone: helm, color: steel, outline: 0.024, vcol: shade });
+    const hs = latheSurf(hp, { y: hy });
+    // the visor: a slot on its own bone, so it can ping open a crack
+    const visor = B.bone('visor', helm, [0, hy + 0.17, 0]);
+    B.unlit(wrapOn(extrude(ovalShape(0.125, 0.026), 0.012, 0.004), hs, hy + 0.17, 0, 0.002), { bone: visor, color: MON.visor });
+    B.skin = steel;
+    const dots = [];
+    for (const side of [-1, 1]) {
+      const p = surfPoint(hs, hy + 0.17, side * 0.28, 0.006);
+      const dot = B.bone(side < 0 ? 'eyeL' : 'eyeR', helm, [p.x, p.y, p.z]);
+      B.meta.eyes.push(dot); dots.push(dot);
+      B.unlit(new THREE.SphereGeometry(0.03, 10, 8), { m: MT([p.x, p.y, p.z], [0, side * 0.28, 0], [1, 1, 0.7]), bone: dot, color: MON.glowDot });
+      B.trans(new THREE.CircleGeometry(0.07, 16), { m: MT([p.x, p.y, p.z + 0.006], [0, side * 0.28, 0]), bone: dot, color: MON.ember, alpha: 0.32 });
+      B._eyeExtras(dot, { pos: [p.x, p.y, p.z], side, parent: helm, r: 0.032, q: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, side * 0.28, 0)) }, { brows: false, decals: false, kind: 'glow' });
+    }
+    // the plume: five bent cones that trail
+    const plume = B.bone('plume', helm, [0, hy + 0.36, -0.06]);
+    for (let i = 0; i < 5; i++) {
+      const a = (i - 2) * 0.22, c = new THREE.ConeGeometry(0.045, 0.3 + (i % 2) * 0.08, 10); c.translate(0, 0.16, 0);
+      B.toon(c, { m: MT([Math.sin(a) * 0.1, hy + 0.3, -0.05 + Math.cos(a) * 0.02], [-0.55 - Math.abs(a) * 0.3, 0, -a * 1.1], [1, 1, 0.5]), bone: plume, color: MON.cap, outline: 0.014 });
+    }
+    // arms that barely reach past the belly, and legs that are frankly a joke
+    for (const side of [-1, 1]) {
+      const arm = B.bone(side < 0 ? 'armR' : 'armL', 'body', [side * 0.6, cy + 0.12, 0.05]);
+      B.toon(new THREE.CapsuleGeometry(0.1, 0.17, 6, 14), { m: MT([side * 0.63, cy + 0.02, 0.1], [0.3, 0, side * 0.5]), bone: arm, color: steel, outline: 0.02, vcol: shade });
+      B.toon(new THREE.SphereGeometry(0.115, 16, 12), { m: MT([side * 0.7, cy - 0.14, 0.18]), bone: arm, color: dark, outline: 0.018 });
+      const leg = B.bone(side < 0 ? 'legL' : 'legR', 'root', [side * 0.19, 0.16, 0]);
+      B.toon(new THREE.CapsuleGeometry(0.085, 0.1, 5, 12), { m: MT([side * 0.19, 0.11, 0.02]), bone: leg, color: dark, outline: 0.016 });
+      B.toon(roundBox(0.19, 0.08, 0.26, 0.035), { m: MT([side * 0.19, 0.045, 0.08]), bone: leg, color: steel, outline: 0.016, vcol: shade });
+    }
+    // the lance: comically longer than he is, with a spiral groove
+    const lance = B.bone('lance', 'armR', [-0.7, cy - 0.14, 0.18]);
+    const lm = MT([-0.72, cy - 0.12, 0.2], [1.25, -0.1, 0]);
+    const shaft = new THREE.CylinderGeometry(0.03, 0.055, 1.7, 12); shaft.translate(0, 0.62, 0);
+    B.toon(shaft, { m: lm, bone: lance, color: MON.cream, outline: 0.014 });
+    for (let i = 0; i < 12; i++) B.toon(new THREE.TorusGeometry(0.046 - i * 0.0015, 0.008, 5, 12), { m: lm.clone().multiply(MT([0, 0.1 + i * 0.07, 0], [Math.PI / 2 + i * 0.1, 0, 0])), bone: lance, color: MON.cap });
+    const tip = new THREE.ConeGeometry(0.065, 0.2, 12); tip.translate(0, 1.52, 0);
+    B.toon(tip, { m: lm, bone: lance, color: MON.steelLight, outline: 0.012 });
+    // the shield, with an engraved family crest of three circles
+    const shield = B.bone('shield', 'armL', [0.7, cy - 0.14, 0.18]);
+    const sh = new THREE.Shape(); sh.moveTo(-0.16, 0.17); sh.lineTo(0.16, 0.17); sh.quadraticCurveTo(0.175, -0.06, 0, -0.2); sh.quadraticCurveTo(-0.175, -0.06, -0.16, 0.17);
+    B.toon(extrude(sh, 0.05, 0.014), { m: MT([0.72, cy - 0.06, 0.24], [0, 0.4, 0]), bone: shield, color: MON.cap, outline: 0.018 });
+    for (const [dx, dy] of [[0, 0.06], [-0.06, -0.04], [0.06, -0.04]]) B.toon(new THREE.CylinderGeometry(0.035, 0.035, 0.012, 14), { m: MT([0.72 + dx, cy - 0.06 + dy, 0.27], [Math.PI / 2, 0.4, 0]), bone: shield, color: MON.gold, outline: 0.006 });
+    return { height: cy + 0.8, radius: 0.8, shadow: 1.5 };
+  },
+  idle(ctx, t) {
+    // rocks fore and aft like a weeble; the plume sways; every 6 s the visor pings open a crack and shuts
+    const w = ctx.idleW, b = ctx.b;
+    ctx.mover.rotation.x += 5 * DEG * Math.sin(TAU * t / 2.8) * w;
+    ctx.b.body.scale.multiply(V3(1 + 0.008 * Math.sin(TAU * t / 2.8), 1 - 0.008 * Math.sin(TAU * t / 2.8), 1));
+    if (b.plume) { b.plume.rotation.x += (0.08 + 0.1 * Math.sin(TAU * t / 2.4)) * w; b.plume.rotation.z += 0.05 * Math.sin(TAU * t / 3.1) * w; }
+    if (b.lance) b.lance.rotation.x += 0.03 * Math.sin(TAU * t / 2.8 + 0.6) * w;
+    const k = t % 6;
+    if (b.visor && k < 0.4) { b.visor.position.y += 0.03 * hump(k, 0, 0.4) * w; b.visor.rotation.x -= 0.25 * hump(k, 0, 0.4) * w; }
+  },
+  attackPose(ctx, ct) {
+    // Grand Charge: he leans the whole lance in — and then needs a moment to turn round again
+    const b = ctx.b;
+    const k = ct < 0.3 ? easeOutCubic(ct / 0.3) : 1 - seg(ct, 0.45, 0.75);
+    if (b.lance) b.lance.rotation.x -= 0.9 * k;
+    ctx.mover.rotation.x -= 0.12 * k;
+    if (b.plume) b.plume.rotation.x -= 0.5 * k;
+  },
+  taunt(ctx, ct) {
+    // Bow Politely. It raises nothing at all. It is very charming.
+    const k = ct < 0.35 ? easeOutCubic(ct / 0.35) : 1 - easeInOutQuad(seg(ct, 0.6, 1.0));
+    ctx.mover.rotation.x -= 0.4 * k;
+    ctx.b.root.position.y -= 0.06 * k;
+    if (ctx.b.plume) ctx.b.plume.rotation.x -= 0.9 * k;
+    if (ctx.b.armL) ctx.b.armL.rotation.x -= 0.5 * k;
+    return ct >= 1.15;
+  },
+});
+
+// ── 27. LADY MOTHBONNET — still waiting for a partner. Will absolutely settle for you ────────────────────────
+species('lady_mothbonnet', {
+  name: 'Lady Mothbonnet', family: 'ghost', death: 'wisp', hover: 0.1, color: MON.ghostLit, ghost: true, transShadow: false,
+  ghostOpacity: (t) => 0.84 + 0.08 * (0.5 + 0.5 * Math.sin(TAU * t / 3.4)),
+  face: {
+    wild: { lid: 0.38, tilt: -6, brow: [[0.22, -14], [0.18, -12]], look: [0.25, -0.1], glance: 0.3, glancePeriod: 4.6, mouth: 'worry' },
+    windup: { lid: 0.62, tilt: 12, brow: [[-0.06, 18], [-0.06, 18]], mouth: 'grimace' },
+    strike: { lid: 0.1, tilt: 8, brow: [[0.1, 12], [0.1, 12]], mouth: 'shout', eyeScale: 1.1 },
+    recover: { lid: 0.36, tilt: -6, mouth: 'worry' },
+    taunt: { lid: 0.5, tilt: -10, brow: [[0.26, -16], [0.26, -16]], look: [0.4, -0.2], mouth: 'smirk' },
+    defeat: { eyes: 'happy', brow: [[0.24, -14], [0.24, -14]], mouth: 'worry' },
+    dizzy: { eyes: 'happy', brow: [[0.24, -14], [0.24, -14]], mouth: 'worry' },
+    friend: { lid: 0.05, tilt: -8, brow: [[0.26, -12], [0.26, -12]], mouth: 'beam' },
+  },
+  build(B) {
+    // the gown: a tall bell with a scalloped hem
+    const prof = smoothProfile([[0, 0], [0.34, 0.02], [0.4, 0.06], [0.33, 0.28], [0.24, 0.5], [0.185, 0.68], [0.16, 0.82], [0.13, 0.9]], 32);
+    const g = lathe(prof, 40);
+    { const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), th = Math.atan2(x, z), k = 1 - smooth(0.0, 0.2, y); const f = 1 + 0.1 * k * Math.sin(6 * th); p.setXYZ(i, x * f, y + k * 0.03 * Math.cos(6 * th), z * f); } g.computeVertexNormals(); }
+    const lit = C3(MON.ghostLit), shade = C3(MON.ghostShade);
+    const vcol = (x, y, z, ny, tmp) => tmp.copy(shade).lerp(lit, smooth(0.05, 0.75, y));
+    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; B.bone('hem' + i, 'body', [Math.sin(a) * 0.36, 0.03, Math.cos(a) * 0.36]); }
+    const hemW = (x, y, z) => { const f = 1 - smooth(0.02, 0.34, y); if (f <= 0) return [['body', 1]]; let a = Math.atan2(x, z) / TAU * 8; a = (a % 8 + 8) % 8; const i0 = Math.floor(a) % 8, i1 = (i0 + 1) % 8, u = a - Math.floor(a); return [['body', 1 - f], ['hem' + i0, f * (1 - u)], ['hem' + i1, f * u]]; };
+    B.trans(g, { color: MON.ghostLit, alpha: 1, weights: hemW, vcol });
+    B.hull(g, { th: 0.016, color: mx(sc(MON.ghostLit, 0.62), PAL.outline.char, 0.3), weights: hemW });
+    const surf = latheSurf(prof);
+    // the moth wings on her back: still, except one slow flutter every nine seconds
+    for (const side of [-1, 1]) {
+      const wing = B.bone(side < 0 ? 'wingL' : 'wingR', 'body', [side * 0.1, 0.62, -0.1]);
+      const sh = scallopWing(0.56, 0.4, 3);
+      B.trans(extrude(sh, 0.012, 0.004), { m: MT([side * 0.08, 0.62, -0.13], [0.12, side < 0 ? Math.PI : 0, side * 0.42], [1, 1, 1]), bone: wing, color: mx(MON.ghostShade, 'cloth.purple', 0.35), alpha: 0.6 });
+      for (const [dx, dy] of [[0.24, 0.1], [0.34, -0.02]]) { const d = discGeo(0.035, 0.035, 12, 2); B.unlit(d.clone().translate(side * dx, 0.6 + dy, -0.1 + side * 0.06), { bone: wing, color: mx(MON.eyespot, MON.ghostShade, 0.35) }); }
+    }
+    // the bonnet, with a ribbon
+    const head = B.bone('head', 'body', [0, 0.86, 0]);
+    const bon = lathe(smoothProfile([[0, 0], [0.16, 0.01], [0.175, 0.07], [0.15, 0.13], [0.07, 0.17], [0, 0.175]], 18), 24);
+    B.toon(bon, { m: MT([0, 0.9, -0.01]), bone: head, color: mx(MON.ghostLit, 'cloth.purple', 0.12), outline: 0.014 });
+    B.toon(new THREE.TorusGeometry(0.15, 0.016, 8, 26), { m: MT([0, 0.92, -0.01], [Math.PI / 2 - 0.1, 0, 0]), bone: head, color: mx('cloth.purple', 'cloud.lit', 0.45), outline: 0.006 });
+    const rib = B.bone('ribbon', head, [-0.13, 0.9, -0.05]);
+    B.trans(extrude(petalShape(0.3, 0.06, 0.4), 0.008, 0.003), { m: MT([-0.14, 0.86, -0.08], [0.3, -0.4, 2.6]), bone: rib, color: mx('cloth.purple', 'cloud.lit', 0.5), alpha: 0.8 });
+    // the face: a dark oval with hole eyes and two pale glints, under the bonnet's brim
+    const fs = ellSurf(0.14, 0.15, 0.1, [0, 0.86, 0.04]);
+    B.unlit(wrapOn(discGeo(0.105, 0.115, 22, 5), fs, 0.86, 0, 0.004), { bone: head, color: mx(MON.ghostShade, 'char.hair', 0.2) });
+    for (const side of [-1, 1]) {
+      const Y = 0.885, th = thetaFor(fs, Y, side * 0.05), c = surfPoint(fs, Y, th, 0.006);
+      const name = B.bone(side < 0 ? 'eyeL' : 'eyeR', head, [c.x, c.y, c.z]);
+      B.meta.eyes.push(name);
+      B.unlit(wrapOn(discGeo(0.034, 0.042, 16, 3), fs, Y, th, 0.008), { bone: name, color: mx('char.hair', 'cloth.purpleDark', 0.35) });
+      B.unlit(wrapOn(discGeo(0.014, 0.016, 10, 2), fs, Y + 0.01, th + side * -0.06, 0.011), { bone: name, color: MON.white });
+      B.unlit(wrapOn(discGeo(0.007, 0.008, 8, 1), fs, Y - 0.012, th + side * 0.05, 0.011), { bone: name, color: mx(MON.white, MON.iceBlue, 0.4) });
+      B._eyeExtras(name, { pos: [c.x, c.y, c.z], side, parent: head, Y, th, x: side * 0.05, r: 0.036, lift: 0.008 },
+        { surf: fs, brows: true, browColor: mx(MON.ghostShade, 'char.hair', 0.5), browLift: 1.2, browLen: 1.1, decalColor: mx(MON.ghostShade, 'char.hair', 0.7) });
+    }
+    B.faceMouths({ surf: fs, y: 0.8, w: 0.07, h: 0.03, parent: head, lift: 0.008,
+      kinds: ['beam', 'worry', 'smirk', 'grimace', 'shout', 'ow', 'dizzy', 'oh'], colors: { in: mx(MON.ghostShade, 'char.hair', 0.7), line: mx(MON.ghostShade, 'char.hair', 0.7), tongue: mx('flower.pink', 'cloud.lit', 0.4) } });
+    // thin sleeves ending in nothing, and the feather fan she raises when she casts
+    for (const side of [-1, 1]) {
+      const arm = B.bone(side < 0 ? 'armL' : 'armR', 'body', [side * 0.16, 0.66, 0.02]);
+      B.trans(taperTube([[side * 0.17, 0.68, 0.02], [side * 0.24, 0.56, 0.08], [side * 0.26, 0.44, 0.12]], taper([[0, 0.05], [0.7, 0.036], [1, 0.012]]), 9, 14), { bone: arm, color: MON.ghostLit, alpha: 1, vcol });
+    }
+    const fan = B.bone('fan', 'armR', [0.26, 0.44, 0.12]);
+    const fsh = new THREE.Shape(); fsh.moveTo(0, 0); fsh.absarc(0, 0, 0.19, 0.2, Math.PI - 0.2, false); fsh.lineTo(0, 0);
+    B.trans(extrude(fsh, 0.008, 0.003), { m: MT([0.28, 0.46, 0.14], [0.2, -0.3, -0.5]), bone: fan, color: mx('cloud.lit', 'cloth.pink', 0.3), alpha: 0.85 });
+    return { height: 1.08, radius: 0.42, shadow: 0.8 };
+  },
+  idle(ctx, t) {
+    // she waltzes: one-two-three, drifting in a small circle, the hem trailing
+    const w = ctx.idleW, b = ctx.b, P = 2.4;
+    const ph = TAU * t / P;
+    ctx.b.root.position.x += Math.sin(ph) * 0.18 * w;
+    ctx.b.root.position.z += Math.cos(ph) * 0.1 * w;
+    ctx.b.root.position.y += 0.03 + 0.025 * Math.abs(Math.sin(ph * 1.5)) * w;
+    ctx.mover.rotation.y += ph * 0.45 * w;
+    ctx.b.body.rotation.z += 4 * DEG * Math.sin(ph) * w;
+    ctx.flying = true; ctx.hopY = 0.05; ctx.hopMax = 0.1;
+    for (let i = 0; i < 8; i++) { const h = b['hem' + i]; if (!h) continue; const a = i / 8 * TAU; const lag = Math.sin(ph - 0.5 + a * 0.5); h.position.x += Math.sin(a) * 0.03 * lag * w; h.position.z += Math.cos(a) * 0.03 * lag * w; h.position.y += 0.015 * Math.sin(ph * 2 + a) * w; }
+    if (b.armL) b.armL.rotation.z -= (0.25 + 0.12 * Math.sin(ph)) * w;
+    if (b.armR) b.armR.rotation.z += (0.2 + 0.12 * Math.cos(ph)) * w;
+    if (b.ribbon) b.ribbon.rotation.z += 0.12 * Math.sin(ph - 0.8) * w;
+    const k = t % 9;
+    if (k < 0.8) { const f = hump(k, 0, 0.8); if (b.wingL) b.wingL.rotation.z -= 0.5 * f; if (b.wingR) b.wingR.rotation.z += 0.5 * f; }
+  },
+  attackPose(ctx, ct) { const k = hump(ct, 0.1, 0.5); if (ctx.b.armR) ctx.b.armR.rotation.x -= 1.5 * k; if (ctx.b.fan) ctx.b.fan.rotation.z += 0.8 * k; },
+  castPose(ctx, ct) { const k = hump(ct, 0.15, 0.85); if (ctx.b.armR) { ctx.b.armR.rotation.x -= 1.9 * k; } if (ctx.b.fan) ctx.b.fan.rotation.x -= 1.2 * k; if (ctx.b.armL) ctx.b.armL.rotation.z -= 0.6 * k; },
+  taunt(ctx, ct) {
+    // she curtsies, and waits. (She will wait a long time.)
+    const k = ct < 0.4 ? easeOutCubic(ct / 0.4) : 1 - easeInOutQuad(seg(ct, 0.7, 1.1));
+    ctx.b.root.position.y -= 0.12 * k;
+    ctx.b.body.scale.multiply(V3(1 + 0.06 * k, 1 - 0.08 * k, 1 + 0.06 * k));
+    ctx.b.body.rotation.x += 0.18 * k;
+    if (ctx.b.armL) ctx.b.armL.rotation.z -= 0.9 * k;
+    if (ctx.b.armR) ctx.b.armR.rotation.z += 0.9 * k;
+    return ct >= 1.2;
+  },
+  defeat(ctx, ct, o) {
+    // the curtsy first. The curtsy is non-negotiable.
+    if (ct < 0.55) {
+      const k = easeOutCubic(seg(ct, 0, 0.35)) * (1 - seg(ct, 0.45, 0.55));
+      ctx.b.root.position.y -= 0.12 * k;
+      ctx.b.body.rotation.x += 0.2 * k;
+      if (ctx.b.armL) ctx.b.armL.rotation.z -= 0.9 * k;
+      if (ctx.b.armR) ctx.b.armR.rotation.z += 0.9 * k;
+      return false;
+    }
+    return DEATHS.wisp(ctx, ct - 0.55, o);
+  },
+});
+
+// ── 28. SQUIDGEON — a squid that has decided it is a pigeon. Bobs its head when it swims. Coos. ──────────────
+species('squidgeon', {
+  name: 'Squidgeon', family: 'squid', death: 'pop', hover: 0.5, color: MON.squid,
+  face: {
+    wild: { lid: 0.34, tilt: 8, brow: [[0.06, 12], [0.2, -4]], look: [0.2, -0.05], glance: 0.6, glancePeriod: 1.9, mouth: 'smirk' },
+    windup: { lid: 0.62, tilt: 20, brow: [[-0.14, 26], [-0.14, 26]], mouth: 'grimace' },
+    strike: { lid: 0.08, tilt: 12, mouth: 'shout', eyeScale: 1.12 },
+    recover: { lid: 0.32, tilt: 8, mouth: 'smirk' },
+    taunt: { lid: 0.5, tilt: -6, brow: [[0.24, -14], [0.24, -14]], look: [0, 0.2], mouth: 'oh' },
+    friend: { lid: 0.02, tilt: -6, brow: [[0.28, -10], [0.28, -10]], mouth: 'beam' },
+  },
+  build(B) {
+    const cy = 0.5;
+    B.setBone('body', [0, cy, 0]);
+    const prof = smoothProfile([[0, 0], [0.19, 0.03], [0.225, 0.16], [0.215, 0.3], [0.17, 0.45], [0.09, 0.56], [0, 0.6]], 28);
+    const squid = C3(MON.squid), lit = C3(mx(MON.squid, 'cloud.lit', 0.3));
+    B.toon(lathe(prof, 30), { m: MT([0, cy - 0.16, 0]), color: MON.squid, outline: 0.018,
+      vcol: (x, y, z, ny, tmp) => tmp.copy(squid).multiplyScalar(0.92).lerp(lit, smooth(cy - 0.16, cy + 0.4, y)) });
+    const surf = latheSurf(prof, { y: cy - 0.16 });
+    // two fins at the top, flapping like a pigeon that has misunderstood
+    for (const side of [-1, 1]) {
+      const fin = B.bone(side < 0 ? 'finL' : 'finR', 'body', [side * 0.1, cy + 0.3, -0.02]);
+      const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.quadraticCurveTo(0.14, 0.06, 0.2, -0.04); sh.quadraticCurveTo(0.12, -0.08, 0, 0);
+      B.toon(extrude(sh, 0.014, 0.005), { m: MT([side * 0.09, cy + 0.28, -0.02], [0.2, side < 0 ? Math.PI : 0, side * 0.3]), bone: fin, color: mx(MON.squid, 'cloth.purpleDark', 0.35), outline: 0.01 });
+    }
+    // the iridescent pigeon collar, and two entirely useless orange feet
+    B.toon(new THREE.TorusGeometry(0.2, 0.045, 10, 30), { m: MT([0, cy - 0.12, 0], [Math.PI / 2, 0, 0], [1, 1, 0.9]), color: mx('paint.shutterGreen', 'cloth.purple', 0.45), outline: 0.012,
+      vcol: (x, y, z, ny, tmp) => tmp.copy(C3(mx('paint.shutterGreen', 'cloth.purple', 0.3))).lerp(C3(mx('cloth.purple', 'paint.shutterBlue', 0.4)), smooth(-0.2, 0.9, ny)) });
+    for (const side of [-1, 1]) B.toon(new THREE.SphereGeometry(0.03, 10, 8), { m: MT([side * 0.07, cy - 0.28, 0.06], [0, 0, 0], [1, 0.7, 1.6]), color: MON.beak, outline: 0.008 });
+    // enormous eyes on the SIDES of the mantle, so they nearly point away from you
+    B.skin = MON.squid;
+    B.eyes({ surf, y: cy + 0.05, gap: 0.3, r: 0.085, forward: 0.006, pupil: 0.44, browLift: 1.25, browColor: mx(sc(MON.squid, 0.5), PAL.outline.char, 0.4) });
+    B.faceMouths({ surf, y: cy - 0.1, w: 0.1, h: 0.035, kinds: ['beam', 'smirk', 'grimace', 'shout', 'ow', 'dizzy', 'oh'] });
+    // the beak: two small cones
+    B.toon(new THREE.ConeGeometry(0.035, 0.07, 10).rotateX(Math.PI / 2), { m: MT([0, cy - 0.06, 0.21], [-0.3, 0, 0]), color: MON.beak, outline: 0.008 });
+    // eight tentacles, a travelling sine wave down each
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * TAU + 0.2, r0 = 0.16;
+      const t0 = [Math.sin(a) * r0, cy - 0.28, Math.cos(a) * r0];
+      const name = B.bone('tent' + i, 'body', t0);
+      const pts = [t0, [Math.sin(a) * (r0 + 0.06), cy - 0.42, Math.cos(a) * (r0 + 0.06)], [Math.sin(a) * (r0 + 0.1), cy - 0.54, Math.cos(a) * (r0 + 0.1) + 0.02], [Math.sin(a) * (r0 + 0.08), cy - 0.64, Math.cos(a) * (r0 + 0.08) + 0.05]];
+      B.toon(taperTube(pts, taper([[0, 0.035], [0.5, 0.026], [1, 0.01]]), 8, 14), { bone: name, color: sc(MON.squid, 0.94), outline: 0.01 });
+    }
+    B.gloss(surf, cy + 0.22, -0.6, 0.06, 0.1, { rot: 0.6, dot: false });
+    return { height: cy + 0.46, radius: 0.34, shadow: 0.62 };
+  },
+  idle(ctx, t) {
+    // the mantle pulses; the tentacles trail in a travelling wave; the head bobs like a pigeon's, wholly out of character
+    const w = ctx.idleW, b = ctx.b;
+    const y = 0.5 + 0.04 * Math.sin(TAU * 0.8 * t);
+    ctx.b.root.position.y += y; ctx.hopY = y; ctx.hopMax = 0.54; ctx.flying = true;
+    b.body.scale.multiply(V3(1 + 0.05 * (0.5 + 0.5 * Math.sin(TAU * 0.8 * t)), 1 - 0.06 * (0.5 + 0.5 * Math.sin(TAU * 0.8 * t)), 1 + 0.05 * (0.5 + 0.5 * Math.sin(TAU * 0.8 * t))));
+    const bob = Math.sin(TAU * 1.4 * t);
+    b.body.position.z += 0.035 * bob * w;
+    b.body.rotation.x += 0.06 * bob * w;
+    for (let i = 0; i < 8; i++) { const tn = b['tent' + i]; if (!tn) continue; const a = i / 8 * TAU; tn.rotation.x += 0.4 * Math.sin(TAU * t / 1.6 + i * 0.5) * w; tn.rotation.z += 0.3 * Math.cos(TAU * t / 1.6 + i * 0.5) * Math.sin(a) * w; }
+    for (const [n, side] of [['finL', -1], ['finR', 1]]) { const f = b[n]; if (f) f.rotation.z += side * 0.25 * Math.sin(TAU * 1.4 * t) * w; }
+  },
+  attackPose(ctx, ct) {
+    // Tentacle Slap: three of them come at you in sequence
+    const b = ctx.b;
+    for (let i = 0; i < 8; i++) { const tn = b['tent' + i]; if (!tn) continue; const ph = (i % 3) * 0.12; tn.rotation.x -= 1.5 * hump(ct, 0.08 + ph, 0.42 + ph); }
+  },
+  castPose(ctx, ct) {
+    // Inkblot
+    const b = ctx.b, k = hump(ct, 0.1, 0.9);
+    for (let i = 0; i < 8; i++) { const tn = b['tent' + i]; if (tn) tn.rotation.x += 0.5 * k; }
+    if (ct > 0.55 && !ctx._ink) { ctx._ink = true; for (let i = 0; i < 10; i++) { const a = ctx.rand() * TAU; ctx.fx.spawn('blob', { pos: V3(0, 0.45, 0.22), vel: V3(Math.cos(a) * 0.8, 0.5 + ctx.rand() * 0.6, 1.4 + ctx.rand()), drag: 1.2, life: 0.8, s0: 0.06, s1: 0.1, color: mx('char.hair', 'cloth.purpleDark', 0.4) }); } }
+    if (ct < 0.3) ctx._ink = false;
+  },
+  taunt(ctx, ct) {
+    // it coos. A squid should not be able to coo.
+    const k = hump(ct, 0.05, 1.0), b = ctx.b;
+    b.body.position.z += 0.06 * Math.sin(ct * 18) * k;
+    b.body.rotation.x += 0.12 * Math.sin(ct * 18) * k;
+    b.body.scale.multiply(V3(1 + 0.08 * k, 1 + 0.02 * k, 1 + 0.08 * k));
+    return ct >= 1.05;
+  },
+});
+
+// ── 30. WYRMSLEY — a dragon the size of a butler, and a butler to his bones ─────────────────────────────────
+species('wyrmsley', {
+  name: 'Wyrmsley', family: 'dragon', death: 'topple', color: MON.dragon,
+  face: {
+    // perfect butler condescension: heavy lids at 30%, brows level, a small polite fang
+    wild: { lid: 0.46, tilt: -4, brow: [[0.16, -8], [0.12, -6]], look: [0.15, -0.2], glance: 0.2, glancePeriod: 6, mouth: 'fang' },
+    windup: { lid: 0.64, tilt: 18, brow: [[-0.12, 24], [-0.12, 24]], mouth: 'grimace' },
+    strike: { lid: 0.12, tilt: 14, brow: [[-0.04, 18], [-0.04, 18]], mouth: 'shout', eyeScale: 1.08 },
+    recover: { lid: 0.44, tilt: -4, mouth: 'fang' },
+    taunt: { lid: 0.6, tilt: -8, brow: [[0.2, -12], [0.2, -12]], look: [0.3, -0.3], mouth: 'smirk' },
+    friend: { lid: 0.12, tilt: -6, brow: [[0.26, -12], [0.26, -12]], look: [0, 0], mouth: 'beam' },
+  },
+  build(B) {
+    const cy = 0.62;
+    B.setBone('body', [0, cy * 0.7, 0]);
+    const dragon = C3(MON.dragon), lit = C3(mx(MON.dragon, 'grass.light', 0.3));
+    B.toon(new THREE.CapsuleGeometry(0.28, 0.34, 8, 24), { m: MT([0, cy, 0], [0.06, 0, 0], [1, 1, 0.92]), color: MON.dragon, outline: 0.018,
+      vcol: (x, y, z, ny, tmp) => tmp.copy(dragon).multiplyScalar(0.94).lerp(lit, smooth(cy - 0.3, cy + 0.4, y) * 0.7) });
+    // belly plates
+    for (let i = 0; i < 7; i++) B.toon(roundBox(0.26 - Math.abs(i - 3) * 0.03, 0.07, 0.06, 0.02), { m: MT([0, cy - 0.28 + i * 0.1, 0.25 - Math.abs(i - 3) * 0.012], [0.1, 0, 0]), color: MON.belly, outline: 0.008 });
+    // the waistcoat, buttons and bow tie
+    B.toon(new THREE.SphereGeometry(0.3, 22, 16, 0, TAU, 0, Math.PI * 0.52), { m: MT([0, cy + 0.02, -0.02], [-0.1, 0, 0], [1.04, 0.9, 1.0]), color: MON.velvet, outline: 0.014 });
+    for (let i = 0; i < 3; i++) B.toon(new THREE.SphereGeometry(0.022, 10, 8), { m: MT([0, cy + 0.06 - i * 0.1, 0.28]), color: MON.gold, outline: 0.006 });
+    for (const side of [-1, 1]) B.toon(new THREE.ConeGeometry(0.05, 0.08, 10).rotateZ(side * Math.PI / 2), { m: MT([side * 0.05, cy + 0.3, 0.24]), color: MON.jestDark, outline: 0.008 });
+    B.toon(new THREE.SphereGeometry(0.022, 10, 8), { m: MT([0, cy + 0.3, 0.25]), color: MON.jestDark });
+    // head: a snout, two swept horns, and the butler's eyes
+    const head = B.bone('head', 'body', [0, cy + 0.36, 0]);
+    const hc = [0, cy + 0.48, 0.02], hr = 0.24;
+    B.toon(new THREE.SphereGeometry(hr, 26, 18), { m: MT(hc, [0, 0, 0], [1, 0.95, 1]), bone: head, color: MON.dragon, outline: 0.018,
+      vcol: (x, y, z, ny, tmp) => tmp.copy(dragon).lerp(lit, smooth(hc[1] - hr, hc[1] + hr, y) * 0.6) });
+    B.toon(roundBox(0.19, 0.14, 0.2, 0.05), { m: MT([0, cy + 0.42, 0.22], [0.1, 0, 0]), bone: head, color: mx(MON.dragon, 'grass.light', 0.15), outline: 0.014 });
+    for (const side of [-1, 1]) B.toon(new THREE.SphereGeometry(0.022, 8, 6), { m: MT([side * 0.05, cy + 0.44, 0.31]), bone: head, color: sc(MON.dragon, 0.7) });
+    for (const side of [-1, 1]) { const c = new THREE.ConeGeometry(0.04, 0.13, 10); c.translate(0, 0.065, 0); B.toon(c, { m: MT([side * 0.13, cy + 0.63, -0.04], [-0.7, 0, -side * 0.5]), bone: head, color: MON.belly, outline: 0.01 }); }
+    const hs = ellSurf(hr, hr * 0.95, hr, hc);
+    B.skin = MON.dragon;
+    B.eyes({ surf: hs, y: cy + 0.55, gap: 0.19, r: 0.058, parent: head, forward: 0.004, browLift: 1.3, browColor: mx(sc(MON.dragon, 0.55), PAL.outline.char, 0.35) });
+    const ms = ellSurf(0.12, 0.085, 0.12, [0, cy + 0.42, 0.18]);
+    B.faceMouths({ surf: ms, y: cy + 0.385, w: 0.13, h: 0.035, parent: head, lift: 0.004, kinds: ['beam', 'fang', 'smirk', 'grimace', 'shout', 'ow', 'dizzy', 'oh'] });
+    // vestigial wings that flutter uselessly
+    for (const side of [-1, 1]) {
+      const wing = B.bone(side < 0 ? 'wingL' : 'wingR', 'body', [side * 0.24, cy + 0.2, -0.16]);
+      B.toon(extrude(scallopWing(0.2, 0.14, 3), 0.012, 0.004), { m: MT([side * 0.24, cy + 0.2, -0.18], [0.1, side < 0 ? Math.PI : 0, side * 0.6]), bone: wing, color: mx(MON.dragon, 'char.hair', 0.25), outline: 0.009 });
+    }
+    // a six-segment tail with a lag spring
+    let parent = 'body';
+    const tp = [[0, cy - 0.16, -0.22], [0, cy - 0.24, -0.38], [0.02, cy - 0.3, -0.52], [0.05, cy - 0.3, -0.64], [0.08, cy - 0.24, -0.72]];
+    for (let i = 0; i < 4; i++) {
+      const name = B.bone('tail' + i, parent, tp[i]); parent = name;
+      B.toon(taperTube([tp[i], tp[i + 1]], taper([[0, 0.075 - i * 0.014], [1, 0.062 - i * 0.014]]), 8, 6), { bone: name, color: MON.dragon, outline: 0.012 });
+    }
+    B.toon(new THREE.SphereGeometry(0.05, 12, 10), { m: MT(tp[4]), bone: 'tail3', color: MON.belly, outline: 0.01 });
+    // legs, one claw behind the back, and the TRAY — which stays perfectly level, whatever the body does
+    for (const side of [-1, 1]) {
+      const leg = B.bone(side < 0 ? 'legL' : 'legR', 'root', [side * 0.14, 0.2, 0]);
+      B.toon(new THREE.CapsuleGeometry(0.08, 0.14, 5, 12), { m: MT([side * 0.14, 0.17, 0]), bone: leg, color: MON.dragon, outline: 0.014 });
+      B.toon(new THREE.SphereGeometry(0.09, 14, 10), { m: MT([side * 0.14, 0.055, 0.06], [0, 0, 0], [1.1, 0.5, 1.5]), bone: leg, color: MON.belly, outline: 0.012 });
+    }
+    const armBack = B.bone('armBack', 'body', [-0.28, cy + 0.06, -0.06]);
+    B.toon(taperTube([[-0.27, cy + 0.12, -0.04], [-0.33, cy - 0.02, -0.16], [-0.2, cy - 0.06, -0.24]], taper([[0, 0.07], [1, 0.05]]), 8, 10), { bone: armBack, color: MON.dragon, outline: 0.014 });
+    const armTray = B.bone('armTray', 'body', [0.28, cy + 0.06, 0.02]);
+    B.toon(taperTube([[0.27, cy + 0.12, 0.02], [0.34, cy - 0.02, 0.1], [0.3, cy, 0.22]], taper([[0, 0.07], [1, 0.05]]), 8, 10), { bone: armTray, color: MON.dragon, outline: 0.014 });
+    const tray = B.bone('tray', 'root', [0.32, cy + 0.02, 0.26]);
+    B.toon(new THREE.CylinderGeometry(0.17, 0.17, 0.016, 26), { m: MT([0.32, cy + 0.04, 0.26]), bone: tray, color: MON.silver, outline: 0.01 });
+    B.toon(lathe(smoothProfile([[0, 0], [0.07, 0.005], [0.075, 0.05], [0.055, 0.085], [0.03, 0.095], [0.028, 0.115], [0, 0.118]], 14), 18), { m: MT([0.3, cy + 0.048, 0.24], [0, 0, 0], [1, 1, 1]), bone: tray, color: MON.chrome, outline: 0.008 });
+    B.toon(new THREE.TorusGeometry(0.035, 0.008, 6, 14, Math.PI), { m: MT([0.38, cy + 0.085, 0.24], [0, 0, -0.4]), bone: tray, color: MON.chrome });
+    for (const [dx, dz] of [[0.39, 0.3], [0.27, 0.33]]) B.toon(lathe(smoothProfile([[0, 0], [0.032, 0.002], [0.035, 0.03], [0.03, 0.04], [0, 0.042]], 8), 14), { m: MT([dx, cy + 0.048, dz]), bone: tray, color: MON.chrome, outline: 0.006 });
+    return { height: cy + 0.76, radius: 0.42, shadow: 0.92 };
+  },
+  idle(ctx, t) {
+    const w = ctx.idleW, b = ctx.b;
+    const br = Math.sin(TAU * t / 3.2);
+    b.body.scale.multiply(V3(1 + 0.012 * br * w, 1 + 0.016 * br * w, 1 + 0.012 * br * w));
+    b.body.rotation.z += 1.5 * DEG * Math.sin(TAU * t / 4.1) * w;
+    if (b.head) { b.head.rotation.y += 0.1 * Math.sin(TAU * t / 5.2) * w; b.head.rotation.x -= 0.04 * br * w; }
+    for (let i = 0; i < 4; i++) { const tl = b['tail' + i]; if (tl) tl.rotation.y += 0.12 * Math.sin(TAU * t / 2.6 - i * 0.6) * w; }
+    const fl = t % 4;
+    if (fl < 0.4) for (let i = 0; i < 4; i++) { const tl = b['tail' + i]; if (tl) tl.rotation.y += 0.5 * hump(fl, 0, 0.4) * (1 - i * 0.15) * w; }
+    for (const [n, side] of [['wingL', -1], ['wingR', 1]]) { const wg = b[n]; if (wg) wg.rotation.z += side * (0.12 + 0.1 * Math.sin(t * 7)) * w; }
+    // the tray stays level no matter what the body does — this is the joke, and it is worth the code
+    glue(ctx, 'tray', ['body', 'armTray']);
+    const tr = b.tray;
+    if (tr) { tr.rotation.set(0, 0, 0); tr.position.y = ctx.boneRest.tray.y - ctx.b.root.position.y * 0 + 0.0; tr.position.x = ctx.boneRest.tray.x; tr.position.z = ctx.boneRest.tray.z; }
+  },
+  attackPose(ctx, ct) {
+    // Tail Sweep, executed without spilling anything
+    const b = ctx.b, k = hump(ct, 0.08, 0.5);
+    for (let i = 0; i < 4; i++) { const tl = b['tail' + i]; if (tl) tl.rotation.y -= 1.4 * k * (1 - i * 0.1); }
+    b.body.rotation.y -= 0.3 * k;
+    if (b.head) b.head.rotation.y -= 0.2 * k;
+    glue(ctx, 'tray', ['body', 'armTray']);
+    if (b.tray) { b.tray.rotation.set(0, 0, 0); b.tray.position.copy(ctx.boneRest.tray); }
+  },
+  castPose(ctx, ct) { const k = hump(ct, 0.1, 0.9); if (ctx.b.armBack) ctx.b.armBack.rotation.x -= 1.4 * k; if (ctx.b.head) ctx.b.head.rotation.x -= 0.2 * k; },
+  taunt(ctx, ct) {
+    // Serve Tea. The tea is genuinely good.
+    const k = ct < 0.35 ? easeOutCubic(ct / 0.35) : 1 - easeInOutQuad(seg(ct, 0.7, 1.1));
+    const b = ctx.b;
+    if (b.armTray) b.armTray.rotation.x -= 0.5 * k;
+    b.body.rotation.x += 0.1 * k;
+    if (b.head) b.head.rotation.x += 0.15 * k;
+    if (ct > 0.4 && !ctx._steam) { ctx._steam = true; for (let i = 0; i < 5; i++) ctx.fx.spawn('blob', { pos: V3(0.3, ctx.height * 0.72, 0.26), vel: V3(0.02, 0.35, 0.05), drag: 1.5, life: 0.9, s0: 0.02, s1: 0.06, color: MON.breath, delay: i * 0.12 }); }
+    if (ct < 0.2) ctx._steam = false;
+    return ct >= 1.2;
+  },
+  // he sets the tray down carefully first. Do not skip the tray.
+  defeat(ctx, ct, o) {
+    if (ct < 0.5) {
+      const k = easeInOutQuad(seg(ct, 0, 0.45));
+      const tr = ctx.b.tray;
+      if (tr) { tr.position.set(ctx.boneRest.tray.x + 0.1 * k, ctx.boneRest.tray.y - (ctx.boneRest.tray.y - 0.08) * k, ctx.boneRest.tray.z + 0.16 * k); tr.rotation.set(0, 0, 0); }
+      if (ctx.b.armTray) ctx.b.armTray.rotation.x -= 0.9 * k;
+      ctx.b.body.rotation.x += 0.18 * k;
+      if (ct > 0.44 && !o._set) { o._set = true; ctx.fx.sparkle(V3(0.42, 0.12, 0.42), 3, 0.2, { size: 0.05, life: 0.4 }); }
+      return false;
+    }
+    const tr = ctx.b.tray;
+    if (tr) { tr.position.set(ctx.boneRest.tray.x + 0.1, 0.08, ctx.boneRest.tray.z + 0.16); tr.rotation.set(0, 0, 0); }
+    return DEATHS.topple(ctx, ct - 0.5, o);
+  },
+});
+
+// ── 33. VESPERLING — a bat that took holy orders, and is not sure any more that it agrees ────────────────────
+species('vesperling', {
+  name: 'Vesperling', family: 'bat', death: 'wisp', hover: 0.75, color: MON.cassock,
+  face: {
+    wild: { lid: 0.44, tilt: -4, brow: [[0.18, -10], [0.14, -8]], look: [0, -0.1], glance: 0.2, glancePeriod: 5.5, mouth: 'line' },
+    windup: { lid: 0.64, tilt: 18, brow: [[-0.12, 24], [-0.12, 24]], mouth: 'grimace' },
+    strike: { lid: 0.1, tilt: 12, mouth: 'shout', eyeScale: 1.1 },
+    recover: { lid: 0.42, tilt: -4, mouth: 'line' },
+    castIn: { eyes: 'shut', brow: [[0.1, -10], [0.1, -10]], mouth: 'oh' },     // Evensong
+    castOut: { lid: 0, tilt: 6, brow: [[0.24, -6], [0.24, -6]], mouth: 'oh', eyeScale: 1.15 },
+    taunt: { eyes: 'shut', brow: [[0.16, -12], [0.16, -12]], mouth: 'oh' },
+    defeat: { eyes: 'happy', brow: [[0.2, -12], [0.2, -12]], mouth: 'worry' },
+    dizzy: { eyes: 'happy', brow: [[0.2, -12], [0.2, -12]], mouth: 'worry' },
+    friend: { lid: 0.06, tilt: -8, brow: [[0.26, -14], [0.26, -14]], mouth: 'beam' },
+  },
+  build(B) {
+    const cy = 0.72;
+    B.setBone('body', [0, cy, 0]);
+    // the cassock: a bell over the bat's body
+    const prof = smoothProfile([[0, 0], [0.26, 0.02], [0.3, 0.08], [0.24, 0.34], [0.18, 0.56], [0.14, 0.68]], 26);
+    const cass = C3(MON.cassock), cassL = C3(mx(MON.cassock, 'cloth.purple', 0.28));
+    B.toon(lathe(prof, 30), { m: MT([0, cy - 0.5, 0]), color: MON.cassock, outline: 0.018,
+      vcol: (x, y, z, ny, tmp) => tmp.copy(cass).lerp(cassL, smooth(cy - 0.5, cy + 0.2, y) * 0.8) });
+    B.toon(new THREE.SphereGeometry(0.2, 22, 16), { m: MT([0, cy + 0.06, 0], [0, 0, 0], [1, 0.82, 0.92]), color: MON.bat, outline: 0.016 });
+    // the hood: a dome open at the front, the face in its shadow
+    const hood = new THREE.SphereGeometry(0.235, 24, 16, 0, TAU, 0, Math.PI * 0.62);
+    B.toon(hood, { m: MT([0, cy + 0.05, -0.1], [-0.2, 0, 0], [1.08, 1.0, 0.9]), color: MON.cassock, outline: 0.016,
+      vcol: (x, y, z, ny, tmp) => tmp.copy(cass).lerp(cassL, smooth(cy, cy + 0.26, y) * 0.6) });
+    // the hood's brim, arching over a face that sits proud of it — the face is in shadow, not in hiding
+    B.toon(new THREE.TorusGeometry(0.2, 0.026, 10, 26, Math.PI * 1.1), { m: MT([0, cy + 0.06, -0.04], [-0.35, 0, -Math.PI * 0.05], [1.05, 1, 1]), color: MON.cassock, outline: 0.012,
+      vcol: (x, y, z, ny, tmp) => tmp.copy(cassL).lerp(cass, 0.3) });
+    const fs = ellSurf(0.155, 0.15, 0.15, [0, cy + 0.04, 0.02]);
+    B.unlit(wrapOn(discGeo(0.125, 0.125, 22, 5), fs, cy + 0.05, 0, 0.004), { color: mx(MON.cassock, 'char.hair', 0.5) });
+    B.skin = mx(MON.cassock, 'char.hair', 0.5);
+    B.eyes({ surf: fs, y: cy + 0.075, gap: 0.105, r: 0.042, forward: 0.01, scleraColor: mx(MON.ember, 'char.white', 0.3), pupilColor: sc(MON.ember, 0.4),
+      browLift: 1.2, browLen: 1.05, browColor: mx('char.hair', MON.cassock, 0.35), rim: 0.1 });
+    B.faceMouths({ surf: fs, y: cy - 0.015, w: 0.07, h: 0.026, lift: 0.01, beam: 'beam',
+      kinds: ['beam', 'line', 'grimace', 'shout', 'ow', 'dizzy', 'worry', 'oh'], colors: { in: mx('char.hair', MON.cassock, 0.3), line: mx('char.hair', MON.cassock, 0.3) }, sizes: { line: [0.9, 0.5] } });
+    // ears, and wings of five scallops
+    for (const side of [-1, 1]) {
+      const ear = B.bone(side < 0 ? 'earL' : 'earR', 'body', [side * 0.11, cy + 0.2, -0.04]);
+      const c = new THREE.ConeGeometry(0.06, 0.17, 12); c.translate(0, 0.085, 0);
+      B.toon(c, { m: MT([side * 0.11, cy + 0.18, -0.04], [0, 0, -side * 0.3], [1, 1, 0.55]), bone: ear, color: MON.bat, outline: 0.012 });
+      const wing = B.bone(side < 0 ? 'wingL' : 'wingR', 'body', [side * 0.2, cy + 0.06, -0.06]);
+      B.toon(extrude(scallopWing(0.62, 0.42, 5), 0.016, 0.005), { m: MT([side * 0.19, cy + 0.04, -0.06], [0, side < 0 ? Math.PI : 0, 0.1]), bone: wing, color: MON.batWing, outline: 0.014,
+        vcol: (x, y, z, ny, tmp) => tmp.copy(C3(MON.batWing)).lerp(C3(mx(MON.batWing, 'cloth.purple', 0.4)), smooth(cy - 0.2, cy + 0.2, y)) });
+    }
+    // the censer, swinging on a three-link chain, trailing smoke
+    const c0 = B.bone('censer0', 'body', [0.16, cy - 0.06, 0.16]);
+    const c1 = B.bone('censer1', c0, [0.18, cy - 0.24, 0.2]);
+    B.toon(tube([[0.16, cy - 0.06, 0.16], [0.17, cy - 0.16, 0.18], [0.18, cy - 0.24, 0.2]], 0.006, 5, 8), { bone: c0, color: MON.brass });
+    B.toon(new THREE.TorusGeometry(0.05, 0.014, 8, 18), { m: MT([0.18, cy - 0.29, 0.2], [Math.PI / 2, 0, 0]), bone: c1, color: MON.brass, outline: 0.008 });
+    B.toon(new THREE.SphereGeometry(0.045, 14, 10, 0, TAU, Math.PI * 0.45, Math.PI * 0.55), { m: MT([0.18, cy - 0.29, 0.2]), bone: c1, color: MON.brass, outline: 0.008 });
+    return { height: cy + 0.4, radius: 0.5, shadow: 0.7 };
+  },
+  idle(ctx, t) {
+    // it hangs UPSIDE DOWN from nothing, hood down, hands folded, swaying — and nobody expects the flip
+    const w = ctx.idleW, b = ctx.b;
+    const y = 0.75 + 0.03 * Math.sin(TAU * t / 3.4);
+    ctx.b.root.position.y += y; ctx.hopY = y; ctx.hopMax = 0.78; ctx.flying = true;
+    // it hangs upside down from nothing for a few seconds at a time and then rights itself with one wing-snap.
+    // Nobody expects the flip. (Once it has joined you it stays the right way up, out of politeness.)
+    const P = 8.4, k = t % P;
+    const flip = ctx.mood === 'friend' ? 0 : smooth(2.6, 3.2, k) * (1 - smooth(6.0, 6.28, k));
+    b.body.rotation.x += Math.PI * 0.97 * flip;
+    ctx.b.root.position.y += 0.16 * flip;
+    if (flip > 0.02 && flip < 0.98) for (const [n, side] of [['wingL', -1], ['wingR', 1]]) { const wg = b[n]; if (wg) wg.rotation.z -= side * 0.6; }
+    ctx._flip = flip;
+    b.body.rotation.z += (4 * DEG) * Math.sin(TAU * t / 3.4) * w;
+    for (const [n, side] of [['earL', -1], ['earR', 1]]) { const e = b[n]; if (e) e.rotation.z += side * 0.06 * Math.sin(t * 1.7) * w; }
+    for (const [n, side] of [['wingL', -1], ['wingR', 1]]) { const wg = b[n]; if (wg) wg.rotation.z += side * (0.9 + 0.06 * Math.sin(t * 1.3)) * w; }   // folded, hands in sleeves
+    if (b.censer0) b.censer0.rotation.z += 0.35 * Math.sin(TAU * t / 2.1) * w;
+    if (b.censer1) b.censer1.rotation.z += 0.25 * Math.sin(TAU * (t - 0.18) / 2.1) * w;
+    ctx._smoke = (ctx._smoke || 0) + (ctx.dt || 0);
+    if (ctx._smoke > 1.1 && w > 0.4) { ctx._smoke = 0; ctx.fx.spawn('blob', { pos: V3(0.2, ctx.height * 0.45, 0.24), vel: V3(0.04, 0.22, 0.05), drag: 1.2, life: 1.4, s0: 0.03, s1: 0.09, color: mx(MON.breath, 'stone.mid', 0.35) }); }
+  },
+  attackPose(ctx, ct) {
+    // it rights itself with a single wing-snap, and only then hits you
+    const b = ctx.b, up = smooth(0, 0.16, ct);
+    b.body.rotation.x -= Math.PI * 0.97 * up * (ctx._flip || 0);
+    for (const [n, side] of [['wingL', -1], ['wingR', 1]]) { const wg = b[n]; if (wg) wg.rotation.z -= side * (0.9 * up - 1.1 * hump(ct, 0.1, 0.5)); }
+    ctx.b.root.position.y += 0.1 * hump(ct, 0.05, 0.4);
+  },
+  castPose(ctx, ct) {
+    const b = ctx.b, up = smooth(0, 0.2, ct);
+    b.body.rotation.x -= Math.PI * 0.97 * up * (ctx._flip || 0);
+    for (const [n, side] of [['wingL', -1], ['wingR', 1]]) { const wg = b[n]; if (wg) wg.rotation.z -= side * (0.9 * up - 1.4 * hump(ct, 0.2, 0.9)); }
+    if (ct > 0.55) ctx.glow = Math.max(ctx.glow, 0.35 * hump(ct, 0.55, 0.95));
+  },
+  taunt(ctx, ct) {
+    // it sings the evening prayer. It is not sure any more that it agrees.
+    const b = ctx.b, up = smooth(0, 0.25, ct) * (1 - smooth(0.85, 1.05, ct));
+    b.body.rotation.x -= Math.PI * 0.97 * up * (ctx._flip || 0);
+    ctx.b.root.position.y += 0.08 * up;
+    if (b.censer0) b.censer0.rotation.z += 0.8 * Math.sin(ct * 9) * up;
+    if (ct > 0.3 && !ctx._sing) { ctx._sing = true; ctx.fx.sparkle(ctx.center().add(V3(0, 0.2, 0.2)), 6, 0.5, { size: 0.07, life: 0.9, speed: 0.5, up: 0.7, color: MON.ember, alt: MON.white }); }
+    if (ct < 0.15) ctx._sing = false;
+    return ct >= 1.15;
+  },
+});
+
+// ── §6b. THE TIDEWARDEN — a huge old hermit crab wearing a lighthouse as a shell (Act II, the Sighing Grotto) ──
+species('tidewarden', {
+  name: 'The Tidewarden', family: 'crab', boss: true, color: MON.crab, scale: 4, shadowZ: 0.8,
+  face: {
+    wild: { lid: 0.5, tilt: 16, brow: [[-0.1, 22], [-0.06, 18]], look: [0, -0.1], glance: 0.2, glancePeriod: 6, mouth: 'line' },
+    windup: { lid: 0.7, tilt: 26, brow: [[-0.2, 30], [-0.2, 30]], mouth: 'grimace' },
+    strike: { lid: 0.16, tilt: 18, mouth: 'shout', eyeScale: 1.1 },
+    recover: { lid: 0.48, tilt: 16, mouth: 'line' },
+    taunt: { lid: 0.62, tilt: 20, brow: [[-0.14, 26], [-0.14, 26]], mouth: 'grimace' },
+    dead: { lid: 0.85, tilt: 8, brow: [[0.1, 10], [0.1, 10]], mouth: 'line' },
+    friend: { lid: 0.2, tilt: 0, brow: [[0.14, -6], [0.16, -8]], mouth: 'worry' },
+  },
+  build(B) {
+    REUSE = { ears: false };
+    let r = { height: 0.6, radius: 0.36 };
+    try { r = SPECIES.get('crabbit').build(B) || r; } finally { REUSE = {}; }
+    // the lighthouse it wears instead of a shell: striped, with a lit lamp room and a rail
+    const tower = B.bone('tower', 'body', [0, 0.42, -0.12]);
+    const prof = smoothProfile([[0, 0], [0.26, 0.02], [0.24, 0.16], [0.2, 0.4], [0.17, 0.6], [0.165, 0.66]], 24);
+    const white = C3(MON.lighthouse), red = C3(MON.cap);
+    B.toon(lathe(prof, 28), { m: MT([0, 0.34, -0.14], [-0.22, 0, 0]), bone: tower, color: MON.lighthouse, outline: 0.016,
+      vcol: (x, y, z, ny, tmp) => tmp.copy(((y - 0.34) * 6.5 | 0) % 2 ? red : white) });
+    B.toon(new THREE.CylinderGeometry(0.2, 0.2, 0.03, 20), { m: MT([0, 0.94, -0.28], [-0.22, 0, 0]), bone: tower, color: MON.iron, outline: 0.01 });
+    B.unlit(new THREE.SphereGeometry(0.11, 14, 10), { m: MT([0, 1.02, -0.3], [0, 0, 0], [1, 0.9, 1]), bone: tower, color: mx(MON.lamp, 'char.white', 0.35) });
+    B.trans(new THREE.SphereGeometry(0.16, 14, 10), { m: MT([0, 1.02, -0.3]), bone: tower, color: MON.lamp, alpha: 0.2 });
+    B.toon(new THREE.CylinderGeometry(0.13, 0.13, 0.03, 16), { m: MT([0, 1.12, -0.32], [-0.22, 0, 0]), bone: tower, color: MON.iron });
+    B.toon(new THREE.ConeGeometry(0.14, 0.13, 16), { m: MT([0, 1.2, -0.34], [-0.22, 0, 0]), bone: tower, color: MON.cap, outline: 0.012 });
+    return { height: Math.max(r.height, 1.3), radius: r.radius * 1.15, shadow: r.radius * 2.6 };
+  },
+  idle(ctx, t) {
+    SPECIES.get('crabbit').idle(ctx, t);
+    const tw = ctx.b.tower;
+    if (tw) tw.rotation.z += 0.03 * Math.sin(TAU * t / 3.4) * ctx.idleW;
+  },
+  attackPose(ctx, ct) { SPECIES.get('crabbit').attackPose(ctx, ct); },
+  castPose(ctx, ct) { SPECIES.get('crabbit').castPose(ctx, ct); },
+  // it does not die: it shuts its door and sulks, and the Tide Pearl rolls out
+  defeat(ctx, ct, o) {
+    const k = easeInOutQuad(seg(ct, 0, 0.7)), b = ctx.b;
+    ctx.b.root.position.y -= 0.12 * k * ctx.size * 0.25;
+    for (let i = 0; i < 6; i++) { const L = b['leg' + i]; if (L) L.scale.y *= 1 - 0.55 * k; }
+    for (const S of ['L', 'R']) { const st = b['stalk' + S]; if (st) st.rotation.x += 0.9 * k; const pn = b['pin' + S]; if (pn) pn.rotation.x -= 0.1 * k; }
+    ctx.eyeScale *= 1 - 0.15 * k;
+    if (ct > 0.55 && !o._pearl) {
+      o._pearl = true;
+      ctx.fx.spawn('blob', { pos: ctx.center().add(V3(0.1, -0.1, 0.3)), vel: V3(0.35, 0.25, 0.9), grav: 5, life: 1.6, s0: 0.1, s1: 0.1, color: mx('snow.light', 'water.foam', 0.4), floor: 0.05, spin: 3 });
+      ctx.fx.sparkle(ctx.center().add(V3(0.2, -0.1, 0.5)), 5, 0.5, { size: 0.1, life: 0.8, delay: 0.3 });
+    }
+    return ct >= 1.2;
+  },
+  deadPose(ctx, t) {
+    const b = ctx.b;
+    for (let i = 0; i < 6; i++) { const L = b['leg' + i]; if (L) L.scale.y *= 0.45; }
+    for (const S of ['L', 'R']) { const st = b['stalk' + S]; if (st) st.rotation.x += 0.9; }
+    ctx.b.root.position.y -= 0.03 * ctx.size;
+    void t;
+  },
+});
+
+// ── §6b. HOARFAX THE NINEFOLD — a nine-tailed frost fox (Act III, the Glasswing Grotto) ──────────────────────
+species('hoarfax', {
+  name: 'Hoarfax the Ninefold', family: 'cat', boss: true, color: MON.frost, death: 'wisp',
+  toon: { edge: 0.04, soft: 0.05, mid: 0.9, midEdge: 0.4, shadeSat: 1.0 },
+  face: {
+    wild: { lid: 0.44, tilt: 18, brow: [[-0.1, 24], [-0.06, 20]], look: [0.1, 0], glance: 0.3, glancePeriod: 3.6, mouth: 'cat' },
+    windup: { lid: 0.64, tilt: 26, brow: [[-0.2, 30], [-0.2, 30]], mouth: 'grimace' },
+    strike: { lid: 0.06, tilt: 16, mouth: 'shout', eyeScale: 1.2 },
+    recover: { lid: 0.42, tilt: 18, mouth: 'cat' },
+    taunt: { lid: 0.3, tilt: -6, brow: [[0.24, -14], [0.24, -14]], look: [0, 0.1], mouth: 'smirk' },
+    defeat: { eyes: 'happy', brow: [[0.24, -14], [0.24, -14]], mouth: 'cat' },
+    dizzy: { eyes: 'happy', brow: [[0.24, -14], [0.24, -14]], mouth: 'cat' },
+    friend: { lid: 0.08, tilt: -6, brow: [[0.28, -12], [0.28, -12]], mouth: 'beam' },
+  },
+  build(B) {
+    B.skin = MON.frost;
+    const k = 3.4;
+    const r = catRig(B, { k, mane: false, bell: false, whiskers: true,
+      coat: { body: MON.frost, dark: mx(MON.frost, 'water.light', 0.45), muzzle: MON.white, nose: mx(MON.iceBlue, 'flower.pink', 0.3), tooth: MON.white },
+      eye: { pupilShape: 'slit', pupilColor: mx(MON.iceBlue, 'char.eye', 0.45), sclera: mx(MON.white, MON.iceBlue, 0.25), rim: 0.11 } });
+    // eight more tails, each of which vanishes with a sparkle as it loses a move
+    for (let i = 0; i < 8; i++) {
+      const a = (i - 3.5) * 0.19, spread = 0.1 + Math.abs(i - 3.5) * 0.03;
+      const base = [Math.sin(a) * 0.1 * k, 0.16 * k, -0.14 * k];
+      const name = B.bone('xtail' + i, 'body', base);
+      const pts = [base, [Math.sin(a) * 0.2 * k, (0.19 + spread * 0.6) * k, -0.3 * k], [Math.sin(a) * 0.32 * k, (0.24 + spread * 1.3) * k, -0.46 * k], [Math.sin(a) * 0.4 * k, (0.3 + spread * 1.8) * k, -0.56 * k]];
+      B.toon(taperTube(pts, taper([[0, 0.032 * k], [0.55, 0.026 * k], [1, 0.012 * k]]), 8, 14), { bone: name, color: MON.frost, outline: 0.012 * k * 0.5,
+        vcol: (x, y, z, ny, tmp) => tmp.copy(C3(MON.frost)).lerp(C3(MON.white), smooth(0.2 * k, 0.42 * k, y)) });
+      B.toon(new THREE.SphereGeometry(0.05 * k, 12, 10), { m: MT(pts[3], [0, 0, 0], [1, 0.9, 0.9]), bone: name, color: MON.white, outline: 0.012 * k * 0.5 });
+    }
+    return { height: r.height, radius: r.radius * 1.6, shadow: r.radius * 4.2 };
+  },
+  idle(ctx, t) {
+    catIdle(ctx, t, true);
+    for (let i = 0; i < 8; i++) { const tn = ctx.b['xtail' + i]; if (!tn) continue; tn.rotation.z += 0.12 * Math.sin(TAU * t / 2.8 + i * 0.6) * ctx.idleW; tn.rotation.x += 0.08 * Math.sin(TAU * t / 3.4 + i) * ctx.idleW; }
+    ctx._frost = (ctx._frost || 0) + (ctx.dt || 0);
+    if (ctx._frost > 1.4 && ctx.idleW > 0.5) {
+      ctx._frost = 0;
+      const a = ctx.rand() * TAU;
+      ctx.fx.spawn('star', { pos: ctx.center().add(V3(Math.cos(a) * ctx.radius, ctx.height * 0.4 * ctx.rand(), Math.sin(a) * ctx.radius * 0.6)), vel: V3(0, -0.12, 0), life: 1.4, s0: 0.06, s1: 0.06, color: mx(MON.white, MON.iceBlue, 0.4), twinkle: true });
+    }
+  },
+  attackPose: catAttack,
+  taunt: catRoar,
+});
+
+// ── B2. SEXTON SOOTBELL — the bellringer who kept ringing after everyone had gone (Act II, Bellhollow Belfry) ─
+species('sootbell', {
+  name: 'Sexton Sootbell', family: 'ghost', boss: true, color: MON.ghostShade, death: 'wisp', ghost: true, transShadow: false, scale: 2.9,
+  ghostOpacity: (t) => 0.86 + 0.07 * (0.5 + 0.5 * Math.sin(TAU * t / 3.2)),
+  face: {
+    wild: { lid: 0.4, tilt: -6, brow: [[0.2, -16], [0.16, -14]], look: [0, -0.15], glance: 0.2, glancePeriod: 6.4, mouth: 'ow' },
+    windup: { lid: 0.62, tilt: 12, brow: [[-0.04, 16], [-0.04, 16]], mouth: 'shout' },
+    strike: { lid: 0.1, tilt: 6, brow: [[0.08, 10], [0.08, 10]], mouth: 'shout', eyeScale: 1.1 },
+    recover: { lid: 0.4, tilt: -6, mouth: 'ow' },
+    taunt: { eyes: 'shut', brow: [[0.24, -22], [0.24, -22]], mouth: 'ow' },
+    defeat: { eyes: 'happy', brow: [[0.2, -16], [0.2, -16]], mouth: 'worry' },
+    dizzy: { eyes: 'happy', brow: [[0.2, -16], [0.2, -16]], mouth: 'worry' },
+    friend: { lid: 0.08, tilt: -8, brow: [[0.24, -14], [0.24, -14]], mouth: 'worry' },
+  },
+  build(B) {
+    let r = { height: 0.64, radius: 0.28, shadow: 0.44 };
+    try { r = SPECIES.get('boohoo').build(B) || r; } finally { REUSE = {}; }
+    // the stole across his shoulders, mitten hands — and the rope he hauls on that is not there
+    B.toon(new THREE.TorusGeometry(0.205, 0.038, 8, 26, Math.PI * 1.25), { m: MT([0, 0.385, 0.035], [0.4, 0, -Math.PI * 0.12], [1, 1, 0.85]), color: mx('char.hair', 'cloth.purpleDark', 0.3), outline: 0.012 });
+    for (const side of [-1, 1]) B.trans(extrude(petalShape(0.24, 0.05, 0.3), 0.01, 0.004), { m: MT([side * 0.12, 0.36, 0.17], [0.2, 0, Math.PI]), color: mx('char.hair', 'cloth.purpleDark', 0.35), alpha: 0.9 });
+    const rope = B.bone('rope', 'body', [0.02, 0.62, 0.18]);
+    const pts = [[0.02, 0.98, 0.2], [0.02, 0.86, 0.19], [0.03, 0.74, 0.18], [0.03, 0.6, 0.17]];
+    B.toon(taperTube(pts, taper([[0, 0.016], [1, 0.02]]), 6, 12), { bone: rope, color: MON.rope, outline: 0.008 });
+    B.toon(new THREE.SphereGeometry(0.05, 12, 10), { m: MT([0.03, 0.56, 0.17], [0, 0, 0], [1, 1.3, 1]), bone: rope, color: MON.rope, outline: 0.01 });
+    for (const side of [-1, 1]) {
+      const hand = B.bone(side < 0 ? 'handL' : 'handR', side < 0 ? 'armL' : 'armR', [side * 0.07, 0.58, 0.19]);
+      B.trans(new THREE.SphereGeometry(0.058, 14, 10), { m: MT([side * 0.055, 0.6, 0.18], [0, 0, 0], [1, 1.1, 1]), bone: hand, color: MON.ghost, alpha: 1 });
+    }
+    // the great bell above him, swinging silently in time
+    const bell = B.bone('bell', 'root', [0, 1.28, 0.05]);
+    // NOTE the profile runs bottom-to-top: a lathe built top-down comes out inside-out (you see its dark interior)
+    const bp = smoothProfile([[0.17, 0.0], [0.205, 0.004], [0.195, 0.055], [0.16, 0.19], [0.09, 0.29], [0, 0.3]], 22);
+    // the bell hangs above him with its shaded side toward you, so it is painted BRASS: dark bronze read as a brown hole
+    const brassLit = mx(MON.brass, 'flower.yellow', 0.3), brassMid = mx(MON.brass, 'cloth.mustard', 0.35);
+    B.toon(lathe(bp, 26), { m: MT([0, 1.04, 0.05]), bone: bell, color: brassMid, outline: 0.016,
+      vcol: (x, y, z, ny, tmp) => tmp.copy(C3(brassMid)).lerp(C3(brassLit), smooth(-0.5, 0.6, ny) * 0.6 + smooth(1.04, 1.34, y) * 0.4) });
+    // cap the bell's mouth: without it you see the inside of its own outline shell, which reads as a brown hole
+    B.toon(new THREE.CircleGeometry(0.2, 26).rotateX(Math.PI / 2), { m: MT([0, 1.045, 0.05]), bone: bell, color: mx(MON.brass, 'char.hair', 0.3) });
+    B.toon(new THREE.SphereGeometry(0.05, 12, 10), { m: MT([0, 1.02, 0.05]), bone: bell, color: mx(MON.bronze, 'char.hair', 0.25), outline: 0.01 });
+    B.toon(new THREE.TorusGeometry(0.042, 0.012, 8, 18), { m: MT([0, 1.36, 0.05], [Math.PI / 2, 0, 0]), bone: bell, color: mx(MON.bronze, 'cloth.mustard', 0.35) });
+    return { height: 1.36, radius: r.radius * 1.1, shadow: r.shadow * 1.2 };
+  },
+  idle(ctx, t) {
+    SPECIES.get('boohoo').idle(ctx, t);
+    // he hauls on a rope that is not there, and the bell above him swings in time — silently
+    const w = ctx.idleW, P = 3.0, ph = TAU * t / P;
+    const haul = 0.5 - 0.5 * Math.cos(ph);
+    if (ctx.b.rope) ctx.b.rope.position.y -= 0.12 * haul * w;
+    for (const n of ['armL', 'armR']) { const a = ctx.b[n]; if (a) a.rotation.x -= (0.5 + 0.9 * haul) * w; }
+    for (const n of ['handL', 'handR']) { const h = ctx.b[n]; if (h) h.position.y -= 0.12 * haul * w; }
+    if (ctx.b.bell) { ctx.b.bell.rotation.z += 0.18 * Math.sin(ph - 0.5) * w; ctx.b.bell.rotation.x += 0.05 * Math.cos(ph - 0.5) * w; }
+    // thirty slow dust motes
+    ctx._dust = (ctx._dust || 0) + (ctx.dt || 0);
+    if (ctx._dust > 0.5 && w > 0.5) {
+      ctx._dust = 0;
+      const a = ctx.rand() * TAU, rr = ctx.radius * (0.4 + ctx.rand());
+      ctx.fx.spawn('blob', { pos: V3(Math.cos(a) * rr, 0.2 + ctx.rand() * ctx.height, Math.sin(a) * rr * 0.6), vel: V3(0.01, -0.05 - ctx.rand() * 0.05, 0), life: 2.2, s0: 0.014, s1: 0.012, color: mx(MON.ghost, 'stone.mid', 0.35) });
+    }
+  },
+  attackPose(ctx, ct) { SPECIES.get('boohoo').attackPose(ctx, ct); if (ctx.b.bell) ctx.b.bell.rotation.z += 0.5 * hump(ct, 0.05, 0.5); },
+  castPose(ctx, ct) { SPECIES.get('boohoo').castPose(ctx, ct); if (ctx.b.bell) ctx.b.bell.rotation.z += 0.8 * hump(ct, 0.1, 0.9); },
+  taunt(ctx, ct) {
+    // Toll: he rings the bell that was taken, and the room goes quiet
+    ctx.faceKey = 'taunt';
+    const k = hump(ct, 0.05, 1.0);
+    for (const n of ['armL', 'armR']) { const a = ctx.b[n]; if (a) a.rotation.x -= 1.6 * k; }
+    if (ctx.b.bell) ctx.b.bell.rotation.z += 0.9 * Math.sin(ct * 9) * k;
+    if (ctx.b.rope) ctx.b.rope.position.y -= 0.3 * k;
+    if (ct > 0.25 && !ctx._toll) { ctx._toll = true; ctx.fx.sparkle(ctx.center().add(V3(0, ctx.height * 0.8, 0)), 8, ctx.radius * 2.2, { ring: true, size: 0.1, life: 1.0, speed: 1.6, up: 0.1, color: mx(MON.bronze, 'char.white', 0.4), alt: MON.white }); }
+    if (ct < 0.15) ctx._toll = false;
+    return ct >= 1.2;
+  },
+  // WISP — and as he goes the ghost bell rings once, properly, for the first time since it was taken
+  defeat(ctx, ct, o) {
+    if (ctx.b.bell) { ctx.b.bell.rotation.z += 0.5 * Math.sin(ct * 7) * (1 - seg(ct, 0.6, 1.2)); }
+    if (ct > 0.15 && !o._ring) { o._ring = true; ctx.fx.sparkle(ctx.center().add(V3(0, ctx.height * 0.85, 0)), 10, ctx.radius * 2.6, { ring: true, size: 0.11, life: 1.3, speed: 1.2, up: 0.05, color: mx(MON.bronze, 'char.white', 0.5), alt: MON.white }); }
+    return DEATHS.wisp(ctx, ct, o);
   },
 });
 
@@ -2084,6 +4683,8 @@ function faceKeyFor(ctx, conf, clipName, ct) {
 }
 const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qc = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _n = new THREE.Vector3();
 
+/** Move a bone along a (surface-following) up vector. */
+function slide(bn, up, d) { if (bn) { bn.position.x += up[0] * d; bn.position.y += up[1] * d; bn.position.z += up[2] * d; } }
 /** Drive lids, pupils, brows, eye decals and the mouth set from the face state. F persists per instance. */
 function driveFace(ctx, T, F, dt, clipName, ct, blinkClose) {
   const face = T.meta.face, b = ctx.b, conf = faceConf(ctx.spec);
@@ -2111,19 +4712,29 @@ function driveFace(ctx, T, F, dt, clipName, ct, blinkClose) {
     const si = e.side < 0 ? 0 : 1, side = e.side, mode = modes[si];
     const qe = e._q || (e._q = new THREE.Quaternion(e.q[0], e.q[1], e.q[2], e.q[3]));
     _n.set(0, 0, 1).applyQuaternion(qe);
-    for (const m of ['shut', 'happy', 'dizzy']) {
+    for (const m of ['shut', 'happy']) {
       const bn = e[m] && b[e[m]]; if (!bn) continue;
       const on = mode === m;
       bn.scale.setScalar(on ? eyeScale : 0.0001);
-      if (on && m === 'dizzy') bn.quaternion.premultiply(_qa.setFromAxisAngle(_n, -side * ctx.t * 9));
-      if (on && m === 'happy') bn.position.y += 0.08 * e.r * Math.abs(Math.sin(ctx.t * 9));
+      if (on && m === 'happy') bn.position.y += 0.06 * e.r * Math.abs(Math.sin(ctx.t * 9));
     }
+    if (e.dizzy) { const fi = Math.floor(ctx.t * 15) % e.dizzy.length; e.dizzy.forEach((n, j) => { const bn = b[n]; if (bn) bn.scale.setScalar(mode === 'dizzy' && j === fi ? eyeScale : 0.0001); }); }
     if (mode !== 'open' && e.shut) { eb.scale.setScalar(0.0001); }
     else {
       eb.scale.multiplyScalar(eyeScale);
       const close = clamp01(Math.max(F.lid[si], blinkClose[si], ctx.lids[si]));
       const lb = e.lid && b[e.lid];
-      if (lb) {
+      if (e.lids && e.lids.length) {
+        let idx = -1;
+        for (let j = 0; j < LID_LEVELS.length; j++) if (close >= LID_LEVELS[j] - 0.07) idx = j;
+        for (let j = 0; j < e.lids.length; j++) {
+          const bn = b[e.lids[j]]; if (!bn) continue;
+          if (j !== idx) { bn.scale.setScalar(0.0001); continue; }
+          bn.scale.setScalar(1);
+          const t = Math.tan(THREE.MathUtils.clamp((F.tilt + (e.baseTilt || 0) + tiltExtra) * DEG, -0.9, 0.9)) * e.lidHalf;
+          slide(b[e.lids[j] + 'I'], e.up, -t); slide(b[e.lids[j] + 'O'], e.up, t);
+        }
+      } else if (lb) {
         if (close < 0.02) lb.scale.setScalar(0.0001);
         else {
           _e.set(lerp(LID_OPEN, LID_SHUT, close), 0, side * (F.tilt + (e.baseTilt || 0) + tiltExtra) * DEG, 'ZYX');
@@ -2136,7 +4747,10 @@ function driveFace(ctx, T, F, dt, clipName, ct, blinkClose) {
         eb.rotation.z += side * ctx.eyeTilt;
       }
       const pb = e.pupil && b[e.pupil];
-      if (pb) {
+      if (pb && e.kind === 'painted') {
+        const dx = F.look[0] * e.r * 0.36, dy = F.look[1] * e.r * 0.34;
+        pb.position.add(_v.set(e.tan[0] * dx + e.up[0] * dy, e.tan[1] * dx + e.up[1] * dy, e.tan[2] * dx + e.up[2] * dy));
+      } else if (pb) {
         const r = e.r, R = e.R || r, dx = F.look[0] * r * 0.34, dy = F.look[1] * r * 0.3;
         const dz = (e.zs || 0.84) * R * 0.97 * (Math.sqrt(Math.max(0, 1 - (dx * dx + dy * dy) / (R * R))) - 1);
         pb.position.add(_v.set(dx, dy, dz).applyQuaternion(qe));
@@ -2144,8 +4758,9 @@ function driveFace(ctx, T, F, dt, clipName, ct, blinkClose) {
     }
     const bb = e.brow && b[e.brow];
     if (bb) {
-      bb.position.y += F.brow[si][0] * e.r;
-      bb.quaternion.premultiply(_qa.setFromAxisAngle(_n, side * F.brow[si][1] * DEG));
+      slide(bb, e.up, F.brow[si][0] * e.r);
+      const t = Math.tan(THREE.MathUtils.clamp(F.brow[si][1] * DEG, -0.9, 0.9)) * e.browHalf;
+      slide(b[e.browI], e.up, -t); slide(b[e.browO], e.up, t);
     }
   }
   // the mouth: exactly one shown
@@ -2293,7 +4908,9 @@ function keepShape(ctx, names) {
 function poof(ctx, o, { scale = 1, chunks = 8, at = null } = {}) {
   const S = ctx.size * scale, c = at || ctx.center();
   const pr = Math.max(0.06, ctx.radius * 0.34) * scale;
-  ctx.fx.puff(c, 9, ctx.radius * 1.3 * scale, pr, { life: 0.5 });
+  // the puff carries the monster's own colour, so a Gloop's poof is not a Peckish's
+  ctx.fx.puff(c, 6, ctx.radius * 1.3 * scale, pr, { life: 0.42 });
+  ctx.fx.puff(c, 4, ctx.radius * 1.1 * scale, pr * 0.8, { color: mixHex(MON.puff, ctx.bodyColor, 0.5), life: 0.36, up: 0.75, delay: 0.04 });
   if (chunks) ctx.fx.chunks(c, chunks, ctx.radius * scale, ctx.bodyColor, { size: Math.max(0.035, ctx.radius * 0.16) * scale, speed: 2.4 * Math.sqrt(S) });
   ctx.fx.sparkle(c, 6, ctx.radius * 2 * scale, { size: 0.085 * Math.sqrt(S), life: 0.65, speed: 1.3 * Math.sqrt(S), up: 0.8, delay: 0.06 });
   ctx.setVisible(false);
@@ -2480,6 +5097,17 @@ function instantiate(T) {
     if (k === 'trans') mesh.renderOrder = 2;
     bodyGroup.add(mesh); meshes[k] = mesh;
   }
+  // A ghost is ONE clean layer: a depth-only pre-pass writes the nearest surface, so the colour pass can never blend the
+  // body's far side over its near side (that was the sorting band through Boohoo), and the outline shell behind it is
+  // depth-rejected instead of showing through.
+  if (spec.ghost && meshes.trans) {
+    mats.prepass = new THREE.MeshBasicMaterial({ colorWrite: false, transparent: true, depthWrite: true });
+    const pre = new THREE.SkinnedMesh(meshes.trans.geometry, mats.prepass);
+    pre.bind(skeleton, IDENTITY);
+    pre.frustumCulled = false; pre.name = `monster:${T.id}:prepass`; pre.renderOrder = 1;
+    bodyGroup.add(pre); meshes.prepass = pre;
+    if (meshes.hull) { mats.hull.transparent = true; meshes.hull.renderOrder = 1.5; }
+  }
   for (const [n, s] of Object.entries(restScale)) if (s !== 1) bones.find(b => b.name === n).scale.setScalar(s);
 
   const shadow = makeContactShadow(1);
@@ -2510,7 +5138,7 @@ function instantiate(T) {
     say(text) {
       const tex = bubbleTexture(String(text)); ctx.emit('say', text); if (!tex) return;
       bubbleMat.map = tex; bubbleMat.needsUpdate = true; say.t = 0; say.text = String(text);
-      say.x = mover.position.x + b.root.position.x; say.y = Math.max(0.3, mover.position.y + b.root.position.y) + T.height + 0.16 * Math.sqrt(size); say.z = mover.position.z + b.root.position.z + T.radius * 0.3;
+      say.x = mover.position.x + b.root.position.x; say.y = Math.max(0.25, mover.position.y + b.root.position.y) + T.height * 0.92 + 0.1 * Math.sqrt(size); say.z = mover.position.z + b.root.position.z + T.radius * 0.3;
     },
     center() { return V3(mover.position.x + b.root.position.x, mover.position.y + b.root.position.y + T.height * 0.5, mover.position.z + b.root.position.z); },
   };

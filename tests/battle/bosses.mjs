@@ -86,7 +86,7 @@ export function bossSpecs() {
     if (!spec) continue;
     const id = spec.enemies.join('+');
     const scripted = spec.enemies.some((e) => DATA.monsters[e].scriptedEnd);
-    out.push({ id, area, spec, scripted });
+    out.push({ id, area, spec, scripted, second: key === 'boss2' });
   }
   return out;
 }

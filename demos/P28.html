@@ -96,7 +96,7 @@ function ensureMusic() {
   return musicReady;
 }
 
-window.__DQ = { ready: false, errors: [], version: 'P28-r9' };
+window.__DQ = { ready: false, errors: [], version: 'P28-r12' };
 const $ = (s) => document.querySelector(s);
 const pretty = (id) => id.replace(/^amb_/, '').replace(/^footstep_/, '').replace(/^text_/, 'text: ').replace(/_/g, ' ');
 
@@ -316,7 +316,7 @@ async function musicNeed(theme) {
     return th && typeof instrumentsFor === 'function' ? instrumentsFor(th.events) : [];
   } catch (_) { return []; }
 }
-async function renderMix(theme, ids, seconds, times) {
+async function renderMix(theme, ids, seconds, times, o = {}) {
   const M = await import('/src/audio/music.js');
   const need = theme ? await musicNeed(theme) : [];
   return Audio.renderOffline(async (octx, dest) => {
@@ -328,7 +328,9 @@ async function renderMix(theme, ids, seconds, times) {
     if (theme) m.play(theme, { fade: 0, at: 0.02 });
     m._pump();
     const ts = times || Array.from({ length: Math.max(0, Math.floor((seconds - 1.5) / 0.9) + 1) }, (_, i) => 1 + i * 0.9);
-    if (ids.length) ts.forEach((t, i) => Sfx.renderInto(ids[i % ids.length], dest, t, { variant: i + 1 }));
+    // o.pile: every effect at once, on the same millisecond (the worst case the limiter ever sees)
+    if (ids.length && o.pile) ts.forEach((t, i) => ids.forEach((x, j) => Sfx.renderInto(x, dest, t, { variant: i + j + 1 })));
+    else if (ids.length) ts.forEach((t, i) => Sfx.renderInto(ids[i % ids.length], dest, t, { variant: i + 1 }));
     return m;
   }, seconds, { sampleRate: 48000 });
 }
@@ -346,7 +348,8 @@ function impactShape(buf) {
   const sm = (i) => { let q = 0, c = 0; for (let k = i - 2; k <= i + 2; k++) if (e1[k] != null) { q += 10 ** (e1[k] / 10); c++; } return 10 * Math.log10(q / c); };
   let j = bAt; while (j < e1.length && sm(j) > body - 10) j++;
   const e5 = env(5), m5 = maxOf(e5), on5 = e5.findIndex((x) => x > m5 - 30);
-  return { snapAtMs: at - on, snapOverBodyDb: r1(pk - body), bodyDrop10Ms: j - bAt, env5: e5.slice(on5, on5 + 60) };
+  let k = at; while (k < e1.length && e1[k] >= pk - 30) k++; // the first millisecond that falls 30 dB under the snap
+  return { snapAtMs: at - on, snapOverBodyDb: r1(pk - body), bodyDrop10Ms: j - bAt, down30Ms: k - at, env5: e5.slice(on5, on5 + 60) };
 }
 function corr(a, b) {
   const ma = a.reduce((x, y) => x + y, 0) / a.length, mb = b.reduce((x, y) => x + y, 0) / b.length; let ab = 0, aa = 0, bb = 0;
@@ -354,6 +357,41 @@ function corr(a, b) {
   return Math.round(1000 * ab / Math.sqrt(aa * bb + 1e-12)) / 1000;
 }
 const IMPACT_SHAPE_IDS = ['sword_hit', 'monster_hurt', 'player_hurt'];
+/** Power in [lo, hi] Hz (L + R) of an N-sample Hann-windowed FFT centred on time t (seconds). */
+function bandPower(buf, t, lo, hi, N = 4096) {
+  const sr = buf.sampleRate, s0 = Math.round(t * sr) - N / 2;
+  let P = 0;
+  for (let c = 0; c < 2; c++) {
+    const x = buf.getChannelData(Math.min(c, buf.numberOfChannels - 1)), re = new Float64Array(N), im = new Float64Array(N);
+    for (let i = 0; i < N; i++) re[i] = (x[s0 + i] || 0) * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1)));
+    for (let i = 1, j = 0; i < N; i++) { let bit = N >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; } }
+    for (let len = 2; len <= N; len <<= 1) {
+      const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for (let i = 0; i < N; i += len) { let cr = 1, ci = 0; for (let j = 0; j < len / 2; j++) { const a = i + j, b = a + len / 2, vr = re[b] * cr - im[b] * ci, vi = re[b] * ci + im[b] * cr; re[b] = re[a] - vr; im[b] = im[a] - vi; re[a] += vr; im[a] += vi; const q = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = q; } }
+    }
+    for (let k = Math.ceil(lo * N / sr); k <= Math.floor(hi * N / sr); k++) P += re[k] * re[k] + im[k] * im[k];
+  }
+  return P;
+}
+/** Where each impact connects: its snap (the crit's comes after the KIN, 80 ms in). */
+const CONTACT = { sword_crit: 0.08 };
+/**
+ * DOES THE BRIGHT BAND GET OUT OF THE EAR'S WAY? (critic a3r1's single biggest gap.)
+ * 3-6 kHz — the ear's harshest band — measured in 21 ms windows at these offsets after contact. The old sword_hit
+ * held 68-80% of its peak from 50 to 240 ms: +17.9 LU over the battle theme at 3-6 kHz at contact and still +16.5 LU
+ * at 150 ms, while monster_hurt was already -9.9 LU at 150. A quarter second of hiss on the sound a child makes
+ * hundreds of times an hour, brighter and longer than `miss`'s whoosh: a connected hit read as a swipe at air.
+ */
+const TAIL_OFF = [10, 60, 150];
+const bandDb = (buf, t, lo, hi, N = 1024) => r1(10 * Math.log10(bandPower(buf, t, lo, hi, N) + 1e-20));
+/** First sample within 40 dB of the buffer's peak: where the effect actually starts sounding. */
+function onsetAt(buf) {
+  const L = buf.getChannelData(0), R = buf.getChannelData(Math.min(1, buf.numberOfChannels - 1));
+  let pk = 0;
+  for (let i = 0; i < buf.length; i++) { const a = Math.max(Math.abs(L[i]), Math.abs(R[i])); if (a > pk) pk = a; }
+  for (let i = 0; i < buf.length; i++) if (Math.max(Math.abs(L[i]), Math.abs(R[i])) > pk * 0.01) return i / buf.sampleRate;
+  return 0;
+}
 
 async function hitCheck(ids) {
   const M = await import('/src/audio/music.js');
@@ -362,27 +400,50 @@ async function hitCheck(ids) {
   const battleMedian = r1(medianOf(loud100(ref, false)));
   const bus = await renderMix('battle', [], SECS);
   const busMedian = r1(medianOf(loud100(bus, false))), busMedianTV = medianOf(loud100(bus, true));
+  // the brightest thing a swing at thin air makes: nothing that CONNECTS may out-hiss it
+  const missBuf = await Sfx.render('miss', 1.2, { variant: 1, sampleRate: 48000 });
+  const missOn = onsetAt(missBuf);
+  const missHiPeak = Math.max(...[10, 30, 60, 90, 110, 150, 200].map((ms) => bandDb(missBuf, missOn + ms / 1000, 3000, 6000)));
   const rows = [], envs = {};
   for (const id of ids) {
     const variants = [];
     for (let v = 1; v <= 4; v++) {
       const b = await Sfx.render(id, 1.2, { variant: v, sampleRate: 48000 });
-      variants.push({ full: maxOf(loud100(b, false)), tv: maxOf(loud100(b, true)), shape: impactShape(b) });
+      // how bright this swing still is, on its own, 10 / 60 / 150 ms after contact (3-6 kHz)
+      const contact = onsetAt(b) + (CONTACT[id] || 0);
+      variants.push({ full: maxOf(loud100(b, false)), tv: maxOf(loud100(b, true)), shape: impactShape(b),
+        hi: TAIL_OFF.map((ms) => bandDb(b, contact + ms / 1000, 3000, 6000)) });
     }
     const tvMin = Math.min(...variants.map(x => x.tv)), full = variants[0].full, med = (k) => medianOf(variants.map(x => x.shape[k]));
     if (IMPACT_SHAPE_IDS.includes(id)) envs[id] = variants[0].shape.env5;
-    const mix = await renderMix('battle', [id], SECS, T0), fs = 48000, lifts = [];
+    const hiSolo = TAIL_OFF.map((_, i) => r1(medianOf(variants.map((x) => x.hi[i]))));
+    const mix = await renderMix('battle', [id], SECS, T0), fs = 48000, lifts = [], lows = [], mids = [];
     for (const t of T0) { const a = Math.round((t - 0.1) * fs), e = Math.round((t + 0.45) * fs); lifts.push(maxOf(loud100(mix, true, a, e)) - maxOf(loud100(bus, true, a, e))); }
+    // weight: what the hit does to the battle mix's 60-250 Hz (and 250-1000 Hz) 30 ms after contact, against the music alone
+    for (const t of T0) {
+      const c = t + LAG + (CONTACT[id] || 0) + 0.03, db = (lo, hi) => 10 * Math.log10(bandPower(mix, c, lo, hi) / bandPower(bus, c, lo, hi));
+      lows.push(db(60, 250)); mids.push(db(250, 1000));
+    }
+    // ...and what is LEFT of it at 3-6 kHz in the true mix, 10 / 60 / 150 ms after contact (median over the six hits)
+    const hiLiftDb = TAIL_OFF.map((ms) => r1(medianOf(T0.map((t) => {
+      const c = t + LAG + (CONTACT[id] || 0) + ms / 1000;
+      return 10 * Math.log10(bandPower(mix, c, 3000, 6000, 1024) / bandPower(bus, c, 3000, 6000, 1024));
+    }))));
     rows.push({ id, loud: r1(full), loudTV: r1(tvMin), tvLoss: r1(full - variants[0].tv), overBattleTV: r1(tvMin - battleMedian), overBusTV: r1(tvMin - busMedianTV),
       mixLiftTV: r1(lifts.reduce((x, y) => x + y, 0) / lifts.length), mixLiftTVMin: r1(Math.min(...lifts)),
-      snapAtMs: med('snapAtMs'), snapOverBodyDb: r1(med('snapOverBodyDb')), bodyDrop10Ms: med('bodyDrop10Ms') });
+      snapAtMs: med('snapAtMs'), snapOverBodyDb: r1(med('snapOverBodyDb')), bodyDrop10Ms: med('bodyDrop10Ms'),
+      lowLiftDb: r1(medianOf(lows)), lowLiftMinDb: r1(Math.min(...lows)), midLiftDb: r1(medianOf(mids)),
+      hiSolo, hiLiftDb, hiDropDb: r1(hiSolo[0] - hiSolo[2]),
+      down30Ms: med('down30Ms'), down30MinMs: Math.min(...variants.map(x => x.shape.down30Ms)) });
   }
   const pairs = {};
   const k = Object.keys(envs);
   for (let i = 0; i < k.length; i++) for (let j = i + 1; j < k.length; j++) pairs[`${k[i]}~${k[j]}`] = corr(envs[k[i]], envs[k[j]]);
-  // The bar (critic, round 2): each hit starts with a snap 1-3 ms in, ~8 dB over its body; the body is down 10 dB within
-  // ~40 ms; over the battle theme a hit lands about +6 LU on top (not +11: a wall of static); and the three impacts are
-  // different shapes, not one noise block. The crit may stand a little taller.
+  // The bar. Rounds 1-2 (kept): each hit starts with a snap 1-3 ms in, ~8 dB over its body; the body is down 10 dB
+  // within ~40 ms; over the battle theme a hit lands about +6 LU on top (not +11: a wall of static); it ADDS bass
+  // where the music's dip took some away; and the three impacts are different shapes, not one noise block. The crit
+  // may stand a little taller. Round 3 (new): nothing may LINGER at 3-6 kHz — out of the music's way by 60 ms, gone
+  // by 150, and a connected hit must end up at least 10 dB darker than a swing at thin air.
   const fails = [];
   for (const r of rows) {
     const crit = r.id === 'sword_crit';
@@ -392,10 +453,26 @@ async function hitCheck(ids) {
       if (r.bodyDrop10Ms > 45) fails.push(`${r.id}: body takes ${r.bodyDrop10Ms} ms to fall 10 dB`);
     }
     if (r.mixLiftTV < 4.5 || r.mixLiftTV > (crit ? 10 : 8)) fails.push(`${r.id}: lifts the battle mix ${r.mixLiftTV} LU`);
+    // critic a2r1: a hit must CONNECT. Its body fills the bass the music dip takes away, and then some (it used to cut
+    // 60-250 Hz by 3-4 dB at contact), and the plain sword hit trails a swish for a quarter second (it used to be gone
+    // 30 dB down at 71 ms)
+    if (r.lowLiftDb < 6) fails.push(`${r.id}: adds only ${r.lowLiftDb} dB at 60-250 Hz to the battle mix 30 ms after contact`);
     if (r.mixLiftTVMin < 2) fails.push(`${r.id}: one hit lifted the mix only ${r.mixLiftTVMin} LU`);
+    // critic a3r1 (the single biggest gap): an impact must GET OUT OF THE WAY at 3-6 kHz. sword_hit used to be
+    // +17.9 LU over the theme there at contact and still +16.5 LU at 150 ms — a quarter second of bright hiss on the
+    // sound a child hears hundreds of times an hour. It must fall away like monster_hurt already did.
+    if (r.hiLiftDb[1] > (crit ? 9 : 6)) fails.push(`${r.id}: still +${r.hiLiftDb[1]} dB over the battle mix at 3-6 kHz 60 ms after contact`);
+    if (r.hiLiftDb[2] > 3) fails.push(`${r.id}: still +${r.hiLiftDb[2]} dB over the battle mix at 3-6 kHz 150 ms after contact`);
+    if (r.hiDropDb < 20) fails.push(`${r.id}: 3-6 kHz falls only ${r.hiDropDb} dB between 10 and 150 ms after contact`);
+    if (r.id === 'sword_hit') {
+      // hitting must not sound more like missing than missing does
+      if (r.hiSolo[2] > missHiPeak - 10) fails.push(`sword_hit: at 150 ms it is still ${r.hiSolo[2]} dB at 3-6 kHz, not 10 dB under miss's brightest (${r1(missHiPeak)}) — a hit that reads as a swipe at air`);
+      // but there IS still a swish: a short trail across the field, neither a bare click nor a hiss
+      if (r.down30MinMs < 25 || r.down30Ms > 140) fails.push(`sword_hit: falls 30 dB under its snap after ${r.down30MinMs}-${r.down30Ms} ms (want 25-140)`);
+    }
   }
   for (const [pair, c] of Object.entries(pairs)) if (c > 0.9) fails.push(`${pair}: envelopes correlate ${c}`);
-  hitCheckResult = { ok: fails.length === 0, fails, battleMedian, busMedian, envelopeCorrelation: pairs, rows };
+  hitCheckResult = { ok: fails.length === 0, fails, battleMedian, busMedian, missHiPeak: r1(missHiPeak), tailOffsetsMs: TAIL_OFF, envelopeCorrelation: pairs, rows };
   return hitCheckResult;
 }
 
@@ -456,7 +533,9 @@ const UI_BLIPS = ['cursor', 'confirm', 'cancel', 'buzzer'], UI_TICKS = ['text_hi
 /**
  * Can a child hear the menus and the text over the music? For each blip and tick, landing every 0.9 s on P27's town
  * and battle themes (the true mix, dips included), against the same render with no effect:
- *   pop     the most the effect raises the music's loudness in any 50 ms window while it sounds (K-weighted, t..t+150 ms)
+ *   pop     the most the effect raises the music's loudness in any 50 ms window while it sounds (K-weighted, t..t+150 ms);
+ *           the bar is the MEDIAN (>= 3 LU for blips, >= 2.5 for ticks) — a blip is meant to sit under the score, so one
+ *           landing on the theme's loudest bar only has to stay audible (>= 1 LU)
  *   onset   the same for its own first 50 ms
  *   region  the critic a2r1 figure: loudest 50 ms of the mix over [t-50, t+350] ms minus the loudest of the music alone
  * plus each effect's own loudness (max 50 / 100 ms) against a sword hit's, the buzzer's small-speaker loss, the kill
@@ -502,8 +581,13 @@ async function uiCheck() {
   for (const id of UI_BLIPS) if (solo[id].l100 > hit - 5) fails.push(`${id}: ${solo[id].l100} LUFS is within 5 LU of a sword hit (${hit})`);
   for (const id of UI_TICKS) if (solo[id].l100 > hit - 5) fails.push(`${id}: ${solo[id].l100} LUFS is within 5 LU of a sword hit`);
   for (const [k, r] of Object.entries(mix)) {
-    if (r.popMedian < 3) fails.push(`${k}: lifts the music only ${r.popMedian} LU (median)`);
-    if (r.popMin < 2) fails.push(`${k}: one landed only ${r.popMin} LU over the music`);
+    const tick = UI_TICKS.some((id) => k.endsWith('+' + id));
+    // A blip must READ over the score, not beat it: critic a2r1 heard ours as hotter than DQ's quiet pip, so the bar is
+    // the median lift, and a blip landing on the loudest bar of the theme may be nearly buried (>= 1 LU).
+    if (r.popMedian < (tick ? 2.5 : 3)) fails.push(`${k}: lifts the music only ${r.popMedian} LU (median)`);
+    // Glyph ticks are measured here with NO typing duck, which is not how the game plays them (Sfx.glyph holds the music
+    // down at 0.7 while text types): the real thing is the `talk` rows below, which carry the duck.
+    if (!tick && r.popMin < 1) fails.push(`${k}: one landed only ${r.popMin} LU over the music`);
   }
   for (const [who, r] of Object.entries(talkRows)) {
     if (r.tickLiftP10 < 3) fails.push(`talk ${who}: 1 tick in 10 lifts the ducked music under ${r.tickLiftP10} LU`);
@@ -511,8 +595,21 @@ async function uiCheck() {
   }
   if (solo.buzzer.tvLoss > 3) fails.push(`buzzer loses ${solo.buzzer.tvLoss} dB on a small speaker`);
   if (solo.monster_defeat.l100 < hit - 0.5) fails.push(`monster_defeat (${solo.monster_defeat.l100}) is quieter than a hit (${hit})`);
-  const dips = {}; for (const id of ['cursor', 'confirm']) { const r = await __DQ.dipProbe(id); dips[id] = r.minDip; if (!(r.minDip <= 0.85 && r.recovered > 0.95)) fails.push(`${id}: music dip ${r.minDip}`); }
-  uiCheckResult = { ok: fails.length === 0, fails, swordHitL100: hit, solo, mix, talk: talkRows, dips };
+  // The music must not move under the cursor (critic a3r1: in DQV you rattle down the item list and the strings stay
+  // rock steady — ours dipped the score 3 dB on every press, a wobble at scroll speed). Confirm still dips: it is the
+  // "thunk" of a decision, pressed once, and the dip is what lands it.
+  const dips = {};
+  for (const id of ['cursor', 'confirm']) {
+    const r = await __DQ.dipProbe(id);
+    dips[id] = r.minDip;
+    if (id === 'cursor') { if (r.minDip < 0.99) fails.push(`cursor: moved the music to ${r.minDip}`); }
+    else if (!(r.minDip <= 0.85 && r.recovered > 0.95)) fails.push(`${id}: music dip ${r.minDip}`);
+  }
+  // ...and it is the same pip every time: two plays must be sample-identical (no pitch / level / filter jitter)
+  const [c1, c2] = [await Sfx.render('cursor', 0.3, { variant: 11, sampleRate: 48000 }), await Sfx.render('cursor', 0.3, { variant: 77, sampleRate: 48000 })];
+  let cdiff = 0; { const a = c1.getChannelData(0), b = c2.getChannelData(0); for (let i = 0; i < a.length; i++) cdiff = Math.max(cdiff, Math.abs(a[i] - b[i])); }
+  if (cdiff > 1e-4) fails.push(`cursor: two presses differ by ${cdiff.toExponential(1)} — it must be identical every time`);
+  uiCheckResult = { ok: fails.length === 0, fails, swordHitL100: hit, solo, mix, talk: talkRows, dips, cursorSpread: +cdiff.toExponential(1) };
   return uiCheckResult;
 }
 
@@ -556,6 +653,7 @@ Object.assign(window.__DQ, {
    *               '<amb_id>' renders the live chain (variants crossfaded, never exactly repeating)
    * 'mix:<theme>+<id>&<id>'  the TRUE mix: P27's theme on this mixer's music bus with the effects landing on it
    *               every 0.9 s from 1.0 s (music dips included). 'mix:battle' alone = the music bus with no effects.
+   * 'pile:<theme>+<id>&<id>'  the same, but every effect on the SAME millisecond: the worst case for headroom
    * 'talk:<theme>+<speaker>'  a line of dialogue typed over the theme as the game plays it: ticks at text.js pace in
    *               that speaker's voice (willow, halvard, bobble, ...), the music held down by the typing duck.
    */
@@ -565,6 +663,7 @@ Object.assign(window.__DQ, {
     if (id.startsWith('loop:')) { const [, real, v = 0] = id.split(':'); return Sfx.render(real, seconds, { single: true, variant: Number(v) }); }
     if (id.startsWith('talk:')) { const [theme, who = 'willow'] = id.slice(5).split('+'); return renderTalk(theme, who, seconds || 7); }
     if (id.startsWith('mix:')) { const [theme, fx = ''] = id.slice(4).split('+'); return renderMix(theme, fx.split(/[,&]/).filter(Boolean), seconds || 8); }
+    if (id.startsWith('pile:')) { const [theme, fx = ''] = id.slice(5).split('+'); return renderMix(theme, fx.split(/[,&]/).filter(Boolean), seconds || 8, null, { pile: true }); }
     return Sfx.render(id, seconds);
   },
   /**
@@ -608,7 +707,9 @@ Object.assign(window.__DQ, {
     uiCheck: uiCheckResult ? { ok: uiCheckResult.ok, fails: uiCheckResult.fails, swordHitL100: uiCheckResult.swordHitL100,
       blips: Object.fromEntries(Object.entries(uiCheckResult.mix).map(([k, r]) => [k, [r.popMedian, r.popMin, r.regionMedian]])), talk: uiCheckResult.talk } : null,
     hitCheck: hitCheckResult ? { ok: hitCheckResult.ok, fails: hitCheckResult.fails, busMedian: hitCheckResult.busMedian, envelopeCorrelation: hitCheckResult.envelopeCorrelation,
-      rows: hitCheckResult.rows.map(r => [r.id, { overBusTV: r.overBusTV, mixLiftTV: r.mixLiftTV, snapAtMs: r.snapAtMs, snapOverBodyDb: r.snapOverBodyDb, bodyDrop10Ms: r.bodyDrop10Ms }]) } : null,
+      missHiPeak: hitCheckResult.missHiPeak, tailOffsetsMs: hitCheckResult.tailOffsetsMs,
+      rows: hitCheckResult.rows.map(r => [r.id, { overBusTV: r.overBusTV, mixLiftTV: r.mixLiftTV, snapAtMs: r.snapAtMs, snapOverBodyDb: r.snapOverBodyDb, bodyDrop10Ms: r.bodyDrop10Ms,
+        lowLiftDb: r.lowLiftDb, midLiftDb: r.midLiftDb, hiSolo: r.hiSolo, hiLiftDb: r.hiLiftDb, hiDropDb: r.hiDropDb, down30Ms: r.down30Ms }]) } : null,
   }),
 });
 

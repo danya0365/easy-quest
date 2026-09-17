@@ -66,7 +66,7 @@ function heightAt(x, z) {
 }
 let scene, camera, rig, sky, kit, blobs, stool;
 const cast = [];
-const S = { mode: 'cast', focus: -1, pair: null, pairGap: 0.95, orbit: 0, zoom: 1, speed: 0, treadmill: false, theta: 0, life: true, lifeT: 1.5, camYaw: 0, camT: new THREE.Vector3(), camInit: false, lastPlay: 'idle', buildMs: 0 };
+const S = { mode: 'cast', focus: -1, pair: null, pairGap: 0.95, aim: 0.52, orbit: 0, zoom: 1, speed: 0, treadmill: false, theta: 0, life: true, lifeT: 1.5, camYaw: 0, camT: new THREE.Vector3(), camInit: false, lastPlay: 'idle', buildMs: 0 };
 
 function build() {
   const t0 = performance.now();
@@ -179,29 +179,33 @@ function showCast() {
   return cast.map(e => e.ch.label);
 }
 /** Father and son out walking together round the green: Halvard on the outside, Bram trotting at his elbow. */
-function showPair(speed = 1.6) {
+function showPair(speed = 1.6, mode = 'side') {
   const h = findCast('halvard'), b = findCast('hero', 6);
   if (h < 0 || b < 0) return { ok: false };
   if (S.focus >= 0) resetToSlot(cast[S.focus]);
   leavePair();
   S.mode = 'pair'; S.focus = -1; S.pair = [h, b]; S.theta = 0; S.camInit = false; S.speed = Math.max(0, +speed || 0);
+  S.pairMode = mode === 'line' ? 'line' : 'side';
   for (const i of S.pair) { const e = cast[i]; e.ch.setMove(0); e.ch.play('idle', { fade: 0.05 }); }
   placePair(0, true);
   label();
-  return { ok: true, speed: S.speed };
+  return { ok: true, speed: S.speed, mode: S.pairMode };
 }
 function placePair(dt, instant) {
   const [h, b] = S.pair.map(i => cast[i]);
-  S.theta += (S.speed * dt) / TRACK.r;
+  // 'side': the boy at his father's free (left) elbow, the greatsword on the inside of the ring.
+  // 'line': the Dragon Quest conga line — the boy leads, his father lumbers along behind him.
+  const line = S.pairMode === 'line';
+  const rH = line ? TRACK.r : TRACK.r - S.pairGap * 0.5, rB = line ? TRACK.r : TRACK.r + S.pairGap * 0.5;
+  S.theta += (S.speed * dt) / rH;
   const put = (e, r, th) => {
     const x = TRACK.x + Math.sin(th) * r, z = TRACK.z - Math.cos(th) * r;
     e.ch.root.position.set(x, heightAt(x, z), z);
     e.ch.setFacing(Math.atan2(Math.cos(th), Math.sin(th)), instant);
   };
-  const rB = TRACK.r - S.pairGap;
-  put(h, TRACK.r, S.theta);
-  put(b, rB, S.theta - 0.03);
-  h.ch.setMove(S.speed); b.ch.setMove(S.speed * rB / TRACK.r);
+  put(h, rH, S.theta);
+  put(b, rB, S.theta + (line ? 0.3 : -0.05));
+  h.ch.setMove(S.speed); b.ch.setMove(S.speed * rB / rH);
 }
 function label() {
   const n = document.getElementById('t-name'), l = document.getElementById('t-look');
@@ -264,7 +268,7 @@ function placeCamera(dt) {
     yaw = (S.speed > 0.05 ? h.ch.facing : 0) + S.orbit * DEG; pitch = 10 * DEG; dist = 6.2 * S.zoom; fov = 38;
   } else if (f) {
     const h = f.ch.height;
-    tgt.copy(f.ch.root.position); tgt.y += h * 0.52;
+    tgt.copy(f.ch.root.position); tgt.y += h * S.aim;
     yaw = (S.speed > 0.05 && !S.treadmill ? f.ch.facing : 0) + S.orbit * DEG; pitch = 9 * DEG; dist = (h * 2.3 + 1.4) * S.zoom; fov = 38;
     if (f.ch.clip === 'sleep') { tgt.y = f.ch.root.position.y + 0.25; pitch = 32 * DEG; }
   } else {
@@ -307,8 +311,10 @@ Debug.implement('cameraOrbit', (deg) => { if (deg === undefined) return S.orbit;
 Debug.implement('cameraZoom', (n) => { if (n === undefined) return S.zoom; S.zoom = Math.max(0.3, Math.min(4, +n || 1)); return S.zoom; });
 Debug.expose('show', (id, age) => show(id, age));
 Debug.expose('cast', () => showCast());
-Debug.expose('pair', (speed = 1.6) => showPair(speed));
+Debug.expose('pair', (speed = 1.6, mode = 'side') => showPair(speed, mode));
 Debug.expose('snap', () => { S.camInit = false; return true; });
+/** where the focus camera looks, as a fraction of the character's height (0.52 = the middle, 0.85 = the face) */
+Debug.expose('cameraAim', (frac) => { if (frac === undefined) return S.aim; S.aim = Math.max(0, Math.min(1.2, +frac || 0.52)); return S.aim; });
 /**
  * Measure the focused character (or pair member n) over `frames` fixed 60 Hz ticks: hip/head bob, foot lift, how far
  * each planted foot slides while the body travels, and the carried staff's tip (planted slide, height above ground).
@@ -322,9 +328,13 @@ Debug.expose('probe', (frames = 180, who = 0) => {
     Loop.step(1000 / 60);
     const st = e.ch.anim.state();
     const r = e.ch.root.position.clone();
-    const row = { r, hips: B.hips.getWorldPosition(v).y - r.y, head: B.head.getWorldPosition(v).y - r.y, feet: [], swing: st.feet.map(f => f.swing), stick: st.stick || null };
+    const row = { r, ikDrop: st.ikDrop || 0, hips: B.hips.getWorldPosition(v).y - r.y, head: B.head.getWorldPosition(v).y - r.y, feet: [], swing: st.feet.map(f => f.swing), stick: st.stick || null };
     for (const n of ['footL', 'footR']) { const p = B[n].getWorldPosition(new THREE.Vector3()); row.feet.push({ p, h: p.y - heightAt(p.x, p.z) }); }
-    if (tipLocal && B.propR) { const p = tipLocal.clone().applyMatrix4(B.propR.matrixWorld); row.tip = { p, h: p.y - heightAt(p.x, p.z) }; }
+    if (tipLocal && B.propR) {
+      const p = tipLocal.clone().applyMatrix4(B.propR.matrixWorld); row.tip = { p, h: p.y - heightAt(p.x, p.z) };
+      if (st.stick && st.stick.planted && st.stick.tip) row.tipErr = Math.hypot(p.x - st.stick.tip[0], p.y - st.stick.tip[1], p.z - st.stick.tip[2]);
+      if (B.shoulderProbe !== false && B.armR && B.handR) row.reach = B.armR.getWorldPosition(new THREE.Vector3()).distanceTo(B.handR.getWorldPosition(new THREE.Vector3()));
+    }
     rows.push(row);
   }
   const rng = (a) => Math.round((Math.max(...a) - Math.min(...a)) * 1000) / 10;
@@ -342,6 +352,7 @@ Debug.expose('probe', (frames = 180, who = 0) => {
   const res = {
     label: e.ch.label, height: +e.ch.height.toFixed(3), clip: e.ch.clip, speed: e.ch.anim.state().speed, cadence: e.ch.anim.state().cadence, stride: e.ch.anim.state().stride,
     hipBobCm: rng(rows.map(r => r.hips)), headBobCm: rng(rows.map(r => r.head)),
+    ikDropCm: [cm(Math.min(...rows.map(r => r.ikDrop))), cm(Math.max(...rows.map(r => r.ikDrop)))],
     footLiftCm: [0, 1].map(k => rng(rows.map(r => r.feet[k].h))),
     footContacts: [0, 1].map(k => contacts(r => r.feet[k].p, r => !r.swing[k])),
   };
@@ -350,6 +361,8 @@ Debug.expose('probe', (frames = 180, who = 0) => {
       heightCm: [cm(Math.min(...rows.map(r => r.tip.h))), cm(Math.max(...rows.map(r => r.tip.h)))],
       plantedHeightCm: rows.filter(r => r.stick && r.stick.planted).map(r => cm(r.tip.h)).reduce((a, b, _, arr) => [Math.min(a[0], b), Math.max(a[1], b)], [Infinity, -Infinity]),
       plants: contacts(r => r.tip.p, r => r.stick && r.stick.planted),
+      errCm: (() => { const e = rows.filter(r => r.tipErr != null).map(r => r.tipErr); return e.length ? [cm(Math.min(...e)), cm(e.reduce((x, y) => x + y, 0) / e.length), cm(Math.max(...e))] : null; })(),
+      reachCm: (() => { const e = rows.filter(r => r.reach != null).map(r => r.reach); return e.length ? [cm(Math.min(...e)), cm(Math.max(...e))] : null; })(),
     };
   }
   return res;

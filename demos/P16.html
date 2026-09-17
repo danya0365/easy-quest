@@ -140,9 +140,11 @@ function show(ids) {
   });
   const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), tanW = tanH * App.aspect();
   const solo = built.length === 1, deep = Math.max(...built.map(m => m.radius)) * 0.8;
-  S.fitDist = deep + (solo ? Math.max(1.75, (W * 0.5 + 0.3) / tanW * 1.05, (H * 0.5 + 0.12) / tanH * 1.5)
-                           : Math.max(2.3, (W * 0.5 + 0.5) / tanW * 1.08, (H * 0.5 + 0.2) / tanH * 1.9));
-  S.fitLook = H * 0.46;
+  // leave headroom above the tallest monster: defeat lines ("Sorry!", "…typical.") pop in a bubble up there
+  // tight enough that a child can read the faces, with headroom for the defeat bubbles above the tallest monster
+  S.fitDist = deep + (solo ? Math.max(1.8, (W * 0.5 + 0.3) / tanW * 1.05, (H * 0.64 + 0.16) / tanH * 1.5)
+                           : Math.max(2.2, (W * 0.5 + 0.42) / tanW * 1.02, (H * 0.6 + 0.2) / tanH * 1.62));
+  S.fitLook = H * 0.5;
   S.dist = S.fitDist; S.look = S.fitLook;
   announce(list);
   return { ids: list, width: +W.toFixed(2), height: +H.toFixed(2), dist: +S.fitDist.toFixed(2) };
@@ -219,6 +221,13 @@ Debug.expose('parade', (on = true, opts = {}) => {
   return { ids: ids.length, secondsEach: PARADE_STEPS[PARADE_STEPS.length - 1][0] };
 });
 Debug.expose('list', () => Monsters.list());
+/** Wild (the sly enemy face) or friend (the beaming face a monster keeps after it joins you). */
+Debug.expose('mood', (sel, mood) => {
+  const out = [];
+  for (const m of targets(sel)) { if (mood !== undefined) m.setMood(mood); out.push([m.id, m.mood]); }
+  return out;
+});
+Debug.expose('say', (sel, text) => { const out = []; for (const m of targets(sel)) { m.say(String(text ?? '…')); out.push(m.id); } return out; });
 Debug.expose('info', (id) => id ? Monsters.info(id) : Monsters.list().map(i => Monsters.info(i)));
 Debug.expose('pitch', (deg) => { if (deg !== undefined) S.pitch = +deg; return S.pitch; });
 Debug.expose('look', (y) => { if (y !== undefined) S.look = +y; return S.look; });

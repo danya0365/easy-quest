@@ -1,0 +1,259 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>P09 — the field camera</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#000}
+#game-canvas{display:block;width:100vw;height:100vh}#ui-root{position:fixed;inset:0;pointer-events:none}
+#cam{position:fixed;left:12px;top:12px;min-width:250px;padding:10px 12px;border-radius:10px;pointer-events:none;
+  font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--pal-ui-text,#fff);
+  background:linear-gradient(180deg,var(--pal-ui-win-top,#1b3f86) 0%,var(--pal-ui-win-bottom,#0d1f4a) 100%);
+  border:2px solid var(--pal-ui-border,#eef3ff);box-shadow:0 6px 18px rgba(10,16,34,.45)}
+#cam b{color:var(--pal-paint-gold,#e9b949);font-weight:700}
+#cam .row{display:flex;justify-content:space-between;gap:12px}
+#cam .dim{color:var(--pal-ui-text-dim,#bcd)}
+#cam .bar{height:4px;border-radius:2px;background:var(--pal-paint-gold,#e9b949);margin:2px 0 4px}
+#keys{position:fixed;right:12px;bottom:12px;padding:8px 10px;border-radius:9px;pointer-events:none;
+  font:12px/1.4 ui-monospace,Menlo,monospace;color:var(--pal-ui-text,#fff);background:rgba(12,22,48,.72);
+  border:2px solid var(--pal-ui-border,#eef3ff)}
+#talk{position:fixed;left:8%;right:8%;bottom:6%;padding:16px 20px;border-radius:12px;display:none;
+  font:20px/1.5 ui-rounded,Avenir,system-ui,sans-serif;color:var(--pal-ui-text,#fff);
+  background:linear-gradient(180deg,var(--pal-ui-win-top,#1b3f86) 0%,var(--pal-ui-win-bottom,#0d1f4a) 100%);
+  border:3px solid var(--pal-ui-border,#eef3ff);box-shadow:0 10px 26px rgba(10,16,34,.5)}
+</style>
+</head><body>
+<canvas id="game-canvas"></canvas><div id="ui-root"></div>
+<div id="cam">booting…</div>
+<div id="keys">arrows walk · shift run · <b>Q/E</b> orbit · <b>1-5</b> mode · <b>F</b> fade · <b>T</b> talk · <b>C</b> cutscene · <b>W</b> walk · <b>R</b> reset boom</div>
+<div id="talk">Bram looks up the lane. Puddlewick is over the bridge, round the bend.</div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// DEMO — P09: THE CAMERA. The real field, the real map, the real hero — and nothing else — so every frame here is
+// the camera's work: the spring follow, the 360° orbit, the ease-behind, the lead, the modes, the cutscene camera,
+// and the clean alpha fade of whatever comes between the lens and Bram.
+//
+// Controls for a human: arrows walk, shift runs, Q/E orbit, 1-5 pick a mode (field/town/world/interior/dungeon),
+// F toggles the occluder fade (A/B against the old dither), T frames a conversation, C plays a cutscene shot,
+// W runs the scripted walk through the trees and the cottage.
+//
+// For a critic (__DQ): cameraOrbit cameraZoom cameraAuto cameraRig cameraMode cameraShot cameraRelease cameraFade
+// cameraOccluders — plus this page's p09stand / p09walk / p09objects / p09talk / p09panel.
+import { App } from '/src/engine/app.js';
+import { Scenes } from '/src/engine/states.js';
+import { Bus } from '/src/engine/events.js';
+import { Loop } from '/src/engine/loop.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { applyCssVars } from '/src/art/palette.js';
+import { Maps } from '/src/world/map.js';
+import { Field } from '/src/world/field.js';
+import { preloadHero } from '/src/world/player.js';
+
+applyCssVars();
+Input.init();
+App.start({ canvas: document.getElementById('game-canvas'), version: '0.9.0-P09', beforeUpdate: Input.update });
+
+const panel = document.getElementById('cam');
+const talkBox = document.getElementById('talk');
+let showPanel = true;
+
+// A stand-in for the dialogue scene (P12 owns the real one): the field's camera settles lower while it is on top,
+// which is the "talk framing" this demo shows. It renders nothing 3D, so the field keeps drawing underneath.
+Scenes.register('dialogue', () => ({
+  opaque: false, updateBelow: true,
+  enter() { talkBox.style.display = 'block'; },
+  exit() { talkBox.style.display = 'none'; },
+  update() {}, render() {},
+  onInput(btn) { if (btn === 'confirm' || btn === 'cancel') Scenes.pop(); return true; },
+}));
+
+// ── the scripted walk: real input, injected, so the camera is doing exactly what it does for a player ──────────
+const WALK = { path: null, at: 0, name: null, done: true };
+function pressToward(wx, wz) {
+  const w = Field.world();
+  if (!w) return;
+  const p = w.player.p;
+  const dx = wx - p.x, dz = wz - p.z;
+  const yaw = w.cameraRig.yaw;                       // the frame the player walks in
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+  const fwd = dx * fx + dz * fz, side = dx * rx + dz * rz;
+  const m = Math.max(1e-4, Math.hypot(fwd, side));
+  if (fwd / m > 0.38) Input.inject('up', 40);
+  if (fwd / m < -0.38) Input.inject('down', 40);
+  if (side / m > 0.38) Input.inject('right', 40);
+  if (side / m < -0.38) Input.inject('left', 40);
+}
+Field.on('update', () => {
+  try {
+    if (WALK.done || !WALK.path || !WALK.path.length) return;
+    const w = Field.world();
+    if (!w) return;
+    const p = w.player.p, t = WALK.path[WALK.at];
+    if (Math.hypot(t[0] - p.x, t[1] - p.z) < 1.3) {
+      WALK.at++;
+      if (WALK.at >= WALK.path.length) { WALK.done = true; return; }
+    }
+    pressToward(WALK.path[WALK.at][0], WALK.path[WALK.at][1]);
+  } catch (e) { reportError('P09 walk', e); }
+});
+
+/** Objects the fade pass can see (biggest first): trees, cottages, fences — with where they are. */
+const objects = (n = 40) => {
+  const w = Field.world();
+  return w && w.cameraRig.fade ? w.cameraRig.fade.objects(n) : [];
+};
+/**
+ * Where to stand so an occluder really covers Bram AND the lens stays clear of it. The field camera is a DQV
+ * SHORT boom now (~4.5 units, the boy at 28% of frame height), and geometry says a 7-unit-wide cottage cannot
+ * sit BETWEEN a 4.5-unit lens and the boy without the lens being inside it — which is the near-melt case, not
+ * the ghost case. So a stance also reports the boom length the ghost needs, and p09stand zooms there itself.
+ *   'tree'  a canopy: he stands past it, the crown crosses the sight line
+ *   'house' a building-sized merged cluster
+ *   'reset' put the boom back where the map's composition wants it
+ * Solved from the camera's own geometry, so it keeps working while P23 and P04 rebuild the map underneath.
+ */
+const CLEAR = 2.6;                        // the lens must stay this far off the surface (camera.js FADE.near)
+function stancesFor(kind = 'tree') {
+  const cam = window.__DQ.state().field.camera || {};
+  const w = Field.world();
+  const p = w ? w.player.p : { x: 0, y: 0, z: 0 };
+  const pitch = (cam.pitch || 12) * Math.PI / 180;
+  const list = objects(900).filter((o) => Math.hypot(o.x, o.z) < 34);
+  const out = [];
+  for (const o of list) {
+    const solid = o.kind === 'solid';
+    if (kind === 'house' || kind === 'solid' ? !solid : solid) continue;
+    // a "house" is a cluster that is actually BUILDING-sized: a 2.8-tall fence post is not a cottage
+    if (solid && !(o.h > 2.4 && (o.w || 0) > 3)) continue;
+    if (!solid && !(o.r > 0.9)) continue;
+    const half = solid ? (o.w || o.r) * 0.5 : o.r;
+    const up = Math.max(0.5, o.y - p.y);
+    // he stands `back` past it; the lens then sits (flat - back) beyond it and must clear its surface
+    const back = half + 0.8;
+    const flat = back + half + CLEAR;                          // the flat run the lens needs
+    const need = +(flat / Math.max(0.3, Math.cos(pitch))).toFixed(2);
+    out.push({ o, back: +back.toFixed(2), need, up: +up.toFixed(2), size: solid ? o.h : o.r,
+      score: (solid ? o.h + (o.w || 0) * 0.3 : o.r) - need * 0.08 });
+  }
+  out.sort((a, b) => b.score - a.score);
+  return out;
+}
+const stanceFor = (kind) => stancesFor(kind)[0] || null;
+let standAt = 0, standKind = null;
+
+// ── __DQ controls ─────────────────────────────────────────────────────────────────────────────────────────────
+/** Stand behind an occluder so the fade is in frame: __DQ.p09stand('tree'|'house'|'reset', orbitDeg). */
+Debug.expose('p09stand', (kind = 'tree', orbit = 0, index) => {
+  if (kind === 'reset') { window.__DQ.cameraMode(window.__DQ.state().field.camera.mode); window.__DQ.cameraAuto(true); return { ok: true, reset: true }; }
+  const cand = stancesFor(kind);
+  if (!cand.length) return { ok: false, reason: 'nothing to stand behind yet' };
+  // called again while nothing is actually covering him? try the next candidate — the map changes under this demo
+  const covering = ((window.__DQ.state().field.camera.fade || {}).occluding) || 0;
+  if (index !== undefined) standAt = Math.max(0, +index || 0) % cand.length;
+  else if (standKind !== kind) standAt = 0;
+  else if (!covering) standAt = (standAt + 1) % cand.length;
+  standKind = kind;
+  const st = cand[Math.min(standAt, cand.length - 1)];
+  const o = st.o;
+  const yaw = (Number(orbit) || 0) * Math.PI / 180;
+  const x = o.x - Math.sin(yaw) * st.back, z = o.z - Math.cos(yaw) * st.back;
+  const here = Field.map ? Field.map.id : 'meadow';
+  const r = Field.teleport(here, +x.toFixed(2), +z.toFixed(2), Number(orbit) || 0);
+  // ... and pull the boom back far enough that the thing between us GHOSTS instead of melting at the lens
+  window.__DQ.cameraOrbit(Number(orbit) || 0, true);
+  window.__DQ.cameraAuto(false);
+  window.__DQ.cameraZoom(st.need);
+  return { ok: !!(r && r.ok), behind: o, candidate: standAt, of: cand.length, back: st.back,
+    boom: st.need, player: r && r.player };
+});
+/** The scripted walk: 'trees' through the copse, 'village' past the cottage, 'stop'. */
+Debug.expose('p09walk', (name = 'trees') => {
+  if (name === 'stop') { WALK.done = true; WALK.path = null; return { ok: true, walking: false }; }
+  const ts = stanceFor('tree'), hs = stanceFor('house');
+  const tree = ts && ts.o, house = hs && hs.o;
+  const w = Field.world();
+  const p = w ? w.player.p : { x: 0, z: 0 };
+  let path = [];
+  if (name === 'village' && house) path = [[house.x, house.z + (house.r + 3)], [house.x, house.z - (house.r + 2.5)], [house.x + house.r + 4, house.z]];
+  else if (tree) path = [[tree.x, tree.z + tree.r + 3], [tree.x, tree.z - tree.r - 3], [tree.x + tree.r + 4, tree.z - tree.r - 1], [p.x, p.z]];
+  if (!path.length) return { ok: false, reason: 'no path yet' };
+  WALK.path = path; WALK.at = 0; WALK.done = false; WALK.name = name;
+  if (window.__DQ) window.__DQ.cameraAuto(true);
+  return { ok: true, name, path };
+});
+Debug.expose('p09objects', (n) => objects(n === undefined ? 12 : n));
+/** Open / close the stand-in dialogue, to show the talk framing. */
+Debug.expose('p09talk', (on) => {
+  const open = Scenes.top() === 'dialogue';
+  if (on === false || (on === undefined && open)) { if (open) Scenes.pop(); return { open: false }; }
+  if (!open) Scenes.push('dialogue', {});
+  return { open: true };
+});
+Debug.expose('p09panel', (on) => { showPanel = on === undefined ? !showPanel : !!on; panel.style.display = showPanel ? 'block' : 'none'; return showPanel; });
+Debug.provide('demo', () => ({ piece: 'P09', walk: WALK.done ? null : { name: WALK.name, at: WALK.at, of: WALK.path ? WALK.path.length : 0 } }));
+
+// ── keys a human can use ──────────────────────────────────────────────────────────────────────────────────────
+const MODES = ['field', 'town', 'world', 'interior', 'dungeon'];
+addEventListener('keydown', (ev) => {
+  const rig = (Field.world() || {}).cameraRig;
+  if (!rig) return;
+  const k = ev.key;
+  try {
+    if (k >= '1' && k <= '5') rig.mode(MODES[+k - 1]);
+    else if (k === 'f' || k === 'F') rig.fade.enabled = !rig.fade.enabled;
+    else if (k === 't' || k === 'T') window.__DQ.p09talk();
+    else if (k === 'w' || k === 'W') window.__DQ.p09walk(WALK.done ? 'trees' : 'stop');
+    else if (k === 'r' || k === 'R') window.__DQ.p09stand('reset');
+    else if (k === 'c' || k === 'C') {
+      const p = Field.world().player.p;
+      rig.shot({ from: { orbit: 150, pitch: 8, dist: 9, of: { x: p.x, y: p.y, z: p.z } },
+        to: { orbit: 20, pitch: 34, dist: 7, of: { x: p.x, y: p.y, z: p.z } },
+        lookAt: 'hero', duration: 4, ease: 'inOut', hold: false });
+    }
+  } catch (e) { reportError('P09 keys', e); }
+});
+
+// ── the panel: everything the camera is doing, so a critic can see it without reading code ───────────────────
+function bar(v, max) { return `<div class="bar" style="width:${Math.round(Math.max(0, Math.min(1, v / max)) * 100)}%"></div>`; }
+Field.on('render', () => {
+  if (!showPanel) return;
+  try {
+    const s = window.__DQ.state();
+    const cam = s.field && s.field.camera;
+    if (!cam) return;
+    const f = cam.fade || {};
+    const fr = window.__DQ.cameraFrame() || {};
+    const list = (window.__DQ.cameraOccluders() || []).slice(0, 4);
+    panel.innerHTML =
+      `<div class="row"><b>P09 camera</b><span class="dim">${cam.mode}</span></div>` +
+      `<div class="row"><b>the boy</b><span>${(fr.heroPct || 0).toFixed(0)}% of frame <span class="dim">(${fr.heroPx || 0}px)</span></span></div>` +
+      `<div class="row"><span>his feet / horizon</span><span>${(fr.feetPct || 0).toFixed(0)}% / ${(fr.horizonPct || 0).toFixed(0)}% down</span></div>` +
+      `<div class="row"><span>orbit</span><span>${cam.orbit.toFixed(0)}° <span class="dim">walk ${cam.walk.toFixed(0)}° drift ${cam.drift.toFixed(0)}°</span></span></div>` +
+      `<div class="row"><span>pitch / fov</span><span>${cam.pitch.toFixed(1)}° / ${cam.fov.toFixed(0)}°</span></div>` +
+      `<div class="row"><span>boom / lift</span><span>${cam.dist.toFixed(2)} / ${cam.lift.toFixed(2)} <span class="dim">eye ${(fr.eyeAboveFeet || 0).toFixed(2)}</span></span></div>` +
+      `<div class="row"><span>lead</span><span>${cam.lead[0].toFixed(2)}, ${cam.lead[1].toFixed(2)}</span></div>` +
+      `<div class="row"><span>auto / swing</span><span>${cam.auto ? 'on' : 'off'} / ${cam.swing.toFixed(0)}°/s</span></div>` +
+      (cam.shot ? `<div class="row"><span>shot</span><span>${cam.shot.t.toFixed(1)}s / ${cam.shot.duration.toFixed(1)}s${cam.shot.releasing ? ' (release)' : ''}</span></div>` : '') +
+      `<div class="row"><b>fade ${f.on ? 'on' : 'OFF'}</b><span class="dim">${f.ms}ms · ${f.objects} objs</span></div>` +
+      `<div class="row"><span>covering hero</span><span>${f.occluding} <span class="dim">(ghosts ${f.ghosts})</span></span></div>` +
+      list.map((o) => `<div class="row"><span class="dim">${o.name.slice(0, 22)}</span><span>${Math.round(o.alpha * 100)}%${o.inside ? ' <span class="dim">at lens</span>' : ''}</span></div>${bar(1 - o.alpha, 1)}`).join('') +
+      `<div class="row dim"><span>${s.player ? 'x ' + s.player.x.toFixed(1) + ' z ' + s.player.z.toFixed(1) : ''}</span><span>${s.fps} fps</span></div>`;
+  } catch (e) { void e; }
+});
+
+// ── boot the real field ───────────────────────────────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    await Promise.all([
+      Maps.loadAll().catch((e) => { reportError('P09 maps', e); return []; }),
+      preloadHero().catch(() => false),
+    ]);
+    Field.install();
+    // the meadow is the camera's home ground; Puddlewick (when P23 has built it) is one __DQ.teleport away
+    const maps = Maps.list();
+    Scenes.push('field', { map: maps.includes('meadow') ? 'meadow' : (maps[0] || 'meadow') });
+    Bus.emit('app.booted', { scene: 'field' });
+  } catch (e) { reportError('P09 boot', e); }
+})();
+void Loop;
+</script></body></html>

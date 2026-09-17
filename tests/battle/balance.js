@@ -50,7 +50,9 @@ export const BOSSES = {
     // r3: his lantern knocks harder (an Enfolded bishop acting twice a round must be able to put a child down, or Queen
     // Elowen simply heals through him at any level)
     moves: { vespers: { base: 70 }, kascorcha: { weight: 1.5 }, benediction: { amount: 150, maxUses: 1, below: 0.5 },
-      silence_the_choir: { targetCaster: true, weight: 2 }, lantern_knock: { power: 1.35 } } },
+      // r4: once in a while, for two turns (at weight 2 and three turns, with Tactics on, Queen Elowen spent 144 of her
+      // 267 turns silenced and swinging her staff — "the best healer in the game hits Mortmain for 12")
+      silence_the_choir: { targetCaster: true, weight: 1, status: { id: 'silence', chance: 0.8, turns: 2 } }, lantern_knock: { power: 1.35 } } },
   malgrim_cocoon: { partyLevel: 28, hp: 1000, def: 50, mdef: 70, atk: 175, wis: 80, moves: { unlight: { base: 80 }, lash: { power: 0.62 } } },
   // (r3: a fifth, not three tenths — with Malgrim acting twice the lullaby came straight after, and at 0.3 the fight
   // ended with the party fuller than it started the round.)

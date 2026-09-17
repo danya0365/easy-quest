@@ -31,10 +31,16 @@ const ONLY = arg('only', null);
 const DRY = argv.includes('--dry');
 const clampN = (x, a, b) => Math.max(a, Math.min(b, x));
 
-/** Per-boss targets: [rounds, HP left]. The first boss is gentler and shorter; the finale longer and leaner. */
+/**
+ * Per-boss targets: [rounds, HP left]. The first boss is gentler and shorter; the finale longer.
+ * r4 (Tactics): the last two fights are the only ones with Queen Elowen in the party, and with Tactics on she heals on
+ * her own turn every turn, so they simply do not end at 40% HP — pushed there they become coin flips instead of fights
+ * (the damage that outruns her healing kills outright). They are aimed at "eight rounds, somebody knocked out, the
+ * party standing at about half" instead; tests/battle/journey.mjs judges them on their own band.
+ */
 const TARGET = {
   mumbleroot: [7, 0.44], bogwallop: [7.5, 0.41], sexton_sootbell: [8, 0.41], tidewarden: [8, 0.40], hoarfax: [7.5, 0.45],
-  iron_governess: [8.5, 0.40], 'hush+hark': [8.5, 0.40], mortmain: [9, 0.39], malgrim_cocoon: [9, 0.39],
+  iron_governess: [8.5, 0.40], 'hush+hark': [8.5, 0.40], mortmain: [8.5, 0.55], malgrim_cocoon: [7.5, 0.55],
 };
 const UNDER_MAX = 0.40;     // four levels under, fresh: first-try win at most this…
 // …and lower where the design child reaches the door with its healer's magic spent on the road (Act II: Bram does all
@@ -46,7 +52,7 @@ const ACTIONS_BY = { malgrim_cocoon: [2] };
 const DESIGN_MIN = 0.90;    // the design child's first-try win…
 // …except the finale, where Queen Elowen heals so well that a fight which leaves the party near 40% also floors it
 // now and then: a second try at the last two bosses is fine (the helper, the rubber band and the Retreat Bell are there)
-const DESIGN_MIN_BY = { mortmain: 0.84, malgrim_cocoon: 0.84 };
+const DESIGN_MIN_BY = { mortmain: 0.88, malgrim_cocoon: 0.88 };
 // no high guard for these: their weak spot is magic (Hoarfax's fire, the finale's healers keeping the casters casting),
 // so a guard that shrugs off swords leaves the child who only presses Attack far behind the one whose Fight! casts
 const NO_LEVER = new Set(['hoarfax', 'mortmain', 'malgrim_cocoon']);

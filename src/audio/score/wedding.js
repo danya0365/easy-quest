@@ -1,7 +1,7 @@
 // WEDDING — "Bells Over Bellhollow" · F major · 4/4 · ♩=76 · Intro(2) → A(8) → B(8) → A′(8) → loop to A · CANON §9 `wedding`
 // It opens on the Hearth Cell in F (C F E D C), so a wedding sounds like the same family. Bells ring down the scale,
 // the organ holds the room, and the last A brings the horns and every bell in the tower.
-import { Theme } from './_lib.js';
+import { Theme, N } from './_lib.js';
 
 const A_MELODY = [
   ['C5', 1], ['F5', 1], ['E5', 1], ['D5', 1],
@@ -27,7 +27,7 @@ const B_MELODY = [
 const B_HARM = ['Dm', 'Bb', 'Gm', 'C', 'Dm', 'Bb', 'Gm7|C7', 'F'];
 
 export function build() {
-  const T = Theme({ id: 'wedding', title: 'Bells Over Bellhollow', key: 'F major', bpm: 76, meter: 4, pulse: [0, 2], intro: 2, loop: 24, space: 'CHAPEL', gain: 0.88 });
+  const T = Theme({ id: 'wedding', title: 'Bells Over Bellhollow', key: 'F major', bpm: 76, meter: 4, pulse: [0, 2], intro: 2, loop: 24, space: 'CHAPEL', gain: 0.72 });
   const bells = T.part('bells', { voice: 'bell', bus: 'counter', gain: 0.8 });
   const organ = T.part('organ', { voice: 'organ', bus: 'harmony', gain: 0.8 });
   const pedal = T.part('pedal', { voice: 'organ', bus: 'bass', o: { pedal: true } });
@@ -58,10 +58,17 @@ export function build() {
   flute.seq(10, B_MELODY, { dyn: 'mp' });
   T.pad('strPad', hB, { n: 3, lo: 'D3', hi: 'D4', dyn: 'p' }); roots(hB, 'p');
   T.arp('harp', hB, { pat: ['1', '5', '8', '10', '12', '10', '8', '5'], step: 0.5, base: 'D3', dyn: 'p', len: 1.5, cycle: 4 });
-  // A′ (18-25): everyone — horns and violins, full organ, a bell on every downbeat, timpani
+  // the lift into the last A: the timpani roll, a cymbal swell and the organ opening up over the last bar of B
+  timp.roll(T.bar(17, 0), T.bar(18, 0), 'C2', { from: 'pp', to: 'mf', perBeat: 6 });
+  cym.note(T.bar(17, 0), 'C5', 4, { dyn: 'mf', o: { roll: true } });
+  T.parts.harp.gliss(T.bar(17, 2), 'C7', 'C3', 'C6', { dyn: 'mp', spacing: 0.035 });
+
+  // A′ (18-25): the horns take the tune, the violins answer above with a descant of their own (no octave doubling),
+  //      full organ, a bell on every downbeat, timpani
   const hA2 = T.chords(18, A_HARM);
   horns.seq(18, A_MELODY, { dyn: 'f' });
-  vns.seq(18, A_MELODY, { dyn: 'f', oct: 1, gain: 0.7 });
+  vns.seq(18, N(`A5:2 C6:2   A5:2 F5:2   D5:1 F5:1 E5:2   F5:4
+    D5:2 E5:2   A5:2 F5:2   D5:2 E5:2   C6:4`), { dyn: 'mf', gain: 0.8 });
   T.pad('organ', hA2, { n: 4, lo: 'F3', hi: 'C5', dyn: 'mf' }); roots(hA2, 'mf');
   T.pad('strPad', hA2, { n: 3, lo: 'C4', hi: 'C5', dyn: 'mp' });
   for (let bar = 18; bar < 26; bar++) { bells.note(T.bar(bar), bar % 2 ? 'C5' : 'F4', 3, { dyn: 'mf' }); timp.note(T.bar(bar), bar % 2 ? 'C2' : 'F2', 1, { dyn: 'mf' }); timp.note(T.bar(bar, 2), 'C2', 1, { dyn: 'mp' }); }
