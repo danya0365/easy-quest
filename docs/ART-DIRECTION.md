@@ -1528,3 +1528,9 @@ Headroom levers, in order of least visual cost:
 - Measured on Apple Metal in headless Chromium, not on integrated Intel/AMD graphics. Verify there with the `low` tier.
 - Time of day is fixed at midday. For dusk and night, lerp `PAL.light.*`, `PAL.sky.*` and fog; keep the ratio rule
   (lit : shade ≈ 1 : 0.6 perceived) and keep shade tinted.
+
+---
+## ★ LOCKED BY THE OWNER (2026-09-17)
+The owner approved the current look as better than the original. `docs/approved/*.png` are the reference frames.
+Everything in this document is now the locked house style — extend it, never walk it back. See the matching
+section at the end of docs/DQV-RUBRIC.md.

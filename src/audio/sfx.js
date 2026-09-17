@@ -630,12 +630,12 @@ const BODY_IN = 0.004;
  */
 function snap(E, t, o = {}) {
   const ctx = E.ctx, T = E.t + t, k = o.k ?? 1, f = o.f ?? 2000;
-  const pre = ctx.createGain(); pre.gain.value = o.drive ?? 4;
+  const pre = ctx.createGain(); pre.gain.value = o.drive ?? 7;
   const ws = ctx.createWaveShaper(); ws.curve = driveCurve(ctx, 1.6); ws.oversample = 'none';
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.lp ?? 7000; lp.Q.value = 0.5;
   const out = ctx.createGain(); out.gain.value = (o.g ?? 0.5) * k;
   pre.connect(ws); ws.connect(lp); lp.connect(out); out.connect(E.out);
-  const h = o.h ?? 0.001, d = o.d ?? 0.011;
+  const h = o.h ?? 0.0006, d = o.d ?? 0.012;
   // band-limit the flick BEFORE the clipper: clipped white noise is mostly energy above the lowpass, all crest
   noise(E, { t, a: 0.0003, h, d, g: o.ng ?? 1, to: pre, filters: [{ type: 'highpass', f: o.hp ?? 1000, nojit: true }, { type: 'lowpass', f: (o.lp ?? 7000) * 0.7, nojit: true }] });
   tone(E, { t, type: 'sine', f, f1: f * 0.4, ft: 0.006, a: 0.0003, h, d, g: o.tg ?? 0.3, to: pre });

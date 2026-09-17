@@ -45,7 +45,7 @@ export function build() {
   T.pad('strings', hA.filter((c) => c.b >= T.bar(4)), { n: 3, lo: 'D3', hi: 'D4', dyn: 'pp' });
   // B (8-15)
   const hB = T.chords(8, B_HARM);
-  flute.seq(8, B_MELODY, { dyn: 'mp' });
+  flute.seq(8, B_MELODY, { dyn: 'mp', oct: -1, gain: 1.3 }); // at written pitch (B4-C6): the flute's warm low register, not a C7 whistle
   T.arp('harp', hB, harpPat); T.bass('pizz', hB, pizzPat);
   T.pad('strings', hB, { n: 3, lo: 'D3', hi: 'D4', dyn: 'pp' });
   // A (16-23)
@@ -58,7 +58,7 @@ export function build() {
   oboe.seq(24, A_MELODY.slice(0, 18), { dyn: 'p' });
   flute.seq(30, A_MELODY.slice(18), { dyn: 'p' });
   cel.seq(24, A_MELODY, { dyn: 'pp', oct: 2 });
-  T.arp('harp', hC, { ...harpPat, dyn: 'pp' }); T.bass('pizz', hC, { ...pizzPat, dyn: 'p' });
-  T.pad('strings', hC, { n: 3, lo: 'D3', hi: 'D4', dyn: 'p' });
+  T.arp('harp', hC, { ...harpPat, dyn: 'ppp' }); T.bass('pizz', hC, { ...pizzPat, dyn: 'pp' });
+  T.pad('strings', hC, { n: 3, lo: 'D3', hi: 'D4', dyn: 'pp' });
   return T.build();
 }

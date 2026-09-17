@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-17T14:44:56.929Z",
+  "updated": "2026-09-17T14:45:35.435Z",
   "wave": 0,
   "waveTitle": "Foundation (attempt 2) — canon + art direction + engine + vertical slice",
   "pieces": {
@@ -27,13 +27,19 @@
     },
     "F3": {
       "id": "F3",
-      "status": "building",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
+      "status": "iterating",
+      "score": 66,
+      "best": 66,
+      "rounds": 1,
+      "gap": "far treeline is faceted unoutlined untextured green polygon balls (primitive wall at edges, paths stub into empty grass); rebuild as layered outlined toon canopy ring with trunks+haze",
       "note": "Art foundation: PAL (every colour + time-of-day/UI/ink), Toon (3-band tinted-shade toon, outlines, wind, worldPlanar/AO patches, light rig + presets, fog, blob/AO contact shadows), Tex (13 seamless materials + masks/sprites/clouds); demo Puddlewick Sampler",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-17T14:45:35.435Z",
+          "score": 66,
+          "gap": "far treeline is faceted unoutlined untextured green polygon balls (primitive wall at edges, paths stub into empty grass); rebuild as layered outlined toon canopy ring with trunks+haze"
+        }
+      ],
       "name": "Art foundation — palette, toon shading, textures"
     },
     "F4": {

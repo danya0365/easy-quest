@@ -102,3 +102,19 @@ moment (title / town at midday / interior / overworld / battle opening / level-u
 **Rules for critics:** never read the builder's summary — only the running build. Never give credit for
 intent, effort, comments, or code quality. If a screenshot is a black or empty frame, the score is 0.
 If you cannot reach the thing you were asked to judge, the score is 0 and the gap is "it is not reachable".
+
+## ★ Owner-approved look — LOCKED (2026-09-17)
+The owner looked at the running build and said the visuals and the UI are **much more beautiful than the
+original DQV PS2 — keep it exactly like this.** Reference frames: `docs/approved/*.png`
+(field-opening, dialogue, menu-nested, cottage-materials, hero-close).
+
+What this changes for everyone:
+- **This style is the floor, not a draft.** Warm toon shading, painterly grass, chunky outlined trees, big soft
+  clouds, the glossy blue gradient windows with pale double border, the chunky white type with gold highlights.
+- **Builders:** never regress toward PS2-era limitations (lower detail, flatter lighting, plainer windows) to
+  "match the original". Any visual change must come out at least as beautiful as `docs/approved/`. New art
+  (towns, interiors, monsters, battle) must be made *in this style*. Before/after screenshots are mandatory
+  for any change that touches how the game looks.
+- **Critics:** do NOT score down for being prettier, more detailed or more modern than PS2. The blind A/B is
+  about *magic, warmth, charm, discovery and feel* — DQV's soul — delivered at this higher visual fidelity.
+  A change that makes a frame less beautiful than the approved references is a regression and scores lower.

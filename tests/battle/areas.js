@@ -170,7 +170,7 @@ export const AREAS = [
   },
   // ------------------------------------------------------------------------------------------------ Act III
   {
-    id: 'glasswing_grotto', name: 'The Frostbottom & Glasswing Grotto', act: 3, beat: 'B22', leg: 8, tier: 4, areaLevel: 22, tableLvl: 19.5, hpMult: 1.25, levels: [20, 21, 22], wagonReachable: false,
+    id: 'glasswing_grotto', name: 'The Frostbottom & Glasswing Grotto', act: 3, beat: 'B22', leg: 8, tier: 4, areaLevel: 22, tableLvl: 18.5, hpMult: 1.15, levels: [20, 21, 22], wagonReachable: false,
     note: 'Bram, the twins (catching up, mother = Willow), Barty; Pip and Bobble wait in the wagon.',
     party: (L) => ACT3(L, { rowanOff: -4, linnetOff: -4, extra: [['pip', -1], ['bobble', -2]] }),
     table: [['lady_mothbonnet', 3], ['grimalkitten', 2], ['boulderdash', 2], ['gloopold', 1], ['squidgeon', 1]],

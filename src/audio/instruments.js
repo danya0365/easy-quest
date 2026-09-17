@@ -1017,7 +1017,7 @@ VOICES.horns = (K, n, out) => {
 // 1.3 STRINGS (section) — grown string multisamples: bow scratch, body resonances, late vibrato, swell; o.trem tremolo
 VOICES.strings = (K, n, out) => {
   const trem = n.o?.trem;
-  const short = !trem && (n.art === 'staccato' || n.dur < 0.14);
+  const short = !trem && (n.art === 'staccato' || n.dur < 0.14 || (n.dur < 0.26 && (n.o?.attack ?? 1) <= 0.03));
   const Z = Bank.zone(K.ctx, 'str', short ? 'stac' : 'sus', n.m, K.offline);
   if (!Z) return VOICES.stringsSynth(K, n, out);
   const { ctx } = K; const { t, vel } = n; const dur = n.dur;

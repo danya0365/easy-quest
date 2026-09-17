@@ -53,17 +53,21 @@ export function build() {
     }
   };
   const timpBeats = (h, dyn = 'mf') => {
-    for (const c of h) for (let x = c.b; x < c.b + c.d - 1e-6; x += 2) timp.note(x, c.pcs.has(2) ? 'D2' : 'A2', 0.5, { dyn: x % 4 ? 'mp' : dyn });
+    for (const c of h) for (let x = c.b; x < c.b + c.d - 1e-6; x += 2) timp.note(x, c.pcs.has(2) ? 'D2' : 'A2', 0.5, { dyn: x % 4 ? (dyn === 'mp' ? 'p' : 'mp') : dyn });
   };
+  // the brass sing the tune at written pitch (D5-D6): the bright top voice. Strings double it an octave below (under the
+  // horns, over the violas); at ff the violins also join the brass in unison.
   const section = (bar, mel, harm, { dyn = 'f', trem = false } = {}) => {
     const h = T.chords(bar, harm);
-    horns.seq(bar, mel, { dyn, oct: -1, art: 'marcato' });
-    strMel.seq(bar, mel, { dyn: dyn === 'ff' ? 'f' : 'mf' });
-    T.bass('pizz', h, { ...drive, dyn: 'mp' });
-    T.bass('celli', h, { pat: [[0, '1', 2], [2, '1', 2]], base: 'D2', dyn: 'mp', cycle: 4 });
-    if (trem) T.pad('trem', h, { n: 3, lo: 'A3', hi: 'A4', dyn: 'mp' });
-    else T.pad('violas', h, { n: 3, lo: 'A3', hi: 'A4', dyn: 'mp' });
-    timpBeats(h);
+    const soft = dyn === 'mf';
+    horns.seq(bar, mel, { dyn, art: 'marcato' });
+    strMel.seq(bar, mel, { dyn: dyn === 'ff' ? 'f' : soft ? 'mp' : 'mf', oct: -1 });
+    if (dyn === 'ff') strMel.seq(bar, mel, { dyn: 'mf' });
+    T.bass('pizz', h, { ...drive, dyn: soft ? 'p' : dyn === 'ff' ? 'mf' : 'mp' });
+    T.bass('celli', h, { pat: [[0, '1', 2], [2, '1', 2]], base: 'D2', dyn: soft ? 'p' : dyn === 'ff' ? 'mf' : 'mp', cycle: 4 });
+    if (trem) T.pad('trem', h, { n: 3, lo: 'A3', hi: 'A4', dyn: 'p' });
+    else T.pad('violas', h, { n: 3, lo: 'A3', hi: 'A4', dyn: dyn === 'ff' ? 'mf' : 'mp' });
+    timpBeats(h, soft ? 'mp' : dyn === 'ff' ? 'f' : 'mf');
     return h;
   };
 
@@ -87,8 +91,8 @@ export function build() {
   hornsLo.seq(10, A_MELODY, { dyn: 'f', oct: -2, art: 'marcato' });
   cym.note(T.bar(10, 0), 'C5', 2, { dyn: 'f' });
   // B (18-25): chromatic climb, horns in unison, strings tremolo
-  section(18, B_MELODY, B_HARM, { dyn: 'mf', trem: true }); snareBars(18, 8, 'p');
-  hornsLo.seq(18, B_MELODY, { dyn: 'mf', oct: -2 });
+  section(18, B_MELODY, B_HARM, { dyn: 'mf', trem: true }); snareBars(18, 8, 'pp');
+  hornsLo.seq(18, B_MELODY, { dyn: 'mp', oct: -1 });
   snare.roll(T.bar(25, 2), T.bar(26, 0), 'D4', { from: 'mp', to: 'f', perBeat: 8, alt: 0.8 });
   // A (26-33) at ff; the last bar's D is held under a crash and the reverb carries the seam
   section(26, A_MELODY, A_HARM, { dyn: 'ff' }); snareBars(26, 8, 'mf');
