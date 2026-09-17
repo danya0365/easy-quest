@@ -4,7 +4,7 @@
 import { Theme } from './_lib.js';
 
 export function build() {
-  const T = Theme({ id: 'befriend', title: 'A New Friend', key: 'D major', bpm: 176, meter: 4, pulse: [0, 2], bars: 2, space: 'HALL', gain: 1.9, kind: 'oneshot' });
+  const T = Theme({ id: 'befriend', title: 'A New Friend', key: 'D major', bpm: 176, meter: 4, pulse: [0, 2], bars: 2, space: 'HALL', gain: 2.286, kind: 'oneshot' });
   const flute = T.part('flute', { voice: 'flute', bus: 'melody' });
   const pizz = T.part('pizz', { voice: 'pizz', bus: 'counter' });
   const harp = T.part('harp', { voice: 'harp', bus: 'counter' });

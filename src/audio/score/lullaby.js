@@ -18,8 +18,9 @@ const LINES_3_4 = [
 const HARM_3_4 = ['Em', 'C', 'G', 'D', 'C', 'G/B', 'Am|D7', 'G'];
 
 export function build() {
-  const T = Theme({ id: 'lullaby', title: 'Hush Now, Little Lark', key: 'G major', bpm: 81, meter: 3, sig: '6/8', pulse: [0, 1.5], intro: 2, loop: 20, space: 'CHAPEL', gain: 2.1 });
-  const vox = T.part('vox', { voice: 'vox', bus: 'melody' });
+  const T = Theme({ id: 'lullaby', title: 'Hush Now, Little Lark', key: 'G major', bpm: 81, meter: 3, sig: '6/8', pulse: [0, 1.5], intro: 2, loop: 20, space: 'CHAPEL', gain: 2.539 });
+  // her voice is a solo violin, close and vibrato-warm (no free recording of a wordless singer exists)
+  const vox = T.part('vox', { voice: 'violin', bus: 'melody', gain: 0.9 });
   T.part('harp', { voice: 'harp', bus: 'harmony' });
   const cel = T.part('celesta', { voice: 'celesta', bus: 'counter' });
   T.part('strings', { voice: 'strings', bus: 'harmony', o: { attack: 1.2 } });

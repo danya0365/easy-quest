@@ -1,252 +1,78 @@
 {
- "name": "critic P14/P19 r1 — a child mashing Enter through real battles",
+ "name": "critic P14/P19 a2r1 — a six-year-old mashing Enter through the real demo, carried fight to fight",
  "steps": [
-  {
-   "waitFor": "window.__DQ && __DQ.ready",
-   "timeout": 30000
-  },
-  {
-   "note": "1. The very first fight of the game: Long Lane, Lv1, Papa + Bobble. Mash Enter only."
-  },
-  {
-   "eval": "(() => { __DQ.assist(0); return __DQ.battle('long_lane', {level: 1, seed: 3}); })()"
-  },
-  {
-   "waitFor": "__DQ.idle() && __DQ.state().ui.menu && __DQ.state().ui.menu.kind==='command'",
-   "timeout": 15000
-  },
-  {
-   "shot": "01-first-fight-command"
-  },
-  {
-   "press": "Enter",
-   "times": 6,
-   "delay": 350
-  },
-  {
-   "wait": 900
-  },
-  {
-   "shot": "02-first-fight-mid"
-  },
-  {
-   "press": "Enter",
-   "times": 14,
-   "delay": 350
-  },
-  {
-   "wait": 1500
-  },
-  {
-   "shot": "03-first-fight-end"
-  },
-  {
-   "eval": "JSON.stringify({phase: __DQ.state().battle.phase, round: __DQ.state().battle.turn, party: __DQ.state().party, res: __DQ.state().snapshot.result && {exp: __DQ.state().snapshot.result.exp, levelUps: __DQ.state().snapshot.result.levelUps}})"
-  },
-  {
-   "note": "2. Second and third fights, same seed stream, still Lv1 — look for the first level-up."
-  },
-  {
-   "eval": "__DQ.battle('long_lane', {level: 1, seed: 8, enemies: ['gloop','gloop','peckish']})"
-  },
-  {
-   "waitFor": "__DQ.idle() && __DQ.state().ui.menu && __DQ.state().ui.menu.kind==='command'",
-   "timeout": 15000
-  },
-  {
-   "press": "Enter",
-   "times": 24,
-   "delay": 320
-  },
-  {
-   "wait": 2500
-  },
-  {
-   "shot": "04-long-lane-fight2-end"
-  },
-  {
-   "note": "3. Bram alone at Lv1 against two Gloops (what the rules do with no Papa)."
-  },
-  {
-   "eval": "__DQ.battle('long_lane_alone', {level: 1, seed: 21, enemies: ['gloop','gloop']})"
-  },
-  {
-   "waitFor": "__DQ.idle() && __DQ.state().ui.menu && __DQ.state().ui.menu.kind==='command'",
-   "timeout": 15000
-  },
-  {
-   "press": "Enter",
-   "times": 30,
-   "delay": 330
-  },
-  {
-   "wait": 2500
-  },
-  {
-   "shot": "05-alone-lv1-two-gloops"
-  },
-  {
-   "note": "4. Sogglemarsh, mid level: the typical Act II fight."
-  },
-  {
-   "eval": "(() => { __DQ.level(1); return __DQ.battle('sogglemarsh', {seed: 44}); })()"
-  },
-  {
-   "waitFor": "__DQ.idle() && __DQ.state().ui.menu && __DQ.state().ui.menu.kind==='command'",
-   "timeout": 15000
-  },
-  {
-   "shot": "06-sogglemarsh-open"
-  },
-  {
-   "press": "f"
-  },
-  {
-   "wait": 6000
-  },
-  {
-   "shot": "07-sogglemarsh-after-fight"
-  },
-  {
-   "note": "5. Frittering Sands, three Dune Buggies, Lv11, press F (Fight!) every round."
-  },
-  {
-   "eval": "__DQ.battle('frittering_sands', {level: 11, seed: 5, enemies: ['dune_buggy','dune_buggy','dune_buggy']})"
-  },
-  {
-   "waitFor": "__DQ.idle() && __DQ.state().ui.menu && __DQ.state().ui.menu.kind==='command'",
-   "timeout": 15000
-  },
-  {
-   "press": "f"
-  },
-  {
-   "wait": 5000
-  },
-  {
-   "shot": "08-dune-buggies-r1"
-  },
-  {
-   "press": "f"
-  },
-  {
-   "wait": 5000
-  },
-  {
-   "press": "f"
-  },
-  {
-   "wait": 5000
-  },
-  {
-   "shot": "09-dune-buggies-r3"
-  },
-  {
-   "eval": "(() => { __DQ.instant(true); __DQ.autoplay(60, 'auto'); __DQ.instant(false); return __DQ.state().battle.phase; })()"
-  },
-  {
-   "wait": 800
-  },
-  {
-   "shot": "10-dune-buggies-end"
-  },
-  {
-   "note": "6. First boss, Mumbleroot, at its level, mashing Enter."
-  },
-  {
-   "eval": "__DQ.battle('cobwell_manor', {boss: true, seed: 17})"
-  },
-  {
-   "waitFor": "__DQ.idle() && __DQ.state().ui.menu",
-   "timeout": 15000
-  },
-  {
-   "shot": "11-mumbleroot-open"
-  },
-  {
-   "press": "Enter",
-   "times": 40,
-   "delay": 300
-  },
-  {
-   "wait": 2000
-  },
-  {
-   "shot": "12-mumbleroot-mid"
-  },
-  {
-   "press": "Enter",
-   "times": 60,
-   "delay": 300
-  },
-  {
-   "wait": 2500
-  },
-  {
-   "shot": "13-mumbleroot-later"
-  },
-  {
-   "eval": "JSON.stringify({phase: __DQ.state().battle.phase, turn: __DQ.state().battle.turn, party: __DQ.state().party, boss: __DQ.state().battle.enemies})"
-  },
-  {
-   "note": "7. Sunmane and Bogwallop at their levels — are they dramatic?"
-  },
-  {
-   "eval": "__DQ.battle('sogglemarsh', {boss: true, seed: 2})"
-  },
-  {
-   "waitFor": "__DQ.idle() && __DQ.state().ui.menu",
-   "timeout": 15000
-  },
-  {
-   "press": "f"
-  },
-  {
-   "wait": 6000
-  },
-  {
-   "press": "f"
-  },
-  {
-   "wait": 6000
-  },
-  {
-   "shot": "14-bogwallop-after-2-rounds"
-  },
-  {
-   "note": "8. Mortmain with a child who only presses Attack (and the rubber band maxed)."
-  },
-  {
-   "eval": "(() => { __DQ.assist(100); return __DQ.battle('quiet_deep', {boss: true, seed: 9}); })()"
-  },
-  {
-   "waitFor": "__DQ.idle() && __DQ.state().ui.menu",
-   "timeout": 15000
-  },
-  {
-   "eval": "(() => { __DQ.instant(true); __DQ.autoplay(99, 'mash'); __DQ.instant(false); return JSON.stringify({phase: __DQ.state().battle.phase, turn: __DQ.state().battle.turn, boss: __DQ.state().battle.enemies}); })()"
-  },
-  {
-   "wait": 900
-  },
-  {
-   "shot": "15-mortmain-mash-S100"
-  },
-  {
-   "note": "9. A monster asking to join in a natural Sogglemarsh walk."
-  },
-  {
-   "eval": "(() => { __DQ.assist(0); for (let i = 0; i < 12; i++) { __DQ.instant(true); __DQ.battle('sogglemarsh', {seed: 300 + i}); __DQ.autoplay(99, 'auto'); const r = __DQ.state().snapshot.result; if (r && r.recruit && r.recruit.offer) { __DQ.instant(false); return 'offer on fight ' + (i + 1); } } __DQ.instant(false); return 'no offer in 12'; })()"
-  },
-  {
-   "wait": 900
-  },
-  {
-   "shot": "16-recruit"
-  },
-  {
-   "assert": "__DQ.errors.length===0 && __DQ.state().errors===0",
-   "msg": "no runtime errors"
-  }
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000},
+  {"eval": "(window.tap = () => { window.dispatchEvent(new KeyboardEvent('keydown',{code:'Enter',key:'Enter',bubbles:true})); window.dispatchEvent(new KeyboardEvent('keyup',{code:'Enter',key:'Enter',bubbles:true})); }, window.mash = async (cond, max = 800, d = 200) => { for (let i = 0; i < max; i++) { try { if (cond()) return i; } catch (e) {} window.tap(); await new Promise(r => setTimeout(r, d)); } return -1; }, 'ok')"},
+  {"note": "1. Game start: Long Lane, Lv1, fresh. Mash Enter only."},
+  {"eval": "(() => { __DQ.assist(0); __DQ.battle('long_lane', {level: 1, seed: 424242}); return __DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp); })()"},
+  {"wait": 2500},
+  {"shot": "first-fight-open"},
+  {"eval": "mash(() => __DQ.state().battle.turn >= 1 && !__DQ.idle(), 40, 250)"},
+  {"wait": 700},
+  {"shot": "first-fight-round1-hits"},
+  {"eval": "mash(() => ['victory','defeat','fled'].includes(__DQ.state().battle.phase), 200, 250)"},
+  {"wait": 1800},
+  {"shot": "first-fight-tally"},
+  {"eval": "JSON.stringify({rounds: __DQ.state().battle.turn, res: (({outcome,exp,gold,rounds}) => ({outcome,exp,gold,rounds}))(__DQ.state().snapshot.result), party: __DQ.state().party})"},
+  {"eval": "__DQ.log(20).join(' | ')"},
+  {"note": "2. Keep mashing: Enter on the end menu = Another fight. Stop at the first level-up."},
+  {"eval": "mash(() => __DQ.log(60).some(l => l.startsWith('levelup')), 900, 200)"},
+  {"wait": 900},
+  {"shot": "first-levelup"},
+  {"wait": 1600},
+  {"shot": "first-levelup-b"},
+  {"eval": "JSON.stringify(__DQ.state().carried)"},
+  {"eval": "__DQ.log(14).join(' | ')"},
+  {"note": "3. Keep mashing Long Lane to see rhythm across ~6 more fights."},
+  {"eval": "(async () => { const out = []; for (let k = 0; k < 6; k++) { const f0 = __DQ.state().carried.fights; await mash(() => __DQ.state().carried.fights > f0, 400, 180); const s = __DQ.state(); out.push({f: s.carried.fights, r: s.snapshot.result && s.snapshot.result.rounds, o: s.snapshot.result && s.snapshot.result.outcome, exp: s.snapshot.result && s.snapshot.result.exp, lv: s.carried.levels.hero, hp: s.party.map(p => p.hp + '/' + p.mhp).join(',')}); } return JSON.stringify(out); })()"},
+  {"shot": "long-lane-after-8"},
+  {"note": "4. Mumbleroot at its design level (fresh, Lv7), mashing Enter."},
+  {"eval": "(() => { __DQ.battle('cobwell_manor', {boss: true, seed: 77}); return JSON.stringify(__DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp)); })()"},
+  {"wait": 2500},
+  {"shot": "mumbleroot-open"},
+  {"eval": "mash(() => __DQ.state().battle.turn >= 3, 300, 200)"},
+  {"wait": 600},
+  {"shot": "mumbleroot-r3"},
+  {"eval": "mash(() => __DQ.state().snapshot.enemies.some(e => e.telegraphing) || ['victory','defeat'].includes(__DQ.state().battle.phase), 400, 200)"},
+  {"wait": 900},
+  {"shot": "mumbleroot-telegraph"},
+  {"eval": "mash(() => ['victory','defeat'].includes(__DQ.state().battle.phase), 900, 200)"},
+  {"wait": 2200},
+  {"shot": "mumbleroot-end"},
+  {"eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party})"},
+  {"eval": "__DQ.log(16).join(' | ')"},
+  {"note": "5. Mumbleroot 4 levels under (Lv3), mash."},
+  {"eval": "(() => { __DQ.battle('cobwell_manor', {boss: true, level: 3, seed: 78}); return 'ok'; })()"},
+  {"eval": "mash(() => ['victory','defeat'].includes(__DQ.state().battle.phase), 900, 180)"},
+  {"wait": 2600},
+  {"shot": "mumbleroot-lv3-end"},
+  {"eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party, log: __DQ.log(8)})"},
+  {"note": "6. Act II Pelican Coast: mash until a monster asks to join."},
+  {"eval": "(() => { __DQ.battle('pelican_coast', {level: 12, seed: 9001}); return 'ok'; })()"},
+  {"eval": "mash(() => { const m = __DQ.state().ui.menu; return m && m.kind === 'recruit'; }, 2500, 160)"},
+  {"wait": 600},
+  {"shot": "recruit-offer"},
+  {"eval": "JSON.stringify(__DQ.state().carried)"},
+  {"eval": "__DQ.log(10).join(' | ')"},
+  {"note": "7. Late game Whistfell Abbey normal fight at Lv25, mash."},
+  {"eval": "(() => { __DQ.battle('whistfell_abbey', {level: 25, seed: 555}); return JSON.stringify(__DQ.state().snapshot.enemies.map(e => e.name + ' ' + e.hp)); })()"},
+  {"wait": 2500},
+  {"shot": "abbey-open"},
+  {"eval": "mash(() => __DQ.state().battle.turn >= 1 && !__DQ.idle(), 40, 250)"},
+  {"wait": 900},
+  {"shot": "abbey-r1"},
+  {"eval": "mash(() => ['victory','defeat','fled'].includes(__DQ.state().battle.phase), 600, 200)"},
+  {"wait": 1800},
+  {"shot": "abbey-end"},
+  {"eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party, res: (({exp,gold}) => ({exp,gold}))(__DQ.state().snapshot.result)})"},
+  {"note": "8. Hush + Hark at design level 27, mash."},
+  {"eval": "(() => { __DQ.battle('whistfell_abbey', {boss: true, seed: 31}); return 'ok'; })()"},
+  {"wait": 2500},
+  {"shot": "hushhark-open"},
+  {"eval": "mash(() => ['victory','defeat'].includes(__DQ.state().battle.phase), 1500, 160)"},
+  {"wait": 2600},
+  {"shot": "hushhark-end"},
+  {"eval": "JSON.stringify({round: __DQ.state().battle.turn, phase: __DQ.state().battle.phase, party: __DQ.state().party})"},
+  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"}
  ]
 }

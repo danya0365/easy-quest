@@ -13,11 +13,11 @@ const B_MELODY = [
 const B_HARM = ['Dm', 'C#dim7', 'A7', 'Dm'];
 
 export function build() {
-  const T = Theme({ id: 'quiet_hand', title: 'The Quiet Hand', key: 'D minor', bpm: 46, meter: 4, pulse: [0, 2], loop: 12, space: 'CHAPEL', gain: 1.45 });
+  const T = Theme({ id: 'quiet_hand', title: 'The Quiet Hand', key: 'D minor', bpm: 46, meter: 4, pulse: [0, 2], loop: 12, space: 'CHAPEL', gain: 2.514 });
   const mel = T.part('organMel', { voice: 'organ', bus: 'melody', o: { rel: 0.4 } });
   T.part('organ', { voice: 'organ', bus: 'harmony', gain: 0.75 });
   T.part('pedal', { voice: 'organ', bus: 'bass', o: { pedal: true } });
-  const choir = T.part('choir', { voice: 'pad', bus: 'counter', o: { attack: 0.5 } });
+  const choir = T.part('choir', { voice: 'strings', bus: 'counter', gain: 0.8, o: { attack: 0.5 } });
   const bell = T.part('bell', { voice: 'bell', bus: 'perc', gain: 0.9 });
 
   const hA = T.chords(0, A_HARM);

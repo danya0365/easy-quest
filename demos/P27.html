@@ -7,7 +7,7 @@
     font-family:"Trebuchet MS","Avenir Next Rounded","Arial Rounded MT Bold","Segoe UI",system-ui,sans-serif}
   body{background:radial-gradient(1200px 700px at 70% 10%,#1d2a6e 0%,#0b1033 45%,#04060f 100%)}
   #stars{position:fixed;inset:0;pointer-events:none}
-  .wrap{position:relative;display:grid;grid-template-columns:minmax(360px,1fr) minmax(420px,1.15fr);gap:22px;padding:22px 28px;height:100%}
+  .wrap{position:relative;display:grid;grid-template-columns:minmax(360px,1fr) minmax(420px,1.15fr);gap:22px;padding:22px 28px 30px;height:100%}
   .win{position:relative;background:linear-gradient(180deg,var(--win1) 0%,var(--win2) 100%);border:4px solid var(--edge);border-radius:14px;
     box-shadow:inset 0 0 0 3px #0b124a,inset 0 0 0 5px rgba(255,255,255,.35),0 10px 0 rgba(0,0,0,.35),0 18px 40px rgba(0,0,0,.55);
     padding:16px 18px;transform-origin:50% 0;animation:open .28s cubic-bezier(.2,1.4,.4,1) both}
@@ -26,11 +26,18 @@
   .row .k{font-size:12px;color:var(--dim);text-align:right;white-space:nowrap}
   .row.playing .t{color:var(--gold)}
   .row.playing .nm::after{content:" ♪";color:var(--gold)}
-  .right{display:grid;grid-template-rows:auto auto 1fr;gap:22px;min-height:0}
-  .now{display:grid;grid-template-columns:1fr 150px;gap:12px;min-height:230px}
-  .now .title{font-size:30px;line-height:1.15;margin:8px 0 4px;text-shadow:0 2px 0 #000a}
+  .right{display:grid;grid-template-rows:auto auto auto 1fr;gap:18px;min-height:0}
+  .orch{display:grid;grid-template-columns:repeat(4,1fr);gap:2px 12px;margin-top:4px;font-size:12px}
+  .orch .ins{display:grid;grid-template-columns:1fr 36px;align-items:center;gap:6px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .orch .ins b{font-weight:normal;overflow:hidden;text-overflow:ellipsis}
+  .orch .ins.ready b{color:var(--ink)} .orch .ins.loading b{color:var(--gold)} .orch .ins.error b{color:var(--rose)}
+  .orch .ins i{display:block;height:6px;border:1px solid #9fb0ff88;border-radius:4px;overflow:hidden;background:#0a1040}
+  .orch .ins i s{display:block;height:100%;width:0;background:linear-gradient(90deg,#7ee08a,#ffd66b);text-decoration:none}
+  .orch .sum{grid-column:1/-1;color:var(--dim);font-size:12px;margin-top:4px}
+  .now{display:grid;grid-template-columns:1fr 150px;gap:12px;min-height:196px}
+  .now .title{font-size:28px;line-height:1.15;margin:6px 0 2px;text-shadow:0 2px 0 #000a}
   .now .meta{color:var(--dim);font-size:15px;margin-bottom:10px}
-  .counter{font-size:40px;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+  .counter{font-size:34px;font-variant-numeric:tabular-nums;letter-spacing:.04em}
   .counter span{font-size:14px;color:var(--dim);letter-spacing:.1em;margin-right:8px}
   .bar{height:12px;border:2px solid var(--edge);border-radius:8px;overflow:hidden;margin:10px 0 6px;background:#0a1040}
   .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffd66b,#ff9db4)}
@@ -46,11 +53,11 @@
   .gloop .shadow{position:absolute;left:10px;right:10px;bottom:-12px;height:10px;background:rgba(0,0,0,.35);border-radius:50%}
   .stings{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px}
   button{font:inherit;color:var(--ink);background:linear-gradient(180deg,#3a52d8,#1b2a8a);border:3px solid var(--edge);border-radius:10px;
-    padding:9px 6px;font-size:15px;cursor:pointer;box-shadow:0 4px 0 #0008}
+    padding:6px 6px;font-size:14px;cursor:pointer;box-shadow:0 4px 0 #0008}
   button:hover{filter:brightness(1.18)} button:active{transform:translateY(3px);box-shadow:0 1px 0 #0008}
   .ctl{display:flex;flex-direction:column;min-height:0}
   .ctl .btns{display:flex;gap:10px;flex-wrap:wrap}
-  canvas#viz{width:100%;flex:1;min-height:80px;margin-top:12px;border-radius:8px;background:#060b2c;border:2px solid #7f8dff55}
+  canvas#viz{width:100%;flex:1;min-height:30px;margin-top:12px;border-radius:8px;background:#060b2c;border:2px solid #7f8dff55}
   .hint{position:fixed;bottom:6px;left:0;right:0;text-align:center;font-size:13px;color:var(--dim);letter-spacing:.06em}
   #wake{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(3,5,20,.72);z-index:5;cursor:pointer}
   #wake .win{font-size:22px;padding:26px 34px;text-align:center}
@@ -71,6 +78,7 @@
       <div class="stage"><div class="gloop" id="gloop"><div class="shadow"></div><div class="body" id="gbody"><div class="eye l"></div><div class="eye r"></div><div class="mouth"></div></div></div></div>
     </section>
     <section class="win"><h2>FANFARES &amp; STINGS</h2><div class="stings" id="stings"></div></section>
+    <section class="win"><h2>THE ORCHESTRA</h2><div class="orch" id="orch"><div class="sum">reading the sample manifest…</div></div></section>
     <section class="win ctl"><h2>THE CONDUCTOR</h2>
       <div class="btns">
         <button id="bstop">■ Stop (fade)</button><button id="bduck">Dialogue duck</button><button id="bsilence">Silence</button>
@@ -80,13 +88,14 @@
     </section>
   </div>
 </div>
-<div class="hint">↑ ↓ choose · Enter play · 1–7 stings · Esc stop · everything you hear is synthesised live — no samples</div>
+<div class="hint">↑ ↓ choose · Enter play · 1–7 stings · Esc stop · real recorded instruments: VSCO 2 CE &amp; VCSL (CC0), University of Iowa MIS — see CREDITS.md</div>
 <div id="wake"><div class="win">Tap to wake the orchestra<small>(browsers keep audio asleep until you touch something)</small></div></div>
 <script type="module">
 import { Music, createMusic } from '/src/audio/music.js';
 import { THEMES } from '/src/audio/score/index.js';
 import { checkHarmony, Theme } from '/src/audio/score/_lib.js';
-import { makeKit, VOICES } from '/src/audio/instruments.js';
+import { makeKit, VOICES, INSTRUMENTS_FOR } from '/src/audio/instruments.js';
+import { Sampler } from '/src/audio/sampler.js';
 
 const errors = [];
 window.__DQ = { ready: false, errors };
@@ -137,6 +146,29 @@ addEventListener('keydown', (e) => {
   else if (/^[1-7]$/.test(e.key)) sting(STINGS[+e.key - 1][0]);
 });
 
+// --- the orchestra: every sampled instrument and its loading state (lazy: a theme loads what it needs)
+const orchEl = $('orch'); const orchRows = {};
+Sampler.manifest().then((man) => {
+  orchEl.innerHTML = '';
+  for (const [id, ins] of Object.entries(man.instruments)) {
+    const d = document.createElement('div'); d.className = 'ins'; d.title = `${ins.label} — ${ins.zones.length} zones, ${(ins.bytes / 1048576).toFixed(2)} MB (${ins.libs.join(', ')})`;
+    d.innerHTML = `<b>${ins.short || id}</b><i><s></s></i>`; orchEl.appendChild(d); orchRows[id] = d;
+  }
+  const sum = document.createElement('div'); sum.className = 'sum'; sum.id = 'orchsum'; orchEl.appendChild(sum);
+  paintOrch();
+}).catch((e) => { orchEl.innerHTML = `<div class="sum">sample manifest failed: ${e}</div>`; });
+function paintOrch() {
+  const st = Sampler.state(); const man = Sampler.loaded; if (!man) return;
+  let ready = 0;
+  for (const [id, row] of Object.entries(orchRows)) {
+    const s = st.instruments[id]; const status = s ? s.status : 'idle';
+    row.className = 'ins ' + status; if (status === 'ready') ready++;
+    row.querySelector('s').style.width = s ? `${Math.round(100 * s.loaded / Math.max(1, s.zones))}%` : '0';
+  }
+  const sum = $('orchsum'); if (sum) sum.textContent = `${ready}/${Object.keys(orchRows).length} instruments decoded · ${st.mbFetched} of ${st.totalMb} MB fetched · loaded lazily per theme`;
+}
+Sampler.onChange(() => paintOrch());
+
 // --- now playing + viz + stars
 const viz = $('viz'), vg = viz.getContext('2d'), sc = $('stars'), sg = sc.getContext('2d');
 const stars = Array.from({ length: 140 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 1.4 + 0.3, p: Math.random() * 6 }));
@@ -181,7 +213,7 @@ function calib(voice, note, dur = 1.5, vel = 0.78) {
   const ctx = new OfflineAudioContext(2, Math.ceil(secs * sr), sr);
   const K = makeKit(ctx); const bus = ctx.createGain(); bus.connect(ctx.destination);
   const midi = typeof note === 'number' ? note : null;
-  return import('/src/audio/score/_lib.js').then(({ midi: mm, mtof }) => {
+  return Sampler.load(ctx, INSTRUMENTS_FOR[voice] || []).then(() => import('/src/audio/score/_lib.js')).then(({ midi: mm, mtof }) => {
     const m = midi ?? mm(note);
     VOICES[voice](K, { t: 0.05, dur, m, f: mtof(m), vel, gain: 1, pan: 0, send: 0, spb: 0.5, voice }, { bus, send: null });
     return ctx.startRendering();
@@ -195,7 +227,7 @@ function calib(voice, note, dur = 1.5, vel = 0.78) {
 }
 // audition: one voice alone — a phrase, a chord, staccatos, a swell (renderAudio('aud:horns', 14))
 const MEL = [['A4', 1], ['D5', 1], ['F#5', 1], ['A5', 1], ['G5', 2], ['F#5', 1], ['E5', 1], ['D5', 1.5], ['E5', 0.5], ['F#5', 1], ['D5', 1], ['E5', 3], ['R', 1]];
-const TR = { horns: 0, hornsSynth: 0, stringsSynth: 0, hornSolo: -12, strings: 0, violin: 12, flute: 12, oboe: 0, harpsi: 0, harp: -12, pizz: -24, celesta: 12, organ: -12, twinkle: 12, pad: -12, vox: -12, bell: -12 };
+const TR = { trombone: -12, tuba: -24, bassoon: -12, clarinet: 0, trumpet: 0, horns: 0, hornsSynth: 0, stringsSynth: 0, hornSolo: -12, strings: 0, violin: 12, flute: 12, oboe: 0, harpsi: 0, harp: -12, pizz: -24, celesta: 12, organ: -12, twinkle: 12, pad: -12, vox: -12, bell: -12 };
 function audition(voice) {
   const id = 'aud:' + voice; if (THEMES[id]) return id;
   const T = Theme({ id, title: 'Audition — ' + voice, key: 'D major', bpm: 100, meter: 4, space: 'HALL', kind: 'oneshot' });
@@ -223,10 +255,27 @@ function held(spec) {
   P.chord(0, notes.split('+'), +beats, { dyn });
   THEMES[id] = T.build(); return id;
 }
+// every recorded zone of one instrument at its own root, dry, back to back: zones:<instrument>:<seconds each>[:<layer>]
+async function renderZones(spec) {
+  const [inst, secsS = '3', layerS] = spec.split(':');
+  const secs = +secsS; const man = await Sampler.manifest(); const ins = man.instruments[inst];
+  if (!ins) throw new Error('no instrument ' + inst);
+  const zs = ins.zones.filter((z) => (layerS == null || z.l === +layerS) && !z.rr);
+  const sr = 44100, gap = ins.kind === 'loop' ? 0.35 : 0.2;
+  const ctx = new OfflineAudioContext(2, Math.ceil((zs.length * (secs + gap) + 1) * sr), sr);
+  await Sampler.load(ctx, [inst]);
+  const out = ctx.createGain(); out.connect(ctx.destination);
+  zs.forEach((z, k) => Sampler.note(ctx, inst, { t: 0.1 + k * (secs + gap), dur: secs, m: z.r ?? 60, vel: z.l === 0 ? 0.05 : 1.1, amp: 0.25 / (z.g || 1) * z.g, rel: 0.12, ring: ins.kind !== 'loop' }, out));
+  const buf = await ctx.startRendering();
+  buf.__zones = zs.map((z, k) => ({ f: z.f, t: +(0.1 + k * (secs + gap)).toFixed(2) }));
+  return buf;
+}
 window.__DQ = Object.assign(window.__DQ, {
-  ready: true, version: 'P27-1',
-  renderAudio: (id, s, opts) => Music.renderOffline(String(id).startsWith('aud:') ? audition(String(id).slice(4)) : String(id).startsWith('note:') ? held(String(id).slice(5)) : id, s, opts),
+  ready: true, version: 'P27-2-samples',
+  renderAudio: (id, s, opts) => (String(id).startsWith('zones:') ? renderZones(String(id).slice(6)) : Music.renderOffline(String(id).startsWith('aud:') ? audition(String(id).slice(4)) : String(id).startsWith('note:') ? held(String(id).slice(5)) : id, s, opts)),
+  renderZones,
   state: () => ({ scene: 'jukebox', audio: Music.state(), selected: list[sel].id, themes: Music.themes().length, errors: errors.length }),
+  samples: () => Sampler.state(),
   play: (id, o) => { wake(); return Music.play(id, o); }, stinger: (id) => { wake(); return Music.stinger(id); },
   stop: (o) => Music.stop(o), duck: (a, ms) => Music.duck(a, ms), themes: () => Music.themes(),
   harmony: () => Object.values(THEMES).map((t) => { const r = checkHarmony(t); return { id: t.id, checked: r.checked, ok: r.ok, color: r.color, app: r.app, clash: r.clash }; }),

@@ -15,7 +15,7 @@ const BASS = [['A2', 4], ['E2', 4], ['C3', 4], ['E2', 4], ['A2', 4], ['F2', 4], 
 const HARM = ['Am', 'E|Am/E', 'C|Dm/C', 'E7', 'Am|Am7', 'F', 'Dm6|E', 'Am'];
 
 export function build() {
-  const T = Theme({ id: 'church', title: 'Sanctuary', key: 'A minor', bpm: 52, meter: 4, pulse: [0, 2], loop: 8, space: 'CHAPEL', gain: 1.7, enter: { fade: 1.4 } });
+  const T = Theme({ id: 'church', title: 'Sanctuary', key: 'A minor', bpm: 52, meter: 4, pulse: [0, 2], loop: 8, space: 'CHAPEL', gain: 3.672, enter: { fade: 1.4 } });
   const s = T.part('soprano', { voice: 'organ', bus: 'melody', pan: 0.08 });
   const a = T.part('alto', { voice: 'organ', bus: 'harmony', pan: -0.12 });
   const t = T.part('tenor', { voice: 'organ', bus: 'harmony', pan: 0.14 });

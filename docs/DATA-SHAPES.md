@@ -2,16 +2,19 @@
 **Owner: P14/P19 (the battle rules engine). Law for `src/data/monsters.js` (P16), `src/data/spells.js` (P20),
 `src/data/items.js` (P21), the party/wagon/save shapes (P18, F5), `src/battle/recruit.js` (P17) and the
 presentation layer `src/battle/present.js` (P15).**
-Names are CANON (`docs/CANON.md`). Numbers are SYSTEMS-BIBLE / MONSTER-BIBLE, **except where the balance pass (§9)
-supersedes a stat block** — `tests/battle/balance.js` holds those, measured end to end. When this file and the engine
-disagree, the engine is the bug — report it.
+Names are CANON (`docs/CANON.md`). Numbers are SYSTEMS-BIBLE / MONSTER-BIBLE, **except where the balance passes (§9)
+supersede a stat block** — `tests/battle/balance.js` holds those (wild monsters: `balance-wild.js`, generated; bosses:
+`balance-bosses.js`, generated), measured end to end. When this file and the engine disagree, the engine is the bug —
+report it.
 
 The engine is `src/battle/battle.js` (pure logic, runs under plain node). A working, complete example of every shape
 below is `tests/battle/data.js` (all 33 MONSTER-BIBLE monsters + every CANON boss, the 28 CANON spells, the SYSTEMS
 §4 items) with `tests/battle/balance.js` applied on top — copy the *balanced* numbers (print them with
 `node -e "import('./tests/battle/data.js').then(m => console.log(m.default.monsters.gloop))"`). Run
 `node --test tests/battle` after changing data, and **`node tests/battle/journey.mjs`** — whole playthroughs with EXP
-carried, every kind of child, exit code 1 if the difficulty contract breaks — before calling a number done.
+carried, every kind of child, plus "do levels matter?" at every boss, exit code 1 if the difficulty contract breaks —
+before calling a number done. `node tests/battle/bosses.mjs` is the quick boss bench; `calibrate-bosses.mjs` and
+`calibrate.mjs` regenerate the boss and wild-monster numbers.
 
 Contents: §1 conventions · §2 monsters · §3 spells · §4 items · §5 party members · §6 battle API & events ·
 §7 the result object · §8 open numbers the bibles do not give · §9 what the simulator says.
@@ -55,9 +58,12 @@ gloop: {
   boss: true,       // no fleeing (refused with fleeRefusal, no turn lost), no ambush, no 40% floor
   properName: true, // "Mumbleroot the Grudge draws near!" (no article)
   partyLevel: 7,    // bosses: the level children really arrive at (journey-measured); sets expectedMaxHP for the Big
-                    // Attack cap and the EXP keel. Bosses never scale.
+                    // Attack cap and the EXP keel (which may trim a boss's EXP, never inflate it). Bosses never scale.
   expectedMaxHP: 52,// or give it directly
-  actions: 1,       // actions per round (phases can raise it)
+  actions: 2,       // actions per round (phases can raise it). Most bosses act twice (balance pass r3): with one
+                    // action a boss cannot out-pace a full-MP party's healing, and levels stop mattering
+  mdef: 100,        // magic resistance: spells do 1 - min(0.6, mdef/200). Several bosses sit at 100 (half) so the fight
+                    // leans on Might, which levels bring, and an Attack-only child is not left far behind
   fleeRefusal: 'The belfry door has swung shut…',
   neverTargets: ['willow_child', 'willow'],          // party member ids it will not attack
   minHpPct: 0.5,    // cannot be hurt below this fraction (the Sunmane)
@@ -212,7 +218,8 @@ const battle = createBattle({
     areaLevel: 12,                   // the map's party level: the invisible EXP keel (formulas.expKeel). Default: the
                                      // specs' areaLevel, else their partyLevel, else a boss's partyLevel. expKeel:false = off
     wagonReachable: true,            // false in caves, towers, interiors and every boss room
-    assist: { s: 0 },                // the hidden struggle score (SYSTEMS §6.4)
+    assist: { s: 0 },                // the hidden struggle score (SYSTEMS §6.4). A flee adds +3 only up to S 30
+                                     // (formulas.FLEE_ASSIST_CAP): running away wakes the rubber band, it cannot max it out
     ambush: undefined,               // undefined = roll; 'party' | 'enemy' | 'none' to force
     protectedMap: false,             // first three encounters of a new map: no enemy ambush
     recruit: { enabled, kidMode: true, charmBell, joined: {gloop: 1}, misses: {}, battlesSinceRecruit },
@@ -228,6 +235,7 @@ battle.command(id, cmd)   // cmd: {type:'attack', target} | {type:'spell', id, t
                           // -> {ok:true, next} | {ok:false, reason, text}  (never throws; text is kind, show it)
 battle.undoCommand()      // back to the previous actor
 battle.autoCommands(p)    // fill the rest with an AI policy: 'auto' (the "Fight!" button) | 'smart' | 'mash'
+                          //   'auto' keeps half its MP on the road; against a boss it spends that half
 battle.resolveRound()     // -> this round's ordered events (missing commands default to Attack)
 battle.autoRound(p)       // autoCommands + resolveRound
 battle.validTargets(id, cmd), battle.actor(id), battle.snapshot(), battle.result, battle.log, battle.over
@@ -285,7 +293,7 @@ bag, fleeFails, assist:{s,tier}, rngState, events, errors, result}` — party en
   party: [member], wagon: [member], // §5 shape with new lvl/exp/hp/mp/status; front/wagon order after swaps
   levelUps: [{who, from, level, learned: [spellIds]}],
   recruit: { offer: {id,species,name,lvl} | null, state: {joined, misses, battlesSinceRecruit} } | null,
-  assist: { before, delta, after },  // store `after` as the new S
+  assist: { before, delta, after },  // store `after` as the new S (a flee adds nothing once S is 30)
   boss: [ids]|null, bossDefeated: [ids]|null, bossWipe: [ids]|null,  // P31: two wipes by the same boss → helper NPC
   stats: { damageTaken, maxHitPct, cappedHits, koCount, crits, telegraphs, bigFired, secondWinds, … } }
 ```
@@ -308,22 +316,92 @@ the Larksteel set and every CANON boss stat block; those are used verbatim. What
 | Monster `wis`/`mdef` defaults | 5 + 2.5×lvl / 1.2×lvl | MONSTER stat blocks have neither | P16 |
 | Glimmergloop spell immunity | all elements 0 | DQ metal-slime convention, not in the bible | P16 |
 
-## 9. What the simulator says (tests/battle/sim.mjs) — for P16 (monsters), P31 (encounters), P22 (economy)
-Full run: `node tests/battle/sim.mjs --n 2000 --walks 200` → `shots/P14-sim/sim.txt` (≈2,000 fights per area×level,
-smart and attack-only play, 200 no-inn walk-throughs each, every boss). The engine enforces the difficulty contract
-(no zero, 40% floor, telegraphs, gentle defeat); these are *data* findings.
-- **The Frittering Sands at Act II start is too hard.** With the B11 party (Bram, Digby, Bobble) careful play wins
-  74% at Lv 10 / 94% at Lv 11, attack-only 69% / 80%, and a 13-fight walk without an inn wipes 96–99% (60% even at
-  Lv 13). Cactuddle (Lv 17) and Dune Buggies in threes (Lv 19) are tier-3 in a leg-4 area. Suggest: Dune Buggies in
-  ones or twos until `ch2.wagon`, or a tier-2 desert table until Marbleford.
-- **Walks that need the inn once:** the children in the Whispering Wood (walk wipe 17% at Lv 4, 5% at Lv 6 — Sir
-  Gloopalot and Hoot Couture are hard on Lv 3 child guests), the Whistling Caves (25% at Lv 9) and Marbleford Downs
-  (18% at Lv 13). Fights themselves are still won ≥98%.
-- **Monster gold vs SYSTEMS §5:** Acts I–II pay about 2× the leg's gold per battle (Coddleston 35 vs 18, Whistling
-  Caves 61 vs 28); the Sogglemarsh / Pelican Coast (23 vs 42) and the Belfry (33 vs 66) pay about half. The next buy
-  is still affordable, but the curve is lumpy.
-- **Story bosses end fast** against a CANON-level party, all won 100%: Bogwallop 2 rounds, Hoarfax 3.4, the Iron
-  Governess 4.0, Sexton Sootbell 4.1, Mumbleroot 5.5, the Tidewarden 5.8. The sim prints "HP for ~8 rounds".
-- **The finale is long:** Mortmain (2400 HP, two actions from 60%, Benediction ×3) 18 rounds, Malgrim (1800 + 2700)
-  23 rounds. Careful play wins 98% / 100%; the "Fight!" auto-battle 61% / 98%; attack-only 0% (as in DQ — but the
-  §6.1.6 helper NPC after two wipes matters here).
+## 9. What the simulator says — balance pass r3 (tests/battle/journey.mjs) — for P16, P31, P22, P15
+**The pass/fail check is `node tests/battle/journey.mjs`** (whole playthroughs, EXP/S/gold carried area to area, seven
+kinds of child, then "do levels matter?" at every boss, then Attack-only retries) → `shots/P14-sim/journey.txt`.
+Run with `--trials 80 --levels 100 --retry 100` it prints `CONTRACT: all pass.` (exit 0). `node --test tests/battle` runs
+a five-playthrough smoke of it. `sim.mjs` is the microscope (fresh parties, one area × level at a time).
+
+### 9.1 What the critic measured (r1), and what closed it
+Critic r1: *children reach areas at levels the monsters were not tuned for; 60–90% of normal fights end in one round
+with no damage; bosses 1–8 are won first try by every kind of child even four levels under; Mortmain and Malgrim are
+never beaten by a child who only presses Attack; a flee-everything child beats bosses 2–7 levels under on boss EXP alone
+— levels don't matter.* Balance pass r2 fixed arrival levels and normal fights; the boss half stayed open. At the start
+of r3, from full HP, pressing Fight!, **four levels under**: the Tidewarden was won 98%, Hoarfax 68%, the Iron
+Governess **100% with 66% HP left (the same as at her design level)**, Hush & Hark 78%, Mortmain 83%, Malgrim 98%; the
+flee-everything child beat the Tidewarden, the Governess, Mortmain and Malgrim on its first try every time.
+
+**Engine rules (r3)** — each is documented where it lives and tested:
+1. **A boss pays what it pays** (`battle.js` `keel()`): the EXP keel may trim a boss's EXP for a party above its level,
+   never inflate it. A child who ran from everything is no longer carried up the curve on boss EXP.
+2. **Fleeing wakes the rubber band; it cannot max it out** (`formulas.FLEE_ASSIST_CAP = 30`): a flee adds +3 only up to
+   S 30. Wipes, knock-outs and long fights still push past it. (Uncapped, forty flees gave S 100 — second wind and the
+   tighter Big Attack cap — worth ~25 points of boss win rate four levels under.)
+3. **Fight! keeps half its MP on the road and spends that half on the boss** (`ai.js` `mpOk`). Before, a child who walked
+   a dungeon met its boss with Linnet hitting it with her staff, and one who ran from everything arrived with twice the
+   usable magic — running away was worth about four levels.
+
+**Data (r3)** — `tests/battle/balance-bosses.js`, generated by `tests/battle/calibrate-bosses.mjs`:
+- Each boss is tuned at the level children **really** reach its door (journey-measured: Bogwallop **15**, Hush & Hark
+  **27**, Mortmain and Malgrim **28**; the rest unchanged) with the party they really bring (`areas.js boss.party`: the
+  twins are 2 behind Bram at Hoarfax, 1 behind at the Governess), arriving the way they arrive (the area walked, resting
+  on the road; Malgrim straight after Mortmain).
+- Targets: the Fight! child wins first try ≥ 90% (84% for the finale), in 7–9 rounds, leaving ~40% HP; four levels under
+  and fresh (full HP and MP) wins ≤ 40% (≤ 25–30% where the design child's healer arrives MP-drained); four over wins;
+  Attack-only from full with S ≥ 36 wins within three tries ≥ 92%.
+- Knobs: actions a round, HP, damage (the blow's margin over the party's guard, Wisdom, magic bases), guard, MDEF 100 on
+  the magic-weak bosses. **Every boss but Hoarfax acts twice a round** (one action cannot out-pace a full-MP party's
+  healing, so levels stopped mattering). Hand changes in `balance.js BOSSES`: Mortmain's Lantern Knock ×1.35, Malgrim's
+  Lash ×0.62 / Fold ×1.45, Listen gives back a fifth (was 0.3).
+- Normal areas: `hpMult` raised where one-round or free fights crept past a quarter (Cobwell Manor, Whistling and
+  Gogglestone Caves, Pelican Coast, the Whispering Wood, the Belfry, Whistfell, the Ambergarde road); the Glasswing
+  table leans to Grimalkittens and Squidgeons over Lady Mothbonnet and Boulderdash (who spend turns on Snoozle and
+  sitting down: a fifth of its fights cost nothing).
+
+### 9.2 The numbers now (`shots/P14-sim/journey.txt`, seed 20040, 80 playthroughs per child, 100 fights a cell)
+**Do levels matter?** Fight!, first try, S = 0 — win % · party HP left when won:
+
+| Boss (Lv) | 4 under, fresh | 4 under, walked | 2 under | **design, walked** | 4 over (cap 30) | r3 start: 4 under, fresh |
+|---|---|---|---|---|---|---|
+| Mumbleroot (7) | 4% | 3% | 38% | **98% · 42% · 6.9 r** | 100% · 70% | 13% |
+| Bogwallop (15) | 12% | 1% | 39% | **92% · 43% · 7.4 r** | 100% · 66% | 22% |
+| Sexton Sootbell (16) | 7% | 3% | 26% | **93% · 34% · 8.4 r** | 100% · 62% | 18% |
+| The Tidewarden (18) | 33% | 2% | 34% | **93% · 38% · 7.9 r** | 100% · 59% | 98% |
+| Hoarfax (21) | 24% | 10% | 65% | **93% · 50% · 7.8 r** | 100% · 60% | 68% |
+| The Iron Governess (24) | 43% | 26% | 67% | **88% · 39% · 8.7 r** | 100% · 54% | 100% · 66% |
+| Hush & Hark (27) | 28% | 5% | 49% | **91% · 43% · 8.8 r** | 100% · 53% | 78% |
+| Mortmain (28) | 29% | 21% | 58% | **83% · 47% · 8.5 r** | 99% · 60% | 83% |
+| Malgrim (28, after Mortmain) | 29% | 12% | 68% | **89% · 44% · 8.3 r** | 98% · 45% | 98% |
+
+**The design child (Fight!, fights everything, rests on the road)** arrives at every boss within 0.4 levels of its
+design level; bosses last **7.0–8.8 rounds**, leave the party at **39–49%** (lowest point 25–41%), won first try 83–96%.
+Normal fights last **2.4–3.2 rounds**, cost **9–14%** of the party's HP, **≤ 19%** end in one round, **≤ 19%** cost nothing.
+
+**Other children** (first try · mean tries · 95th-percentile tries):
+- *Attack only, never heals, never rests*: Acts I–II bosses 15–56% · 1.4–1.9; Act III 0–8% · 2.6–2.9 · p95 4 (it meets
+  them bruised, and wins once the §6.1.6 helper has patched it up) — except Malgrim, 84% · 1.2. **From full HP with the
+  rubber band on (S 36, +12 a wipe) it wins within three tries 94–100% at every boss** (the critic's bar); the finale
+  pair 94% / 100%.
+- *Runs from 60% of fights* (arrives 1–2 under): 71–93% · ≤ 1.4 · p95 ≤ 3.
+- *Runs from everything* (arrives 2–7 under): first try **0%** at Mumbleroot and Bogwallop, 4% at Hoarfax, 29% at the
+  Governess (4.4 under) and at Hush & Hark; at about three under it still wins some — Sootbell 51%, Mortmain 63%, the
+  Tidewarden 65% — but from four under: 0%, 12% and 8%. It is never walled: after a wipe it walks back fighting and wins
+  in 1.2–2.4 tries on average.
+- *The grinder* (3 over, back to the inn before the boss): every boss 100% first try, 5.5–8.1 rounds, 64–81% HP left.
+- *Careful play* (heals early, Bolsters, items): 76–96% first try, 43–65% HP left, but 8.5–14 rounds (it heals).
+
+On other seeds (`--seed 7`, `--seed 99`, 40–60 playthroughs) one or two numbers graze a band edge by a point — Mortmain's
+HP left 51%, the Tidewarden's 35%, the Long Lane's free fights 21%: the finale and the Act II healer sit near the edges.
+
+### 9.3 Open findings (data owners)
+- **P16**: `src/data/monsters.js` should take its boss numbers from `balance-bosses.js` (actions, hp, atk, def, mdef, wis,
+  magic bases) and the `balance.js BOSSES` move changes. Two actions a round is new for most bosses (the bibles only say
+  it for Mortmain, from 60%; he now acts twice throughout and the phase only renames him).
+- **P15**: most bosses now take two actions a round (two `act`/`telegraph` beats per boss per round), and a telegraphed
+  Big Attack and a second move can land in the same round.
+- **Systems owner**: rules 1–3 of §9.1 extend SYSTEMS §2.1 (keel), §6.4 (flee +3 capped at S 30) and §7.3 (Fight!'s
+  MP reserve is spent on bosses). They need ratifying in SYSTEMS-BIBLE.
+- **P31 / P22** (from `sim.mjs`, stress only): walking a whole economy leg back to back with no inn at a fixed level still
+  wipes often in Cobwell Manor, Pelican Coast, the Sogglemarsh, Marbleford Downs, the Belfry, the Sighing Grotto and the
+  Quiet Quarry — the journey splits each leg between its areas and rests, and has ≤ 5 wipes per 80 playthroughs there.
+  Monster gold in the Whistling Caves is under the SYSTEMS §5 leg (POOR).

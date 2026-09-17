@@ -1,0 +1,2145 @@
+{
+ "name": "critic P16 a2r1 \u2014 every monster, every clip",
+ "steps": [
+  {
+   "waitFor": "window.__DQ && __DQ.ready",
+   "timeout": 30000
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "eval": "__DQ.show(['gloop','flapjack','gloop','flapjack','gloop'])"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "F-slimes-drackies-ui"
+  },
+  {
+   "burst": {
+    "name": "F-slimes-drackies-idle",
+    "count": 8,
+    "interval": 110
+   }
+  },
+  {
+   "eval": "__DQ.play('*','attack')"
+  },
+  {
+   "burst": {
+    "name": "F-sd-attack",
+    "count": 8,
+    "interval": 70
+   }
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "__DQ.play(2,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "F-sd-hurt",
+    "count": 4,
+    "interval": 50
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(2,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "F-sd-defeat",
+    "count": 10,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "eval": "__DQ.play(1,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "F-sd-defeat2",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "F-sd-join",
+    "count": 10,
+    "interval": 90
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.ui(false)"
+  },
+  {
+   "eval": "__DQ.show(['gloop','bobble','bloop','grumbleglop','glimmergloop','peckish','grumpleroot','toadstooligan'])"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "L1-lineup"
+  },
+  {
+   "eval": "__DQ.show(['flapjack','bumbleblunder','boohoo','chestnut','cactuddle','pip','sir_gloopalot'])"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "L2-lineup"
+  },
+  {
+   "eval": "__DQ.show(['clankworthy','boulderdash','gloopold','sunmane'])"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "L3-lineup"
+  },
+  {
+   "eval": "__DQ.show(['gloop'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "gloop-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "gloop-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "gloop-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "gloop-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "gloop-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "gloop-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "gloop-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "gloop-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['bobble'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "bobble-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "bobble-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "bobble-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "bobble-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "bobble-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "bobble-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "bobble-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "bobble-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['bloop'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "bloop-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "bloop-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "bloop-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "bloop-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "bloop-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "bloop-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "bloop-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "bloop-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['grumbleglop'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "grumbleglop-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "grumbleglop-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "grumbleglop-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "grumbleglop-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "grumbleglop-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "grumbleglop-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "grumbleglop-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "grumbleglop-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['sir_gloopalot'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "sir_gloopalot-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "sir_gloopalot-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "sir_gloopalot-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "sir_gloopalot-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "sir_gloopalot-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "sir_gloopalot-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "sir_gloopalot-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "sir_gloopalot-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['glimmergloop'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "glimmergloop-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "glimmergloop-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "glimmergloop-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "glimmergloop-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "glimmergloop-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "glimmergloop-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "glimmergloop-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "glimmergloop-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['gloopold'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "gloopold-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "gloopold-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "gloopold-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "gloopold-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "gloopold-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "gloopold-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "gloopold-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "gloopold-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['flapjack'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "flapjack-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "flapjack-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "flapjack-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "flapjack-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "flapjack-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "flapjack-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "flapjack-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "flapjack-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['peckish'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "peckish-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "peckish-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "peckish-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "peckish-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "peckish-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "peckish-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "peckish-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "peckish-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['grumpleroot'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "grumpleroot-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "grumpleroot-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "grumpleroot-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "grumpleroot-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "grumpleroot-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "grumpleroot-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "grumpleroot-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "grumpleroot-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['toadstooligan'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "toadstooligan-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "toadstooligan-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "toadstooligan-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "toadstooligan-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "toadstooligan-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "toadstooligan-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "toadstooligan-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "toadstooligan-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['bumbleblunder'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "bumbleblunder-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "bumbleblunder-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "bumbleblunder-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "bumbleblunder-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "bumbleblunder-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "bumbleblunder-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "bumbleblunder-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "bumbleblunder-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['boohoo'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "boohoo-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "boohoo-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "boohoo-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "boohoo-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "boohoo-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "boohoo-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "boohoo-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "boohoo-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['chestnut'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "chestnut-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "chestnut-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "chestnut-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "chestnut-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "chestnut-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "chestnut-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "chestnut-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "chestnut-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['clankworthy'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "clankworthy-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "clankworthy-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "clankworthy-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "clankworthy-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "clankworthy-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "clankworthy-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "clankworthy-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "clankworthy-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['boulderdash'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "boulderdash-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "boulderdash-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "boulderdash-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "boulderdash-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "boulderdash-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "boulderdash-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "boulderdash-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "boulderdash-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['pip'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "pip-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "pip-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "pip-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "pip-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "pip-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "pip-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "pip-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "pip-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['sunmane'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "sunmane-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "sunmane-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "sunmane-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "sunmane-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "sunmane-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "sunmane-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "sunmane-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "sunmane-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['bogwallop'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "bogwallop-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "bogwallop-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "bogwallop-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "bogwallop-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "bogwallop-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "bogwallop-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "bogwallop-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "bogwallop-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['cactuddle'])"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "cactuddle-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(40)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "cactuddle-34"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "burst": {
+    "name": "cactuddle-idle",
+    "count": 8,
+    "interval": 120
+   }
+  },
+  {
+   "eval": "__DQ.play(0,'taunt')"
+  },
+  {
+   "burst": {
+    "name": "cactuddle-taunt",
+    "count": 6,
+    "interval": 110
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.play(0,'attack')"
+  },
+  {
+   "burst": {
+    "name": "cactuddle-attack",
+    "count": 8,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__DQ.play(0,'hurt')"
+  },
+  {
+   "burst": {
+    "name": "cactuddle-hurt",
+    "count": 5,
+    "interval": 40
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'defeat')"
+  },
+  {
+   "burst": {
+    "name": "cactuddle-defeat",
+    "count": 12,
+    "interval": 60
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "__DQ.play(0,'join')"
+  },
+  {
+   "burst": {
+    "name": "cactuddle-join",
+    "count": 8,
+    "interval": 100
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.show(['bobble'])"
+  },
+  {
+   "eval": "__DQ.cameraZoom(1.6)"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "burst": {
+    "name": "bobble-close",
+    "count": 16,
+    "interval": 400
+   }
+  },
+  {
+   "eval": "__DQ.show(['cactuddle'])"
+  },
+  {
+   "eval": "__DQ.cameraZoom(2.2)"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "burst": {
+    "name": "cactuddle-close",
+    "count": 10,
+    "interval": 400
+   }
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().monsters||null)"
+  },
+  {
+   "assert": "__DQ.errors.length===0",
+   "msg": "no runtime errors"
+  }
+ ]
+}

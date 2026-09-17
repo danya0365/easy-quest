@@ -28,9 +28,14 @@ const B_MELODY = [
 const B_HARM = ['G', 'Em|D', 'Am7', 'D', 'C', 'D/F#', 'Bm|A', 'D|A7'];
 
 export function build() {
-  const T = Theme({ id: 'overworld', title: 'Over Hill, Over Homeward', key: 'D major', bpm: 108, meter: 4, pulse: [0, 2], intro: 4, loop: 34, space: 'HALL', gain: 0.92 });
-  const horns = T.part('horns', { voice: 'horns', bus: 'melody', gain: 1.25 });
+  const T = Theme({ id: 'overworld', title: 'Over Hill, Over Homeward', key: 'D major', bpm: 108, meter: 4, pulse: [0, 2], intro: 4, loop: 34, space: 'HALL', gain: 0.643 });
+  // Real brass: the tune sits A4-B5, above a horn's comfortable top, so the horn section sings it an octave down (warm,
+  // noble), the violins carry it at pitch, and the trumpets join at pitch only for the ff return.
+  const horns = T.part('horns', { voice: 'horns', bus: 'melody', gain: 1.1 });
+  const trumpets = T.part('trumpets', { voice: 'trumpet', bus: 'melody', gain: 0.8 });
   const hornsLo = T.part('hornsLo', { voice: 'horns', bus: 'counter', gain: 0.7 });
+  const bones = T.part('bones', { voice: 'trombone', bus: 'harmony', gain: 0.8 });
+  const tuba = T.part('tuba', { voice: 'tuba', bus: 'bass', gain: 0.7 });
   const strMel = T.part('strMel', { voice: 'strings', bus: 'counter', gain: 0.9 });
   const flute = T.part('flute', { voice: 'flute', bus: 'counter' });
   const strLead = T.part('strLead', { voice: 'strings', bus: 'melody', gain: 1.1 });
@@ -63,10 +68,11 @@ export function build() {
   cym.note(T.bar(2, 0), 'C5', 2, { dyn: 'mp' });
   harp.gliss(T.bar(3, 2), 'A7', 'A2', 'A5', { dyn: 'mp' });
 
-  // ---- A (bars 4-11): horn section sings, strings an octave below
+  // ---- A (bars 4-11): horn section sings (8vb), violins at pitch
   const hA = T.chords(4, A_HARM);
-  horns.seq(4, A_MELODY, { dyn: 'f' });
-  strMel.seq(4, A_MELODY, { dyn: 'mf', oct: -1 });
+  horns.seq(4, A_MELODY, { dyn: 'f', oct: -1 });
+  strLead.seq(4, A_MELODY, { dyn: 'mf', gain: 0.8 });
+  strMel.seq(4, A_MELODY, { dyn: 'mp', oct: -1, gain: 0.7 });
   T.pad('strPad', hA, { n: 3, lo: 'D3', hi: 'D4', dyn: 'mp' });
   T.bass('celli', hA, { pat: [[0, '1', 2], [2, '5', 2]], base: 'D2', dyn: 'mp' });
   T.bass('pizz', hA, { pat: [[0, '1', 1], [2, '5', 1]], base: 'D2', dyn: 'mp' });
@@ -75,9 +81,9 @@ export function build() {
 
   // ---- A′ (bars 12-19): same tune, flute an octave above, the celli walk down
   const hA2 = T.chords(12, A2_HARM);
-  horns.seq(12, A_MELODY, { dyn: 'f' });
-  strMel.seq(12, A_MELODY, { dyn: 'mf', oct: -1 });
-  flute.seq(12, A_MELODY, { dyn: 'mp', oct: 1 });
+  horns.seq(12, A_MELODY, { dyn: 'f', oct: -1 });
+  strLead.seq(12, A_MELODY, { dyn: 'mf', gain: 0.8 });
+  flute.seq(12, A_MELODY, { dyn: 'mf', oct: 1 });
   T.pad('strPad', hA2, { n: 3, lo: 'E3', hi: 'E4', dyn: 'mp' });
   celli.seq(12, [['D3', 4], ['C#3', 4], ['B2', 4], ['A2', 4], ['G2', 4], ['A2', 4], ['B2', 2], ['C#3', 2], ['D3', 4]], { dyn: 'mf', shape: false });
   T.bass('pizz', hA2, { pat: [[0, 'B', 1], [2, 'B', 1]], base: 'G1', dyn: 'mp' });
@@ -97,12 +103,14 @@ export function build() {
 
   // ---- A″ (bars 28-35): everyone home, three octaves, snare marching from bar 32
   const hA3 = T.chords(28, A_HARM);
-  horns.seq(28, A_MELODY, { dyn: 'ff' });
-  hornsLo.seq(28, A_MELODY, { dyn: 'f', oct: -1 });
-  strMel.seq(28, A_MELODY, { dyn: 'f', oct: -1 });
-  strLead.seq(28, A_MELODY, { dyn: 'f', gain: 0.7 });
+  trumpets.seq(28, A_MELODY, { dyn: 'f' });
+  horns.seq(28, A_MELODY, { dyn: 'ff', oct: -1 });
+  strMel.seq(28, A_MELODY, { dyn: 'mf', oct: -1, gain: 0.7 });
+  strLead.seq(28, A_MELODY, { dyn: 'f', gain: 0.9 });
   flute.seq(28, A_MELODY, { dyn: 'mf', oct: 1 });
-  T.pad('strPad', hA3, { n: 4, lo: 'D3', hi: 'D4', dyn: 'f' });
+  T.pad('strPad', hA3, { n: 4, lo: 'D3', hi: 'D4', dyn: 'mf' });
+  T.pad('bones', hA3, { n: 3, lo: 'D3', hi: 'D4', dyn: 'mf', art: 'tenuto' });
+  T.bass('tuba', hA3, { pat: [[0, '1', 2]], base: 'D2', dyn: 'mf' });
   T.bass('celli', hA3, { pat: [[0, '1', 2], [2, '5', 2]], base: 'D2', dyn: 'f' });
   T.bass('pizz', hA3, { pat: [[0, '1', 1], [1, '8', 1], [2, '5', 1], [3, '8', 1]], base: 'D2', dyn: 'mf' });
   cym.note(T.bar(28, 0), 'C5', 2, { dyn: 'f' });
@@ -112,8 +120,10 @@ export function build() {
 
   // ---- Tag (bars 36-37): A7 → D, the final D held into the loop seam
   const hT = T.chords(36, ['A7', 'D']);
-  horns.seq(36, [['E5', 1], ['F#5', 1], ['G5', 1], ['A5', 1], ['D5', 4.6]], { dyn: 'ff' });
-  hornsLo.seq(36, [['E4', 1], ['F#4', 1], ['G4', 1], ['A4', 1], ['D4', 4.6]], { dyn: 'f' });
+  trumpets.seq(36, [['E5', 1], ['F#5', 1], ['G5', 1], ['A5', 1], ['D5', 4.6]], { dyn: 'f' });
+  horns.seq(36, [['E4', 1], ['F#4', 1], ['G4', 1], ['A4', 1], ['D4', 4.6]], { dyn: 'ff' });
+  T.pad('bones', hT, { n: 3, lo: 'D3', hi: 'D4', dyn: 'f', overlap: 0.6 });
+  tuba.seq(36, [['A1', 4], ['D2', 4.6]], { dyn: 'f' });
   strMel.seq(36, [['C#4', 1], ['D4', 1], ['E4', 1], ['C#4', 1], ['D4', 4.6]], { dyn: 'f' });
   T.pad('strPad', hT, { n: 4, lo: 'E3', hi: 'E4', dyn: 'f', overlap: 0.6 });
   celli.seq(36, [['A2', 4], ['D2', 4.6]], { dyn: 'f' });

@@ -20,6 +20,7 @@ import { makeRng } from '../../src/battle/formulas.js';
 import { EXP_TABLE } from '../../src/data/growth.js';
 import DATA from './data.js';
 import { AREAS, rollEncounter } from './areas.js';
+import { partyAt } from './play.js';
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 ? argv[i + 1] : d; };
@@ -135,7 +136,7 @@ function walkStats(area, L, trials) {
 function bossStats(area, boss, policy, n) {
   const out = { wins: 0, wipes: 0, timeouts: 0, rounds: [], big: [], tele: [], ko: 0, hpLeft: [], secondWinds: 0 };
   for (let i = 0; i < n; i++) {
-    const { res } = runFight(area.party(boss.level), boss.enemies, area, policy,
+    const { res } = runFight(partyAt(area, boss, boss.level), boss.enemies, area, policy,
       { wagonReachable: boss.wagonReachable ?? false, options: { ambush: 'none', assist: { s: boss.S || 0 } } });
     if (res.outcome === 'victory') {
       out.wins++;
@@ -220,8 +221,9 @@ for (const area of AREAS) {
     if (!scripted && brow.winSmart < 0.9) bflags.push('HARD');
     if (!scripted && brow.winAuto < 0.6) bflags.push('AUTO-WALL');
     if (!scripted && r < 6) bflags.push('SHORT');
-    if (!scripted && r > 12) bflags.push('LONG');
-    if (!scripted && brow.winMashAssisted < 0.6) bflags.push('MASH-WALL');
+    if (!scripted && r > 13) bflags.push('LONG');   // careful play heals, so it runs a few rounds past Fight!'s 6-10
+    // one Attack-only try at S 36; the bar is winning within three (journey.mjs retry table): 1 - (1 - p)^3 >= 0.9
+    if (!scripted && 1 - (1 - brow.winMashAssisted) ** 3 < 0.9) bflags.push('MASH-WALL');
     if (bflags.length) flags.push(`${area.id} boss ${name}: ${bflags.join(', ')}`);
     bossRows.push([name, area.name, boss.level, pct(brow.winSmart), pct(brow.winAuto), pct(brow.winMash), pct(brow.winMashAssisted), f1(r), f1(brow.roundsMash),
       f1(brow.tele), f1(brow.big), pct(brow.koPct), pct(brow.hpLeft), totalHp, scripted ? 'scripted' : brow.hpFor8, bflags.join(' ') || 'ok']);

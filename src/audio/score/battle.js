@@ -27,9 +27,13 @@ const B_MELODY = [
 const B_HARM = ['Dm', 'C#dim7', 'A7', 'Dm', 'Gm', 'F#dim7', 'A7', 'A7'];
 
 export function build() {
-  const T = Theme({ id: 'battle', title: 'Draw Steel!', key: 'D minor', bpm: 156, meter: 4, pulse: [0, 2], intro: 2, loop: 32, space: 'HALL', gain: 0.95 });
-  const horns = T.part('horns', { voice: 'horns', bus: 'melody', gain: 1.3, o: { tight: true } });
-  const hornsLo = T.part('hornsLo', { voice: 'horns', bus: 'counter', gain: 0.65, o: { tight: true } });
+  const T = Theme({ id: 'battle', title: 'Draw Steel!', key: 'D minor', bpm: 156, meter: 4, pulse: [0, 2], intro: 2, loop: 32, space: 'HALL', gain: 0.897 });
+  // Real brass: trumpets take the D5-D6 tune at pitch, the horn section doubles it an octave down, trombones two
+  // octaves down on the repeats; a tuba doubles the driving bass on the beat.
+  const horns = T.part('horns', { voice: 'trumpet', bus: 'melody', gain: 1.0, o: { tight: true } });
+  const hornsMid = T.part('hornsMid', { voice: 'horns', bus: 'melody', gain: 0.9, o: { tight: true } });
+  const hornsLo = T.part('hornsLo', { voice: 'trombone', bus: 'counter', gain: 0.75, o: { tight: true } });
+  const tuba = T.part('tuba', { voice: 'tuba', bus: 'bass', gain: 0.6 });
   const strMel = T.part('strMel', { voice: 'strings', bus: 'counter', gain: 0.85 });
   T.part('trem', { voice: 'strings', bus: 'harmony', o: { trem: 60 / 156 / 4 } });
   const stabs = T.part('stabs', { voice: 'horns', bus: 'harmony', gain: 0.8, o: { tight: true, rel: 0.08 } });
@@ -60,9 +64,11 @@ export function build() {
   const section = (bar, mel, harm, { dyn = 'f', trem = false } = {}) => {
     const h = T.chords(bar, harm);
     const soft = dyn === 'mf';
-    horns.seq(bar, mel, { dyn, art: 'marcato' });
-    strMel.seq(bar, mel, { dyn: dyn === 'ff' ? 'f' : soft ? 'mp' : 'mf', oct: -1 });
+    if (!soft) horns.seq(bar, mel, { dyn: dyn === 'ff' ? 'f' : 'mf', art: 'marcato' });
+    hornsMid.seq(bar, mel, { dyn, art: 'marcato', oct: -1 });
+    strMel.seq(bar, mel, { dyn: dyn === 'ff' ? 'f' : soft ? 'mp' : 'mf', oct: soft ? 0 : -1, gain: soft ? 1.1 : 0.8 });
     if (dyn === 'ff') strMel.seq(bar, mel, { dyn: 'mf' });
+    T.bass('tuba', h, { pat: [[0, '1', 0.9], [2, '1', 0.9]], base: 'D2', dyn: soft ? 'p' : 'mp', cycle: 4, art: 0.8 });
     T.bass('pizz', h, { ...drive, dyn: soft ? 'p' : dyn === 'ff' ? 'mf' : 'mp' });
     T.bass('celli', h, { pat: [[0, '1', 2], [2, '1', 2]], base: 'D2', dyn: soft ? 'p' : dyn === 'ff' ? 'mf' : 'mp', cycle: 4 });
     if (trem) T.pad('trem', h, { n: 3, lo: 'A3', hi: 'A4', dyn: 'p' });
@@ -81,22 +87,22 @@ export function build() {
   T.pad('trem', hI, { n: 3, lo: 'A3', hi: 'A4', cresc: ['p', 'mf'] });
   snareBars(1, 1, 'p', []);
   timp.note(T.bar(1, 0), 'D2', 0.5, { dyn: 'mf' }); timp.note(T.bar(1, 2), 'A2', 0.5, { dyn: 'mf' });
-  hornsLo.seq(1, [['R', 3], ['A3', 1]], { dyn: 'f', art: 'marcato' });
+  hornsMid.seq(1, [['R', 3], ['A3', 1]], { dyn: 'f', art: 'marcato' });
 
   // A (2-9)
   section(2, A_MELODY, A_HARM); snareBars(2, 8);
   cym.note(T.bar(2, 0), 'C5', 2, { dyn: 'mf' });
   // A′ (10-17): add the low horn octave and a crash at the top
   section(10, A_MELODY, A_HARM); snareBars(10, 8);
-  hornsLo.seq(10, A_MELODY, { dyn: 'f', oct: -2, art: 'marcato' });
+  hornsLo.seq(10, A_MELODY, { dyn: 'mf', oct: -2, art: 'marcato' });
   cym.note(T.bar(10, 0), 'C5', 2, { dyn: 'f' });
   // B (18-25): chromatic climb, horns in unison, strings tremolo
   section(18, B_MELODY, B_HARM, { dyn: 'mf', trem: true }); snareBars(18, 8, 'pp');
-  hornsLo.seq(18, B_MELODY, { dyn: 'mp', oct: -1 });
+  hornsLo.seq(18, B_MELODY, { dyn: 'mp', oct: -2 });
   snare.roll(T.bar(25, 2), T.bar(26, 0), 'D4', { from: 'mp', to: 'f', perBeat: 8, alt: 0.8 });
   // A (26-33) at ff; the last bar's D is held under a crash and the reverb carries the seam
   section(26, A_MELODY, A_HARM, { dyn: 'ff' }); snareBars(26, 8, 'mf');
-  hornsLo.seq(26, A_MELODY, { dyn: 'f', oct: -2, art: 'marcato' });
+  hornsLo.seq(26, A_MELODY, { dyn: 'mf', oct: -2, art: 'marcato' });
   cym.note(T.bar(26, 0), 'C5', 2, { dyn: 'f' });
   cym.note(T.bar(33, 2), 'C5', 3, { dyn: 'f' });
   return T.build();

@@ -15,7 +15,7 @@ const FRAGMENT = [
 ];
 
 export function build() {
-  const T = Theme({ id: 'dungeon', title: 'The Dark Under the Hill', key: 'D phrygian', bpm: 60, meter: 4, pulse: [0, 2], loop: 16, space: 'DUNGEON', gain: 2.6, sendAdd: 0.2 });
+  const T = Theme({ id: 'dungeon', title: 'The Dark Under the Hill', key: 'D phrygian', bpm: 60, meter: 4, pulse: [0, 2], loop: 16, space: 'DUNGEON', gain: 5.408, sendAdd: 0.2 });
   const drone = T.part('drone', { voice: 'strings', bus: 'bass', pan: -0.2, o: { attack: 2.5, rel: 2.5, swell: 1 } });
   const oboe = T.part('oboe', { voice: 'oboe', bus: 'melody' });
   const flute = T.part('flute', { voice: 'flute', bus: 'melody' });

@@ -24,17 +24,21 @@ const MELODY = [
 const HARM = ['E', 'F#/E', 'E', 'F#/E', 'C#m', 'A', 'E/G#', 'F#', 'A', 'B', 'G#m', 'C#m', 'A', 'F#/A#', 'Bsus4', 'Asus2'];
 
 export function build() {
-  const T = Theme({ id: 'highfeather', title: 'The Castle in the Clouds', key: 'E lydian', bpm: 66, meter: 4, pulse: [0, 2], loop: 16, space: 'CHAPEL', gain: 1.5 });
-  const voice = T.part('choirLead', { voice: 'pad', bus: 'melody', gain: 1.9, o: { attack: 0.35, rel: 0.9 } });
-  const alto = T.part('choirAlto', { voice: 'vox', bus: 'counter', gain: 0.6 });
-  T.part('choir', { voice: 'pad', bus: 'harmony', o: { attack: 1.2 } });
+  const T = Theme({ id: 'highfeather', title: 'The Castle in the Clouds', key: 'E lydian', bpm: 66, meter: 4, pulse: [0, 2], loop: 16, space: 'CHAPEL', gain: 2.521 });
+  // the tune floats on a solo flute in its low, breathy register; a clarinet answers below; a soft choir-and-strings
+  // halo holds the chords (the wordless choir is the one synthesised colour left: no free choir recording exists)
+  const voice = T.part('choirLead', { voice: 'flute', bus: 'melody', gain: 1.1 });
+  const alto = T.part('choirAlto', { voice: 'clarinet', bus: 'counter', gain: 0.8 });
+  T.part('choir', { voice: 'pad', bus: 'harmony', gain: 0.7, o: { attack: 1.2 } });
+  T.part('halo', { voice: 'strings', bus: 'harmony', o: { attack: 0.9 } });
   T.part('harp', { voice: 'harp', bus: 'counter' });
-  T.part('bassChoir', { voice: 'pad', bus: 'bass', o: { attack: 1.5 } });
+  T.part('bassChoir', { voice: 'strings', bus: 'bass', o: { attack: 1.0 } });
   const cel = T.part('celesta', { voice: 'celesta', bus: 'counter', gain: 0.7 });
   const h = T.chords(0, HARM);
   voice.seq(0, MELODY, { dyn: 'mp' });
   alto.seq(8, MELODY.slice(13, 21), { dyn: 'p', oct: -1, legato: 'bar' });
   T.pad('choir', h, { n: 4, lo: 'E3', hi: 'B4', dyn: 'pp' });
+  T.pad('halo', h, { n: 3, lo: 'G#3', hi: 'E4', dyn: 'pp' });
   T.bass('bassChoir', h, { pat: [[0, 'B', 4.2]], base: 'E2', dyn: 'p' });
   T.arp('harp', h, { pat: ['1', '5', '8', '9', '10', '8', '5', '8'], step: 0.5, base: 'E3', dyn: 'p', len: 2.5, cycle: 4 });
   // sparkles high above, like light on cloud

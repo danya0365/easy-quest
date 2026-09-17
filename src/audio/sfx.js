@@ -16,9 +16,10 @@
  * Every play re-rolls small pitch / level / filter / timing offsets from `variant` (or Math.random when
  * omitted) so repeats never sound robotic. Aliases: gold, whoosh, search, footstep {material}, text {voice}.
  *
- * Impacts (sword_hit, sword_crit, monster_hurt, player_hurt) are built to survive a telly speaker: their body is a
- * noisy 200-900 Hz crack under a bright 2-5 kHz slash, with only a little sub. Each one schedules a sample-accurate
- * dip on the music bus (`pulse`: about -6 dB for ~150 ms) so it lands on top of the battle theme.
+ * Impacts (sword_hit, sword_crit, monster_hurt, player_hurt) open on a sharp, flat-topped snap that peaks 1 ms in,
+ * ~9-10 dB over a body that is each one's own pitched sound and falls 10 dB within ~25-37 ms; see BATTLE below. Each
+ * schedules a sample-accurate dip on the music bus (`pulse`: ~9 dB for 20 ms, back over 150 ms) so it lands ~6 LU on
+ * top of the battle theme.
  */
 import { Audio, mulberry32, clamp, reportError, makeIR, retainNodes, _rendering } from './audio.js';
 
@@ -141,7 +142,10 @@ function makeEnv(realCtx, busNode, sendNode, d, opts, rng, T) {
   E.fj = 1 + (rng() * 2 - 1) * (d.fj ?? 0.07);
   E.tj = d.tj ?? 0.004;
   const vol = (opts.vol ?? 1) * (d.gain ?? 1) * (1 + (rng() * 2 - 1) * (d.vj ?? 0.06));
-  const out = ctx.createGain(); out.gain.value = vol;
+  // The voice sum is fixed at two channels. Left in the default 'max' mode it went stereo only while some layer had
+  // its own panner running, so the whole voice jumped +3 dB (the env panner passes stereo at unity but pans mono
+  // equal-power) and dropped back when that layer finished. settleLevel() keeps each voice at its old onset level.
+  const out = ctx.createGain(); out.gain.value = vol; stereo(out);
   const pan = ctx.createStereoPanner();
   pan.pan.value = clamp((opts.pan ?? d.pan ?? 0) + (rng() * 2 - 1) * (d.panj ?? 0), -1, 1);
   if (d.sat) {
@@ -150,10 +154,11 @@ function makeEnv(realCtx, busNode, sendNode, d, opts, rng, T) {
     const R = 4, pre = ctx.createGain(); pre.gain.value = 1 / R;
     const ws = ctx.createWaveShaper(); ws.curve = kneeCurve(ctx, d.sat, R); ws.oversample = '4x';
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(9000, E.sr * 0.45); lp.Q.value = 0.5;
-    const mk = ctx.createGain(); mk.gain.value = d.satOut ?? 1;
+    const mk = ctx.createGain(); mk.gain.value = d.satOut ?? 1; stereo(mk);
     out.connect(pre); pre.connect(ws); ws.connect(lp); lp.connect(mk); mk.connect(pan);
+    E.satOut = mk;
     // transients that must stay sharp skip the saturator: route them `to: E.post`
-    E.post = ctx.createGain(); E.post.gain.value = vol; E.post.connect(pan);
+    E.post = ctx.createGain(); E.post.gain.value = vol; stereo(E.post); E.post.connect(pan);
   } else out.connect(pan);
   pan.connect(busNode);
   const sendAmt = (d.send ?? 0) * (opts.send ?? 1);
@@ -165,6 +170,16 @@ function makeEnv(realCtx, busNode, sendNode, d, opts, rng, T) {
   E.nodes = [out, pan, dry, sg, E.post].filter(Boolean);
   E.every = (e, fn) => fn(e);
   return E;
+}
+
+const stereo = (node) => { node.channelCount = 2; node.channelCountMode = 'explicit'; node.channelInterpretation = 'speakers'; return node; };
+/** After a voice is built: one with no panned layer of its own reached the env panner as mono (-3 dB); keep that level. */
+function settleLevel(E) {
+  const panned = E.keep.some((n) => n !== E.panNode && n && n.constructor && n.constructor.name === 'StereoPannerNode');
+  if (panned) return;
+  // after the saturator, never before it: the shaper must keep seeing the level it was tuned on
+  (E.satOut || E.out).gain.value *= Math.SQRT1_2;
+  if (E.post !== E.out) E.post.gain.value *= Math.SQRT1_2;
 }
 
 const clampF = (E, f) => clamp(f, 10, E.sr * 0.48);
@@ -609,74 +624,89 @@ S('gold_coins', { group: 'Treasure', gain: 1.0, send: 0.08, pj: 0.5, desc: 'a li
 
 // =================================================================================================================
 // BATTLE
-// Impacts are SNAP -> BODY -> TAIL, and nothing in them holds or sustains:
-//   snap  a flick of noise clipped into a dense 3 ms burst, with a pitched tick inside it that falls more than an
-//         octave in 6 ms. It peaks 1-2 ms after onset, about 8 dB over the body, so every blow starts sharp:
-//         "tsk" for steel, "pok" for hide, "dok" for the party.
-//   body  each impact's OWN pitched sound. It swells in over 3.5 ms, so it peaks just as the snap has fallen away
-//         (the two never pile their peaks on each other), then decays at once: about -10 dB by 35-40 ms.
-//         sword_hit    a bright swish band falling 3.4 -> 1.4 kHz over a mid "kn" thwack (~640 -> 250 Hz)
-//         monster_hurt a rubbery "bop" (~470 -> 170 Hz) under a short smack of hide
-//         player_hurt  a heavy thud (~230 -> 80 Hz, with low-mid harmonics a telly still plays) and a dark crunch
-//   tail  what gives each one its own shape once the body has gone: the blade's air, a little yelp, the rattle
-//         under the screen shake.
-// No peak shaver and no glue compressor in the way (the sfx bus joins after it, see audio.js): what is drawn here is
-// what comes out. Over the battle theme a hit lifts the true mix ~6 LU; it no longer stands on it as a wall of noise.
-const BODY_IN = 0.004;
+// Every impact is SNAP -> BODY -> TAIL, and each has its own pitched body.
+//   snap  a tick and a flick of noise clipped together into a dense burst 3.5-4.5 ms long, its top shaved flat (crest
+//         ~0.4 dB: the headroom goes on loudness, not on one spike). It slides ~2 dB down while it lasts, so its loudest
+//         millisecond is the first, and it is gone a millisecond after it ends.
+//   body  starts exactly as the snap ends (the two never pile their peaks on each other), swells in over 1.5 ms and
+//         then only falls: -10 dB 25-40 ms after its peak. No hold, no sustain. The body layers meet in a gentle tanh
+//         shaper that takes the body's crest down, so the snap stands ~9-10 dB over it in 1 ms RMS and ~5-7 dB in
+//         1 ms peaks.
+//         sword_hit    a bright driven swish falling 3.0 -> 1.3 kHz over a "kn" thwack (720 -> 290 Hz)
+//         monster_hurt a rubbery pulse "bop" (~600 -> 210 Hz) with a smack of hide
+//         player_hurt  a heavy square-ish thud (~260 -> 88 Hz, harmonics up to 3.5 kHz so a telly plays it) and a crunch
+//   tail  each one's own shape afterwards: the blade's air trailing across the field; the monster's little "pyu"
+//         (~70-200 ms); the rattle that holds under the screen shake and then fades. (Their dB envelopes correlate
+//         0.79-0.84 with each other, where one shared noise block correlated 0.95-0.975.)
+// Level: each peaks about -3.5 to -4 dBFS on its own and lifts the true mix over the battle theme by about 6 LU
+// (K-weighted 100 ms windows) against P27's sampled battle theme, whose 100 ms median sits near -19.5 LUFS on this
+// mixer. If the theme is re-levelled, retrim the impacts' `gain`s by the same amount. Under each one the music dips
+// ~9 dB for the first 20 ms and comes back over 150 ms; audio.js keeps that dip sample-aligned with the snap (the
+// effects wait out the glue compressor's 6 ms look-ahead).
+const IMPACT = { group: 'Battle', gain: 0.85, send: 0.035, vj: 0.05, fj: 0.08, pulse: [0.35, 0.003, 0.02, 0.15] };
+const BODY_A = 0.0015; // a body swells in over 1.5 ms, from the moment its snap ends, and then only falls
+
 /**
- * The snap: a noise flick and a pitched tick (falling more than an octave in 6 ms), summed and driven together
- * into a clipper: ~2 ms of dense burst whose loudness sits close under its peak (a lone click wastes ~7 dB of
- * headroom as crest), then -10 dB within another ~2 ms. `g` is its level, `f` the tick, `hp`/`lp` its colour.
+ * The snap. `g` level, `len` how long it stays up (seconds), `f` the tick (falls an octave while the snap lasts),
+ * `hp`/`nlp` the noise flick's band, `lp` the colour of the clipped burst. Returns when it has gone.
  */
 function snap(E, t, o = {}) {
-  const ctx = E.ctx, T = E.t + t, k = o.k ?? 1, f = o.f ?? 2000;
-  const pre = ctx.createGain(); pre.gain.value = o.drive ?? 7;
-  const ws = ctx.createWaveShaper(); ws.curve = driveCurve(ctx, 1.6); ws.oversample = 'none';
-  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.lp ?? 7000; lp.Q.value = 0.5;
-  const out = ctx.createGain(); out.gain.value = (o.g ?? 0.5) * k;
-  pre.connect(ws); ws.connect(lp); lp.connect(out); out.connect(E.out);
-  const h = o.h ?? 0.0006, d = o.d ?? 0.012;
-  // band-limit the flick BEFORE the clipper: clipped white noise is mostly energy above the lowpass, all crest
-  noise(E, { t, a: 0.0003, h, d, g: o.ng ?? 0.5, to: pre, filters: [{ type: 'highpass', f: o.hp ?? 1000, nojit: true }, { type: 'lowpass', f: (o.lp ?? 7000) * 0.7, nojit: true }] });
-  tone(E, { t, type: 'sine', f, f1: f * 0.4, ft: 0.006, a: 0.0003, h, d, g: o.tg ?? 1, to: pre });
-  return T + h + d;
+  const ctx = E.ctx, T = E.t + t, f = o.f ?? 1600, len = o.len ?? 0.0035, g = o.g ?? 0.5;
+  const pre = ctx.createGain(); pre.gain.value = 10;
+  const clip = ctx.createWaveShaper(); clip.curve = driveCurve(ctx, 1.6); clip.oversample = 'none';
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.lp ?? 10000; lp.Q.value = 0.5;
+  // the lowpass rounds the clipped edges and puts ringing back on top of them: shave it off again (no oversampling,
+  // which would delay the snap against its own gain ramp)
+  const shave = ctx.createGain(); shave.gain.value = 3;
+  const top = ctx.createWaveShaper(); top.curve = driveCurve(ctx, 3); top.oversample = 'none';
+  const out = ctx.createGain();
+  out.gain.setValueAtTime(g, T); out.gain.linearRampToValueAtTime(g * 0.8, T + len);
+  out.gain.linearRampToValueAtTime(g * 0.15, T + len + 0.001); out.gain.linearRampToValueAtTime(0, T + len + 0.004);
+  pre.connect(clip); clip.connect(lp); lp.connect(shave); shave.connect(top); top.connect(out); out.connect(E.out);
+  noise(E, { t, a: 0.0002, h: len, d: 0.004, g: 0.3, to: pre, filters: [{ type: 'highpass', f: o.hp ?? 1000, nojit: true }, { type: 'lowpass', f: o.nlp ?? 6000, nojit: true }] });
+  tone(E, { t, type: 'sine', f, f1: f * 0.5, ft: len + 0.002, a: 0.0002, h: len, d: 0.004, g: 1, to: pre });
+  return T + len + 0.004;
 }
 
-/** The sword's part of a hit: the swish band, the thwack and a faint ring of the blade. `k` scales it, `lo` lowers it. */
-function blade(E, t, k = 1, dir = 1, lo = 1) {
-  const br = E.rr(0.92, 1.1) * lo, a = BODY_IN;
-  // swish: a band of driven noise falling 3.4 -> 1.4 kHz
-  noise(E, { t, a, d: 0.26, g: 0.29 * k, filters: [{ type: 'bandpass', f: 3400 * br, fp: [[0.05, 2200 * br], [0.2, 1400 * br]], Q: 1.3 }], drive: 2.2, driveIn: 3, os: 'none',
-    post: [{ type: 'lowpass', f: 6500, nojit: true }], panSweep: [-0.3 * dir, 0.3 * dir, 0.15] });
-  // thwack: the blade meeting something, pitched in the mids
-  tone(E, { t, type: 'triangle', f: 640 * lo, f1: 250 * lo, ft: 0.05, a, d: 0.2, g: 0.12 * k });
-  tone(E, { t, type: 'sine', f: 330 * lo, f1: 150 * lo, ft: 0.06, a, d: 0.16, g: 0.08 * k });
-  // the blade's ring, faint and short (a sword, not a stick)
-  bell(E, { t, f: 2350 * br, g: 0.03 * k, d: 0.16, a, partials: [[1, 1, 1], [1.53, 0.5, 0.7], [2.21, 0.3, 0.5]] });
-  // the air behind the blade: a pink swish that trails away across the field
-  noise(E, { t: t + 0.01, color: 'pink', a: 0.015, d: 0.3, g: 0.15 * k, filters: [{ type: 'bandpass', f: 2600 * br, f1: 1000, ft: 0.25, Q: 1.6 }], panSweep: [0.2 * dir, 0.5 * dir, 0.25] });
+/** Where an impact's body layers meet: `inGain` into a tanh shaper of `drive`, trimmed above `lpHz`, then `outGain`. */
+function bodyBus(E, drive, inGain, outGain, lpHz = 8000) {
+  const ctx = E.ctx, inG = ctx.createGain(); inG.gain.value = inGain;
+  const ws = ctx.createWaveShaper(); ws.curve = driveCurve(ctx, drive); ws.oversample = 'none';
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(lpHz, E.sr * 0.45); lp.Q.value = 0.5;
+  const outG = ctx.createGain(); outG.gain.value = outGain;
+  inG.connect(ws); ws.connect(lp); lp.connect(outG); outG.connect(E.out);
+  return inG;
 }
 
-S('sword_hit', { group: 'Battle', gain: 1.0, send: 0.035, pj: 0.6, vj: 0.06, fj: 0.08, poly: 4,
-  pulse: [0.6, 0.003, 0.03, 0.14], desc: 'zush! a sharp snap, a bright swish and a thwack' }, (E) => {
-  const dir = E.r() < 0.5 ? -1 : 1;
-  snap(E, 0, { f: 2600 * E.rr(0.94, 1.08), hp: 1200, lp: 7500 });
-  blade(E, 0, 1, dir);
+/** The sword's body into `bus` (swish, thwack, a faint ring of the blade), plus the air it drags behind it. */
+function blade(E, t, bus, k = 1, dir = 1, lo = 1) {
+  // every swing a little different: brightness, how long the swish and the air hang on
+  const br = E.rr(0.93, 1.08) * lo, a = BODY_A, sd = E.rr(0.15, 0.19), air = E.rr(0.8, 1.1);
+  noise(E, { to: bus, t, a, d: sd, g: 0.42 * k, filters: [{ type: 'bandpass', f: 3000 * br, fp: [[0.03, 2100 * br], [0.15, 1300 * br]], Q: 2 }],
+    drive: 2.2, driveIn: 5, os: 'none', post: [{ type: 'lowpass', f: 5000, nojit: true }], panSweep: [-0.25 * dir, 0.25 * dir, 0.12] });
+  tone(E, { to: bus, t, type: 'triangle', f: 720 * lo, f1: 290 * lo, ft: 0.05, a, d: sd * 0.78, g: 0.17 * k });
+  bell(E, { to: bus, t, f: 2350 * br, g: 0.05 * k, d: 0.16, a, partials: [[1, 1, 1], [1.53, 0.5, 0.7], [2.21, 0.3, 0.5]] });
+  noise(E, { t: t + 0.0265, color: 'pink', a: 0.015, d: 0.5 * air, g: 0.26 * k * air, filters: [{ type: 'bandpass', f: 2600 * br, f1: 1000, ft: 0.25, Q: 1.6 }], panSweep: [0.2 * dir, 0.5 * dir, 0.25] });
+}
+
+S('sword_hit', { ...IMPACT, gain: 0.81, pj: 0.5, poly: 4, desc: 'zush! a sharp snap, a bright swish and a thwack' }, (E) => {
+  const dir = E.r() < 0.5 ? -1 : 1, len = 0.0035;
+  snap(E, 0, { g: 0.75, len, f: 1800 * E.rr(0.94, 1.06), hp: 1500, nlp: 7000, lp: 12000 });
+  blade(E, len, bodyBus(E, 2.5, 1.8, 0.28, 6000), 1, dir);
 });
 
-S('sword_crit', { group: 'Battle', gain: 1.0, send: 0.07, pj: 0.35, vj: 0.05, fj: 0.07, poly: 3,
-  pulse: [0.45, 0.003, 0.14, 0.26], desc: 'KIN! — then a heavier GASHUN (a terrific whack!)' }, (E) => {
+S('sword_crit', { ...IMPACT, send: 0.07, pj: 0.35, poly: 3, pulse: [0.3, 0.003, 0.12, 0.25],
+  desc: 'KIN! — then a heavier GASHUN (a terrific whack!)' }, (E) => {
   const dir = E.r() < 0.5 ? -1 : 1;
   // kin: a hard, bright glint of steel (low partials only, nothing shrill above 7 kHz)
   noise(E, { a: 0.0004, d: 0.01, g: 0.3, filters: [{ type: 'highpass', f: 2500 }, { type: 'lowpass', f: 8000 }] });
   bell(E, { f: 1980, g: 0.2, d: 0.42, a: 0.0006, partials: [[1, 1, 1], [1.48, 0.45, 0.6, 7], [2.32, 0.4, 0.45], [3.07, 0.14, 0.3]] });
   tone(E, { type: 'triangle', f: 990, a: 0.0006, d: 0.09, g: 0.1 });
-  // 80 ms later: GA — a bigger snap and a lower, heavier blade — SHUN, a thud under it that the whole screen feels
-  const t = 0.08;
-  snap(E, t, { f: 2200, hp: 900, lp: 7500, k: 1.25 });
-  blade(E, t, 1.3, dir, 0.85);
-  tone(E, { t, type: 'sine', f: 190, f1: 66, ft: 0.1, a: BODY_IN, d: 0.32, g: 0.2 });
-  tone(E, { t, type: 'triangle', f: 300, f1: 105, ft: 0.09, a: BODY_IN, d: 0.2, g: 0.08 });
+  // 80 ms later: GA — a longer snap and a lower, heavier blade — SHUN, a thud under it that the whole screen feels
+  const t = 0.08, len = 0.0045, bus = bodyBus(E, 2.5, 1.8, 0.3, 6000);
+  snap(E, t, { g: 0.8, len, f: 1500 * E.rr(0.94, 1.06), hp: 1200, nlp: 7000, lp: 11000 });
+  blade(E, t + len, bus, 1.1, dir, 0.85);
+  tone(E, { to: bus, t: t + len, type: 'softsq', f: 220, fp: [[0.1, 75]], a: BODY_A, d: 0.28, g: 0.2, filter: { type: 'lowpass', f: 2500 } });
   noise(E, { t: t + 0.03, a: 0.0008, d: 0.12, g: 0.1, filters: [{ type: 'bandpass', f: 900, f1: 500, ft: 0.08, Q: 1 }], drive: 2, driveIn: 2.5, os: 'none', post: [{ type: 'lowpass', f: 2200, nojit: true }] });
 });
 
@@ -685,41 +715,43 @@ S('miss', { group: 'Battle', gain: 1.0, pj: 1.5, desc: 'whoosh — swung and mis
   noise(E, { a: 0.08, d: 0.18, g: 0.3, filters: [{ type: 'lowpass', f: 900 }] });
 });
 
-S('player_hurt', { group: 'Battle', gain: 1.0, send: 0.035, pj: 0.4, vj: 0.05, fj: 0.08, poly: 3,
-  pulse: [0.55, 0.003, 0.09, 0.22], desc: 'DOSH — the party takes a hit (goes with screen shake)' }, (E) => {
-  const a = BODY_IN;
-  snap(E, 0, { f: 950, hp: 500, lp: 4500, tg: 0.7, ng: 0.45 });
-  // the thud: heavy and pitched, falling to the floor of the low mids
-  tone(E, { type: 'sine', f: 230, f1: 78, ft: 0.1, a, d: 0.28, g: 0.2 });
-  tone(E, { type: 'triangle', f: 340, f1: 115, ft: 0.09, a, d: 0.2, g: 0.1 });
-  // a dark crunch, brief
-  noise(E, { a, d: 0.16, g: 0.14, filters: [{ type: 'bandpass', f: 700, f1: 380, ft: 0.1, Q: 0.9 }], drive: 2.5, driveIn: 3, os: 'none', post: [{ type: 'lowpass', f: 1800, nojit: true }, { type: 'highpass', f: 150, nojit: true }] });
-  grains(E, { t: 0.004, span: 0.06, count: 6, fLo: 1200, fHi: 2800, Q: 1.6, dLo: 0.004, dHi: 0.01, gLo: 0.03, gHi: 0.07, fade: true });
-  // the shake: a rattling buzz under the screen shake, well below the thud, swelling in as the thud falls away
-  noise(E, { t: 0.02, a: 0.03, h: 0.08, d: 0.18, g: 0.12, filters: [{ type: 'bandpass', f: 520, Q: 1.1 }], am: { rate: 22, depth: 0.95, type: 'square' } });
-  tone(E, { t: 0.02, type: 'triangle', f: 140, f1: 105, ft: 0.25, a: 0.03, h: 0.08, d: 0.18, g: 0.05, am: { rate: 22, depth: 0.9, type: 'square' } });
+S('player_hurt', { ...IMPACT, gain: 0.82, pj: 0.9, poly: 3, desc: 'DOSH — the party takes a hit (goes with screen shake)' }, (E) => {
+  const len = 0.0045, a = BODY_A, bus = bodyBus(E, 2, 2.2, 0.36), bd = E.rr(0.14, 0.18);
+  snap(E, 0, { g: 1.08, len, f: 1600 * E.rr(0.94, 1.06), hp: 800, nlp: 5500, lp: 8000 });
+  // the thud: heavy and pitched, square-ish so its harmonics carry it on a small speaker
+  const th = E.rr(0.92, 1.09), fp = [[0.09, 88 * th]];
+  tone(E, { to: bus, t: len, type: 'softsq', f: 260 * th, fp, a, d: bd, g: 0.34, drive: 1.6, driveIn: 2, os: 'none', post: [{ type: 'lowpass', f: 3500, f1: 1750, ft: 0.1 }] });
+  tone(E, { to: bus, t: len, type: 'sine', f: 130, f1: 60, ft: 0.1, a, d: bd, g: 0.136 });
+  // the crunch: a gritty band falling with the thud
+  const cr = E.rr(0.88, 1.14);
+  noise(E, { to: bus, t: len, a, d: 0.1, g: 0.26, filters: [{ type: 'bandpass', f: 1500 * cr, f1: 675 * cr, ft: 0.08, Q: 0.9 }], drive: 2.5, driveIn: 4, os: 'none',
+    post: [{ type: 'lowpass', f: 2800, nojit: true }, { type: 'highpass', f: 150, nojit: true }] });
+  // the shake: a rattling buzz that holds while the screen shakes (~150 ms), then fades
+  const am = { rate: E.rr(19, 25), depth: 0.9, type: 'triangle' }, rh = E.rr(0.1, 0.14);
+  noise(E, { t: 0.05, a: 0.03, h: rh, d: 0.12, g: 0.3, filters: [{ type: 'bandpass', f: 620, Q: 1.1 }], am });
+  tone(E, { t: 0.05, type: 'triangle', f: 150, f1: 110, ft: 0.25, a: 0.03, h: rh, d: 0.12, g: 0.12, am: { ...am } });
 });
 
-S('monster_hurt', { group: 'Battle', gain: 1.0, send: 0.04, pj: 0.9, vj: 0.06, fj: 0.1, poly: 4,
-  pulse: [0.6, 0.003, 0.06, 0.2], desc: 'bshk! a snap, a rubbery bop and a little yelp' }, (E) => {
-  const a = BODY_IN;
-  snap(E, 0, { f: 1500, hp: 700, lp: 6000 });
-  // the smack: a short, lightly driven band of hide
-  noise(E, { a, d: 0.17, g: 0.16, filters: [{ type: 'bandpass', f: 1300, f1: 650, ft: 0.08, Q: 1.1 }], drive: 2, driveIn: 2.5, os: 'none', post: [{ type: 'lowpass', f: 3000, nojit: true }] });
-  // the bop: rubbery and pitched
-  tone(E, { type: 'sine', f: 470, f1: 170, ft: 0.06, a, d: 0.2, g: 0.15 });
-  tone(E, { type: 'triangle', f: 470, f1: 170, ft: 0.06, a, d: 0.12, g: 0.06 });
-  // the yelp arrives as the bop falls away: a second little bump, kept in the mids so it reads on any speaker
-  const y = E.rr(0.92, 1.1), fp = [[0.04, 1250 * y], [0.15, 560 * y]];
-  tone(E, { t: 0.045, type: 'triangle', f: 820 * y, fp, a: 0.012, h: 0.02, d: 0.14, g: 0.12 });
-  tone(E, { t: 0.045, type: 'pulse25', f: 820 * y, fp, a: 0.012, h: 0.015, d: 0.1, g: 0.03, filter: { type: 'lowpass', f: 2600 } });
+S('monster_hurt', { ...IMPACT, gain: 0.81, send: 0.015, pj: 0.9, vj: 0.06, fj: 0.1, poly: 4, desc: 'bshk! a snap, a rubbery bop and a little "pyu"' }, (E) => {
+  const len = 0.0045, a = BODY_A, bus = bodyBus(E, 2, 2.2, 0.36);
+  snap(E, 0, { g: 1.08, len, f: 2000 * E.rr(0.94, 1.06), hp: 1000, nlp: 6500, lp: 10000 });
+  // the bop: a rubbery pulse, quick to fall
+  const bop = E.rr(0.9, 1.12);
+  tone(E, { to: bus, t: len, type: 'pulse25', f: 600 * bop, fp: [[0.06, 210 * bop]], a, d: E.rr(0.085, 0.115), g: 0.42, drive: 1.8, driveIn: 2.5, os: 'none', post: [{ type: 'lowpass', f: 6000, f1: 2700, ft: 0.08 }] });
+  // the smack of hide
+  noise(E, { to: bus, t: len, a, d: 0.1, g: 0.3, filters: [{ type: 'bandpass', f: 1600, f1: 800, ft: 0.05, Q: 1.1 }], drive: 2, driveIn: 4, os: 'none', post: [{ type: 'lowpass', f: 3500, nojit: true }] });
+  // and once the bop has gone, the monster's little "pyu" (up and down again), kept in the mids for any speaker
+  const y = E.rr(0.92, 1.1), yt = E.rr(0.068, 0.085), yd = E.rr(0.095, 0.125), yfp = [[0.03, 1300 * y], [0.14, 620 * y]];
+  tone(E, { t: yt, type: 'triangle', f: 950 * y, fp: yfp, a: 0.025, d: yd, g: 0.35 });
+  tone(E, { t: yt, type: 'pulse25', f: 950 * y, fp: yfp, a: 0.025, d: yd * 0.68, g: 0.1, filter: { type: 'lowpass', f: 2600 } });
 });
 
 S('monster_defeat', { pulse: [0.5, 0.004, 0.25, 0.3], group: 'Battle', gain: 1.0, send: 0.14, pj: 0.4, desc: 'the poof: pop, a vanishing swoosh, three falling notes' }, (E) => {
   // pop: a round upward blip with a snap on it and a "bof" of weight underneath
-  snap(E, 0, { f: 1400, hp: 800, lp: 6000, k: 0.6 });
-  tone(E, { type: 'sine', f: 300, f1: 1300, ft: 0.035, a: BODY_IN, d: 0.09, g: 0.4 });
-  tone(E, { type: 'triangle', f: 160, f1: 90, ft: 0.06, a: BODY_IN, d: 0.14, g: 0.22 });
+  const len = 0.003;
+  snap(E, 0, { g: 0.3, len, f: 1400, hp: 800, nlp: 4200, lp: 6000 });
+  tone(E, { t: len, type: 'sine', f: 300, f1: 1300, ft: 0.035, a: 0.002, d: 0.09, g: 0.4 });
+  tone(E, { t: len, type: 'triangle', f: 160, f1: 90, ft: 0.06, a: 0.002, d: 0.14, g: 0.22 });
   // the vanishing swoosh: a puff of air that rises and thins away
   noise(E, { color: 'pink', t: 0.01, a: 0.02, d: 0.42, g: 0.75, filters: [{ type: 'bandpass', f: 700, fp: [[0.12, 2400], [0.4, 3800]], Q: 1.4 }, { type: 'lowpass', f: 6000, nojit: true }] });
   noise(E, { color: 'pink', t: 0.01, a: 0.015, d: 0.35, g: 0.45, filters: [{ type: 'lowpass', f: 2200, f1: 350, ft: 0.3 }] });
@@ -1122,6 +1154,7 @@ function renderLoop(d, sr, variant = 0) {
     let rendered;
     try {
       d.fn(E, {});
+      settleLevel(E);
       hold.E = E;
       rendered = await octx.startRendering();
     } finally { _rendering.delete(hold); }
@@ -1262,6 +1295,7 @@ function pulseDepth(amount, opts) { const v = clamp(opts.vol ?? 1, 0, 1); return
 function scheduleInto(d, dest, t, opts, rng) {
   const E = makeEnv(dest.ctx, dest.bus(d.bus), dest.sendFor(d.bus), d, opts, rng, t);
   d.fn(E, opts);
+  settleLevel(E);
   if (d.pulse && dest.duckPulse) { const [amt, at, ho, re] = d.pulse; dest.duckPulse('music', pulseDepth(amt, opts), { at: Math.max(0, t - at), attack: at, hold: ho, release: re }); }
   return E;
 }
@@ -1280,6 +1314,10 @@ const SPEAKERS = {
 /** For measurement: a bare voice environment (no jitter) writing into `out` at time t. */
 export const _parts = { snap: (...a) => snap(...a), blade: (...a) => blade(...a) };
 export function _testEnv(ctx, out, t = 0) { return makeEnv(ctx, out, null, { gain: 1, pj: 0, vj: 0, fj: 0 }, {}, mulberry32(1), t); }
+/** For measurement pages only: register (or replace) a definition at runtime, so a prototype goes through the exact
+ *  same play / render / renderInto path as the real library. Never called by the game. */
+export function _define(id, meta, fn) { if (!DEFS.has(id)) ORDER.push(id); DEFS.set(id, { id, bus: 'sfx', gain: 1, ...meta, fn }); }
+export const _lib = { driveCurve, snap, bodyBus, blade };
 
 export const Sfx = {
   /** Play a sound. Never throws. Returns a handle {id, stop(ms)} or null (locked, rate-limited, unknown). */
@@ -1300,6 +1338,7 @@ export const Sfx = {
       prune(now);
       const E = makeEnv(ctx, Audio.bus(d.bus), Audio.sendFor(d.bus), d, opts, mulberry32(seedFor(d.id, opts.variant)), now + 0.004 + (opts.delay || 0));
       d.fn(E, opts);
+      settleLevel(E);
       scheduleCleanup(E);
       const v = { id: d.id, E, end: E.end };
       const handle = { id: d.id, stop: (ms = 60) => stopVoice(v, ms) };

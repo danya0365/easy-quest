@@ -27,7 +27,7 @@ const B_MELODY = [
 const B_HARM = ['Dm', 'Bb', 'Gm', 'C', 'Dm', 'Bb', 'Gm7|C7', 'F'];
 
 export function build() {
-  const T = Theme({ id: 'wedding', title: 'Bells Over Bellhollow', key: 'F major', bpm: 76, meter: 4, pulse: [0, 2], intro: 2, loop: 24, space: 'CHAPEL', gain: 1.15 });
+  const T = Theme({ id: 'wedding', title: 'Bells Over Bellhollow', key: 'F major', bpm: 76, meter: 4, pulse: [0, 2], intro: 2, loop: 24, space: 'CHAPEL', gain: 0.88 });
   const bells = T.part('bells', { voice: 'bell', bus: 'counter', gain: 0.8 });
   const organ = T.part('organ', { voice: 'organ', bus: 'harmony', gain: 0.8 });
   const pedal = T.part('pedal', { voice: 'organ', bus: 'bass', o: { pedal: true } });

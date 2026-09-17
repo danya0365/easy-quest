@@ -28,6 +28,7 @@ import { Sfx } from './audio/sfx.js';
 import { Maps } from './world/map.js';
 import { Field } from './world/field.js';
 import meadow from './world/maps/meadow.js';
+import { registerFieldMenu } from './ui/menu.js';
 
 export const VERSION = '0.2.0-slice';
 const HERO_VARS = { HERO: 'Bram' };
@@ -122,5 +123,6 @@ step('world', () => {
   Maps.register(meadow);
   Field.install();
   Scenes.register('dialogue', dialogueScene);
+  registerFieldMenu();
   Scenes.push('field', { map: 'meadow' });
 });

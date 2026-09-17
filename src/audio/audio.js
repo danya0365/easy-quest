@@ -9,7 +9,7 @@
  *   (sfx/ui/voice sends pass a 320 Hz highpass first, so short effects keep a room without a boomy low-mid tail)
  *   REVERB_IN ─► predelay ─► HP 180 ─► convolver A/B (crossfaded on setSpace) ─► LP ─► wet ─► MASTER_SUM
  *   MASTER_SUM ─► glue compressor (-14 dB, knee 8, 3:1) ─┬─► masterGain ─► limiter (-2 dB, 20:1) ─► soft clip ─► out
- *   FX_SUM (x the glue's small-signal gain) ─────────────┘
+ *   FX_SUM (x the glue's small-signal gain) ─► 6 ms delay ┘  (the glue's own look-ahead: effects stay aligned with music)
  *   Effects skip the glue so a hit's snap and decay are not squashed by a compressor riding the score, and a menu blip
  *   is not pulled down while the music drives it; below the glue threshold the two paths are exactly equal in level.
  *
@@ -48,6 +48,8 @@ export const BUS_NAMES = ['music', 'sfx', 'ui', 'voice', 'ambience'];
 const GLUED_BUSES = new Set(['music', 'ambience']);
 /** Small-signal gain of the glue compressor below. Chrome adds make-up gain, (full-range gain)^-0.6; measured +4.123 dB. */
 const GLUE_SMALL_SIGNAL = Math.pow(10, 4.123 / 20);
+/** Look-ahead of a DynamicsCompressorNode (Chrome, Firefox and Safari share the implementation): measured 6.000 ms. */
+const GLUE_LATENCY = 0.006;
 export const DEFAULT_VOLUMES = { master: 1.0, music: 0.75, sfx: 0.9, ui: 0.85, voice: 0.8, ambience: 0.7 };
 
 // --- small shared helpers (exported for sfx.js) -------------------------------------------------------------
@@ -168,8 +170,12 @@ export function buildMixer(ctx, out, volumes = DEFAULT_VOLUMES, space = 'hall') 
   // its decay (measured: -10 dB took 44 ms instead of 29), and would pull menu blips down whenever the music drives
   // it. They join after the glue at its exact small-signal gain (Chrome's make-up, +4.123 dB), so an effect below the
   // threshold is exactly as loud as through the glue; the limiter and soft clip still catch every peak.
+  // The glue delays everything through it by its 6 ms look-ahead, so effects wait the same 6 ms: a hit and the music
+  // dip scheduled under it (and a sting and the beat it lands on) stay sample-aligned. Without this the undipped
+  // music of 6 ms earlier sat under every snap and the pair reached the limiter together.
   m.fxSum = g(GLUE_SMALL_SIGNAL);
-  m.fxSum.connect(m.masterGain);
+  m.fxDelay = ctx.createDelay(0.05); m.fxDelay.delayTime.value = GLUE_LATENCY;
+  m.fxSum.connect(m.fxDelay); m.fxDelay.connect(m.masterGain);
 
   // shared reverb, two convolvers so a space change crossfades instead of clicking
   const S = SPACES[space] || SPACES.hall;
@@ -374,9 +380,17 @@ export const Audio = {
     _rendering.add(hold);
     const mix = buildMixer(octx, octx.destination, opts.volumes || DEFAULT_VOLUMES, opts.space || 'hall');
     applySpace(mix, opts.space || 'hall', 0.005);
+    // Every input is fed through the preroll delay as a fixed, always-active stereo signal. When the channel count
+    // arriving at a DelayNode changes (a stereo panner whose last source has stopped drops back to mono silence),
+    // Chrome resets the delay line and every sample still inside it is lost: a short one-shot rendered on its own
+    // came back completely silent. A zero-valued ConstantSource keeps each input processing for the whole render.
+    const keepAlive = pre ? octx.createConstantSource() : null;
+    if (keepAlive) { keepAlive.offset.value = 0; keepAlive.start(0); }
     const delayed = (target) => {
       const inG = octx.createGain();
       if (!pre) { inG.connect(target); return inG; }
+      inG.channelCount = 2; inG.channelCountMode = 'explicit'; inG.channelInterpretation = 'speakers';
+      keepAlive.connect(inG);
       const dl = octx.createDelay(Math.max(1, PREROLL + 0.1)); dl.delayTime.value = pre / sr;
       inG.connect(dl); dl.connect(target); return inG;
     };

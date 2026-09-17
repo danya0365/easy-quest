@@ -1,5 +1,6 @@
 /**
- * music.js — the procedural symphonic score (MUSIC-BIBLE). (P27, owner: src/audio/music.js, instruments.js, score/*)
+ * music.js — the symphonic score (MUSIC-BIBLE), sequenced live and played by REAL RECORDED multisampled instruments
+ * (sampler.js + vendor/samples). (P27, owner: src/audio/music.js, instruments.js, sampler.js, score/*)
  *
  *   Music.init({ctx, output, reverbSend, setSpace, quality}?)  inject a context/bus, or omit to build our own
  *   Music.play(themeId, {fade=1.2, at, startBeat, resume, bloom})  crossfade; seamless beat-clock loops
@@ -7,7 +8,12 @@
  *   Music.stinger(id, opts)            battle_start · victory · level_up · item_get · join · inn · sad_sting
  *   Music.themes() -> [{id,title,bpm,bars,kind,key,loopSec,introSec}]
  *   Music.renderOffline(id, seconds, {raw, quality}) -> Promise<AudioBuffer>   same graph, OfflineAudioContext
- *   Music.state() -> {theme, bar, beat, iteration, voices, ducked, ctxState, quality, space, steals, sampler}
+ *   Music.state() -> {theme, loading, bar, beat, iteration, voices, ducked, ctxState, quality, space, steals, missed, sampler}
+ *
+ * Samples load lazily per theme: Music.play(id) fetches + decodes that theme's instruments first and starts the theme
+ * the moment they are ready (the old theme keeps playing meanwhile; the new one crossfades in). The fanfare/battle
+ * instruments are warmed in the background after the first play so stingers are instant. renderOffline awaits every
+ * instrument the cue needs before rendering, so an offline render never has a sample dropout.
  *
  * Graph (§2.3, standalone):
  *   voice ─► part bus (per performance) ─► perf.dry ─► THEME_SUM ─► DUCK ─► MUSIC ─► [output | MASTER]
@@ -16,18 +22,24 @@
  *   MASTER = compressor(-14, knee 8, 3:1, 6 ms, 180 ms) ─► masterGain ─► limiter ─► destination
  * Loops (§5.3): a beat clock that never resets; a note whose tail crosses the seam simply keeps ringing.
  */
-import { makeKit, VOICES, SEND, HUM, seatPan, makeIR, makeFDN, Bank } from './instruments.js';
+import { makeKit, VOICES, SEND, HUM, seatPan, makeIR, makeFDN, instrumentsFor } from './instruments.js';
+import { Sampler } from './sampler.js';
 import { THEMES, ALIASES, STINGER_THEME, STINGER_IDS } from './score/index.js';
 import { mtof } from './score/_lib.js';
 
 const BUS_LEVEL = { melody: 0.95, counter: 0.62, harmony: 0.55, bass: 0.70, perc: 0.66 };
 const SPACE = {
-  HALL: { ir: 'HALL', pre: 0.018, lp: 6500, ext: 'hall', wet: 1.3 },
-  ROOM: { ir: 'ROOM', pre: 0.008, lp: 6500, ext: 'room' },
-  CHAPEL: { ir: 'CHAPEL', pre: 0.034, lp: 6500, ext: 'chapel' },
+  HALL: { ir: 'HALL', pre: 0.018, lp: 9500, ext: 'hall', wet: 1.1 },
+  ROOM: { ir: 'ROOM', pre: 0.008, lp: 8500, ext: 'room' },
+  CHAPEL: { ir: 'CHAPEL', pre: 0.034, lp: 8000, ext: 'chapel' },
   DUNGEON: { ir: 'HALL', pre: 0.042, lp: 3400, ext: 'cave', wet: 1.2 },
 };
-const CAP = { high: 30, med: 24, low: 14 };
+const CAP = { high: 64, med: 44, low: 26 }; // a sampled note is a buffer source + gains: far cheaper than an oscillator stack
+/** voices whose consecutive notes in a single-line part are slurred (the new note skips its attack, the old one crossfades out) */
+const LEGATO = new Set(['strings', 'violin', 'flute', 'oboe', 'clarinet', 'bassoon', 'hornSolo']);
+/** warmed after the first play: every stinger and the battle theme */
+const WARM = ['battle_start', 'battle', 'victory', 'levelup', 'befriend', 'item_get', 'sad_sting', 'inn.sleep'];
+const MAX_WAIT = 8; // seconds a requested theme may wait for its samples before starting anyway
 const LOOKAHEAD = 0.15, PUMP_MS = 25;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ART = { staccato: 0.5, marcato: 0.78, tenuto: 0.96, legato: 1.0 };
@@ -83,12 +95,18 @@ export function createMusic() {
       };
       E.music = g(0.85);
       E.hp = ctx.createBiquadFilter(); E.hp.type = 'highpass'; E.hp.frequency.value = 38; E.hp.Q.value = 0.7;
+      // the recording's "presence": sampled sections recorded at a distance read a little veiled next to a game's SFX,
+      // so the music bus gets a gentle lift at 2.5 kHz and an air shelf above 6 kHz (an orchestral mastering move)
+      const pres = ctx.createBiquadFilter(); pres.type = 'peaking'; pres.frequency.value = 2600; pres.Q.value = 0.7; pres.gain.value = 1.5;
+      const air = ctx.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 6000; air.gain.value = 3;
       E.themeSum = g(1); E.duck = g(1); E.stingSum = g(1);
       E.themeSum.connect(E.duck); E.duck.connect(E.music); E.stingSum.connect(E.music);
       if (E.injectedSend) { E.sendDuck = g(1); E.sendDuck.connect(E.injectedSend); }
       E.music.connect(E.hp);
-      if (opts.output) E.hp.connect(opts.output);
-      else if (opts.raw) E.hp.connect(ctx.destination);
+      E.hp.connect(pres); pres.connect(air);
+      const tail = air;
+      if (opts.output) tail.connect(opts.output);
+      else if (opts.raw) tail.connect(ctx.destination);
       else {
         const comp = ctx.createDynamicsCompressor();
         // gentler than the bible's -14 dB 3:1: that setting ate the score's dynamics (an ff restatement measured +0.6 dB)
@@ -96,7 +114,7 @@ export function createMusic() {
         const master = g(opts.masterGain ?? 0.80);
         const lim = ctx.createDynamicsCompressor();
         lim.threshold.value = -1.5; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.08;
-        E.hp.connect(comp); comp.connect(master); master.connect(lim); lim.connect(ctx.destination);
+        tail.connect(comp); comp.connect(master); master.connect(lim); lim.connect(ctx.destination);
         E.comp = comp; E.master = master;
       }
       if (!offline) {
@@ -143,7 +161,7 @@ export function createMusic() {
     const p = {
       id: th.id, th, sting, idx: 0, iter: 0, t0: at, stopAt: null, killAt: null, done: false, exhausted: false,
       dry: g(fadeIn > 0 ? 0 : 1), send: g(fadeIn > 0 ? 0 : 1), buses: {}, muted: new Set(), seed: hash(th.id),
-      createdAt: ctx.currentTime, startAt: at,
+      createdAt: ctx.currentTime, startAt: at, last: {},
     };
     for (const [b, lv] of Object.entries(BUS_LEVEL)) { p.buses[b] = g(lv * (E.busMul?.[b] ?? 1)); p.buses[b].connect(p.dry); }
     p.dry.connect(sting ? E.stingSum : E.themeSum);
@@ -167,10 +185,6 @@ export function createMusic() {
 
   function pumpPerf(p, now, horizon) {
     if (p.exhausted) return;
-    if (p.holdUntil != null) { // live boot: wait (<= 2.5 s) for the string/brass multisamples so the first bars aren't the fallback
-      if (!Bank.ready(p.need) && now < p.holdUntil) { if (p.idx === 0 && p.iter === 0) p.t0 = Math.max(p.t0, now + horizon + 0.02); return; }
-      p.holdUntil = null;
-    }
     const th = p.th, evs = th.events;
     for (let guard = 0; guard < 4000; guard++) {
       if (p.idx >= evs.length) {
@@ -208,13 +222,22 @@ export function createMusic() {
     const n = {
       t: ts, dur: Math.max(0.02, dur), m: e.m, f: e.m != null ? mtof(e.m) : 0, vel, gain: (e.g ?? 1) * th.gain * dynLoud(vel), art: e.art,
       pan: e.pan ?? seatPan(e.voice, e.m ?? 60), send: (e.send ?? SEND[e.voice] ?? 0.3) + th.sendAdd,
-      long: e.voice === 'celesta' ? 0.25 : 0, spb, o: e.o, voice: e.voice, ci: e.ci,
+      long: e.voice === 'celesta' ? 0.25 : 0, spb, o: e.o, voice: e.voice, ci: e.ci, bus: e.bus,
     };
     if (e.path) n.path = e.path.map(([off, m]) => [th.time(e.b + off) - th.time(e.b), mtof(m)]);
+    // legato: a single-line part whose previous note ends where this one starts
+    const mono = th.mono || (th.mono = monoParts(th));
+    const last = p.last[e.part];
+    if (LEGATO.has(e.voice) && mono.has(e.part) && last && !last.h.stolen && Math.abs(last.tEnd - (t + (e.sec || 0))) < 0.03 &&
+        dur >= 0.12 && e.art !== 'staccato' && e.art !== 'marcato' && !e.o?.trem && Math.abs((last.m ?? 0) - (e.m ?? 0)) <= 12) {
+      n.legato = true; E.legatoCount = (E.legatoCount || 0) + 1;
+      last.h.release(Math.max(E.ctx.currentTime + 0.001, ts + 0.035), 0.09);
+    }
     budget(ts);
     const h = voice(E.kit, n, { bus: p.buses[e.bus] || p.buses.harmony, send: p.send, long: p.long });
     h.perf = p; h.vol = vel * n.gain;
     E.handles.push(h);
+    p.last[e.part] = { h, tEnd: t + (e.sec || 0) + (th.time(e.b + e.d) - th.time(e.b)), m: e.m };
   }
 
   /** voice stealing: oldest-and-quietest first (§1, §5.4). Stolen notes and inaudible tails don't count as voices. */
@@ -233,9 +256,24 @@ export function createMusic() {
     }
   }
 
+  /** parts that never sound two notes at once (and so may slur) */
+  function monoParts(th) {
+    const byPart = new Map(), poly = new Set();
+    for (const e of th.events) {
+      const prev = byPart.get(e.part);
+      if (prev && e.b < prev.b + prev.d - 1e-6) poly.add(e.part);
+      if (!prev || e.b + e.d > prev.b + prev.d) byPart.set(e.part, e);
+    }
+    return new Set([...byPart.keys()].filter((k) => !poly.has(k)));
+  }
+
   function pump() {
     if (!E) return;
     const now = E.ctx.currentTime;
+    if (E.pending) {
+      const pd = E.pending;
+      if (!Sampler.missing(E.ctx, pd.need).length || now - pd.since > MAX_WAIT) { E.pending = null; start(pd.id, { ...pd.opts, waited: now - pd.since }); }
+    }
     const wall = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const gap = E.lastPump ? (wall - E.lastPump) / 1000 : 0;
     E.lastPump = wall;
@@ -292,32 +330,61 @@ export function createMusic() {
     p.killAt = at + fade + 0.02;
   }
 
+  /** instruments a theme needs (cached on the compiled theme) */
+  const needOf = (th) => th.need || (th.need = instrumentsFor(th.events));
+
   function play(id, opts = {}) {
     if (!ensure()) return false;
     try {
       id = ALIASES[id] || id;
       const th = THEMES[id];
       if (!th && id !== 'silence') { report('play', 'unknown theme ' + id); return false; }
+      const cur = E.current;
+      if (cur && cur.id === id && cur.stopAt == null) { E.pending = null; return true; }
+      if (th && !E.offline) {
+        const need = needOf(th);
+        Sampler.load(E.ctx, need).then(() => { if (!E.warmed) { E.warmed = true; warm(); } });
+        if (Sampler.missing(E.ctx, need).length && !opts.noHold) {
+          if (E.pending?.id === id) return true;
+          E.pending = { id, opts, need, since: E.ctx.currentTime };
+          return true;
+        }
+      }
+      E.pending = null;
+      return start(id, opts);
+    } catch (e) { report('play', e); return false; }
+  }
+
+  /** load the stinger + battle instruments in the background, one theme at a time */
+  function warm() {
+    const ids = [];
+    for (const tid of WARM) if (THEMES[tid]) ids.push(...needOf(THEMES[tid]));
+    const uniq = [...new Set(ids)];
+    let k = 0;
+    const next = () => { if (k >= uniq.length || !E) return; Sampler.load(E.ctx, [uniq[k++]]).then(next); };
+    next();
+  }
+
+  function start(id, opts = {}) {
+    try {
+      const th = THEMES[id];
       const { ctx } = E; const now = ctx.currentTime;
       const cur = E.current;
       if (cur && cur.id === id && cur.stopAt == null) return true;
       const at = opts.at ?? now + 0.05;
       const enter = (th && th.enter) || {};
       let fade = opts.fade ?? enter.fade ?? 1.2;
-      if (id === 'silence') { if (cur) stopPerf(cur, at, fade); E.current = { id: 'silence', th: null, silence: true }; return true; }
-      let start = at, fadeIn = cur && !cur.silence && fade > 0.05 ? fade : 0;
+      if (id === 'silence') { E.pending = null; if (cur) stopPerf(cur, at, fade); E.current = { id: 'silence', th: null, silence: true }; return true; }
+      let t0 = at, fadeIn = cur && !cur.silence && fade > 0.05 ? fade : 0;
       if (cur && !cur.silence) {
-        if (enter.gap != null) { const fo = opts.fade ?? enter.fadeOut ?? 1.2; stopPerf(cur, at, fo); start = at + fo + enter.gap; fadeIn = 0; }
+        if (enter.gap != null) { const fo = opts.fade ?? enter.fadeOut ?? 1.2; stopPerf(cur, at, fo); t0 = at + fo + enter.gap; fadeIn = 0; }
         else stopPerf(cur, at, fade, { bloom: opts.bloom });
       }
-      if (enter.gap != null && opts.fade === 0) start = at;
+      if (enter.gap != null && opts.fade === 0) t0 = at;
+      // a theme that waited for its samples over silence eases in rather than landing mid-phrase at full level
+      if (!cur && opts.waited > 0.35 && !fadeIn && enter.gap == null) fadeIn = 0.6;
       const startBeat = opts.resume ? (E.lastPositions[id] || 0) : (opts.startBeat || 0);
-      const p = newPerf(th, start, { fadeIn, startBeat });
-      if (!E.offline) {
-        p.need = th.need || (th.need = Bank.keysFor(th.events));
-        Bank.prioritize(p.need);
-        if (!cur && !opts.noHold && !fadeIn && !startBeat && !Bank.ready(p.need)) p.holdUntil = now + 2.5;
-      }
+      const p = newPerf(th, t0, { fadeIn, startBeat });
       E.current = p;
       if (E.setSpaceCb) { try { E.setSpaceCb(SPACE[th.space]?.ext || 'hall'); } catch (e) { report('setSpace', e); } }
       E.space = th.space;
@@ -328,6 +395,7 @@ export function createMusic() {
 
   function stop(opts = {}) {
     if (!E) return;
+    E.pending = null;
     const at = E.ctx.currentTime + 0.02;
     const fade = opts.fade ?? 1.2;
     for (const p of E.perfs) if (!p.sting || opts.all) stopPerf(p, at, fade);
@@ -408,13 +476,16 @@ export function createMusic() {
     const now = E.ctx.currentTime; const c = E.current;
     const pos = c && c.th ? positionOf(c, now) : null;
     return {
-      theme: c ? c.id : null,
+      theme: E.pending ? E.pending.id : c ? c.id : null,
+      loading: E.pending ? { id: E.pending.id, waiting: +(now - E.pending.since).toFixed(2), missing: Sampler.missing(E.ctx, E.pending.need) } : null,
+      playing: c ? c.id : null,
       bar: pos ? Math.floor(pos.beat / c.th.meter) + 1 : 0,
       beat: pos ? +((pos.beat % c.th.meter) + 1).toFixed(2) : 0,
       iteration: pos ? pos.iter : 0,
       voices: E.handles.filter((h) => h.t0 <= now && h.end > now).length,
       ducked: E.duckUntil != null && now > E.duckUntil ? 1 : +E.duckLevel.toFixed(2), ctxState: E.ctx.state, quality: E.quality, space: E.space, steals: E.steals,
-      sampler: Bank.state(),
+      missed: E.kit.missed, legato: E.legatoCount || 0,
+      sampler: Sampler.state(),
       performances: E.perfs.map((p) => ({ id: p.id, sting: p.sting, stopping: p.stopAt != null })),
     };
   }
@@ -426,6 +497,14 @@ export function createMusic() {
     const off = new OAC(2, Math.max(256, Math.ceil(seconds * sr)), sr);
     const m = createMusic();
     m.init({ ctx: off, quality: opts.quality || (E && E.quality) || 'high', raw: opts.raw, masterGain: opts.masterGain, verbMul: opts.verbMul, busMul: opts.busMul });
+    // every sample the cue can touch is decoded BEFORE the render starts: no dropouts, same buffers as live
+    const sid0 = String(id).replace(/^sting:/, '');
+    const cues = new Set([ALIASES[sid0] || sid0, STINGER_THEME[sid0]]);
+    if (sid0 === 'battle_start') cues.add('battle');
+    let need = [];
+    if (opts.script || opts.loadAll) { const man = await Sampler.manifest(); need = Object.keys(man.instruments); }
+    else for (const c of cues) if (c && THEMES[c]) need.push(...instrumentsFor(THEMES[c].events));
+    await Sampler.load(off, need);
     const step = 0.2;
     for (let k = 1; k * step < seconds - 0.01; k++) {
       off.suspend(k * step).then(() => { try { m._pump(); } catch (e) { report('offline pump', e); } off.resume(); });
@@ -438,7 +517,9 @@ export function createMusic() {
     if (opts.script) opts.script(m, off);
     m._pump();
     const buf = await off.startRendering();
-    buf.__steals = m.state().steals;
+    const st = m.state();
+    buf.__steals = st.steals; buf.__missed = st.missed; buf.__legato = st.legato;
+    if (st.missed) report('renderOffline', `${st.missed} notes had no decoded sample (${id})`);
     return buf;
   }
 

@@ -1,0 +1,253 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>DEMO — P16 monsters · A Gloop draws near!</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:var(--pal-sky-page)}
+#game-canvas{display:block;width:100vw;height:100vh}
+#ui-root{position:fixed;inset:0;pointer-events:none;font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif}
+.dqwin{position:absolute;background:linear-gradient(var(--pal-ui-win-top),var(--pal-ui-win-bottom));border:3px solid var(--pal-ui-border);
+  border-radius:12px;box-shadow:0 0 0 2px var(--pal-ui-border-shade),0 6px 18px var(--p16-shadow);color:var(--pal-ui-text)}
+.dqwin::after{content:"";position:absolute;inset:4px;border:1px solid var(--p16-inner);border-radius:8px;pointer-events:none}
+#msg{left:50%;bottom:3.2vh;transform:translateX(-50%);min-width:44vw;max-width:70vw;padding:1.6vh 2.4vw 1.8vh;font-size:clamp(16px,2.6vh,30px);font-weight:800;letter-spacing:.4px;text-shadow:0 2px 0 var(--pal-ui-border-shade)}
+#msg .hi{color:var(--pal-ui-gold)}
+#tag{left:1.6vw;top:2.2vh;padding:1vh 1.4vw 1.1vh;font-size:clamp(12px,1.8vh,20px);font-weight:700;color:var(--pal-ui-text-dim)}
+#tag b{color:var(--pal-ui-text)}
+[hidden]{display:none!important}
+</style>
+</head><body>
+<canvas id="game-canvas"></canvas>
+<div id="ui-root">
+  <div id="msg" class="dqwin">A <span class="hi">Gloop</span> draws near!</div>
+  <div id="tag" class="dqwin"><b>P16</b> · monster models</div>
+</div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// P16 — the monster roster on a battle stage. The meadow backdrop is the integrator's scenery kit (house style);
+// every monster comes from src/art/monsters.js. Critic controls: __DQ.show(ids[]), __DQ.play(id|index|'*', clip),
+// __DQ.parade(on?), __DQ.cameraOrbit(deg), __DQ.hit(index?), __DQ.drawCalls(), __DQ.ui(bool), __DQ.list().
+import * as THREE from 'three';
+import { App } from '/src/engine/app.js';
+import { Scenes } from '/src/engine/states.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { PAL, css, lerp, smooth, applyCssVars } from '/src/art/palette.js';
+import { mulberry, vnoise } from '/src/art/tex.js';
+import { Toon, makeLightRig, makeAOMask } from '/src/art/toon.js';
+import { createKit, buildSky, ringHill, buildGround, paintMasks, curvePoints, OAK, POPLAR, BUSH } from '/src/world/scenery.js';
+import { Monsters } from '/src/art/monsters.js';
+
+applyCssVars();
+document.documentElement.style.setProperty('--p16-shadow', css(PAL.ui.shadow, 0.45));
+document.documentElement.style.setProperty('--p16-inner', css(PAL.ui.border, 0.35));
+
+// ── terrain: a flat stage on the lane, rolling meadow, hills behind ──────────────────────────────────────────
+function heightAt(x, z) {
+  const r = Math.hypot(x, z * 1.15);
+  let h = 1.0 * vnoise(x * 0.07 + 3, z * 0.07 + 7, 3) + 0.45 * vnoise(x * 0.18, z * 0.18, 5) - 0.7;
+  h *= smooth(6, 18, r);
+  h += 2.6 * smooth(-16, -44, z) * (0.55 + 0.45 * vnoise(x * 0.05 + 2, 1.3, 9));
+  const e = Math.hypot(x, z), a = Math.atan2(z, x);
+  const lump = 0.6 * vnoise(Math.cos(a) * 3 + 5, Math.sin(a) * 3 + 5, 17) + 0.4 * vnoise(Math.cos(a) * 7, Math.sin(a) * 7, 19);
+  h += (3 + 6 * lump) * smooth(36, 88, e);
+  return h;
+}
+const LANE = [[18, 30], [10, 16], [4.5, 6], [0.8, -0.5], [-3.5, -7], [-10, -15], [-16, -21], [-26, -30]];
+const SPUR = [[-3.5, -7], [4, -12.5], [13, -15], [26, -19]];
+
+const S = { monsters: [], ids: [], orbit: 0, orbitTarget: 0, pitch: 11, dist: 5, look: 0.4, fitDist: 5, fitLook: 0.4, parade: null, buildMs: 0, ui: true, counts: {} };
+let scene, camera, rig, sky, kit, masks;
+
+function build() {
+  const t0 = performance.now();
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(42, App.aspect(), 0.3, 1400);
+  rig = makeLightRig({ scene, preset: 'day', extent: 18 });
+  const ao = makeAOMask({ span: 96, size: 1024, center: [0, 0] });
+  kit = createKit({ scene, heightAt, ao });
+  sky = buildSky(scene, rig);
+  ringHill(scene, 'mid', 118, 150, 205, 5, 21, 71, PAL.hill.midLow, PAL.hill.mid, 0.2);
+  ringHill(scene, 'far', 240, 300, 380, 12, 78, 81, PAL.hill.farLow, PAL.hill.far, 0.25, { fogged: false, peaky: 1.8 });
+  const lane = curvePoints(LANE, 0.35), spur = curvePoints(SPUR, 0.35);
+  masks = paintMasks({ N: 1024, span: 96, strokes: [{ pts: lane, w: 3.2, falloff: 1.1, channel: 0 }, { pts: spur, w: 1.7, falloff: 0.9, channel: 0 }] });
+  const pathAt = (x, z) => masks.sample(0, x, z);
+
+  const step = (name, fn) => { try { fn(); } catch (e) { reportError('P16 backdrop ' + name, e); } };
+  const r = mulberry(1616), oaks = [], poplars = [], bushes = [];
+  const clear = (x, z, pad) => pathAt(x, z) < 0.05 && Math.hypot(x, z * 1.4) > pad;
+  for (let i = 0; i < 160 && oaks.length < 30; i++) {
+    const x = (r() - 0.5) * 64, z = -9 - r() * 26;
+    if (!clear(x, z, 11) || oaks.some(o => Math.hypot(o.x - x, o.z - z) < 4.6)) continue;
+    oaks.push({ x, z, s: 0.85 + r() * 0.45, r: r() * 6.28, c: 0.92 + r() * 0.16 });
+  }
+  for (let i = 0; i < 60 && poplars.length < 7; i++) {
+    const x = (r() - 0.5) * 50, z = -12 - r() * 18;
+    if (!clear(x, z, 12) || [...oaks, ...poplars].some(o => Math.hypot(o.x - x, o.z - z) < 3.6)) continue;
+    poplars.push({ x, z, s: 0.9 + r() * 0.3, r: r() * 6.28, c: 0.95 + r() * 0.1 });
+  }
+  for (const [x, z] of [[-7.5, -6.5], [8.5, -5.5], [-10.5, -2.5], [11.5, -9], [-5.5, -10.5], [13, 1.5], [-13, 3], [6.5, -11]]) {
+    if (pathAt(x, z) > 0.1) continue;
+    bushes.push({ x, z, s: 0.75 + r() * 0.5, r: r() * 6.28, c: 0.95 + r() * 0.1 });
+  }
+  step('rocks', () => { for (const [x, z, s, seed] of [[-6.2, -4.2, 0.7, 3], [7.4, -2.8, 0.55, 4], [-9.5, 6.5, 0.9, 5], [10.5, 5.2, 0.6, 6], [-3.2, -12.5, 1.1, 7]]) kit.rock(x, z, s, seed); });
+  step('trees', () => { kit.forest('oak', OAK, oaks, { detail: 1, spherize: 0.72, trunkH: 1.7 }); kit.forest('poplar', POPLAR, poplars, { detail: 1, spherize: 0.6, trunkH: 1.3, light: PAL.foliage.light }); });
+  step('bushes', () => kit.forest('bush', BUSH, bushes, { detail: 1, spherize: 0.6, trunkH: 0, light: PAL.foliage.light, wind: 0.02, windBase: 0.2, shadows: false, aoR: 1.1, aoS: 0.55 }));
+  step('belt', () => kit.forestBelt({ radius: 44, rows: 3, rowGap: 6.5, seed: 777, threshold: 0.36, step: 0.07 }));
+  step('flush', () => kit.flush());
+  const onMeadow = (x, z) => pathAt(x, z) < 0.3 && Math.hypot(x, z) < 38;
+  step('tufts', () => kit.tufts({ count: 1100, radius: 36, seed: 999, accept: (x, z) => onMeadow(x, z) && Math.hypot(x, z * 1.6) > 3.2,
+    rimOf: (x, z) => { const p = pathAt(x, z); return smooth(0.08, 0.3, p) * (1 - smooth(0.3, 0.42, p)); } }));
+  const hues = [PAL.flower.white, PAL.flower.yellow, PAL.flower.pink, PAL.flower.white, PAL.flower.blue];
+  const clusters = [{ x: -4.2, z: 3.4, hue: PAL.flower.yellow, n: 12 }, { x: 5.8, z: 2.2, hue: PAL.flower.white, n: 14 }, { x: -6.5, z: -2, hue: PAL.flower.pink, n: 12 },
+    { x: 4.5, z: -6.5, hue: PAL.flower.blue, n: 10 }, { x: -2.5, z: 7.5, hue: PAL.flower.white, n: 12 }, { x: 9, z: -1, hue: PAL.flower.yellow, n: 12 }];
+  for (let i = 0; i < 26; i++) clusters.push({ x: (r() - 0.5) * 56, z: (r() - 0.5) * 50, hue: hues[(r() * hues.length) | 0] });
+  step('flowers', () => kit.flowers(clusters, { accept: (x, z) => onMeadow(x, z) && pathAt(x, z) < 0.15 && Math.hypot(x, z * 1.6) > 2.8 }));
+  step('ground', () => buildGround(scene, { heightAt, masks, ao, inner: 40, step: 1.0, outer: 132, rings: 9 }));
+  step('butterflies', () => kit.butterflies([{ x: -4.5, z: 2.5, hue: PAL.flower.yellow }, { x: 6.2, z: -3.5, hue: PAL.char.white }, { x: -8, z: -6, hue: PAL.flower.pink }]));
+  S.counts = Object.assign({}, kit.counts);
+  S.buildMs = Math.round(performance.now() - t0);
+}
+
+// ── formation ───────────────────────────────────────────────────────────────────────────────────────────────
+function plural(name, n) { return n > 1 ? (name.endsWith('s') ? name : name + 's') : name; }
+function announce(ids) {
+  const el = document.getElementById('msg');
+  if (!ids.length) { el.innerHTML = 'The meadow is quiet.'; return; }
+  const counts = new Map(); for (const id of ids) counts.set(id, (counts.get(id) || 0) + 1);
+  const parts = Array.from(counts.entries()).map(([id, n]) => { const nm = Monsters.info(id)?.name || id; return n > 1 ? `${n} <span class="hi">${plural(nm, n)}</span>` : `${/^(Bobble|The |Sir |Bogwallop|Gloopold)/.test(nm) ? '' : (/^[AEIOU]/.test(nm) ? 'an ' : 'a ')}<span class="hi">${nm}</span>`; });
+  const list = parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0];
+  const verb = ids.length > 1 ? 'draw' : 'draws';
+  const tidy = list.replace(/(, | and )<span class="hi">The /g, '$1<span class="hi">the ');
+  el.innerHTML = (tidy.charAt(0) === 'a' ? 'A' + tidy.slice(1) : tidy) + ` ${verb} near!`;
+}
+function show(ids) {
+  const list = (Array.isArray(ids) ? ids : [ids]).filter(Boolean).map(String).slice(0, 8);
+  for (const m of S.monsters) m.dispose();
+  S.monsters = []; S.ids = list;
+  const built = list.map(id => Monsters.build(id));
+  const gap = 0.42;
+  let W = 0; built.forEach((m, i) => { W += m.radius * 2 + (i ? gap * Math.max(1, Math.sqrt(m.height / 0.8)) : 0); });
+  let x = -W / 2, H = 0;
+  built.forEach((m, i) => {
+    if (i) x += gap * Math.max(1, Math.sqrt(m.height / 0.8));
+    const cx = x + m.radius; x += m.radius * 2;
+    const t = W > 0 ? cx / (W / 2 + 1e-6) : 0;
+    const z = -0.35 * t * t * Math.min(1, W / 3);
+    m.root.position.set(cx, heightAt(cx, z), z);
+    scene.add(m.root);
+    H = Math.max(H, m.height + (m._template.spec.hover ? 0.45 : 0));
+    S.monsters.push(m);
+  });
+  const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), tanW = tanH * App.aspect();
+  const solo = built.length === 1, deep = Math.max(...built.map(m => m.radius)) * 0.8;
+  S.fitDist = deep + (solo ? Math.max(1.75, (W * 0.5 + 0.3) / tanW * 1.05, (H * 0.5 + 0.12) / tanH * 1.5)
+                           : Math.max(2.3, (W * 0.5 + 0.5) / tanW * 1.08, (H * 0.5 + 0.2) / tanH * 1.9));
+  S.fitLook = H * 0.46;
+  S.dist = S.fitDist; S.look = S.fitLook;
+  announce(list);
+  return { ids: list, width: +W.toFixed(2), height: +H.toFixed(2), dist: +S.fitDist.toFixed(2) };
+}
+function targets(sel) {
+  if (sel === undefined || sel === null || sel === '*') return S.monsters;
+  if (typeof sel === 'number') return S.monsters[sel] ? [S.monsters[sel]] : [];
+  return S.monsters.filter(m => m.id === String(sel));
+}
+function play(sel, clip, opts = {}) {
+  const out = [];
+  for (const m of targets(sel)) {
+    const o = Object.assign({}, opts);
+    if (clip === 'attack' && o.distance == null) o.distance = Math.min(1.6, S.fitDist * 0.24);
+    if (clip === 'hurt' && !o.dir) { m.onHit(new THREE.Vector3(camera.position.x, m.root.position.y + m.height * 0.5, camera.position.z)); out.push(m.id); continue; }
+    m.play(clip, o); out.push(m.id);
+  }
+  return out;
+}
+
+// parade: every monster, alone, through its whole repertoire
+const PARADE_STEPS = [[0.0, 'idle'], [1.4, 'taunt'], [2.6, 'attack'], [3.6, 'hurt'], [4.4, 'cast'], [5.7, 'defeat'], [7.0, 'join'], [8.6, null]];
+function paradeTick(dt) {
+  const P = S.parade; if (!P) return;
+  P.t += dt;
+  const id = P.ids[P.i % P.ids.length];
+  if (P.shown !== P.i) { P.shown = P.i; P.step = 0; P.t = 0; show([id]); }
+  while (P.step < PARADE_STEPS.length && P.t >= PARADE_STEPS[P.step][0]) {
+    const clip = PARADE_STEPS[P.step][1];
+    if (clip) play('*', clip); else { P.i++; if (!P.loop && P.i >= P.ids.length) { S.parade = null; return; } }
+    P.step++;
+  }
+}
+
+function placeCam(dt) {
+  S.orbit += (S.orbitTarget - S.orbit) * Math.min(1, dt * 5);
+  const a = THREE.MathUtils.degToRad(S.orbit), p = THREE.MathUtils.degToRad(S.pitch);
+  camera.position.set(Math.sin(a) * Math.cos(p) * S.dist, S.look + Math.sin(p) * S.dist + 0.35, Math.cos(a) * Math.cos(p) * S.dist);
+  camera.lookAt(0, S.look, 0);
+}
+
+Scenes.register('stage', {
+  opaque: true,
+  enter() { try { build(); } catch (e) { reportError('P16 build', e); } try { show(['bloop', 'gloop', 'bobble', 'flapjack', 'peckish']); } catch (e) { reportError('P16 show', e); } App.onResize(() => { if (camera) { camera.aspect = App.aspect(); camera.updateProjectionMatrix(); } }); },
+  update(dt) {
+    try { paradeTick(dt); } catch (e) { reportError('P16 parade', e); }
+    for (const m of S.monsters) m.update(dt);
+  },
+  render() {
+    if (!scene) return;
+    const t = App.clock.time;
+    Toon.tick(t);
+    placeCam(1 / 60);
+    rig.follow(new THREE.Vector3(0, 0, 0));
+    sky.sky.position.copy(camera.position);
+    sky.clouds.rotation.y = t * 0.0035;
+    kit.update(t, 1 / 60, camera);
+    App.render(scene, camera);
+  },
+});
+
+App.start({ version: '0.1.0-p16-demo' });
+Scenes.push('stage');
+
+Debug.implement('cameraOrbit', (deg) => { if (deg === undefined) return S.orbitTarget; S.orbitTarget = +deg; S.orbit = +deg; return S.orbitTarget; });
+Debug.implement('cameraZoom', (n) => { if (n === undefined) return S.dist; S.dist = Math.max(1.5, +n); return S.dist; });
+Debug.expose('show', (ids) => show(ids));
+Debug.expose('play', (sel, clip, opts) => play(sel, clip, opts));
+Debug.expose('hit', (sel) => play(sel ?? '*', 'hurt'));
+Debug.expose('parade', (on = true, opts = {}) => {
+  if (!on) { S.parade = null; return false; }
+  const ids = opts.ids || Monsters.list();
+  S.parade = { ids, i: opts.start || 0, t: 0, step: 0, shown: -1, loop: opts.loop !== false };
+  return { ids: ids.length, secondsEach: PARADE_STEPS[PARADE_STEPS.length - 1][0] };
+});
+Debug.expose('list', () => Monsters.list());
+Debug.expose('info', (id) => id ? Monsters.info(id) : Monsters.list().map(i => Monsters.info(i)));
+Debug.expose('pitch', (deg) => { if (deg !== undefined) S.pitch = +deg; return S.pitch; });
+Debug.expose('look', (y) => { if (y !== undefined) S.look = +y; return S.look; });
+Debug.expose('ui', (on = true) => { S.ui = !!on; for (const id of ['msg', 'tag']) document.getElementById(id).hidden = !on; return S.ui; });
+Debug.expose('outline', (b) => Toon.setOutlines(b));
+/** Draw calls per monster, measured by rendering each one alone (with the sun shadow pass) into an offscreen target. */
+Debug.expose('drawCalls', (ids) => {
+  const r = App.renderer, rt = new THREE.WebGLRenderTarget(320, 180), out = {};
+  const cam = new THREE.PerspectiveCamera(42, 16 / 9, 0.1, 100);
+  const measure = (sc) => { r.info.reset(); r.render(sc, cam); return r.info.render.calls; };
+  for (const id of (ids || Monsters.list())) {
+    const sc = new THREE.Scene(), lr = makeLightRig({ scene: sc, preset: 'day', extent: 6, fog: false });
+    const m = Monsters.build(id); sc.add(m.root); m.update(1 / 60);
+    cam.position.set(0, m.height * 0.6, Math.max(2.5, m.height * 3)); cam.lookAt(0, m.height * 0.5, 0);
+    r.setRenderTarget(rt);
+    const idle = measure(sc);
+    m.onHit(new THREE.Vector3(0, m.height * 0.5, 3)); for (let i = 0; i < 3; i++) m.update(1 / 60);
+    const hurt = measure(sc);
+    m.play('defeat', { vanish: true }); let poof = 0; for (let i = 0; i < 90; i++) { m.update(1 / 60); if (i % 6 === 0) poof = Math.max(poof, measure(sc)); }
+    out[id] = { idle, hurt, poof, max: Math.max(idle, hurt, poof), tris: Monsters.info(id).tris };
+    m.dispose(); lr.dispose();
+  }
+  r.setRenderTarget(null); rt.dispose(); r.info.reset();
+  return out;
+});
+Debug.provide('monsters', () => ({
+  ids: S.ids, parade: S.parade ? { at: S.parade.i, id: S.parade.ids[S.parade.i % S.parade.ids.length], t: +S.parade.t.toFixed(2) } : null,
+  camera: { orbit: +S.orbit.toFixed(1), dist: +S.dist.toFixed(2), look: +S.look.toFixed(2), pitch: S.pitch },
+  formation: S.monsters.map(m => Object.assign(m.state(), { x: +m.root.position.x.toFixed(2), z: +m.root.position.z.toFixed(2) })),
+  roster: Monsters.list().length, buildMs: S.buildMs,
+}));
+</script></body></html>

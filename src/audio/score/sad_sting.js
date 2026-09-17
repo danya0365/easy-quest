@@ -3,7 +3,7 @@
 import { Theme } from './_lib.js';
 
 export function build() {
-  const T = Theme({ id: 'sad_sting', title: 'Oh.', key: 'E minor', bpm: 72, meter: 4, pulse: [0, 2], bars: 2, space: 'CHAPEL', gain: 2.0, kind: 'oneshot' });
+  const T = Theme({ id: 'sad_sting', title: 'Oh.', key: 'E minor', bpm: 72, meter: 4, pulse: [0, 2], bars: 2, space: 'CHAPEL', gain: 3.851, kind: 'oneshot' });
   const oboe = T.part('oboe', { voice: 'oboe', bus: 'melody' });
   T.part('strings', { voice: 'strings', bus: 'harmony', o: { attack: 0.9 } });
   const harp = T.part('harp', { voice: 'harp', bus: 'counter' });

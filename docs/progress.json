@@ -1,7 +1,7 @@
 {
-  "updated": "2026-09-17T14:46:19.411Z",
-  "wave": 0,
-  "waveTitle": "Foundation (attempt 2) — canon + art direction + engine + vertical slice",
+  "updated": "2026-09-17T16:05:27.716Z",
+  "wave": 1,
+  "waveTitle": "Smooth + Wave B (camera, sky/terrain, props, buildings+Puddlewick, dialogue+NPCs, battle scene, menus+HUD, title)",
   "pieces": {
     "F1": {
       "id": "F1",
@@ -28,29 +28,45 @@
     "F3": {
       "id": "F3",
       "status": "iterating",
-      "score": 66,
-      "best": 66,
-      "rounds": 1,
-      "gap": "far treeline is faceted unoutlined untextured green polygon balls (primitive wall at edges, paths stub into empty grass); rebuild as layered outlined toon canopy ring with trunks+haze",
+      "score": 74,
+      "best": 74,
+      "rounds": 2,
+      "gap": "Vale is walled in by a ring of cloned faceted oaks: every outward view is canopy wall (with stipple ghosts + hard polygon shadows on paths) instead of layered hazed hills - thin to clusters, open to rolling hills",
       "note": "Art foundation: PAL (every colour + time-of-day/UI/ink), Toon (3-band tinted-shade toon, outlines, wind, worldPlanar/AO patches, light rig + presets, fog, blob/AO contact shadows), Tex (13 seamless materials + masks/sprites/clouds); demo Puddlewick Sampler",
       "history": [
         {
           "at": "2026-09-17T14:45:35.435Z",
           "score": 66,
           "gap": "far treeline is faceted unoutlined untextured green polygon balls (primitive wall at edges, paths stub into empty grass); rebuild as layered outlined toon canopy ring with trunks+haze"
+        },
+        {
+          "at": "2026-09-17T15:57:13.598Z",
+          "score": 74,
+          "gap": "Vale is walled in by a ring of cloned faceted oaks: every outward view is canopy wall (with stipple ghosts + hard polygon shadows on paths) instead of layered hazed hills - thin to clusters, open to r"
         }
       ],
       "name": "Art foundation — palette, toon shading, textures"
     },
     "F4": {
       "id": "F4",
-      "status": "building",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
+      "status": "iterating",
+      "score": 72,
+      "best": 72,
+      "rounds": 2,
+      "gap": "Camera see-through uses a pixel checkerboard dither that ghosts whole near trees/cottage (even ones not covering the hero), 20-50% of frame; replace with clean alpha fade limited to true hero occluders",
       "note": "DQ window/menu/typewriter shell: palette-derived blue windows, bobbing cursor, nesting, Yes/No, 35gps text w/ ticks+markup, F2-routed input; 37/37 asserts",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-17T14:53:49.490Z",
+          "score": 57,
+          "gap": "Camera dives into tree canopies (dist 10.5->2.6): keep fixed distance, dither-fade occluders instead"
+        },
+        {
+          "at": "2026-09-17T16:03:21.907Z",
+          "score": 72,
+          "gap": "Camera see-through uses a pixel checkerboard dither that ghosts whole near trees/cottage (even ones not covering the hero), 20-50% of frame; replace with clean alpha fade limited to true hero occluder"
+        }
+      ],
       "name": "UI shell — the DQ command window & text engine"
     },
     "F5": {
@@ -132,23 +148,23 @@
     },
     "P07": {
       "id": "P07",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "first build done",
       "history": [],
       "name": "Character models"
     },
     "P08": {
       "id": "P08",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "first build done",
       "history": [],
       "name": "Character animation"
     },
@@ -237,13 +253,19 @@
     },
     "P16": {
       "id": "P16",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 72,
+      "best": 72,
+      "rounds": 1,
+      "gap": "Only 20 bodies exist: build the missing Act I creatures (Crabbit, Hoot Couture, Batterfly, Twiglet, Quietling, Mumbleroot) to the Gloop standard",
+      "note": "first build done: 20 rigged monsters (tier one, Gloop family, bat, ghost, mimic, knights, golem, Sunmane+Pip, Bogwallop, Cactuddle), 8 death styles, join hop, <=8 draw calls each",
+      "history": [
+        {
+          "at": "2026-09-17T15:58:53.893Z",
+          "score": 72,
+          "gap": "Only 20 bodies exist: build the missing Act I creatures (Crabbit, Hoot Couture, Batterfly, Twiglet, Quietling, Mumbleroot) to the Gloop standard"
+        }
+      ],
       "name": "Monsters — roster & models"
     },
     "P17": {
@@ -364,12 +386,12 @@
     },
     "P27": {
       "id": "P27",
-      "status": "iterating",
-      "score": 56,
+      "status": "building",
+      "score": 0,
       "best": 56,
       "rounds": 1,
       "gap": "strings+horns (58% of all note-time) are lowpassed saw stacks: swap them for real multisampled string & horn sections (e.g. VSCO-2 CE, CC0) in the same engine",
-      "note": "first build done",
+      "note": "first build done — score now played by real recorded multisamples (VSCO 2 CE, VCSL CC0; Iowa MIS horn), 26 instruments, 24.8 MB, all 27 cues peak -1.6..-2.4 dBFS, no clipping/dropouts",
       "history": [
         {
           "at": "2026-09-17T14:23:09.788Z",
@@ -382,10 +404,10 @@
     "P28": {
       "id": "P28",
       "status": "iterating",
-      "score": 62,
-      "best": 62,
-      "rounds": 2,
-      "gap": "Impacts are one flat-topped 70ms noise wall (hit/monster/player env corr .95-.98) +11LU over music; rebuild slash/crack transient-first w/ distinct bodies",
+      "score": 67,
+      "best": 67,
+      "rounds": 3,
+      "gap": "Menu blips + glyph ticks sit 8-13 LU under default music (0 LU lift over town/battle): re-level ui/voice so each blip lifts the theme >=3 LU, still >=5 LU under hits",
       "note": "Impacts rebuilt (200-900 Hz crack + 2-5 kHz slash, ~250 ms) + sample-accurate -6 dB music dips: hits now +7 dB over battle theme with lows cut; real music on the mixer in demo; beds never repeat",
       "history": [
         {
@@ -397,6 +419,11 @@
           "at": "2026-09-17T14:26:29.505Z",
           "score": 62,
           "gap": "Impacts are one flat-topped 70ms noise wall (hit/monster/player env corr .95-.98) +11LU over music; rebuild slash/crack transient-first w/ distinct bodies"
+        },
+        {
+          "at": "2026-09-17T15:57:16.639Z",
+          "score": 67,
+          "gap": "Menu blips + glyph ticks sit 8-13 LU under default music (0 LU lift over town/battle): re-level ui/voice so each blip lifts the theme >=3 LU, still >=5 LU under hits"
         }
       ],
       "name": "Sound effects & mixer"
@@ -524,6 +551,18 @@
     {
       "at": "2026-09-17T14:46:19.411Z",
       "t": "★ Owner approved the look & UI ('much prettier than the original — keep it'). Locked as floor: docs/approved/*.png, tag approved-look-v1."
+    },
+    {
+      "at": "2026-09-17T14:48:38.318Z",
+      "t": "Owner decision: music uses REAL recorded instruments like PS2 (vendored CC0 samples). Wave A stopped & relaunched as A2: P27 rebuilt on samples; P28, P14/P19 continue; + P07/P08 characters & animation, P16 monster models."
+    },
+    {
+      "at": "2026-09-17T16:05:27.679Z",
+      "t": "— Wave 1: Smooth + Wave B (camera, sky/terrain, props, buildings+Puddlewick, dialogue+NPCs, battle scene, menus+HUD, title) —"
+    },
+    {
+      "at": "2026-09-17T16:05:27.716Z",
+      "t": "Foundation wave complete: slice forge r1 avg 62 → r2 avg 73 (look 74, feel 72). 13 agents."
     }
   ]
 }

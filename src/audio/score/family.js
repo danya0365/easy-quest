@@ -31,7 +31,7 @@ const CODA_HARM = ['Am', 'Em/B', 'C', 'Em'];
 const HARP8 = { pat: ['1', '5', '8', '10', '8', '5'], step: 0.5, base: 'E3', dyn: 'p', len: 2, cycle: 3 };
 
 function family({ id, title, whole = false, short = false }) {
-  const T = Theme({ id, title, key: 'E minor', bpm: 60, meter: 3, pulse: [0], loop: short ? 8 : 28, space: 'CHAPEL', sendAdd: 0.10, gain: whole ? 1.05 : short ? 2.0 : 1.35,
+  const T = Theme({ id, title, key: 'E minor', bpm: 60, meter: 3, pulse: [0], loop: short ? 8 : 28, space: 'CHAPEL', sendAdd: 0.10, gain: whole ? 0.73 : short ? 6.074 : 1.132,
     enter: { fadeOut: 1.2, gap: 0.6 } });
   const oboe = T.part('oboe', { voice: 'oboe', bus: 'melody' });
   const horn = T.part('horn', { voice: 'hornSolo', bus: 'melody' });
@@ -41,7 +41,7 @@ function family({ id, title, whole = false, short = false }) {
   T.part('harp', { voice: 'harp', bus: 'counter' });
   const celli = T.part('celli', { voice: 'strings', bus: 'bass', pan: -0.3, o: { attack: 0.6 } });
   const cel = T.part('celesta', { voice: 'celesta', bus: 'counter' });
-  T.part('choir', { voice: 'pad', bus: 'harmony' });
+  T.part('choir', { voice: 'strings', bus: 'harmony', o: { attack: 1.0 } });
   const hornPad = T.part('hornPad', { voice: 'hornSolo', bus: 'harmony', gain: 0.5 });
   const roots = (h, dyn) => T.bass('celli', h, { pat: [[0, 'B', 3]], base: 'D2', dyn });
 
@@ -91,7 +91,7 @@ function family({ id, title, whole = false, short = false }) {
 }
 
 function broken() {
-  const T = Theme({ id: 'family.broken', title: 'What Your Father Would Say (broken)', key: 'E minor', bpm: 60, meter: 3, pulse: [0], bars: 3, space: 'CHAPEL', sendAdd: 0.15, gain: 3.0, kind: 'oneshot', enter: { fadeOut: 0.05, gap: 0 } });
+  const T = Theme({ id: 'family.broken', title: 'What Your Father Would Say (broken)', key: 'E minor', bpm: 60, meter: 3, pulse: [0], bars: 3, space: 'CHAPEL', sendAdd: 0.15, gain: 9.443, kind: 'oneshot', enter: { fadeOut: 0.05, gap: 0 } });
   const oboe = T.part('oboe', { voice: 'oboe', bus: 'melody' });
   oboe.seq(0, [['B4', 2], ['E5', 1], ['D5', 2]], { dyn: 'p' });
   oboe.note(T.bar(1, 2), 'Bb4', 2.2, { dyn: 'p', o: { falter: true, rel: 0.6 } }); // a semitone short of home, and it stops

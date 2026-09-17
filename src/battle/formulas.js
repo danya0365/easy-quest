@@ -186,6 +186,8 @@ export function catchUpMultiplier(lvl, partyHighest) {
  * Measured by tests/battle/journey.mjs: without it, a child who fights every battle reaches Mumbleroot 3 levels
  * over and Hoarfax 3 levels under.
  *   gap = partyHighest - areaLevel:  -3 → x2.5, -2 → x2, -1 → x1.5, 0 → x1, +1 → x0.65, +2 → x0.35, +3 or more → x0.2
+ * battle.js caps it at x1 for bosses (balance pass r3): a boss pays what it pays — the keel trims boss EXP, never
+ * inflates it, so running from everything no longer carries a child up the curve on boss EXP alone.
  */
 export function expKeel(partyHighest, areaLevel) {
   if (!areaLevel || !partyHighest) return 1;
@@ -282,15 +284,24 @@ export function assistEffects(S = 0) {
 export function assistTier(S) { return assistEffects(S).tier; }
 
 /**
+ * Fleeing wakes the rubber band; it cannot max it out (balance pass r3). SYSTEMS §6.4 counts a flee as struggle (+3),
+ * but a child who runs from every fight is avoiding, not losing: uncapped, forty flees put S at 100 — second wind and
+ * the tighter Big Attack cap — and carried a child four levels under past bosses on the rubber band alone (critic r1:
+ * "levels don't matter"). A flee still adds +3 up to this line; wipes, knock-outs and long fights push past it.
+ */
+export const FLEE_ASSIST_CAP = 30;
+
+/**
  * §6.4 struggle-score delta for one finished battle.
  * @param sum {outcome, boss, koCount, rounds, lowHpAll, levelsGained, nobodyBelow60}
+ * @param S   the score before this battle (only the flee rule reads it: FLEE_ASSIST_CAP)
  */
-export function assistDelta(sum) {
+export function assistDelta(sum, S = 0) {
   let d = 0;
   if (sum.outcome === 'defeat') d += 12;
   if (sum.outcome === 'victory' && sum.koCount > 0) d += 6;
   if (sum.rounds > 8) d += 4;
-  if (sum.outcome === 'fled' && !sum.boss) d += 3;
+  if (sum.outcome === 'fled' && !sum.boss) d += Math.max(0, Math.min(3, FLEE_ASSIST_CAP - S));
   if (sum.lowHpAll) d += 2;
   if (sum.outcome === 'victory' && sum.boss) d -= 5;
   d -= 2 * (sum.levelsGained || 0);

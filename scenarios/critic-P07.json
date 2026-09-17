@@ -1,0 +1,3442 @@
+{
+ "name": "critic P07/P08 round 1",
+ "steps": [
+  {
+   "waitFor": "window.__DQ && __DQ.ready",
+   "timeout": 60000
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "note": "A. cast"
+  },
+  {
+   "shot": "cast-front"
+  },
+  {
+   "eval": "__DQ.emote('happy')"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "cast-emote"
+  },
+  {
+   "eval": "(__DQ.life(false), __DQ.cameraOrbit(180))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "cast-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(60))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "cast-side"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "cast-close-front"
+  },
+  {
+   "note": "A2. cast walking in place (father + boy)"
+  },
+  {
+   "eval": "__DQ.play('walk')"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "cast-walk-f00"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "cast-walk-f01"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "cast-walk-f02"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "cast-walk-f03"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "cast-walk-f04"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "cast-walk-f05"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "cast-walk-f06"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "cast-walk-f07"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.play('idle'), __DQ.cameraZoom(1))"
+  },
+  {
+   "note": "B. turnarounds"
+  },
+  {
+   "eval": "__DQ.ui(false)"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.show('hero',6))"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "hero6-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "hero6-side"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "hero6-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "hero6-face"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.show('hero',26))"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "hero26-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "hero26-side"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "hero26-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "hero26-face"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.show('halvard'))"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "halvard-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "halvard-side"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "halvard-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "halvard-face"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.show('willow'))"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "willow-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "willow-side"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "willow-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "willow-face"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.show('sera'))"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "sera-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "sera-side"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "sera-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "sera-face"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.show('barty'))"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "barty-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "barty-side"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "barty-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "barty-face"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.show('farmer'))"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "farmer-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "farmer-side"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "farmer-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "farmer-face"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.show('baker'))"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "baker-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "baker-side"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "baker-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "baker-face"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.show('granny'))"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "granny-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "granny-side"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "granny-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "granny-face"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.show('child'))"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "child-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "child-side"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "child-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "child-face"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.show('guard'))"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "guard-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "guard-side"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "guard-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "guard-face"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.show('innkeeper'))"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "innkeeper-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "innkeeper-side"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "innkeeper-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "innkeeper-face"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.show('nun'))"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "nun-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "nun-side"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "nun-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "nun-face"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.show('merchant'))"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(1))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "merchant-front"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "merchant-side"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "merchant-back"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(20), __DQ.cameraZoom(0.42))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "merchant-face"
+  },
+  {
+   "note": "C. Bram 6 animation"
+  },
+  {
+   "eval": "__DQ.show('hero',6)"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(0), __DQ.cameraZoom(0.8))"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "__DQ.cameraZoom(0.4)"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f00"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f01"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f02"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f03"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f04"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f05"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f06"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f07"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f08"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f09"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f10"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f11"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f12"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f13"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f14"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f15"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f16"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f17"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f18"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f19"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f20"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f21"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f22"
+  },
+  {
+   "eval": "__DQ.advance(125).steps"
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "boy-idle-face-f23"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.cameraZoom(0.85), __DQ.cameraOrbit(90), __DQ.setMove(2.0))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f00"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f01"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f02"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f03"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f04"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f05"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f06"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f07"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f08"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f09"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f10"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f11"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f12"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f13"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f14"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-side-f15"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-front-f00"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-front-f01"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-front-f02"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-front-f03"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-front-f04"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-front-f05"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-front-f06"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-front-f07"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-front-f08"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-front-f09"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-back-f00"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-back-f01"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-back-f02"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-back-f03"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-back-f04"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-back-f05"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-back-f06"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-walk-back-f07"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.cameraOrbit(90), __DQ.setMove(5.4, {run:true}))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-side-f00"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-side-f01"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-side-f02"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-side-f03"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-side-f04"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-side-f05"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-side-f06"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-side-f07"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-side-f08"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-side-f09"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-side-f10"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-side-f11"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-side-f12"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-side-f13"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-front-f00"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-front-f01"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-front-f02"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-front-f03"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-front-f04"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-front-f05"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-front-f06"
+  },
+  {
+   "eval": "__DQ.advance(40).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-run-front-f07"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(60)"
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.setMove(0)"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-stop-f00"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-stop-f01"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-stop-f02"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-stop-f03"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-stop-f04"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-stop-f05"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-stop-f06"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-stop-f07"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-stop-f08"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-stop-f09"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.show('hero',6), __DQ.cameraOrbit(30), __DQ.cameraZoom(0.8))"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.turn(180)"
+  },
+  {
+   "eval": "__DQ.advance(45).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-turn-f00"
+  },
+  {
+   "eval": "__DQ.advance(45).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-turn-f01"
+  },
+  {
+   "eval": "__DQ.advance(45).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-turn-f02"
+  },
+  {
+   "eval": "__DQ.advance(45).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-turn-f03"
+  },
+  {
+   "eval": "__DQ.advance(45).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-turn-f04"
+  },
+  {
+   "eval": "__DQ.advance(45).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-turn-f05"
+  },
+  {
+   "eval": "__DQ.advance(45).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-turn-f06"
+  },
+  {
+   "eval": "__DQ.advance(45).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-turn-f07"
+  },
+  {
+   "eval": "__DQ.advance(45).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-turn-f08"
+  },
+  {
+   "eval": "__DQ.advance(45).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-turn-f09"
+  },
+  {
+   "eval": "__DQ.advance(45).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-turn-f10"
+  },
+  {
+   "eval": "__DQ.advance(45).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-turn-f11"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.show('hero',6), __DQ.cameraOrbit(15), __DQ.cameraZoom(0.6))"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.play('talk')"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-talk-f00"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-talk-f01"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-talk-f02"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-talk-f03"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-talk-f04"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-talk-f05"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-talk-f06"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-talk-f07"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-talk-f08"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-talk-f09"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-talk-f10"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-talk-f11"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-talk-f12"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-talk-f13"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.show('hero',6), __DQ.cameraOrbit(20), __DQ.cameraZoom(0.95))"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.play('celebrate')"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f00"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f01"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f02"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f03"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f04"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f05"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f06"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f07"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f08"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f09"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f10"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f11"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f12"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f13"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f14"
+  },
+  {
+   "eval": "__DQ.advance(90).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-celebrate-f15"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.show('hero',6), __DQ.cameraOrbit(80), __DQ.cameraZoom(0.95))"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.play('attack')"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-attack-f00"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-attack-f01"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-attack-f02"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-attack-f03"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-attack-f04"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-attack-f05"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-attack-f06"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-attack-f07"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-attack-f08"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-attack-f09"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-attack-f10"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-attack-f11"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-attack-f12"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-attack-f13"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.show('hero',6), __DQ.cameraOrbit(20), __DQ.cameraZoom(0.8))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.play('wave')"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-wave-f00"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-wave-f01"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-wave-f02"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-wave-f03"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-wave-f04"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-wave-f05"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-wave-f06"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-wave-f07"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.show('hero',6), __DQ.cameraOrbit(20), __DQ.cameraZoom(0.8))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.play('nod')"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-nod-f00"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-nod-f01"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-nod-f02"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-nod-f03"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-nod-f04"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-nod-f05"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-nod-f06"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-nod-f07"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.show('hero',6), __DQ.cameraOrbit(20), __DQ.cameraZoom(0.8))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.play('surprised')"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-surprised-f00"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-surprised-f01"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-surprised-f02"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-surprised-f03"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-surprised-f04"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-surprised-f05"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-surprised-f06"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-surprised-f07"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.show('hero',6), __DQ.cameraOrbit(20), __DQ.cameraZoom(0.8))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.play('hurt')"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-hurt-f00"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-hurt-f01"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-hurt-f02"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-hurt-f03"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-hurt-f04"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-hurt-f05"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-hurt-f06"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "boy-hurt-f07"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "note": "D. Halvard"
+  },
+  {
+   "eval": "(__DQ.show('halvard'), __DQ.cameraOrbit(90), __DQ.cameraZoom(0.9), __DQ.setMove(2.0))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-side-f00"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-side-f01"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-side-f02"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-side-f03"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-side-f04"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-side-f05"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-side-f06"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-side-f07"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-side-f08"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-side-f09"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-side-f10"
+  },
+  {
+   "eval": "__DQ.advance(50).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-side-f11"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(20)"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-front-f00"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-front-f01"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-front-f02"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-front-f03"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-front-f04"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-front-f05"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-front-f06"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-walk-front-f07"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.show('halvard'), __DQ.cameraOrbit(20), __DQ.cameraZoom(0.9))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.play('talk')"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-talk-f00"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-talk-f01"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-talk-f02"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-talk-f03"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-talk-f04"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-talk-f05"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-talk-f06"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-talk-f07"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-talk-f08"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-talk-f09"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.show('halvard'), __DQ.cameraOrbit(70), __DQ.cameraZoom(0.9))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.play('attack')"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-attack-f00"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-attack-f01"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-attack-f02"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-attack-f03"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-attack-f04"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-attack-f05"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-attack-f06"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-attack-f07"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-attack-f08"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-attack-f09"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-attack-f10"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "halvard-attack-f11"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "note": "E. Willow run, villager talk"
+  },
+  {
+   "eval": "(__DQ.show('willow'), __DQ.cameraOrbit(90), __DQ.cameraZoom(0.9), __DQ.setMove(5.4,{run:true}))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "willow-run-side-f00"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "willow-run-side-f01"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "willow-run-side-f02"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "willow-run-side-f03"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "willow-run-side-f04"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "willow-run-side-f05"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "willow-run-side-f06"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "willow-run-side-f07"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "willow-run-side-f08"
+  },
+  {
+   "eval": "__DQ.advance(30).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "willow-run-side-f09"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.show('farmer'), __DQ.cameraOrbit(15), __DQ.cameraZoom(0.6))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.play('talk')"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "farmer-talk-f00"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "farmer-talk-f01"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "farmer-talk-f02"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "farmer-talk-f03"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "farmer-talk-f04"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "farmer-talk-f05"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "farmer-talk-f06"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "farmer-talk-f07"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "farmer-talk-f08"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "farmer-talk-f09"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "farmer-talk-f10"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "farmer-talk-f11"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.show('granny'), __DQ.cameraOrbit(90), __DQ.cameraZoom(0.9), __DQ.setMove(1.4))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "granny-walk-side-f00"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "granny-walk-side-f01"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "granny-walk-side-f02"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "granny-walk-side-f03"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "granny-walk-side-f04"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "granny-walk-side-f05"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "granny-walk-side-f06"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "granny-walk-side-f07"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "granny-walk-side-f08"
+  },
+  {
+   "eval": "__DQ.advance(60).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "granny-walk-side-f09"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "eval": "(__DQ.show('barty'), __DQ.cameraOrbit(20), __DQ.cameraZoom(0.8))"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "eval": "__DQ.freeze(true)"
+  },
+  {
+   "eval": "__DQ.play('celebrate')"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "barty-celebrate-f00"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "barty-celebrate-f01"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "barty-celebrate-f02"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "barty-celebrate-f03"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "barty-celebrate-f04"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "barty-celebrate-f05"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "barty-celebrate-f06"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "barty-celebrate-f07"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "barty-celebrate-f08"
+  },
+  {
+   "eval": "__DQ.advance(100).steps"
+  },
+  {
+   "wait": 220
+  },
+  {
+   "shot": "barty-celebrate-f09"
+  },
+  {
+   "eval": "__DQ.freeze(false)"
+  },
+  {
+   "note": "F. emotes"
+  },
+  {
+   "eval": "(__DQ.show('sera'), __DQ.cameraOrbit(15), __DQ.cameraZoom(0.7))"
+  },
+  {
+   "wait": 1000
+  },
+  {
+   "eval": "__DQ.emote('surprised')"
+  },
+  {
+   "wait": 450
+  },
+  {
+   "shot": "sera-emote-surprised"
+  },
+  {
+   "eval": "(__DQ.show('sera'), __DQ.cameraOrbit(15), __DQ.cameraZoom(0.7))"
+  },
+  {
+   "wait": 1000
+  },
+  {
+   "eval": "__DQ.emote('love')"
+  },
+  {
+   "wait": 450
+  },
+  {
+   "shot": "sera-emote-love"
+  },
+  {
+   "eval": "(__DQ.show('sera'), __DQ.cameraOrbit(15), __DQ.cameraZoom(0.7))"
+  },
+  {
+   "wait": 1000
+  },
+  {
+   "eval": "__DQ.emote('question')"
+  },
+  {
+   "wait": 450
+  },
+  {
+   "shot": "sera-emote-question"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().chars.focus)"
+  },
+  {
+   "assert": "__DQ.errors.length===0",
+   "msg": "no runtime errors"
+  }
+ ]
+}

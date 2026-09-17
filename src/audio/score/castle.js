@@ -27,7 +27,7 @@ const B_MELODY = [
 const B_HARM = ['Am', 'E7', 'Am', 'F', 'Dm', 'E7', 'Am', 'G7'];
 
 export function build() {
-  const T = Theme({ id: 'castle', title: "The King's Small Kindnesses", key: 'C major', bpm: 96, meter: 3, pulse: [0], loop: 32, space: 'HALL', gain: 1.45 });
+  const T = Theme({ id: 'castle', title: "The King's Small Kindnesses", key: 'C major', bpm: 96, meter: 3, pulse: [0], loop: 32, space: 'HALL', gain: 1.956 });
   const oboe = T.part('oboe', { voice: 'oboe', bus: 'melody' });
   const horn = T.part('horn', { voice: 'hornSolo', bus: 'melody' });
   const hornDbl = T.part('hornDbl', { voice: 'hornSolo', bus: 'counter', gain: 0.8 });

@@ -136,7 +136,7 @@ html,body{margin:0;height:100%;background:#050716;overflow:hidden;font-family:va
     <div class="win area" id="areaWin">◀ … ▶</div>
     <div class="keys">
       <b>↑↓←→</b> move <b>Enter</b>/<b>Z</b> choose <b>Esc</b>/<b>X</b> back &nbsp; <b>F</b> Fight! (auto) &nbsp; <b>N</b> new fight <b>B</b> boss
-      <br><b>[</b> <b>]</b> area &nbsp; <b>L</b> level (low / mid / high) &nbsp; <b>S</b> struggle score &nbsp; <b>T</b> instant text
+      <br><b>[</b> <b>]</b> area &nbsp; <b>L</b> level (low / mid / high) &nbsp; <b>U</b> / <b>O</b> boss 4 levels under / over &nbsp; <b>S</b> struggle score &nbsp; <b>T</b> instant text
     </div>
   </div>
   <div id="field">
@@ -156,6 +156,7 @@ import { makeRng } from '/src/battle/formulas.js';
 import { newCompanion } from '/src/data/growth.js';
 import DATA from '/tests/battle/data.js';
 import { AREAS, rollEncounter } from '/tests/battle/areas.js';
+import { fight as simFight, walkArea } from '/tests/battle/play.js';
 
 const errors = [];
 window.addEventListener('error', (e) => errors.push(String(e.message || e)));
@@ -198,9 +199,11 @@ const UI = {
 
 // ------------------------------------------------------------------------------------------------ battle setup
 /** Fresh party at a level (new area picked by hand), or the carried one (another fight, the boss, the next area). */
-function partyFor(area, level, fresh) {
+function partyFor(area, level, fresh, bossSpec) {
   if (fresh) { UI.carry = {}; UI.friends = []; }
-  const list = area.party(level).map((m) => {
+  // a boss started by hand gets the party children really bring to that door (areas.js boss.party)
+  const base = fresh && bossSpec && bossSpec.party ? bossSpec.party(level) : area.party(level);
+  const list = base.map((m) => {
     const k = UI.carry[m.id];
     if (!k || m.kind === 'guest') return m;
     return { ...m, lvl: k.lvl, exp: k.exp, hp: k.hp, mp: k.mp };
@@ -227,7 +230,7 @@ function startBattle({ areaId, boss = false, level, seed, enemies, fresh, carry 
   const foes = enemies || (bossSpec ? bossSpec.enemies : rollEncounter(area, UI.rng, DATA.monsters));
   UI.offer = null;
   UI.battle = createBattle({
-    party: partyFor(area, UI.level, freshParty), enemies: foes, data: DATA, rng: UI.rng,
+    party: partyFor(area, UI.level, freshParty, bossSpec), enemies: foes, data: DATA, rng: UI.rng,
     options: {
       gold: UI.gold, bag: { ...(area.bag || {}) }, assist: { s: UI.S }, areaLevel: bossSpec ? undefined : area.areaLevel,
       wagonReachable: bossSpec ? false : (area.wagonReachable ?? true), ambush: bossSpec ? 'none' : undefined,
@@ -694,6 +697,7 @@ window.addEventListener('keydown', (e) => {
       case 'KeyF': if (!UI.busy && UI.menu && UI.menu.kind === 'command') { UI.menu.idx = 6; choose(); } break;
       case 'KeyN': startBattle({}); break;
       case 'KeyB': if (AREAS[UI.areaIdx].boss) startBattle({ boss: true }); break;
+      case 'KeyU': case 'KeyO': { const a = AREAS[UI.areaIdx]; if (a.boss) startBattle({ boss: true, level: Math.max(1, Math.min(30, a.boss.level + (e.code === 'KeyU' ? -4 : 4))) }); break; }
       case 'BracketRight': UI.areaIdx = (UI.areaIdx + 1) % AREAS.length; startBattle({ fresh: true }); break;
       case 'BracketLeft': UI.areaIdx = (UI.areaIdx - 1 + AREAS.length) % AREAS.length; startBattle({ fresh: true }); break;
       case 'KeyL': UI.levelIdx = (UI.levelIdx + 1) % 3; startBattle({ fresh: true }); break;
@@ -707,7 +711,7 @@ window.addEventListener('keyup', (e) => { if (KEYS[e.code] === 'confirm') UI.fas
 
 // ------------------------------------------------------------------------------------------------ window.__DQ
 window.__DQ = {
-  ready: false, version: 'P14-demo-3', errors,
+  ready: false, version: 'P14-demo-4', errors,
   state() {
     const b = UI.battle, snap = b ? b.snapshot() : null;
     return {
@@ -755,6 +759,29 @@ window.__DQ = {
   level(i) { UI.levelIdx = Math.max(0, Math.min(2, i)); return UI.levelIdx; },
   seed(n) { UI.rng = makeRng(n); return n; },
   idle: () => !UI.busy,
+  /**
+   * Does the level you arrive at matter? Plays n boss fights instantly (no presentation) at the boss's level + each
+   * delta, pressing Fight! (or 'mash' / 'smart'), first try, S = 0. walked: the area walked at that level first,
+   * resting on the road (HP rested, MP spent); fresh: straight to the door. -> [{delta, level, win, rounds, hpLeft}]
+   */
+  levels(areaId, { n = 40, deltas = [-4, -2, 0, 4], policy = 'auto', fresh = false, boss = 1, seed = 7 } = {}) {
+    const area = AREAS.find((a) => a.id === (areaId || AREAS[UI.areaIdx].id));
+    const spec = area && (boss === 2 ? area.boss2 : area.boss);
+    if (!spec) return null;
+    const rng = makeRng(seed);
+    return deltas.map((d) => {
+      const level = Math.max(1, Math.min(30, spec.level + d));
+      let wins = 0; const rounds = [], left = [];
+      for (let i = 0; i < n; i++) {
+        const { members, bag } = walkArea(area, level, rng, { fresh, spec });
+        const r = simFight(rng, members, spec.enemies, { bag, gold: 500, ambush: 'none', wagonReachable: false }, policy);
+        if (r.res && r.res.outcome === 'victory') { wins++; rounds.push(r.res.rounds); left.push(r.left); }
+      }
+      const avg = (a) => (a.length ? Math.round(10 * a.reduce((x, y) => x + y, 0) / a.length) / 10 : null);
+      const hpLeft = left.length ? Math.round(100 * left.reduce((x, y) => x + y, 0) / left.length) + '%' : null;
+      return { delta: d, level, win: Math.round(100 * wins / n) + '%', rounds: avg(rounds), hpLeft };
+    });
+  },
 };
 
 startBattle({});

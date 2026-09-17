@@ -7,7 +7,7 @@ const MELODY = [['D5', 0.5], ['E5', 0.5], ['F#5', 0.5], ['G5', 0.5], ['A5', 1], 
   ['D6', 4]];
 
 export function build() {
-  const T = Theme({ id: 'levelup', title: 'A Bit Taller', key: 'D major', bpm: 144, meter: 4, pulse: [0, 2], bars: 3, space: 'HALL', gain: 1.5, kind: 'oneshot' });
+  const T = Theme({ id: 'levelup', title: 'A Bit Taller', key: 'D major', bpm: 144, meter: 4, pulse: [0, 2], bars: 3, space: 'HALL', gain: 1.604, kind: 'oneshot' });
   const cel = T.part('celesta', { voice: 'celesta', bus: 'melody' });
   T.part('harp', { voice: 'harp', bus: 'harmony' });
   const horn = T.part('horn', { voice: 'hornSolo', bus: 'counter' });

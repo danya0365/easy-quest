@@ -61,7 +61,7 @@ canvas{display:block;width:100%;height:62px;border-radius:6px;background:#050a2a
 <div class="top">
   <div class="win"><span class="tag">P28</span><h1>The Sound Board<small>every effect in the game, made from nothing — arrows to choose, Enter to play, Esc to hush</small></h1>
     <div class="btns fightrow"><button class="entry" data-act="fight">&#9876; Fight! &mdash; hits over the battle theme</button></div>
-    <div class="hint">Starts the real battle theme on the music bus, then: slash, smack, a terrific whack, the poof, the party gets hit, a spell. Every impact dips the music about 6 dB for 150 ms so it lands on top.</div></div>
+    <div class="hint">Starts the real battle theme on the music bus, then: slash, smack, a terrific whack, the poof, the party gets hit, a spell. Every impact opens on a sharp snap and dips the music under it for a moment, so it lands about 6 LU on top.</div></div>
   <div class="win outwin"><span class="tag">Output</span><canvas id="scope" width="720" height="124"></canvas><div class="status" id="status">starting…</div></div>
 </div>
 <div class="layout">
@@ -96,7 +96,7 @@ function ensureMusic() {
   return musicReady;
 }
 
-window.__DQ = { ready: false, errors: [], version: 'P28-r2' };
+window.__DQ = { ready: false, errors: [], version: 'P28-r8' };
 const $ = (s) => document.querySelector(s);
 const pretty = (id) => id.replace(/^amb_/, '').replace(/^footstep_/, '').replace(/^text_/, 'text: ').replace(/_/g, ' ');
 
@@ -303,9 +303,19 @@ const maxOf = (a) => a.reduce((m, v) => Math.max(m, v), -Infinity);
 const medianOf = (a) => { const q = a.slice().sort((x, y) => x - y); return q[Math.floor(q.length / 2)]; };
 const r1 = (v) => Math.round(v * 10) / 10;
 
+/** Every sampled instrument a theme needs (P27 plays real recorded instruments; an offline render must decode them first). */
+async function musicNeed(theme) {
+  try {
+    const [{ THEMES, ALIASES }, { instrumentsFor }] = await Promise.all([import('/src/audio/score/index.js'), import('/src/audio/instruments.js')]);
+    const th = THEMES[(ALIASES && ALIASES[theme]) || theme];
+    return th && typeof instrumentsFor === 'function' ? instrumentsFor(th.events) : [];
+  } catch (_) { return []; }
+}
 async function renderMix(theme, ids, seconds, times) {
   const M = await import('/src/audio/music.js');
-  return Audio.renderOffline((octx, dest) => {
+  const need = theme ? await musicNeed(theme) : [];
+  return Audio.renderOffline(async (octx, dest) => {
+    if (need.length) { try { const { Sampler } = await import('/src/audio/sampler.js'); await Sampler.load(octx, need); } catch (e) { __DQ.errors.push('samples: ' + e); } }
     const m = M.createMusic();
     m.init({ ctx: octx, output: dest.bus('music'), reverbSend: dest.reverbSend, quality: 'high' });
     // the score is scheduled by a pump; step it every 200 ms of render time (never past the end of the render)
@@ -318,23 +328,69 @@ async function renderMix(theme, ids, seconds, times) {
   }, seconds, { sampleRate: 48000 });
 }
 
+/**
+ * The shape of one impact, from 1 ms RMS windows (channel mean): where the snap peaks after onset, how far it stands
+ * over the body (the loudest millisecond 7-21 ms after onset), how long the body takes to fall 10 dB (5 ms smoothing),
+ * plus the dB envelope in 5 ms windows over the first 300 ms (to tell the impacts' shapes apart).
+ */
+function impactShape(buf) {
+  const sr = buf.sampleRate, L = buf.getChannelData(0), R = buf.getChannelData(1), n = buf.length;
+  const env = (ms) => { const w = Math.round(sr * ms / 1000), e = []; for (let i = 0; i + w <= n; i += w) { let q = 0; for (let j = 0; j < w; j++) q += (L[i + j] ** 2 + R[i + j] ** 2) / 2; e.push(10 * Math.log10(q / w + 1e-12)); } return e; };
+  const e1 = env(1), pk = maxOf(e1.slice(0, 400)), on = e1.findIndex((x) => x > pk - 40), at = e1.indexOf(pk);
+  const win = e1.slice(on + 7, on + 22), body = maxOf(win), bAt = on + 7 + win.indexOf(body);
+  const sm = (i) => { let q = 0, c = 0; for (let k = i - 2; k <= i + 2; k++) if (e1[k] != null) { q += 10 ** (e1[k] / 10); c++; } return 10 * Math.log10(q / c); };
+  let j = bAt; while (j < e1.length && sm(j) > body - 10) j++;
+  const e5 = env(5), m5 = maxOf(e5), on5 = e5.findIndex((x) => x > m5 - 30);
+  return { snapAtMs: at - on, snapOverBodyDb: r1(pk - body), bodyDrop10Ms: j - bAt, env5: e5.slice(on5, on5 + 60) };
+}
+function corr(a, b) {
+  const ma = a.reduce((x, y) => x + y, 0) / a.length, mb = b.reduce((x, y) => x + y, 0) / b.length; let ab = 0, aa = 0, bb = 0;
+  for (let i = 0; i < a.length; i++) { ab += (a[i] - ma) * (b[i] - mb); aa += (a[i] - ma) ** 2; bb += (b[i] - mb) ** 2; }
+  return Math.round(1000 * ab / Math.sqrt(aa * bb + 1e-12)) / 1000;
+}
+const IMPACT_SHAPE_IDS = ['sword_hit', 'monster_hurt', 'player_hurt'];
+
 async function hitCheck(ids) {
   const M = await import('/src/audio/music.js');
   const SECS = 8, T0 = [1.0, 2.1, 3.3, 4.4, 5.6, 6.7];
   const ref = await M.createMusic().renderOffline('battle', SECS, { sampleRate: 48000 });
   const battleMedian = r1(medianOf(loud100(ref, false)));
   const bus = await renderMix('battle', [], SECS);
-  const busMedian = r1(medianOf(loud100(bus, false)));
-  const rows = [];
+  const busMedian = r1(medianOf(loud100(bus, false))), busMedianTV = medianOf(loud100(bus, true));
+  const rows = [], envs = {};
   for (const id of ids) {
     const variants = [];
-    for (let v = 1; v <= 4; v++) { const b = await Sfx.render(id, 1.2, { variant: v, sampleRate: 48000 }); variants.push({ full: maxOf(loud100(b, false)), tv: maxOf(loud100(b, true)) }); }
-    const tvMin = Math.min(...variants.map(x => x.tv)), full = variants[0].full;
+    for (let v = 1; v <= 4; v++) {
+      const b = await Sfx.render(id, 1.2, { variant: v, sampleRate: 48000 });
+      variants.push({ full: maxOf(loud100(b, false)), tv: maxOf(loud100(b, true)), shape: impactShape(b) });
+    }
+    const tvMin = Math.min(...variants.map(x => x.tv)), full = variants[0].full, med = (k) => medianOf(variants.map(x => x.shape[k]));
+    if (IMPACT_SHAPE_IDS.includes(id)) envs[id] = variants[0].shape.env5;
     const mix = await renderMix('battle', [id], SECS, T0), fs = 48000, lifts = [];
     for (const t of T0) { const a = Math.round((t - 0.1) * fs), e = Math.round((t + 0.45) * fs); lifts.push(maxOf(loud100(mix, true, a, e)) - maxOf(loud100(bus, true, a, e))); }
-    rows.push({ id, loud: r1(full), loudTV: r1(tvMin), tvLoss: r1(full - variants[0].tv), overBattleTV: r1(tvMin - battleMedian), mixLiftTV: r1(lifts.reduce((x, y) => x + y, 0) / lifts.length), mixLiftTVMin: r1(Math.min(...lifts)) });
+    rows.push({ id, loud: r1(full), loudTV: r1(tvMin), tvLoss: r1(full - variants[0].tv), overBattleTV: r1(tvMin - battleMedian), overBusTV: r1(tvMin - busMedianTV),
+      mixLiftTV: r1(lifts.reduce((x, y) => x + y, 0) / lifts.length), mixLiftTVMin: r1(Math.min(...lifts)),
+      snapAtMs: med('snapAtMs'), snapOverBodyDb: r1(med('snapOverBodyDb')), bodyDrop10Ms: med('bodyDrop10Ms') });
   }
-  hitCheckResult = { ok: rows.every(r => r.overBattleTV >= 6 && r.mixLiftTVMin >= 6), battleMedian, busMedian, rows };
+  const pairs = {};
+  const k = Object.keys(envs);
+  for (let i = 0; i < k.length; i++) for (let j = i + 1; j < k.length; j++) pairs[`${k[i]}~${k[j]}`] = corr(envs[k[i]], envs[k[j]]);
+  // The bar (critic, round 2): each hit starts with a snap 1-3 ms in, ~8 dB over its body; the body is down 10 dB within
+  // ~40 ms; over the battle theme a hit lands about +6 LU on top (not +11: a wall of static); and the three impacts are
+  // different shapes, not one noise block. The crit may stand a little taller.
+  const fails = [];
+  for (const r of rows) {
+    const crit = r.id === 'sword_crit';
+    if (!crit) {
+      if (r.snapAtMs < 0 || r.snapAtMs > 3) fails.push(`${r.id}: snap peaks ${r.snapAtMs} ms in`);
+      if (r.snapOverBodyDb < 7) fails.push(`${r.id}: snap only ${r.snapOverBodyDb} dB over the body`);
+      if (r.bodyDrop10Ms > 45) fails.push(`${r.id}: body takes ${r.bodyDrop10Ms} ms to fall 10 dB`);
+    }
+    if (r.mixLiftTV < 4.5 || r.mixLiftTV > (crit ? 10 : 8)) fails.push(`${r.id}: lifts the battle mix ${r.mixLiftTV} LU`);
+    if (r.mixLiftTVMin < 2) fails.push(`${r.id}: one hit lifted the mix only ${r.mixLiftTVMin} LU`);
+  }
+  for (const [pair, c] of Object.entries(pairs)) if (c > 0.9) fails.push(`${pair}: envelopes correlate ${c}`);
+  hitCheckResult = { ok: fails.length === 0, fails, battleMedian, busMedian, envelopeCorrelation: pairs, rows };
   return hitCheckResult;
 }
 
@@ -413,7 +469,8 @@ Object.assign(window.__DQ, {
     selected: selected ? (selected.dataset.id || selected.dataset.amb || selected.textContent) : null,
     lastPlayed, walking, music: musicTheme, musicEngine: MusicMod ? MusicMod.Music.state() : null, errors: __DQ.errors.length,
     selfTest: selfTest ? { ok: selfTest.ok, count: selfTest.count, failures: selfTest.failures.length } : null,
-    hitCheck: hitCheckResult ? { ok: hitCheckResult.ok, battleMedian: hitCheckResult.battleMedian, rows: hitCheckResult.rows.map(r => [r.id, r.overBattleTV, r.mixLiftTV]) } : null,
+    hitCheck: hitCheckResult ? { ok: hitCheckResult.ok, fails: hitCheckResult.fails, busMedian: hitCheckResult.busMedian, envelopeCorrelation: hitCheckResult.envelopeCorrelation,
+      rows: hitCheckResult.rows.map(r => [r.id, { overBusTV: r.overBusTV, mixLiftTV: r.mixLiftTV, snapAtMs: r.snapAtMs, snapOverBodyDb: r.snapOverBodyDb, bodyDrop10Ms: r.bodyDrop10Ms }]) } : null,
   }),
 });
 

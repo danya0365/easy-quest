@@ -543,7 +543,10 @@ function texClouds() {
     for (const p of puffs.slice()) if (p.r > 38) for (let k = 0; k < 2; k++) {                // small secondary bumps break the 'stacked balls' silhouette
       const a = -2.6 + rnd() * 2.0; puffs.push({ x: p.x + Math.cos(a) * p.r * 0.78, y: p.y + Math.sin(a) * p.r * 0.78, r: p.r * (0.32 + rnd() * 0.16) }); }
     puffs.sort((p, q) => q.y - p.y);                                                        // low puffs first; higher puffs overlap them
-    g.save(); g.beginPath(); g.rect(ox, oy, 512, base - oy); g.clip();
+    // the base stays flat and lavender (the DQ cumulus look) but not ruler-straight: a very shallow wave, feathered below
+    g.save(); g.beginPath(); g.moveTo(ox, oy); g.lineTo(ox + 512, oy);
+    for (let x = 512; x >= 0; x -= 8) g.lineTo(ox + x, base - 2 + Math.sin(x * 0.041 + v * 1.7) * 2.2 + Math.sin(x * 0.13 + v) * 1.2);
+    g.closePath(); g.clip();
     for (const p of puffs) {
       const hgt = clamp01((base - p.y) / 150);
       const outer = hgt > 0.35 ? mixHex(PAL.cloud.mid, PAL.cloud.warm, (hgt - 0.35) * 0.9) : mixHex(PAL.cloud.shade, PAL.cloud.mid, hgt / 0.35);   // soft internal edges up top, defined base below
@@ -561,6 +564,8 @@ function texClouds() {
   const img = g.getImageData(0, 0, W, H), d = img.data, A = new Float32Array(W * H), sh = rgb(PAL.cloud.shade);
   for (let i = 0; i < W * H; i++) { A[i] = d[i * 4 + 3] / 255; if (d[i * 4 + 3] === 0) { d[i * 4] = sh[0]; d[i * 4 + 1] = sh[1]; d[i * 4 + 2] = sh[2]; } }
   blur(A, W, H, 1, 2);
+  // feather the underside a touch more than the sides: seen from low down, the base melts instead of cutting
+  { const B = A.slice(); blur(B, W, H, 3, 2); for (let y = 0; y < H; y++) { const cellY = y % 256; const k = smooth(196, 216, cellY); for (let x = 0; x < W; x++) { const i = y * W + x; A[i] = Math.min(A[i], A[i] * (1 - k) + B[i] * k); } } }
   for (let i = 0; i < W * H; i++) d[i * 4 + 3] = A[i] * 255;
   g.putImageData(img, 0, 0);
   const t = texFrom(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;

@@ -3,7 +3,7 @@
 import { Theme } from './_lib.js';
 
 export function build() {
-  const T = Theme({ id: 'item_get', title: 'You Found It!', key: 'D major', bpm: 150, meter: 4, pulse: [0, 2], bars: 1, space: 'HALL', gain: 1.4, kind: 'oneshot' });
+  const T = Theme({ id: 'item_get', title: 'You Found It!', key: 'D major', bpm: 150, meter: 4, pulse: [0, 2], bars: 1, space: 'HALL', gain: 1.555, kind: 'oneshot' });
   const horns = T.part('horns', { voice: 'horns', bus: 'melody' });
   const cel = T.part('celesta', { voice: 'celesta', bus: 'counter' });
   const harp = T.part('harp', { voice: 'harp', bus: 'counter' });

@@ -253,6 +253,12 @@ function makePart(T, name, cfg) {
   P.hits = (bars, beats, n, d, o = {}) => { for (const bar of bars) for (const bt of beats) P.note(T.bar(bar, bt), n, d, o); return P; };
   /** roll from beat a to beat b, `rate` strokes per second (needs the local bpm). */
   P.roll = (a, b, n, o = {}) => {
+    // sampled percussion rolls are one looped roll recording riding the crescendo (amplitude ~ velocity^1.6)
+    if (['timp', 'snare', 'cymbal'].includes(cfg.voice) && !o.strokes) {
+      const r0 = dyn(o.from ?? 'pp'), r1 = dyn(o.to ?? 'ff');
+      P.push({ b: a, d: b - a, m: midi(n), v: r0, shape: false, o: { roll: { swell: Math.pow(r1 / r0, 1.6) } } });
+      return P;
+    }
     const spb = 60 / (o.bpm || T.bpm); const step = (o.perBeat ? 1 / o.perBeat : (1 / (o.rate || 14)) / spb);
     const v0 = dyn(o.from ?? 'pp'), v1 = dyn(o.to ?? 'ff');
     let k = 0;

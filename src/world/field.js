@@ -20,7 +20,14 @@
  *
  * __DQ: state().map, state().player, state().field; teleport, cameraOrbit, cameraZoom, listMaps, timeOfDay,
  * screenshotReady (false while a map builds or the camera is still swinging); extras __DQ.cameraAuto(bool),
- * __DQ.face(deg), __DQ.walkTo(x, z) (sets the player position without animation — use teleport for maps).
+ * __DQ.face(deg), __DQ.walkTo(x, z) (sets the player position without animation — use teleport for maps),
+ * __DQ.meshStats(n, {inView}) (triangles per mesh, optionally only what the camera can see), __DQ.shadows(bool).
+ *
+ * Camera: it NEVER pulls in to dodge trees or roofs. Distance and pitch stay put; whatever stands between the lens and
+ * the hero dissolves instead (Toon.see — the map view fades whole canopies, see-through materials open a dithered
+ * window around the hero, anything inside ~3 units of the lens melts). state().field.camera.seeThrough reports it.
+ * Player: a quick tap on a new direction turns the hero in place (the facing target outlives the tap); Menu pushes
+ * the 'menu' scene (src/ui/menu.js) with talk/search callbacks.
  */
 import * as THREE from 'three';
 import { App } from '../engine/app.js';
@@ -40,7 +47,12 @@ import { Maps, PLAYER_RADIUS } from './map.js';
 import { buildPlaceholderHero } from './placeholder-hero.js';
 
 const DEG = Math.PI / 180;
-const WALK = 3.3, RUN = 5.7;
+const WALK = 3.3, RUN = 5.7, PIVOT = 0.1;
+const SEARCH_LINES = [
+  'Bram searches the grass at his feet.{wait:350}{n}A beetle searches him back.',
+  'Bram looks under a dandelion.{n}Nothing, unless you count the dandelion.',
+  'Bram finds a very good stick.{wait:300}{n}He already has one. He leaves it for somebody else.',
+];
 const CAM_DEFAULT = { orbit: 0, pitch: 30, dist: 10.5, fov: 46, lookUp: 1.05 };
 const wrapPi = (a) => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI * 2; return a - Math.PI; };
 const r3 = (v) => Math.round(v * 1000) / 1000;
@@ -85,13 +97,13 @@ function createFieldScene() {
     scene: null, camera: null, rig: null, blobs: null, hero: null, view: null, map: null, prompt: null,
     loading: false, loadCount: 0, ctxRef: null, offResize: null,
     // PLAYER state (sim) + previous tick for interpolation
-    p: { x: 0, z: 0, y: 0, yaw: 0, vx: 0, vz: 0, speed: 0, run: false, blocked: false, ground: 'grass' },
+    p: { x: 0, z: 0, y: 0, yaw: 0, yawT: 0, holdT: 0, pivot: 0, vx: 0, vz: 0, speed: 0, run: false, blocked: false, ground: 'grass' },
     pp: { x: 0, z: 0, y: 0, yaw: 0 },
-    bumpCd: 0, stepCount: 0, near: null, lastTalk: null,
+    bumpCd: 0, stepCount: 0, near: null, lastTalk: null, searchCount: 0,
     // CAMERA state (sim)
     cam: { yaw: 0, yawT: 0, pitch: CAM_DEFAULT.pitch, dist: CAM_DEFAULT.dist, distT: CAM_DEFAULT.dist, fov: CAM_DEFAULT.fov, lookUp: CAM_DEFAULT.lookUp,
-      tx: 0, ty: 0, tz: 0, vx: 0, vy: 0, vz: 0, manualT: 99, auto: true, occ: CAM_DEFAULT.dist, occluded: false },
-    pcam: { yaw: 0, tx: 0, ty: 0, tz: 0, dist: CAM_DEFAULT.dist },
+      tx: 0, ty: 0, tz: 0, vx: 0, vy: 0, vz: 0, manualT: 99, auto: true, occ: CAM_DEFAULT.dist, occluded: false, talk: 0 },
+    pcam: { yaw: 0, tx: 0, ty: 0, tz: 0, dist: CAM_DEFAULT.dist, talk: 0 },
     renderT: -1, hours: 9,
   };
 
@@ -102,6 +114,7 @@ function createFieldScene() {
     if (keepActors) { if (S.hero) S.hero.group.removeFromParent(); if (S.prompt) S.prompt.removeFromParent(); }
     if (S.scene) { try { if (S.rig) S.rig.dispose(); Assets.disposeObject(S.scene); } catch (e) { reportError('field dispose', e); } }
     S.view = null; S.scene = null; S.rig = null; S.blobs = null;
+    Toon.see.clear();
   }
 
   function loadMap(id, x, z, facing) {
@@ -163,7 +176,7 @@ function createFieldScene() {
     const m = S.map;
     let px = +x, pz = +z;
     if (m) { const r = m.resolve(px, pz, PLAYER_RADIUS); px = r.x; pz = r.z; }
-    Object.assign(S.p, { x: px, z: pz, y: m ? m.walkY(px, pz) : 0, yaw: wrapPi(yaw), ground: m ? m.groundAt(px, pz) : S.p.ground });
+    Object.assign(S.p, { x: px, z: pz, y: m ? m.walkY(px, pz) : 0, yaw: wrapPi(yaw), yawT: wrapPi(yaw), pivot: 0, ground: m ? m.groundAt(px, pz) : S.p.ground });
     S.near = m ? m.nearestInteractable(px, pz, Math.sin(S.p.yaw), Math.cos(S.p.yaw)) : null;
     if (stop) { S.p.vx = 0; S.p.vz = 0; S.p.speed = 0; }
     Object.assign(S.pp, { x: S.p.x, z: S.p.z, y: S.p.y, yaw: S.p.yaw });
@@ -180,7 +193,17 @@ function createFieldScene() {
     let wx = rx * ax.x + fx * ax.y, wz = rz * ax.x + fz * ax.y;
     const mag = Math.min(1, Math.hypot(wx, wz));
     const top = run ? RUN : WALK;
-    const tvx = wx * top, tvz = wz * top;
+    // Turn in place, Dragon Quest style: a quick tap on a new direction turns the hero all the way round to face it
+    // (the facing target outlives the tap) without taking a step; holding walks. A pivot lasts at most PIVOT seconds
+    // or until he faces within ~35° of the new way, so walking still starts at once when you mean it.
+    if (mag > 0.08) {
+      const target = Math.atan2(wx, wz);
+      if (p.holdT === 0 && p.speed < 0.6 && Math.abs(wrapPi(target - p.yaw)) > 50 * DEG) p.pivot = PIVOT;
+      p.yawT = target; p.holdT += dt;
+    } else { p.holdT = 0; p.pivot = 0; }
+    if (p.pivot > 0) { p.pivot -= dt; if (Math.abs(wrapPi(p.yawT - p.yaw)) < 35 * DEG) p.pivot = 0; }
+    const go = p.pivot > 0 ? 0 : 1;
+    const tvx = wx * top * go, tvz = wz * top * go;
     const accel = mag > 0.05 ? (run ? 11 : 13) : 16;
     const k = Math.min(1, dt * accel);
     p.vx += (tvx - p.vx) * k; p.vz += (tvz - p.vz) * k;
@@ -198,17 +221,19 @@ function createFieldScene() {
     p.x = res.x; p.z = res.z;
     p.speed = Math.hypot(p.vx, p.vz);
     p.run = run && p.speed > WALK * 0.8;
-    // turn toward where you are going (eased, never snapped)
-    if (mag > 0.08) {
-      const target = Math.atan2(wx, wz);
-      const d = wrapPi(target - p.yaw);
-      p.yaw = wrapPi(p.yaw + d * Math.min(1, dt * (run ? 15 : 12)));
+    // turn toward the facing target (eased, never snapped, and always finished — even after the stick is released)
+    {
+      const d = wrapPi(p.yawT - p.yaw);
+      if (Math.abs(d) > 1e-4) {
+        const step = Math.sign(d) * Math.min(Math.abs(d), Math.max(Math.abs(d) * Math.min(1, dt * (run ? 15 : 12)), dt * 2.2));
+        p.yaw = wrapPi(p.yaw + step);
+      }
     }
     const gy = m.walkY(p.x, p.z);
     p.y += (gy - p.y) * Math.min(1, dt * 20);
     p.ground = m.groundAt(p.x, p.z);
-    // things to talk to
-    S.near = m.nearestInteractable(p.x, p.z, Math.sin(p.yaw), Math.cos(p.yaw));
+    // things to talk to: where he is turning to face counts (tap Up, press Confirm — the sign answers)
+    S.near = m.nearestInteractable(p.x, p.z, Math.sin(p.yawT), Math.cos(p.yawT));
     // exits
     const ex = m.exitAt(p.x, p.z);
     if (ex && !S.loading) onExit(ex);
@@ -223,17 +248,6 @@ function createFieldScene() {
   }
 
   // ═══ CAMERA (P09 seam) ════════════════════════════════════════════════════════════════════════════════════
-  /** Free camera distance from the player's head along the orbit arm (yaw, pitch), min 2.6. */
-  function clearance(yaw, want) {
-    if (!S.map || !S.map.occluders.length) return want;
-    const c = S.cam, ph = c.pitch * DEG;
-    const ox = c.tx, oy = c.ty + 1.1, oz = c.tz;
-    // the arm from the head toward where the lens wants to be
-    let dx = Math.sin(yaw) * Math.cos(ph) * want, dy = Math.sin(ph) * want + 0.5 - 1.1 + (c.lookUp - 1.1) * 0, dz = Math.cos(yaw) * Math.cos(ph) * want;
-    const L = Math.hypot(dx, dy, dz) || 1; dx /= L; dy /= L; dz /= L;
-    const free = S.map.cameraClearance(ox, oy, oz, dx, dy, dz, L);
-    return free >= L ? want : Math.max(2.6, (free - 0.5) * (want / L));
-  }
   function camGoal() {
     const p = S.p;
     return { x: p.x + p.vx * 0.22, y: p.y, z: p.z + p.vz * 0.22 };
@@ -241,12 +255,12 @@ function createFieldScene() {
   function snapCamera() {
     const g = camGoal(), c = S.cam;
     c.tx = g.x; c.ty = g.y; c.tz = g.z; c.vx = c.vy = c.vz = 0; c.yaw = c.yawT;
-    c.occ = clearance(c.yaw, c.dist); c.dist = Math.min(c.distT, c.occ);
-    Object.assign(S.pcam, { yaw: c.yaw, tx: c.tx, ty: c.ty, tz: c.tz, dist: c.dist });
+    c.occ = c.distT; c.dist = c.distT;
+    Object.assign(S.pcam, { yaw: c.yaw, tx: c.tx, ty: c.ty, tz: c.tz, dist: c.dist, talk: c.talk });
   }
   function updateCamera(dt) {
     const c = S.cam;
-    Object.assign(S.pcam, { yaw: c.yaw, tx: c.tx, ty: c.ty, tz: c.tz, dist: c.dist });
+    Object.assign(S.pcam, { yaw: c.yaw, tx: c.tx, ty: c.ty, tz: c.tz, dist: c.dist, talk: c.talk });
     // manual orbit: right stick / bumpers / Q E
     const look = Input.look();
     if (Math.abs(look.x) > 0.01) { c.yawT += -look.x * 115 * DEG * dt; c.manualT = 0; }
@@ -263,12 +277,14 @@ function createFieldScene() {
     }
     c.yawT = wrapPi(c.yawT);
     c.yaw = wrapPi(c.yaw + wrapPi(c.yawT - c.yaw) * (1 - Math.exp(-dt * 7.5)));
-    // keep a tree or a roof from coming between the lens and the player: pull in fast, ease back out slowly
-    const free = clearance(c.yaw, c.distT);
-    c.occ += (free - c.occ) * (1 - Math.exp(-dt * (free < c.occ ? 14 : 2.2)));
-    c.occluded = free < c.distT - 0.05;
-    const want = Math.min(c.distT, c.occ);
-    c.dist += (want - c.dist) * (1 - Math.exp(-dt * (want < c.dist ? 16 : 6)));
+    // The lens NEVER zooms in to dodge a tree or a roof (Dragon Quest's camera sits calmly above the world): it keeps
+    // its distance and pitch, and whatever stands in the way dissolves instead (Toon.see: the map view fades the
+    // canopies, every see-through material opens a window around the hero). Only a zoom request changes distance.
+    c.occ = c.distT;
+    c.dist += (c.distT - c.dist) * (1 - Math.exp(-dt * 6));
+    // while somebody is talking the view settles a little lower, so the hero stands just above the message window
+    const talking = Scenes.top() === 'dialogue';
+    c.talk += ((talking ? 1 : 0) - c.talk) * (1 - Math.exp(-dt * (talking ? 5 : 3.5)));
     // critically damped spring on the look target
     const g = camGoal(), w = 6.0, kk = w * w, dd = 2 * w;
     for (const [pk, vk, gk] of [['tx', 'vx', 'x'], ['ty', 'vy', 'y'], ['tz', 'vz', 'z']]) {
@@ -281,13 +297,19 @@ function createFieldScene() {
     const yaw = pc.yaw + wrapPi(c.yaw - pc.yaw) * alpha;
     const tx = pc.tx + (c.tx - pc.tx) * alpha, ty = pc.ty + (c.ty - pc.ty) * alpha, tz = pc.tz + (c.tz - pc.tz) * alpha;
     const dist = pc.dist + (c.dist - pc.dist) * alpha;
-    const ph = c.pitch * DEG;
+    const talk = (pc.talk ?? c.talk) + (c.talk - (pc.talk ?? c.talk)) * alpha;
+    // zoomed in, the look point comes down to the hero's chest (the default lookUp frames a whole vale, not a face);
+    // a little steeper too, so the hero's head never fills the bottom of the frame
+    const zk = smooth(3, CAM_DEFAULT.dist, dist);
+    const ph = (c.pitch + (1 - zk) * 2) * DEG;
+    let lookUp = 1.3 + (c.lookUp - 1.3) * zk;
+    lookUp += (Math.min(lookUp, 1.35) - lookUp) * talk;
     let px = tx + Math.sin(yaw) * Math.cos(ph) * dist, pz = tz + Math.cos(yaw) * Math.cos(ph) * dist, py = ty + Math.sin(ph) * dist + 0.5;
     // keep the lens out of the hillside
     if (S.map) { const floor = S.map.heightAt(px, pz) + 0.9; if (py < floor) py = floor; }
     if (cam.fov !== c.fov) { cam.fov = c.fov; cam.updateProjectionMatrix(); }
     cam.position.set(px, py, pz);
-    cam.lookAt(tx, ty + c.lookUp, tz);
+    cam.lookAt(tx, ty + lookUp, tz);
     return { tx, ty, tz };
   }
 
@@ -295,11 +317,11 @@ function createFieldScene() {
   function interact() {
     const m = S.map; if (!m) return false;
     const p = S.p;
-    const hit = m.nearestInteractable(p.x, p.z, Math.sin(p.yaw), Math.cos(p.yaw));
+    const hit = m.nearestInteractable(p.x, p.z, Math.sin(p.yawT), Math.cos(p.yawT));
     if (!hit) return false;
     const t = hit.target, tx = t.ix ?? t.x, tz = t.iz ?? t.z;
-    // turn to face it (a quick eased turn happens in render via yaw interpolation)
-    p.yaw = Math.atan2(tx - p.x, tz - p.z); S.pp.yaw = p.yaw;
+    // turn to face it (eased by updatePlayer's turn, which keeps running under the dialogue)
+    p.yawT = Math.atan2(tx - p.x, tz - p.z);
     p.vx = p.vz = 0; p.speed = 0;
     if (typeof t.talk === 'function') {
       try { const r = t.talk({ field: Field, map: m, player: Field.player() }); if (r && (r.text || r.pages)) talk(Object.assign({ name: t.name || t.type }, r)); }
@@ -360,7 +382,11 @@ function createFieldScene() {
       if (!S.map || S.loading) return;
       // under a dialogue (which sets updateBelow) the world holds still but the camera can still be turned
       if (Scenes.top() === 'field') updatePlayer(dt);
-      else { Object.assign(S.pp, { x: S.p.x, z: S.p.z, y: S.p.y, yaw: S.p.yaw }); S.p.vx = S.p.vz = 0; S.p.speed = 0; }
+      else {
+        Object.assign(S.pp, { x: S.p.x, z: S.p.z, y: S.p.y, yaw: S.p.yaw }); S.p.vx = S.p.vz = 0; S.p.speed = 0; S.p.pivot = 0; S.p.holdT = 0;
+        const d = wrapPi(S.p.yawT - S.p.yaw);          // finish turning to face whoever is talking
+        if (Math.abs(d) > 1e-4) S.p.yaw = wrapPi(S.p.yaw + Math.sign(d) * Math.min(Math.abs(d), Math.max(Math.abs(d) * Math.min(1, dt * 12), dt * 2.2)));
+      }
       updateCamera(dt);
     },
     render(alpha) {
@@ -385,6 +411,7 @@ function createFieldScene() {
       if (S.blobs) { S.blobs.set(0, x, y, z, 1.0 + Math.min(0.15, p.speed * 0.02)); S.blobs.commit(); }
       const focus = placeCamera(alpha);
       if (S.rig) S.rig.follow(FOCUS.set(focus.tx, focus.ty, focus.tz));
+      Toon.see.setHero({ x, y, z }, S.camera, App.renderer);
       // prompt over whatever you can talk to
       if (S.prompt) {
         const n = Scenes.top() === 'field' ? S.near : null;
@@ -404,6 +431,15 @@ function createFieldScene() {
     onInput(btn) {
       if (UI.input(btn)) return true;
       if (btn === 'confirm' && Scenes.top() === 'field') { interact(); return true; }
+      if (btn === 'menu' && Scenes.top() === 'field' && Scenes.has('menu')) {
+        S.p.vx = S.p.vz = 0; S.p.speed = 0;
+        Scenes.push('menu', {
+          near: S.near ? (S.near.target.name || S.near.target.type) : null,
+          talk: () => { if (!interact()) talk({ text: 'There is nobody here to talk to.{n}A bee says hello, though.', name: 'nobody' }); },
+          search: () => talk({ text: SEARCH_LINES[S.searchCount++ % SEARCH_LINES.length], name: 'search' }),
+        });
+        return true;
+      }
       return true;
     },
   };
@@ -419,22 +455,24 @@ function createFieldScene() {
     },
     zoom(n, snap) {
       if (n === undefined) return r3(S.cam.distT);
-      S.cam.distT = Math.max(4, Math.min(40, Number(n) || CAM_DEFAULT.dist));
+      S.cam.distT = Math.max(3, Math.min(40, Number(n) || CAM_DEFAULT.dist));
       if (snap) { S.cam.dist = S.cam.distT; S.pcam.dist = S.cam.dist; }
       return S.cam.distT;
     },
-    settled() { return Math.abs(wrapPi(S.cam.yawT - S.cam.yaw)) < 0.6 * DEG && Math.abs(Math.min(S.cam.distT, S.cam.occ) - S.cam.dist) < 0.05; },
+    settled() { return Math.abs(wrapPi(S.cam.yawT - S.cam.yaw)) < 0.6 * DEG && Math.abs(S.cam.distT - S.cam.dist) < 0.05; },
     describePlayer() {
       const p = S.p;
-      return { x: r3(p.x), y: r3(p.y), z: r3(p.z), facing: r3(((p.yaw / DEG) % 360 + 360) % 360), speed: r3(p.speed), running: !!p.run,
+      return { x: r3(p.x), y: r3(p.y), z: r3(p.z), facing: r3(((p.yaw / DEG) % 360 + 360) % 360), facingTarget: r3(((p.yawT / DEG) % 360 + 360) % 360), speed: r3(p.speed), running: !!p.run,
         moving: p.speed > 0.1, blocked: !!p.blocked, ground: p.ground, tile: S.map ? S.map.tileAt(p.x, p.z) : null,
         near: S.near ? { name: S.near.target.name || S.near.target.type, dist: r3(S.near.dist) } : null, steps: S.stepCount,
         anim: S.hero ? S.hero.state() : null };
     },
     describeField() {
       const c = S.cam;
-      return { camera: { orbit: api.orbit(), current: r3(((c.yaw / DEG) % 360 + 360) % 360), pitch: c.pitch, dist: r3(c.dist), fov: c.fov,
-          auto: c.auto, settled: api.settled(), occluded: !!c.occluded, pos: S.camera ? S.camera.position.toArray().map(r3) : null },
+      const see = Toon.see.state(), vs = S.view && S.view.state ? (S.view.state().see || null) : null;
+      return { camera: { orbit: api.orbit(), current: r3(((c.yaw / DEG) % 360 + 360) % 360), pitch: c.pitch, dist: r3(c.dist), distTarget: r3(c.distT), fov: c.fov,
+          auto: c.auto, settled: api.settled(), occluded: !!(vs && vs.occluding), seeThrough: { fading: see.fades, occluding: vs ? vs.occluding : 0, heroWindow: see.hero },
+          talkFraming: r3(c.talk), pos: S.camera ? S.camera.position.toArray().map(r3) : null },
         loading: S.loading, loads: S.loadCount, hours: S.hours, rig: S.rig ? S.rig.state() : null,
         prompt: !!(S.prompt && S.prompt.visible), lastTalk: S.lastTalk, view: S.view && S.view.state ? S.view.state() : null,
         toon: Toon.stats() };
@@ -505,15 +543,29 @@ export const Field = {
       if (Number.isFinite(+o.dist)) { c.distT = c.dist = +o.dist; F.S.pcam.dist = c.dist; }
       return { pitch: c.pitch, dist: c.distT, fov: c.fov, lookUp: c.lookUp };
     });
-    Debug.expose('face', (deg) => { if (!F) return null; if (deg !== undefined) { F.S.p.yaw = wrapPi(Number(deg) * DEG); F.S.pp.yaw = F.S.p.yaw; } return F.describePlayer().facing; });
+    Debug.expose('face', (deg) => { if (!F) return null; if (deg !== undefined) { F.S.p.yaw = F.S.p.yawT = wrapPi(Number(deg) * DEG); F.S.pp.yaw = F.S.p.yaw; } return F.describePlayer().facing; });
     Debug.expose('walkTo', (x, z) => (F ? (F.placePlayer(+x, +z, F.S.p.yaw, true), F.describePlayer()) : null));
     Debug.expose('talkNear', () => (F ? F.interact() : false));
+    /** Sun shadows on/off (perf probing): __DQ.shadows(false). */
+    Debug.expose('shadows', (on) => { if (!F || !F.S.rig) return null; if (on !== undefined) F.S.rig.sun.castShadow = !!on; return F.S.rig.sun.castShadow; });
     /** Triangle hogs: [{name, tris (x instances), instances, shadow}] sorted, top n. */
-    Debug.expose('meshStats', (n = 25) => {
+    Debug.expose('meshStats', (n = 25, { inView = false } = {}) => {
       if (!F || !F.S.scene) return null;
       const out = [];
+      const frustum = new THREE.Frustum(), sph = new THREE.Sphere();
+      if (inView && F.S.camera) { F.S.camera.updateMatrixWorld(); frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(F.S.camera.projectionMatrix, F.S.camera.matrixWorldInverse)); }
       F.S.scene.traverse((o) => {
         if (!o.isMesh || !o.geometry) return;
+        if (inView) {
+          let vis = o.visible && (!o.material || o.material.visible !== false); for (let q = o.parent; q && vis; q = q.parent) vis = q.visible;
+          if (!vis) return;
+          if (o.frustumCulled !== false) {
+            if (o.isInstancedMesh) { if (!o.boundingSphere) o.computeBoundingSphere(); sph.copy(o.boundingSphere).applyMatrix4(o.matrixWorld); }
+            else { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); sph.copy(o.geometry.boundingSphere).applyMatrix4(o.matrixWorld); }
+            if (!frustum.intersectsSphere(sph)) return;
+          }
+          if (o.material && o.material.colorWrite === false) return;
+        }
         const g = o.geometry, idx = g.index ? g.index.count : (g.attributes.position ? g.attributes.position.count : 0);
         const inst = o.isInstancedMesh ? o.count : 1;
         out.push({ name: o.name || (o.parent && o.parent.name) || o.type, tris: Math.round(idx / 3) * inst, instances: inst, shadow: !!o.castShadow, visible: o.visible });

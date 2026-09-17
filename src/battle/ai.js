@@ -1,7 +1,8 @@
 // src/battle/ai.js — P14. Monster move choice (with Big-Attack telegraphs) and party auto-battle policies.
 // Pure logic. Policies:
 //   'mash'  — a six-year-old pressing Confirm: every turn, Attack the first monster.
-//   'auto'  — the "Fight!" auto-battle (SYSTEMS §7.3): never uses items, never spends MP below half.
+//   'auto'  — the "Fight!" auto-battle (SYSTEMS §7.3): never uses items; on the road it never spends MP below half —
+//             that half is kept for the boss, and against a boss it spends it (balance pass r3).
 //   'smart' — a careful player / helpful parent: heals early, revives, Bolsters on a wind-up, uses items.
 
 import { isUp, targetable, effMaxHp, effAtk, effDef, effMdef, elementMult, spellCost, spellProblem, itemProblem } from './actions.js';
@@ -91,14 +92,20 @@ function usableSpells(B, a, kinds) {
     && s.battle !== false && a.mp >= spellCost(a, s) && !a.status.silence);
 }
 
-function mpOk(a, cost, policy) {
-  if (policy === 'auto') return a.mp - cost >= a.maxMp * 0.5;
+/**
+ * Can this child's policy spend `cost` MP now? "Fight!" never spends MP below half on the road (SYSTEMS §7.3) — the
+ * half it keeps is for the boss, so against a boss it spends it. (Before balance pass r3 the reserve was never spent:
+ * a child who walked a dungeon met its boss with Linnet hitting it with her staff, and one who ran from everything
+ * arrived with twice the magic — which made running away worth about four levels.)
+ */
+function mpOk(B, a, cost, policy) {
+  if (policy === 'auto' && !B.isBoss) return a.mp - cost >= a.maxMp * 0.5;
   return a.mp >= cost;
 }
 
 function bestHealSpell(B, a, t, policy) {
   const missing = effMaxHp(t) - t.hp;
-  const list = usableSpells(B, a, ['heal', 'fullheal']).filter((s) => mpOk(a, spellCost(a, s), policy));
+  const list = usableSpells(B, a, ['heal', 'fullheal']).filter((s) => mpOk(B, a, spellCost(a, s), policy));
   if (!list.length) return null;
   const est = (s) => (s.kind === 'fullheal' ? missing : Math.min(missing, s.base + a.mag * s.k));
   // cheapest spell that covers >= 70% of what's missing, else the strongest
@@ -135,7 +142,7 @@ export function chooseAllyAction(B, a, policy = 'auto') {
   // 1. revive the fallen
   const fallen = friends.filter((c) => !isUp(c));
   if (fallen.length) {
-    const rouse = usableSpells(B, a, ['revive']).find((s) => mpOk(a, spellCost(a, s), policy === 'auto' ? 'smart' : policy));
+    const rouse = usableSpells(B, a, ['revive']).find((s) => mpOk(B, a, spellCost(a, s), policy === 'auto' ? 'smart' : policy));
     if (rouse) return { type: 'spell', id: rouse.id, target: fallen[0].id };
     if (canItem) {
       const kiss = Object.keys(B.bag).map((id) => B.data.items[id]).find((it) => it && it.battle && it.battle.effect === 'revive' && B.bag[it.id] > 0);
@@ -148,7 +155,7 @@ export function chooseAllyAction(B, a, policy = 'auto') {
   const hurt = up.filter((c) => c.hp / effMaxHp(c) < healAt).sort((x, y) => x.hp / effMaxHp(x) - y.hp / effMaxHp(y));
   if (hurt.length) {
     if (hurt.length >= 2) {
-      const all = usableSpells(B, a, ['healAll']).find((s) => mpOk(a, spellCost(a, s), policy));
+      const all = usableSpells(B, a, ['healAll']).find((s) => mpOk(B, a, spellCost(a, s), policy));
       if (all) return { type: 'spell', id: all.id };
     }
     const s = bestHealSpell(B, a, hurt[0], policy);
@@ -174,7 +181,7 @@ export function chooseAllyAction(B, a, policy = 'auto') {
   let best = null, bestVal = physEst * 1.15;
   for (const s of usableSpells(B, a, ['damage'])) {
     const cost = spellCost(a, s);
-    if (!mpOk(a, cost, policy)) continue;
+    if (!mpOk(B, a, cost, policy)) continue;
     if (policy === 'smart' && !boss && s.target !== 'enemies' && foes.length === 1 && target.hp <= physEst) continue;
     const val = s.target === 'enemies' ? foes.reduce((sum, t) => sum + Math.min(t.hp, estSpell(a, s, t)), 0) : Math.min(target.hp * 1.2, estSpell(a, s, target));
     // spend MP only when it is clearly worth it (auto) or efficient (smart)

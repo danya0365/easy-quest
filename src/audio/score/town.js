@@ -28,7 +28,7 @@ const B_MELODY = [
 const B_HARM = ['Bb', 'Gm', 'Eb', 'F7', 'Bb', 'Gm', 'C7', 'F7'];
 
 export function build() {
-  const T = Theme({ id: 'town', title: 'Market Morning', key: 'F major', bpm: 120, meter: 2, pulse: [0, 1], loop: 32, space: 'ROOM', gain: 1.6 });
+  const T = Theme({ id: 'town', title: 'Market Morning', key: 'F major', bpm: 120, meter: 2, pulse: [0, 1], loop: 32, space: 'ROOM', gain: 2.184 });
   const oboe = T.part('oboe', { voice: 'oboe', bus: 'melody' });
   const flute = T.part('flute', { voice: 'flute', bus: 'melody' });
   const hc = T.part('harpsi', { voice: 'harpsi', bus: 'harmony' });

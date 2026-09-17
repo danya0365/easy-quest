@@ -1,10 +1,19 @@
-{ "name": "critic-look drift+seams", "steps": [
+{ "name": "critic-look field blind A/B", "steps": [
   {"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000},
-  {"wait": 1500},
-  {"eval": "__DQ.timeOfDay(12)"},
-  {"burst": {"name": "cloud-drift", "count": 3, "interval": 3000}},
-  {"eval": "__DQ.teleport('meadow', 18, -12)"}, {"eval": "__DQ.cameraOrbit(20)"}, {"wait": 1800},
-  {"burst": {"name": "pond-join", "count": 3, "interval": 250}},
-  {"eval": "__DQ.teleport('meadow', 38, 0)"}, {"eval": "__DQ.cameraOrbit(270)"}, {"wait": 1800}, {"shot": "east-edge-outward"},
-  {"eval": "__DQ.teleport('meadow', 0, 38)"}, {"eval": "__DQ.cameraOrbit(180)"}, {"wait": 1800}, {"shot": "south-edge-outward"}
+  {"wait": 2500},
+  {"shot": "boot-as-player-sees"},
+  {"wait": 5000},
+  {"shot": "boot-plus5s-cloud-drift"},
+  {"eval": "__DQ.cameraZoom(18)"}, {"wait": 1800}, {"shot": "start-dist18"},
+  {"eval": "__DQ.cameraZoom(10.5)"}, {"wait": 1200},
+  {"eval": "__DQ.hold('up', 1600)"}, {"burst": {"name": "walk-north", "count": 3, "interval": 350}},
+  {"wait": 1200},
+  {"eval": "__DQ.teleport('meadow', 12, -18)"}, {"eval": "__DQ.cameraOrbit(0)"}, {"wait": 2000}, {"shot": "toward-village-N"},
+  {"eval": "__DQ.teleport('meadow', -10, 10)"}, {"eval": "__DQ.cameraOrbit(60)"}, {"wait": 2000}, {"shot": "cottage-yard"},
+  {"eval": "__DQ.teleport('meadow', 0, -34)"}, {"eval": "__DQ.cameraOrbit(0)"}, {"wait": 2000}, {"shot": "north-edge-outward"},
+  {"eval": "__DQ.teleport('meadow', -35, 0)"}, {"eval": "__DQ.cameraOrbit(90)"}, {"wait": 2000}, {"shot": "west-edge-outward"},
+  {"eval": "__DQ.teleport('meadow', 0, 35)"}, {"eval": "__DQ.cameraOrbit(180)"}, {"wait": 2000}, {"shot": "south-edge-outward"},
+  {"eval": "__DQ.teleport('meadow', 35, 0)"}, {"eval": "__DQ.cameraOrbit(270)"}, {"wait": 2000}, {"shot": "east-edge-outward"},
+  {"eval": "__DQ.teleport('meadow', 1.4, 19.2)"}, {"eval": "__DQ.cameraOrbit(0)"}, {"eval": "__DQ.cameraZoom(24)"}, {"wait": 2200}, {"shot": "start-dist24"},
+  {"assert": "__DQ.errors.length===0", "msg": "no runtime errors"}
 ]}

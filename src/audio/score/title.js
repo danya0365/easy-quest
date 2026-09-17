@@ -5,15 +5,17 @@ import { Theme, degree } from './_lib.js';
 import { A_MELODY, A_HARM } from './overworld.js';
 
 export function build() {
-  const T = Theme({ id: 'title', title: 'Overture: The Long Road Home', key: 'D major', bpm: 84, meter: 4, pulse: [0, 2], intro: 5, loop: 20, space: 'HALL', gain: 1,
+  const T = Theme({ id: 'title', title: 'Overture: The Long Road Home', key: 'D major', bpm: 84, meter: 4, pulse: [0, 2], intro: 5, loop: 20, space: 'HALL', gain: 0.686,
     tempo: [{ bar: 0, bpm: 72 }, { bar: 5, bpm: 84 }, { bar: 21, bpm: 84, to: 66, bars: 4 }] });
-  const horns = T.part('horns', { voice: 'horns', bus: 'melody' });
-  const hornsLo = T.part('hornsLo', { voice: 'horns', bus: 'counter', gain: 0.75 });
+  const horns = T.part('horns', { voice: 'trumpet', bus: 'melody' });
+  const hornsLo = T.part('hornsLo', { voice: 'horns', bus: 'melody', gain: 0.9 });
+  const hornsMid = T.part('hornsMid', { voice: 'horns', bus: 'counter', gain: 0.75 });
+  const bones = T.part('bones', { voice: 'trombone', bus: 'harmony', gain: 0.75 });
   const strHi = T.part('strHi', { voice: 'strings', bus: 'melody' });
   const strLo = T.part('strLo', { voice: 'strings', bus: 'counter', gain: 0.85 });
   T.part('pad', { voice: 'strings', bus: 'harmony' });
   T.part('hornPad', { voice: 'horns', bus: 'harmony', gain: 0.7 });
-  T.part('choir', { voice: 'pad', bus: 'harmony', send: 0.8 });
+  T.part('choir', { voice: 'strings', bus: 'harmony', send: 0.6, o: { attack: 1.2 } });
   const celli = T.part('celli', { voice: 'strings', bus: 'bass', pan: -0.3, gain: 0.8 });
   const harp = T.part('harp', { voice: 'harp', bus: 'counter' });
   const solo = T.part('solo', { voice: 'hornSolo', bus: 'melody', send: 0.55 });
@@ -31,9 +33,10 @@ export function build() {
   timp.roll(T.bar(0), T.bar(2), 'D2', { from: 'pp', to: 'ff', bpm: 72 });
   ['D2', 'A2', 'D2', 'A2'].forEach((n, k) => timp.note(T.bar(2, k), n, 1, { dyn: 'f' }));
   const fan = [['A4', 0.5], ['D5', 0.5], ['F#5', 0.5], ['A5', 0.5], ['D6', 2], ['R', 1], ['A5', 0.5], ['G5', 0.5], ['F#5', 0.5], ['E5', 0.5], ['D5', 3], ['R', 1], ['D5', 4]];
-  horns.seq(1, fan, { beat: 1, dyn: 'ff', art: 'tenuto' });
-  hornsLo.seq(1, fan, { beat: 1, dyn: 'f', oct: -1, art: 'tenuto' });
-  strHi.seq(2, [['A5', 0.5], ['G5', 0.5], ['F#5', 0.5], ['E5', 0.5], ['D5', 3], ['R', 1], ['D5', 4]], { beat: 2, dyn: 'f', oct: 1 });
+  horns.seq(1, fan, { beat: 1, dyn: 'f', art: 'tenuto' });
+  hornsLo.seq(1, fan, { beat: 1, dyn: 'ff', oct: -1, art: 'tenuto' });
+  strHi.seq(2, [['A5', 0.5], ['G5', 0.5], ['F#5', 0.5], ['E5', 0.5], ['D5', 3], ['R', 1], ['D5', 4]], { beat: 2, dyn: 'f' });
+  T.pad('bones', T.chords(3, ['D', 'D'], false), { n: 3, lo: 'D3', hi: 'D4', dyn: 'f' });
   T.pad('pad', T.chords(1, ['D', 'D', 'A7', 'D'], false), { n: 4, lo: 'D3', hi: 'A4', cresc: ['p', 'f'] });
   T.pad('hornPad', T.chords(4, ['D'], false), { n: 4, lo: 'D3', hi: 'D4', dyn: 'f' });
   celli.seq(0, [['D2', 8], ['A1', 4], ['D2', 8]], { dyn: 'mf' });
@@ -45,7 +48,7 @@ export function build() {
   const hA = T.chords(5, A_HARM);
   strHi.seq(5, A_MELODY, { dyn: 'f' });
   strLo.seq(5, A_MELODY, { dyn: 'mf', oct: -1 });
-  hornsLo.seq(5, A_MELODY, { dyn: 'mf', oct: -1 });
+  hornsMid.seq(5, A_MELODY, { dyn: 'mf', oct: -1 });
   T.pad('pad', hA, { n: 3, lo: 'D3', hi: 'D4', dyn: 'p' });
   T.bass('celli', hA, { pat: [[0, '1', 4]], base: 'D2', dyn: 'mf' });
   rolled(hA); timp13(hA);
@@ -56,7 +59,7 @@ export function build() {
   const bend = [['G#5', 1.5], ['A5', 0.5], ['B5', 1], ['G#5', 1], ['A5', 2], ['G5', 1], ['E5', 1]];
   strHi.seq(13, up, { dyn: 'f', tr: 4 }); strHi.seq(19, bend, { dyn: 'f' });
   strLo.seq(13, up, { dyn: 'mf', tr: 4 - 12 }); strLo.seq(19, bend, { dyn: 'mf', oct: -1 });
-  horns.seq(13, up, { dyn: 'f', tr: 4 }); horns.seq(19, bend, { dyn: 'f' });
+  hornsMid.seq(13, up, { dyn: 'f', tr: 4 - 12 }); hornsMid.seq(19, bend, { dyn: 'f', oct: -1 });
   flute.seq(13, up, { dyn: 'mp', tr: 16 }); flute.seq(19, bend, { dyn: 'mp', oct: 1 });
   T.pad('pad', hA2, { n: 3, lo: 'E3', hi: 'E4', dyn: 'mp' });
   T.bass('celli', hA2, { pat: [[0, '1', 4]], base: 'C#2', dyn: 'mf' });

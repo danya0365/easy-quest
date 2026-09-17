@@ -462,7 +462,9 @@ test('§6.3 bosses telegraph: a wind-up round, then the Big Attack, capped so th
         const firstUse = checked >= 0 && !b._internal.enemies[0].firstBigChecked;
         if (firstUse) {
           b._internal.enemies[0].firstBigChecked = true;
-          const hits = ev.filter((e) => e.t === 'damage' && e.side === 'party' && ev.indexOf(e) > ev.indexOf(big));
+          // the Big Attack's own hits: up to the boss's next action (bosses may act twice a round)
+          const i0 = ev.indexOf(big), i1 = ev.findIndex((e, i) => i > i0 && (e.t === 'act' || e.t === 'telegraph'));
+          const hits = ev.slice(i0 + 1, i1 < 0 ? ev.length : i1).filter((e) => e.t === 'damage' && e.side === 'party');
           for (const h of hits) if (hpBefore[h.target] > 5) assert.ok(h.hp >= 1, `first Big Attack left ${h.target} standing`);
           checked++;
         }
@@ -563,7 +565,8 @@ test('Hush & Hark: beat one and the other gives up and sits down; Hark echoes Hu
     newMember('barty', 30, { equip: { weapon: 'thunderfork', armour: 'gleaming_plate' } }), newMember('sera', 30)];
   let echoed = false;
   for (let seed = 1; seed < 12; seed++) {
-    const b = createBattle({ party: party(), enemies: ['hush', 'hark'], data: DATA, rng: seed, options: { ambush: 'none' } });
+    // the mechanic, not the balance: a Lv 30 party that never heals, against the twins at a third of their HP
+    const b = createBattle({ party: party(), enemies: [{ id: 'hush', hp: Math.round(DATA.monsters.hush.hp / 3) }, { id: 'hark', hp: Math.round(DATA.monsters.hark.hp / 3) }], data: DATA, rng: seed, options: { ambush: 'none' } });
     let n = 0;
     while (!b.over && n++ < 80) {
       for (let k = 0; k < 4; k++) { const need = b.needsCommand(); if (need) b.command(need.id, need.id === 'sera' ? { type: 'defend' } : { type: 'attack', target: 'e1' }); }
@@ -650,6 +653,34 @@ test('the EXP keel: under the area level earns more, over it earns less, nothing
   assert.equal(run(10, 10), g);
 });
 
+test('a boss pays what it pays: the keel never inflates boss EXP for an under-levelled party (levels matter)', () => {
+  // a single Gloop dressed as a boss, so the fight is short and certain
+  const bossGloop = { id: 'gloop', boss: true, hp: 5 };
+  const run = (lvl) => {
+    const b = battle({ party: [heroAt(lvl, { weapon: 'steel_sword' })], enemies: [bossGloop], options: { areaLevel: 14 } });
+    runToEnd(b, 'mash');
+    assert.equal(b.phase, 'victory');
+    return b.result.exp;
+  };
+  const g = DATA.monsters.gloop.exp;
+  assert.equal(run(8), g, 'six levels under: no catch-up bonus on a boss');
+  assert.equal(run(14), g);
+  assert.equal(run(16), Math.round(g * expKeel(16, 14)), 'above the level the keel still trims it');
+});
+
+test('Fight! keeps half its MP on the road, and spends that half on the boss', () => {
+  const linnet = () => newMember('linnet', 24, { equip: { weapon: 'ash_staff' }, mother: 'willow' });
+  const half = (m) => { m.mp = Math.floor(m.mp * 0.5); return m; };
+  // on the road, at half MP, she will not cast
+  const road = battle({ party: [half(linnet())], enemies: [{ id: 'quietling', partyLevel: 24, hpMult: 20 }] });
+  road.autoCommands('auto');
+  assert.equal(road.snapshot().commands[0].type, 'attack');
+  // against a boss, the same half is spent
+  const boss = battle({ party: [half(linnet())], enemies: [{ id: 'quietling', partyLevel: 24, hpMult: 20, boss: true }] });
+  boss.autoCommands('auto');
+  assert.equal(boss.snapshot().commands[0].type, 'spell');
+});
+
 test('Halvard the mentor: he leaves the lad his own monster, takes the spare ones, and steps in when anyone is hurt', () => {
   // one Gloop, Bram picks it: Papa steps back with a line
   const one = battle({ party: [heroAt(2, { weapon: 'wooden_sword' }), newMember('halvard')], enemies: [{ id: 'gloop', hpMult: 5 }] });
@@ -729,7 +760,7 @@ test('Silence the Choir goes for whoever is carrying the most magic', () => {
 });
 
 test('journey (whole playthroughs, EXP carried): no kind of child is ever walled', () => {
-  const r = spawnSync(process.execPath, [new URL('./journey.mjs', import.meta.url).pathname, '--kids', 'normal,masher,skipper', '--trials', '5', '--retry', '0', '--seed', '9'], { encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [new URL('./journey.mjs', import.meta.url).pathname, '--kids', 'normal,masher,skipper,fleer', '--trials', '5', '--retry', '0', '--levels', '0', '--seed', '9'], { encoding: 'utf8' });
   assert.equal(r.stderr, '');
-  for (const kid of ['normal', 'masher', 'skipper']) assert.match(r.stdout, new RegExp(`## ${kid} — walls 0/5`), kid);
+  for (const kid of ['normal', 'masher', 'skipper', 'fleer']) assert.match(r.stdout, new RegExp(`## ${kid} — walls 0/5`), kid);
 });

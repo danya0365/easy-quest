@@ -28,7 +28,7 @@ const B_MELODY = [
 const B_HARM = ['Em', 'Bm', 'C', 'D', 'Em', 'C', 'Am|D7', 'G'];
 
 export function build() {
-  const T = Theme({ id: 'village', title: 'Under the Low Roofs', key: 'G major', bpm: 99, meter: 3, sig: '6/8', pulse: [0, 1.5], loop: 32, space: 'HALL', gain: 1.75 });
+  const T = Theme({ id: 'village', title: 'Under the Low Roofs', key: 'G major', bpm: 99, meter: 3, sig: '6/8', pulse: [0, 1.5], loop: 32, space: 'HALL', gain: 3.316 });
   const flute = T.part('flute', { voice: 'flute', bus: 'melody', oct: 1 });
   const oboe = T.part('oboe', { voice: 'oboe', bus: 'melody' });
   const cel = T.part('celesta', { voice: 'celesta', bus: 'counter', gain: 0.8 });

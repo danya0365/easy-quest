@@ -622,11 +622,16 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
   // ---- endings ---------------------------------------------------------------------------------------------
   function beatenEnemies() { return B.enemies.filter((e) => e.gone === 'defeated' || e.gone === 'spared'); }
 
-  /** F.expKeel for this fight: the party's highest level (guests never count) against the level it was tuned for. */
+  /**
+   * F.expKeel for this fight: the party's highest level (guests never count) against the level it was tuned for.
+   * A boss pays what it pays: the keel may trim its EXP for a party above the level, never inflate it — otherwise a
+   * child who ran from every fight was carried up the curve on boss EXP alone (critic r1: "levels don't matter").
+   */
   function keel() {
     if (options.expKeel === false || !B.areaLevel) return 1;
     const own = B.party.concat(B.wagon).filter((c) => !c.guest);
-    return own.length ? F.expKeel(Math.max(...own.map((c) => c.lvl)), B.areaLevel) : 1;
+    const k = own.length ? F.expKeel(Math.max(...own.map((c) => c.lvl)), B.areaLevel) : 1;
+    return B.isBoss ? Math.min(1, k) : k;
   }
 
   function finishVictory() {
@@ -774,7 +779,7 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
       lowHpAll: outcome !== 'defeat' && front.every((c) => c.hp / X.effMaxHp(c) < 0.3),
       levelsGained, nobodyBelow60: front.every((c) => c.hp / X.effMaxHp(c) >= 0.6),
     };
-    const delta = F.assistDelta(sum);
+    const delta = F.assistDelta(sum, B.S);
     const bossIds = [...new Set(B.enemies.filter((e) => e.boss).map((e) => e.species))];
     return {
       outcome, rounds: B.round,

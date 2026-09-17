@@ -1,1 +1,429 @@
-{"name": "critic-feel F4 walkthrough", "steps": [{"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000}, {"wait": 600}, {"shot": "s0"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s1"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s2"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s3"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s4"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s5"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s6"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s7"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s8"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s9"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s10"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s11"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s12"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s13"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s14"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s15"}, {"press": "Enter", "delay": 1400}, {"eval": "__DQ.stage()+' | '+__DQ.state().ui.windows.map(w=>w.id+':'+w.kind+':'+w.state+(w.title?':'+w.title:'')).join(', ')+' | focus '+__DQ.state().ui.focus"}, {"shot": "s16"}]}
+{
+"name": "critic-feel W: walk/run cycle side view",
+"steps": [
+{
+"waitFor": "window.__DQ && __DQ.ready",
+"timeout": 30000
+},
+{
+"wait": 2500
+},
+{
+"eval": "__DQ.teleport('meadow', 12, 20).ok"
+},
+{
+"wait": 800
+},
+{
+"eval": "__DQ.freeze(true)"
+},
+{
+"wait": 100
+},
+{
+"eval": "(window.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',code:'ArrowRight'})),1)"
+},
+{
+"eval": "__DQ.advance(1200).tick"
+},
+{
+"eval": "__DQ.advance(50).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w01-walk-side-f00"
+},
+{
+"eval": "__DQ.advance(50).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w01-walk-side-f01"
+},
+{
+"eval": "__DQ.advance(50).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w01-walk-side-f02"
+},
+{
+"eval": "__DQ.advance(50).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w01-walk-side-f03"
+},
+{
+"eval": "__DQ.advance(50).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w01-walk-side-f04"
+},
+{
+"eval": "__DQ.advance(50).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w01-walk-side-f05"
+},
+{
+"eval": "__DQ.advance(50).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w01-walk-side-f06"
+},
+{
+"eval": "__DQ.advance(50).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w01-walk-side-f07"
+},
+{
+"eval": "__DQ.advance(50).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w01-walk-side-f08"
+},
+{
+"eval": "__DQ.advance(50).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w01-walk-side-f09"
+},
+{
+"eval": "__DQ.advance(50).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w01-walk-side-f10"
+},
+{
+"eval": "__DQ.advance(50).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w01-walk-side-f11"
+},
+{
+"eval": "(window.dispatchEvent(new KeyboardEvent('keydown',{key:'Shift',code:'ShiftLeft'})),1)"
+},
+{
+"eval": "__DQ.advance(1000).tick"
+},
+{
+"eval": "__DQ.advance(34).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w02-run-side-f00"
+},
+{
+"eval": "__DQ.advance(34).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w02-run-side-f01"
+},
+{
+"eval": "__DQ.advance(34).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w02-run-side-f02"
+},
+{
+"eval": "__DQ.advance(34).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w02-run-side-f03"
+},
+{
+"eval": "__DQ.advance(34).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w02-run-side-f04"
+},
+{
+"eval": "__DQ.advance(34).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w02-run-side-f05"
+},
+{
+"eval": "__DQ.advance(34).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w02-run-side-f06"
+},
+{
+"eval": "__DQ.advance(34).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w02-run-side-f07"
+},
+{
+"eval": "__DQ.advance(34).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w02-run-side-f08"
+},
+{
+"eval": "__DQ.advance(34).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w02-run-side-f09"
+},
+{
+"eval": "(window.dispatchEvent(new KeyboardEvent('keyup',{key:'Shift',code:'ShiftLeft'})),1)"
+},
+{
+"eval": "(window.dispatchEvent(new KeyboardEvent('keyup',{key:'ArrowRight',code:'ArrowRight'})),1)"
+},
+{
+"eval": "__DQ.advance(1500).tick"
+},
+{
+"eval": "__DQ.advance(300).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w03-idle-f00"
+},
+{
+"eval": "__DQ.advance(300).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w03-idle-f01"
+},
+{
+"eval": "__DQ.advance(300).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w03-idle-f02"
+},
+{
+"eval": "__DQ.advance(300).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w03-idle-f03"
+},
+{
+"eval": "__DQ.advance(300).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w03-idle-f04"
+},
+{
+"eval": "__DQ.advance(300).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w03-idle-f05"
+},
+{
+"eval": "__DQ.advance(300).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w03-idle-f06"
+},
+{
+"eval": "__DQ.advance(300).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w03-idle-f07"
+},
+{
+"eval": "__DQ.advance(300).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w03-idle-f08"
+},
+{
+"eval": "__DQ.advance(300).tick"
+},
+{
+"wait": 60
+},
+{
+"eval": "JSON.stringify((()=>{const s=__DQ.state(),p=s.player;return [s.loop.tick,+p.speed.toFixed(2),Math.round(p.facing),+p.anim.phase.toFixed(2),+p.anim.amp.toFixed(2),p.anim.blinking,p.anim.nodding]})())"
+},
+{
+"shot": "w03-idle-f09"
+}
+]
+}

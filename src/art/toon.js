@@ -298,19 +298,122 @@ export function aoPatch(mask, { color = PAL.shadow.ao } = {}) {
   return fn;
 }
 
+// ── see-through: the follow camera never zooms into trees — whatever stands between the lens and the hero
+//    dissolves instead (ordered dither, so no sorting and no transparency pass) ────────────────────────────────
+/**
+ * Three shared rules, all driven by uniforms every see-through material references (one update per frame):
+ *   1. faded instances  — Toon.see.setFades([{x, z, keep}]): an INSTANCED mesh whose instance origin is at (x, z)
+ *                         keeps only `keep` of its pixels (0.25 = the classic "tree between camera and hero" fade)
+ *   2. the hero window  — Toon.see.setHero(pos, camera, renderer): anything nearer the lens than the hero, inside a
+ *                         soft ellipse around him on screen, keeps ~22% (roofs, fences, trunks you walk behind)
+ *   3. near dissolve    — anything within ~3 units of the lens fades out (the lens can never sit inside a canopy)
+ * Materials opt in with the patch: makeToon(opts, preset, [Toon.see.patch]) / outlineMaterial(hex, {see: true}).
+ * Shadows are untouched (the depth pass is not patched): a faded tree still shades the grass.
+ */
+const SEE_SLOTS = 16;
+const SEE = {
+  uDqSee: { value: Array.from({ length: SEE_SLOTS }, () => new THREE.Vector4(0, 0, 0, 1)) },
+  uDqSeeN: { value: 0 },
+  uDqHero: { value: new THREE.Vector4(0, 0, 0, 0) },      // px x, px y (drawing buffer, bottom-left), view depth, on
+  uDqHeroR: { value: new THREE.Vector2(60, 100) },        // ellipse half-size in px
+  uDqNear: { value: new THREE.Vector2(1.2, 3.2) },         // gone below x, whole above y (view depth)
+};
+const SEE_VERT_DECL = /* glsl */`
+varying vec2 vDqSeeRoot; varying float vDqSeeZ;`;
+const SEE_VERT = /* glsl */`
+#include <project_vertex>
+  vDqSeeZ = -mvPosition.z;
+  #ifdef USE_INSTANCING
+    vDqSeeRoot = ( modelMatrix * instanceMatrix * vec4( 0.0, 0.0, 0.0, 1.0 ) ).xz;
+  #else
+    vDqSeeRoot = vec2( 1e6 );
+  #endif`;
+const SEE_FRAG_DECL = /* glsl */`
+varying vec2 vDqSeeRoot; varying float vDqSeeZ;
+uniform vec4 uDqSee[ ${SEE_SLOTS} ]; uniform int uDqSeeN; uniform vec4 uDqHero; uniform vec2 uDqHeroR; uniform vec2 uDqNear;
+float dqBayer4( vec2 p ){
+  ivec2 q = ivec2( mod( floor( p ), 4.0 ) );
+  int i = q.x + q.y * 4;
+  float b[ 16 ] = float[ 16 ]( 0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0 );
+  return ( b[ i ] + 0.5 ) / 16.0;
+}`;
+const SEE_FRAG = /* glsl */`
+#include <clipping_planes_fragment>
+{
+  float dqKeep = 1.0;
+  for ( int i = 0; i < ${SEE_SLOTS}; i ++ ) {
+    if ( i >= uDqSeeN ) break;
+    vec4 s = uDqSee[ i ];
+    if ( abs( vDqSeeRoot.x - s.x ) < 0.25 && abs( vDqSeeRoot.y - s.z ) < 0.25 ) dqKeep = min( dqKeep, s.w );
+  }
+  if ( uDqHero.w > 0.5 && vDqSeeZ < uDqHero.z - 0.9 ) {
+    float e = length( ( gl_FragCoord.xy - uDqHero.xy ) / uDqHeroR );
+    dqKeep = min( dqKeep, mix( 0.22, 1.0, smoothstep( 0.8, 1.2, e ) ) );
+  }
+  dqKeep = min( dqKeep, smoothstep( uDqNear.x, uDqNear.y, vDqSeeZ ) );
+  if ( dqKeep < 0.999 && dqBayer4( gl_FragCoord.xy ) > dqKeep ) discard;
+}`;
+function seePatch(sh) {
+  if (sh.fragmentShader.includes('dqBayer4')) return;
+  Object.assign(sh.uniforms, SEE);
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>' + SEE_VERT_DECL).replace('#include <project_vertex>', SEE_VERT);
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>' + SEE_FRAG_DECL).replace('#include <clipping_planes_fragment>', SEE_FRAG);
+}
+seePatch.key = 'see';
+
+const seeTmp = { v: new THREE.Vector3(), s: new THREE.Vector2(), h: new THREE.Vector3(), f: new THREE.Vector3() };
+export const See = {
+  SLOTS: SEE_SLOTS,
+  patch: seePatch,
+  uniforms: SEE,
+  /** Faded instances: [{x, z, keep}] (lowest keep wins the slots). */
+  setFades(list = []) {
+    const L = list.filter(f => f && f.keep < 0.999).sort((a, b) => a.keep - b.keep).slice(0, SEE_SLOTS);
+    L.forEach((f, i) => SEE.uDqSee.value[i].set(f.x, 0, f.z, Math.max(0, Math.min(1, f.keep))));
+    SEE.uDqSeeN.value = L.length;
+    return L.length;
+  },
+  /** Keep the hero visible: pos = feet {x, y, z}; height = how tall he stands. Pass null to switch it off. */
+  setHero(pos, camera, renderer, { height = 1.6 } = {}) {
+    try {
+      if (!pos || !camera || !renderer) { SEE.uDqHero.value.w = 0; return; }
+      camera.updateMatrixWorld();
+      renderer.getDrawingBufferSize(seeTmp.s);
+      const W = seeTmp.s.x, H = seeTmp.s.y;
+      const mid = seeTmp.v.set(pos.x, pos.y + height * 0.52, pos.z).project(camera);
+      const px = (mid.x * 0.5 + 0.5) * W, py = (mid.y * 0.5 + 0.5) * H;
+      const head = seeTmp.h.set(pos.x, pos.y + height * 1.05, pos.z).project(camera);
+      const feet = seeTmp.f.set(pos.x, pos.y - 0.05, pos.z).project(camera);
+      const halfH = Math.max(24, Math.abs(head.y - feet.y) * 0.5 * H * 0.5 * 1.35);
+      const view = seeTmp.v.set(pos.x, pos.y + height * 0.5, pos.z).applyMatrix4(camera.matrixWorldInverse);
+      SEE.uDqHero.value.set(px, py, -view.z, mid.z < 1 ? 1 : 0);
+      SEE.uDqHeroR.value.set(halfH * 0.72, halfH);
+    } catch (e) { reportError('Toon.see.setHero', e); }
+  },
+  clear() { SEE.uDqSeeN.value = 0; SEE.uDqHero.value.w = 0; },
+  state() { return { fades: SEE.uDqSeeN.value, hero: SEE.uDqHero.value.w > 0.5, heroPx: [Math.round(SEE.uDqHero.value.x), Math.round(SEE.uDqHero.value.y)], heroDepth: +SEE.uDqHero.value.z.toFixed(2) }; },
+};
+
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // 2. Outlines — inverted hull, warm dark, never pure black (ART-DIRECTION §6)
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 export const OUTLINE = Object.freeze({ char: 0.018, head: 0.02, slime: 0.018, canopy: 0.04, prop: 0.025 });
 
-export function outlineMaterial(hex = PAL.outline.char, { wind = 0, windBase = 0, windSpeed = TOON_DEFAULT.windSpeed } = {}) {
-  return Assets.material(`toon:outline:${hex}:${wind}:${windBase}:${windSpeed}`, () => {
+export function outlineMaterial(hex = PAL.outline.char, { wind = 0, windBase = 0, windSpeed = TOON_DEFAULT.windSpeed, see = false } = {}) {
+  return Assets.material(`toon:outline:${hex}:${wind}:${windBase}:${windSpeed}:${see ? 1 : 0}`, () => {
     const m = new THREE.MeshBasicMaterial({ color: C3(hex), side: THREE.BackSide });
     m.name = 'outline';
-    if (wind !== 0) {
+    if (wind !== 0 || see) {
       const p = { wind, windBase, windSpeed };
-      m.onBeforeCompile = (sh) => { try { applyWind(sh, p); } catch (e) { reportError('Toon outline wind', e); } };
-      m.customProgramCacheKey = () => 'dqoutline|wind';
+      m.onBeforeCompile = (sh) => {
+        try {
+          if (wind !== 0) applyWind(sh, p);
+          // a dissolving tree's ink line goes quicker than its leaves, so a faded canopy never leaves a dotted ring
+          if (see) { seePatch(sh); sh.fragmentShader = sh.fragmentShader.replace('if ( dqKeep < 0.999', 'dqKeep *= dqKeep; if ( dqKeep < 0.999'); }
+        } catch (e) { reportError('Toon outline patch', e); }
+      };
+      const key = ['dqoutline', wind !== 0 ? 'wind' : '', see ? 'see' : ''].filter(Boolean).join('|');
+      m.customProgramCacheKey = () => key;
     }
     m.visible = outlinesVisible;
     OUTLINE_MATS.add(m);
@@ -610,7 +713,7 @@ export function makeAOMask({ span = 104, size = 1024, center = [0, 0] } = {}) {
 export const Toon = {
   TOON_PARS, DEFAULT: TOON_DEFAULT, PRESETS: TOON_PRESETS, OUTLINE, SUN_DIR, RIG_PRESETS,
   make: makeToon, surface, tune, gradientMap, stock: stockToon,
-  worldPlanar, aoPatch,
+  worldPlanar, aoPatch, see: See,
   outlineMaterial, hullGeometry, withOutline, outlineInstanced, setOutlines,
   spherizeNormals, normalsUp,
   lightRig: makeLightRig, fog: makeFog,

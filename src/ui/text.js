@@ -59,9 +59,19 @@ function warn(msg) {
 }
 
 // ── parse ───────────────────────────────────────────────────────────────────────────────────────────────────
+/** Typographic quotes: "a" -> “a”, it's -> it’s, 'tis -> ’tis (a printed storybook never shows straight quotes). */
+export function smartQuotes(s) {
+  let open = true;
+  return String(s)
+    .replace(/"/g, () => { const q = open ? '\u201C' : '\u201D'; open = !open; return q; })
+    .replace(/(^|[\s([{\u2014\u201C-])'(?=\w)/g, '$1\u2018')
+    .replace(/'/g, '\u2019');
+}
+
 export function parse(markup, vars = {}) {
   let s = Array.isArray(markup) ? markup.map(String).join('{p}') : String(markup ?? '');
   s = s.replace(/%([A-Z][A-Z0-9_]*)%/g, (m, k) => (vars && (vars[k] ?? vars[k.toLowerCase()])) ?? m);
+  s = smartQuotes(s);
   const out = [];
   const stack = [];   // [{tag, cls}]
   const speedStack = [];

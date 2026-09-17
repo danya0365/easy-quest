@@ -213,6 +213,11 @@ test('§6.4 rubber band: effects by S and the score deltas', () => {
   assert.equal(F.assistDelta({ outcome: 'defeat', rounds: 3 }), 12);
   assert.equal(F.assistDelta({ outcome: 'victory', koCount: 1, rounds: 9 }), 10);
   assert.equal(F.assistDelta({ outcome: 'fled', boss: false, rounds: 1 }), 3);
+  // fleeing wakes the rubber band, it cannot max it out
+  assert.equal(F.assistDelta({ outcome: 'fled', boss: false, rounds: 1 }, 28), 2);
+  assert.equal(F.assistDelta({ outcome: 'fled', boss: false, rounds: 1 }, 30), 0);
+  assert.equal(F.assistDelta({ outcome: 'fled', boss: false, rounds: 9 }, 60), 4, 'a long fight still counts');
+  assert.equal(F.assistDelta({ outcome: 'defeat', rounds: 3 }, 60), 12, 'a wipe still counts');
   assert.equal(F.assistDelta({ outcome: 'victory', boss: true, levelsGained: 1, nobodyBelow60: true, rounds: 5 }), -8);
   assert.equal(F.applyAssist(3, -8), 0);
   assert.equal(F.applyAssist(95, 12), 100);

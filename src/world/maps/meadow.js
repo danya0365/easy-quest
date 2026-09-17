@@ -20,6 +20,16 @@ import { makeAOMask } from '../../art/toon.js';
 import { createKit, buildSky, ringHill, buildGround, paintMasks, distanceGrid, curvePoints, bridgeFrame, prep,
   OAK, POPLAR, BUSH, CHESTNUT } from '../scenery.js';
 
+/** The woodland ring's rows, in superellipse "radius" (the walkable edge is BOUND = 33.5). */
+const WOOD_ROWS = [
+  { kind: 'tree', e: 37.6, spacing: 3.7, jitter: 0.9, size: [1.15, 1.5] },
+  { kind: 'card', e: 41.0, spacing: 3.2, jitter: 1.0, size: [6.6, 8.0], haze: 0.03 },
+  { kind: 'card', e: 44.6, spacing: 3.4, jitter: 1.2, size: [7.4, 9.0], haze: 0.1 },
+  { kind: 'card', e: 48.6, spacing: 3.7, jitter: 1.3, size: [8.0, 9.8], haze: 0.17 },
+  { kind: 'card', e: 53.4, spacing: 4.1, jitter: 1.5, size: [8.6, 10.6], haze: 0.25 },
+  { kind: 'card', e: 59.2, spacing: 4.6, jitter: 1.7, size: [9.4, 11.6], haze: 0.33 },
+];
+
 // ── the words (VOICE-BIBLE: three lines, 34 characters, the joke on the strong word) ─────────────────────────
 const SIGN_TEXT = [
   '{gold}Puddlewick{/gold} — over the bridge,\nround the bend. Wipe your boots.',
@@ -41,11 +51,12 @@ const WATER_Y = -0.4, BED = -1.0, VALLEY = -0.08;
 const HW = 1.35, BANK = 0.75;               // the Beck: water half-width, bank
 const TAU = Math.PI * 2;
 
-const LANE = [[6.5, 44], [3.2, 35], [4.4, 27.5], [2.6, 21.5], [0.2, 16.5], [0.9, 11.5], [0.2, 5.5], [-1.4, 0], [-2.8, -5], [-3.3, -9], [-3.0, -13], [-1.2, -17.5],
+const LANE = [[14.5, 58], [9.8, 50.5], [6.5, 44], [3.2, 35], [4.4, 27.5], [2.6, 21.5], [0.2, 16.5], [0.9, 11.5], [0.2, 5.5], [-1.4, 0], [-2.8, -5], [-3.3, -9], [-3.0, -13], [-1.2, -17.5],
   [3.5, -20.5], [9.5, -22.5], [14.5, -26], [17.2, -32], [18.2, -39], [18.8, -48]];
-const EAST = [[0.5, 9.2], [4.5, 8.0], [10.5, 8.4], [17.5, 6.4], [25, 3.0], [33, 1.0], [44, 0.2]];
+const EAST = [[0.5, 9.2], [4.5, 8.0], [10.5, 8.4], [17.5, 6.4], [25, 3.0], [33, 1.0], [44, 0.2], [51.5, -2.6], [58, -7.5]];
 const SPUR = [[-1.6, 1.8], [-4.6, 1.4], [-7.6, 0.6], [-9.6, 0.3]];
 const BECK = [[-24.5, -8.8], [-19.5, -10.6], [-13, -12.0], [-7.5, -11.6], [-3.2, -11.0], [2.0, -12.2], [7.5, -14.2], [13, -15.6], [18.5, -16.2], [22.5, -18.2]];
+const VILLAGE_CLEARING = { x: 19.5, z: -45.5, rx: 17.5, rz: 14.5 };
 const PONDS = [{ x: -28.4, z: -7.6, r: 3.6, sx: 1.3, sz: 1.0 }, { x: 26.2, z: -20.8, r: 3.8, sx: 1.15, sz: 1.0 }];
 
 const bump = (x, z, cx, cz, r) => Math.exp(-((x - cx) * (x - cx) + (z - cz) * (z - cz)) / (r * r));
@@ -76,6 +87,7 @@ function layout() {
   if (LAYOUT) return LAYOUT;
   const L = {};
   L.lane = curvePoints(LANE, 0.35); L.east = curvePoints(EAST, 0.35); L.spur = curvePoints(SPUR, 0.3); L.beck = curvePoints(BECK, 0.35);
+  L.laneOut = L.lane.filter(([x, z]) => superR(x, z) > 28); L.eastOut = L.east.filter(([x, z]) => superR(x, z) > 28);
   L.masks = paintMasks({
     N: 1024, span: MASK_SPAN,
     strokes: [
@@ -246,13 +258,13 @@ function coloured(geo, hex, matrix) { const g = prep(geo, hex); if (matrix) g.ap
 const MX = (x, y, z, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) =>
   new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, 'YXZ')), new THREE.Vector3(sx, sy, sz));
 
-function sheepGeometry() {
+function sheepGeometry({ far = false } = {}) {
   const wool = [];
   const W = PAL.animal.wool;
-  wool.push(coloured(new THREE.IcosahedronGeometry(0.42, 2), W, MX(0, 0.62, 0, 0.95, 0.8, 1.2)));
+  wool.push(coloured(new THREE.IcosahedronGeometry(0.42, 1), W, MX(0, 0.62, 0, 0.95, 0.8, 1.2)));
   for (const [x, y, z, r] of [[0.21, 0.8, 0.12, 0.22], [-0.21, 0.8, 0.1, 0.22], [0, 0.92, -0.14, 0.25],
     [0, 0.64, -0.44, 0.23], [0.25, 0.58, -0.12, 0.23], [-0.25, 0.58, -0.12, 0.23], [0, 0.72, 0.36, 0.2], [0, 0.73, -0.64, 0.09]]) {
-    wool.push(coloured(new THREE.IcosahedronGeometry(r, 1), W, MX(x, y, z)));
+    wool.push(coloured(new THREE.IcosahedronGeometry(r, far ? 0 : 1), W, MX(x, y, z)));
   }
   const body = mergeGeometries(wool);
   { // wool is a touch creamier underneath
@@ -263,14 +275,14 @@ function sheepGeometry() {
   for (const [x, z] of [[0.17, 0.25], [-0.17, 0.25], [0.17, -0.3], [-0.17, -0.3]]) legs.push(coloured(new THREE.CylinderGeometry(0.055, 0.05, 0.36, 6), PAL.animal.hoof, MX(x, 0.19, z)));
   const bodyAll = mergeGeometries([body, ...legs]);
   const head = mergeGeometries([
-    coloured(new THREE.SphereGeometry(0.17, 12, 9), PAL.animal.face, MX(0, -0.03, 0.14, 0.82, 0.95, 1.15)),
+    coloured(far ? new THREE.SphereGeometry(0.17, 8, 6) : new THREE.SphereGeometry(0.17, 11, 8), PAL.animal.face, MX(0, -0.03, 0.14, 0.82, 0.95, 1.15)),
     coloured(new THREE.IcosahedronGeometry(0.13, 1), W, MX(0, 0.12, 0.06, 1.1, 0.8, 1)),
-    coloured(new THREE.SphereGeometry(0.07, 8, 5), PAL.animal.ear, MX(0.18, 0.04, 0.06, 1.45, 0.45, 0.8, 0, 0, -0.35)),
-    coloured(new THREE.SphereGeometry(0.07, 8, 5), PAL.animal.ear, MX(-0.18, 0.04, 0.06, 1.45, 0.45, 0.8, 0, 0, 0.35)),
-    coloured(new THREE.SphereGeometry(0.036, 7, 5), PAL.char.white, MX(0.085, 0.03, 0.265)),
-    coloured(new THREE.SphereGeometry(0.036, 7, 5), PAL.char.white, MX(-0.085, 0.03, 0.265)),
-    coloured(new THREE.SphereGeometry(0.021, 6, 4), PAL.char.eye, MX(0.083, 0.03, 0.296)),
-    coloured(new THREE.SphereGeometry(0.021, 6, 4), PAL.char.eye, MX(-0.083, 0.03, 0.296)),
+    coloured(new THREE.SphereGeometry(0.07, 7, 4), PAL.animal.ear, MX(0.18, 0.04, 0.06, 1.45, 0.45, 0.8, 0, 0, -0.35)),
+    coloured(new THREE.SphereGeometry(0.07, 7, 4), PAL.animal.ear, MX(-0.18, 0.04, 0.06, 1.45, 0.45, 0.8, 0, 0, 0.35)),
+    coloured(new THREE.SphereGeometry(0.036, 6, 4), PAL.char.white, MX(0.085, 0.03, 0.265)),
+    coloured(new THREE.SphereGeometry(0.036, 6, 4), PAL.char.white, MX(-0.085, 0.03, 0.265)),
+    coloured(new THREE.SphereGeometry(0.021, 5, 3), PAL.char.eye, MX(0.083, 0.03, 0.296)),
+    coloured(new THREE.SphereGeometry(0.021, 5, 3), PAL.char.eye, MX(-0.083, 0.03, 0.296)),
   ]);
   return { body: bodyAll, head, headAt: [0, 0.74, 0.46] };
 }
@@ -278,15 +290,15 @@ function sheepGeometry() {
 function duckGeometry() {
   const D = PAL.animal.duck;
   const body = mergeGeometries([
-    coloured(new THREE.SphereGeometry(0.22, 12, 8), D, MX(0, 0.1, 0, 0.9, 0.68, 1.3)),
+    coloured(new THREE.SphereGeometry(0.22, 11, 7), D, MX(0, 0.1, 0, 0.9, 0.68, 1.3)),
     coloured(new THREE.ConeGeometry(0.09, 0.2, 10), D, MX(0, 0.2, -0.29, 1, 1, 1, -0.9)),
-    coloured(new THREE.SphereGeometry(0.1, 10, 8), D, MX(0.15, 0.15, -0.02, 0.5, 0.6, 1.3)),
-    coloured(new THREE.SphereGeometry(0.1, 10, 8), D, MX(-0.15, 0.15, -0.02, 0.5, 0.6, 1.3)),
+    coloured(new THREE.SphereGeometry(0.1, 8, 6), D, MX(0.15, 0.15, -0.02, 0.5, 0.6, 1.3)),
+    coloured(new THREE.SphereGeometry(0.1, 8, 6), D, MX(-0.15, 0.15, -0.02, 0.5, 0.6, 1.3)),
   ]);
   const head = mergeGeometries([
     coloured(new THREE.CylinderGeometry(0.055, 0.07, 0.16, 7), D, MX(0, -0.06, -0.02)),
-    coloured(new THREE.SphereGeometry(0.11, 10, 7), D, MX(0, 0.06, 0.02)),
-    coloured(new THREE.SphereGeometry(0.055, 10, 8), PAL.animal.beak, MX(0, 0.03, 0.14, 1.1, 0.45, 1.5)),
+    coloured(new THREE.SphereGeometry(0.11, 9, 6), D, MX(0, 0.06, 0.02)),
+    coloured(new THREE.SphereGeometry(0.055, 8, 5), PAL.animal.beak, MX(0, 0.03, 0.14, 1.1, 0.45, 1.5)),
     coloured(new THREE.SphereGeometry(0.018, 6, 5), PAL.char.eye, MX(0.07, 0.09, 0.08)),
     coloured(new THREE.SphereGeometry(0.018, 6, 5), PAL.char.eye, MX(-0.07, 0.09, 0.08)),
   ]);
@@ -378,31 +390,45 @@ const meadow = {
     // ── the Beck: footbridge, rocks, reeds, lily pads ──
     kit.footbridge(L.bridge);
     for (const k of L.rocks) kit.rock(k.x, k.z, k.s, k.seed);
-    kit.reeds(PONDS[0].x + 3.6, PONDS[0].z + 2.6, 11, 21, 0.9);
-    kit.reeds(PONDS[0].x - 3.9, PONDS[0].z - 2.2, 8, 22, 0.8);
-    kit.reeds(PONDS[1].x - 3.2, PONDS[1].z + 3.1, 10, 23, 0.9);
-    kit.reeds(-10.4, -9.4, 6, 24, 0.6);
-    kit.reeds(11.2, -13.0, 7, 25, 0.6);
+    const shore = (x, z, y) => y > WATER_Y - 0.14 && y < WATER_Y + 0.4;          // reeds grow at the water's edge, not in it
+    kit.reeds(PONDS[0].x + 3.6, PONDS[0].z + 2.6, 16, 21, 1.3, shore);
+    kit.reeds(PONDS[0].x - 3.9, PONDS[0].z - 2.2, 12, 22, 1.2, shore);
+    kit.reeds(PONDS[1].x - 3.2, PONDS[1].z + 3.1, 14, 23, 1.3, shore);
+    kit.reeds(-10.4, -9.4, 9, 24, 0.9, shore);
+    kit.reeds(11.2, -13.0, 10, 25, 0.9, shore);
     kit.lilyPads(PONDS[0].x - 1.0, PONDS[0].z + 0.4, WATER_Y, 6, 31, 2.2);
     kit.lilyPads(PONDS[1].x + 0.6, PONDS[1].z - 0.8, WATER_Y, 5, 32, 2.0);
 
     // ── trees ──
     kit.forest('chestnut', CHESTNUT, L.trees.chestnut, { detail: 2, spherize: 0.72, trunkH: 2.2, aoR: 2.4 });
-    kit.forest('oak', OAK, L.trees.oak, { detail: 1, spherize: 0.72, trunkH: 1.7, outline: !low });
-    kit.forest('poplar', POPLAR, L.trees.poplar, { detail: 1, spherize: 0.6, trunkH: 1.3, light: PAL.foliage.light, outline: !low });
+    kit.forest('oak', OAK, L.trees.oak, { detail: 1, spherize: 0.72, trunkH: 1.7, outline: !low, chunk: 12, nearDist: low ? 0 : 8 });
+    kit.forest('poplar', POPLAR, L.trees.poplar, { detail: 1, spherize: 0.6, trunkH: 1.3, light: PAL.foliage.light, outline: !low, nearDist: low ? 0 : 8 });
     kit.forest('bush', BUSH, L.trees.bush, { detail: 1, spherize: 0.6, trunkH: 0, light: PAL.foliage.light, wind: 0.02, windBase: 0.2, shadows: false, aoR: 1.1, aoS: 0.55, outline: !low });
-    kit.forestBelt({ radius: 46, rows: 3, rowGap: 6.5, seed: 777, threshold: 0.4, step: 0.075,
-      skip: (x, z) => { const a = Math.atan2(z, x); return Math.abs(angDiff(a, ANG_VILLAGE)) < 0.34 || Math.abs(angDiff(a, ANG_SOUTH)) < 0.16 || Math.abs(angDiff(a, ANG_EAST)) < 0.14; } });
+    // ── the woodland ring: the vale is closed by forest on every side; the lanes run into it, the village sits in
+    //    its clearing. Row 0 is real outlined oaks with trunks; the rows behind are painted treetops, hazier each row.
+    const shade = makeAOMask({ span: 200, size: 512, center: [0, 0] });
+    const laneOut = [L.laneOut, L.eastOut];
+    const nearLane = (x, z) => { let d = 1e9; for (const P of laneOut) for (let i = 0; i < P.length - 1; i++) { const [ax, az] = P[i], [bx, bz] = P[i + 1], vx = bx - ax, vz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz || 1))); d = Math.min(d, Math.hypot(x - ax - vx * t, z - az - vz * t)); } return d; };
+    kit.forestRing({
+      rows: WOOD_ROWS, seed: 4711, shade, sunDir: rig.dir, low,
+      pointAt: (a, e) => { const c = Math.cos(a), si = Math.sin(a), r = e / Math.pow(Math.pow(Math.abs(c), 4) + Math.pow(Math.abs(si), 4), 0.25); return [c * r, si * r]; },
+      clear: (x, z, row) => {
+        if (Math.hypot((x - VILLAGE_CLEARING.x) / VILLAGE_CLEARING.rx, (z - VILLAGE_CLEARING.z) / VILLAGE_CLEARING.rz) < 1) return true;
+        const mouth = [3.3, 2.9, 2.0, 1.1, 0, 0][row] ?? 0;
+        return mouth > 0 && nearLane(x, z) < mouth;
+      },
+    });
 
     kit.flush();
 
     // ── water (after the buckets: transparent-free, but drawn over the carved banks) ──
-    kit.water({ stream: L.beck, width: 2 * (HW + 0.45), ponds: PONDS.map(p => ({ x: p.x, z: p.z, r: p.r + 0.35, sx: p.sx, sz: p.sz })), y: WATER_Y });
+    // one level sheet wider than the water: the carved banks decide the shore, so river and ponds meet seamlessly
+    kit.water({ stream: L.beck, width: 2 * (HW + BANK + 0.45), ponds: PONDS.map(p => ({ x: p.x, z: p.z, r: p.r + BANK + 1.7, sx: p.sx, sz: p.sz })), y: WATER_Y, shoreDepth: 0.42 });
 
     // ── tufts + flowers (footprints and AO are complete now) ──
     const pathAt = (x, z) => L.masks.sample(0, x, z);
     const onMeadow = (x, z) => superR(x, z) < 40 && pathAt(x, z) < 0.3 && L.water.sample(x, z) > 2.3 && !L.bridge.corridor(x, z, 1);
-    kit.tufts({ count: low ? 700 : 1300, boost: (x, z) => 0.08 * (1 - smooth(6, 16, Math.hypot(x - 1.5, z - 16))), radius: 40, seed: 999, accept: onMeadow, rimOf: (x, z) => { const p = pathAt(x, z); return smooth(0.08, 0.3, p) * (1 - smooth(0.3, 0.42, p)) + smooth(3.2, 2.4, L.water.sample(x, z)) * 0.6; } });
+    kit.tufts({ count: low ? 700 : 1150, boost: (x, z) => 0.08 * (1 - smooth(6, 16, Math.hypot(x - 1.5, z - 16))), radius: 40, seed: 999, accept: onMeadow, rimOf: (x, z) => { const p = pathAt(x, z); return smooth(0.08, 0.3, p) * (1 - smooth(0.3, 0.42, p)) + smooth(3.2, 2.4, L.water.sample(x, z)) * 0.6; } });
     const hues = [PAL.flower.white, PAL.flower.yellow, PAL.flower.pink, PAL.flower.white, PAL.flower.blue, PAL.flower.yellow];
     const fr = mulberry(5150), clusters = [
       { x: 4.8, z: 12.6, hue: PAL.flower.yellow, n: 16 }, { x: -2.6, z: 13.5, hue: PAL.flower.white, n: 18 }, { x: 3.8, z: 20.5, hue: PAL.flower.pink, n: 14 },
@@ -414,11 +440,11 @@ const meadow = {
     kit.flowers(clusters, { accept: (x, z) => onMeadow(x, z) && pathAt(x, z) < 0.2 });
 
     // ── the ground last: it samples the finished AO mask ──
-    buildGround(scene, { heightAt, masks: L.masks, ao, inner: 40, step: 1.0, outer: 132, rings: 9 });
+    buildGround(scene, { heightAt, masks: L.masks, ao, shade, inner: 37, step: 1.0, outer: 132, rings: 8 });   // the fine grid ends under the woodland's first row
 
     // ── the sky's small stories: birds over the vale, and Highfeather, faint, for anyone who looks up ──
     kit.birds(4, { centre: [4, -2], height: 11, radius: 16, seed: 91 });
-    kit.skyCastle({ azimuth: -1.12, elevation: 0.1, distance: 720, size: 120, opacity: 0.2 });
+    kit.skyCastle({ azimuth: -1.12, elevation: 0.12, distance: 720, size: 112, opacity: 0.86, tintFrom: sky.clouds.material });
 
     // ── life: smoke, butterflies, sheep, ducks ──
     kit.smoke(chimneys.filter(Boolean));
@@ -426,7 +452,16 @@ const meadow = {
       { x: -7.2, z: 5.8, hue: PAL.flower.yellow }, { x: 7.2, z: -6.8, hue: PAL.char.white }]);
     const sg = sheepGeometry(), dg = duckGeometry();
     const flock = [...L.sheep.map(s => Object.assign({ pen: true }, s)), ...L.laneSheep.map(s => Object.assign({ pen: false }, s))];
-    const sheep = kit.critters({ name: 'sheep', body: sg.body, head: sg.head, headAt: sg.headAt, count: flock.length, outline: 0.022, headOutline: false });
+    // the paddock flock and the lane flock by the village are separate meshes, so each is culled when out of view
+    const penSheep = kit.critters({ name: 'sheep', body: sg.body, head: sg.head, headAt: sg.headAt, count: L.sheep.length, outline: 0.022, headOutline: false,
+      bounds: { x: L.paddockCentre.x, y: heightAt(L.paddockCentre.x, L.paddockCentre.z) + 0.6, z: L.paddockCentre.z, r: L.paddockCentre.r + 3 } });
+    const laneBounds = (() => { let x = 0, z = 0; for (const q of L.laneSheep) { x += q.x; z += q.z; } x /= L.laneSheep.length; z /= L.laneSheep.length; return { x, z, y: heightAt(x, z) + 0.6, r: 4.5 }; })();
+    const sgFar = sheepGeometry({ far: true });                      // the lane flock is only ever seen from across the vale
+    const laneSheep = kit.critters({ name: 'laneSheep', body: sgFar.body, head: sgFar.head, headAt: sgFar.headAt, count: L.laneSheep.length, outline: 0.022, headOutline: false, bounds: laneBounds });
+    const sheep = {
+      set(i, ...a) { if (i < L.sheep.length) penSheep.set(i, ...a); else laneSheep.set(i - L.sheep.length, ...a); },
+      commit() { penSheep.commit(); laneSheep.commit(); },
+    };
     const ducks = kit.critters({ name: 'duck', body: dg.body, head: dg.head, headAt: dg.headAt, count: L.ducks.length, outline: 0.016, headOutline: false });
     const rnd = mulberry(8080);
     const S = flock.map((s, i) => ({ ...s, tx: s.x, tz: s.z, mode: 'graze', timer: 1 + rnd() * 4, pitch: 0.7, ph: rnd() * TAU, walk: 0, id: i }));
@@ -440,7 +475,7 @@ const meadow = {
         const cam = c && c.camera;
         if (cam) sky.sky.position.copy(cam.position);
         sky.clouds.rotation.y = t * 0.0035;
-        kit.update(t, dt, cam);
+        kit.update(t, dt, cam, c && c.player);
         // sheep: graze, look up, amble somewhere nicer, graze again
         for (const s of S) {
           s.timer -= dt;
@@ -481,7 +516,7 @@ const meadow = {
         ducks.commit();
         void tmp;
       },
-      state() { return { buildMs, counts: Object.assign({}, kit.counts), bridge: { x: +L.bridge.cx.toFixed(2), z: +L.bridge.cz.toFixed(2) }, sign: L.sign }; },
+      state() { return { buildMs, counts: Object.assign({}, kit.counts), bridge: { x: +L.bridge.cx.toFixed(2), z: +L.bridge.cz.toFixed(2) }, sign: L.sign, see: Object.assign({}, kit.seeState) }; },
       dispose() {},
     };
   },

@@ -14,12 +14,14 @@ const FAM_B_HARM = ['D', 'Gmaj7', 'Em7', 'A', 'F#m', 'G', 'Em|F#7', 'Bm'];
 const PUD_HARM = ['D', 'A7|D', 'Bm', 'Gmaj7|A', 'D', 'G|D/F#', 'Em|A7', 'D'];
 
 export function build() {
-  const T = Theme({ id: 'finale', title: 'Welcome Home', key: 'D major', bpm: 72, meter: 3, pulse: [0], intro: 4, loop: 28, space: 'HALL', gain: 0.9 });
+  const T = Theme({ id: 'finale', title: 'Welcome Home', key: 'D major', bpm: 72, meter: 3, pulse: [0], intro: 4, loop: 28, space: 'HALL', gain: 0.44 });
   const vns = T.part('violins', { voice: 'strings', bus: 'melody', gain: 1.25 });
   const lull = T.part('lullaby', { voice: 'hornSolo', bus: 'counter' });
   const flute = T.part('flute', { voice: 'flute', bus: 'counter' });
   const horns = T.part('horns', { voice: 'horns', bus: 'melody' });
+  const trumpets = T.part('trumpets', { voice: 'trumpet', bus: 'melody', gain: 0.9 });
   const hornsLo = T.part('hornsLo', { voice: 'horns', bus: 'counter', gain: 0.7 });
+  const bones = T.part('bones', { voice: 'trombone', bus: 'harmony', gain: 0.7 });
   T.part('strPad', { voice: 'strings', bus: 'harmony' });
   T.part('hornPad', { voice: 'horns', bus: 'harmony', gain: 0.6 });
   const celli = T.part('celli', { voice: 'strings', bus: 'bass', pan: -0.3, gain: 0.8 });
@@ -53,19 +55,21 @@ export function build() {
   downbeats(16, 4, 'mp');
   // Puddlewick in full brass (20-27)
   const h3 = T.chords(20, PUD_HARM);
-  horns.seq(20, PUDDLEWICK, { dyn: 'ff', tr: 7 });
-  hornsLo.seq(20, PUDDLEWICK, { dyn: 'f', tr: -5 });
-  vns.seq(20, PUDDLEWICK, { dyn: 'f', tr: 19, gain: 0.6 });
+  trumpets.seq(20, PUDDLEWICK, { dyn: 'f', tr: 7 });
+  horns.seq(20, PUDDLEWICK, { dyn: 'ff', tr: -5 });
+  vns.seq(20, PUDDLEWICK, { dyn: 'f', tr: 7, gain: 0.8 });
+  T.pad('bones', T.chords(20, PUD_HARM, false), { n: 3, lo: 'D3', hi: 'D4', dyn: 'mf' });
   T.pad('strPad', h3, { n: 4, lo: 'D3', hi: 'A4', dyn: 'f' }); roots(h3, 'f');
   downbeats(20, 8, 'mf'); cym.note(T.bar(20), 'C5', 3, { dyn: 'f' });
   for (let bar = 24; bar < 28; bar++) for (const x of [0, 1, 1.5, 2]) snare.note(T.bar(bar, x), 'D4', 0.25, { dyn: x ? 'mp' : 'mf' });
   // Coda (28-31): the Hearth Cell, grand; the last D rings on into the loop
   const hC = T.chords(28, ['D', 'G|A7', 'D', 'D']);
   const cell = [['A4', 1], ['D5', 1], ['C#5', 1], ['B4', 1], ['A4', 2], ['D5', 3], ['D5', 3.5]];
-  horns.seq(28, cell, { dyn: 'ff' }); hornsLo.seq(28, cell, { dyn: 'f', oct: -1 }); vns.seq(28, cell, { dyn: 'f', oct: 1 });
+  horns.seq(28, cell, { dyn: 'ff' }); trumpets.seq(28, cell, { dyn: 'f' }); hornsLo.seq(28, cell, { dyn: 'f', oct: -1 }); vns.seq(28, cell, { dyn: 'f', oct: 1 });
+  T.pad('bones', hC, { n: 3, lo: 'D3', hi: 'D4', dyn: 'f', overlap: 2 });
   T.pad('strPad', hC, { n: 4, lo: 'D3', hi: 'A4', dyn: 'f', overlap: 2 }); roots(hC, 'f');
-  timp.roll(T.bar(29), T.bar(30), 'A2', { from: 'mf', to: 'ff', bpm: 72 }); timp.note(T.bar(30), 'D2', 3, { dyn: 'ff' });
-  cym.note(T.bar(30), 'C5', 4, { dyn: 'f' });
+  timp.roll(T.bar(29), T.bar(30), 'A2', { from: 'mf', to: 'f', bpm: 72 }); timp.note(T.bar(30), 'D2', 3, { dyn: 'f' });
+  cym.note(T.bar(30), 'C5', 4, { dyn: 'mf' });
   T.parts.harp.gliss(T.bar(30), 'D', 'D3', 'D6', { dyn: 'mf' });
   cel.seq(30, [['D6', 1], ['F#6', 1], ['A6', 4]], { dyn: 'mp' });
   return T.build();

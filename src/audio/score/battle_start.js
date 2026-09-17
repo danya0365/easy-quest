@@ -5,7 +5,7 @@
 import { Theme } from './_lib.js';
 
 export function build() {
-  const T = Theme({ id: 'battle_start', title: 'Draw!', key: 'D minor', bpm: 60, meter: 4, pulse: [0], bars: 1, space: 'HALL', gain: 1.0, kind: 'oneshot' });
+  const T = Theme({ id: 'battle_start', title: 'Draw!', key: 'D minor', bpm: 60, meter: 4, pulse: [0], bars: 1, space: 'HALL', gain: 0.717, kind: 'oneshot' });
   const horns = T.part('horns', { voice: 'horns', bus: 'melody', o: { tight: true, rel: 0.06 } });
   const cym = T.part('cym', { voice: 'cymbal', bus: 'perc' });
   const timp = T.part('timp', { voice: 'timp', bus: 'perc' });

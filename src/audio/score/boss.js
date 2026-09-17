@@ -28,10 +28,14 @@ const B_MELODY = [
 const B_HARM = ['Ab', 'Bb', 'Gm', 'Cm', 'Fm', 'Bb', 'Eb', 'G7'];
 
 export function build() {
-  const T = Theme({ id: 'boss', title: 'The One Who Waits', key: 'C minor', bpm: 168, meter: 4, pulse: [0, 2], intro: 4, loop: 24, space: 'HALL', gain: 0.95 });
+  const T = Theme({ id: 'boss', title: 'The One Who Waits', key: 'C minor', bpm: 168, meter: 4, pulse: [0, 2], intro: 4, loop: 24, space: 'HALL', gain: 0.792 });
+  // horns carry the tune with the organ; trumpets bite on top in the A restatement; trombones double it an octave below
+  // (the part the synth choir used to breathe) so the boss is bigger than the battle without a new note
   const horns = T.part('horns', { voice: 'horns', bus: 'melody', o: { tight: true } });
+  const trumpets = T.part('trumpets', { voice: 'trumpet', bus: 'melody', gain: 0.7, o: { tight: true } });
   const organ = T.part('organ', { voice: 'organ', bus: 'counter', gain: 0.8, o: { rel: 0.2 } });
-  const choir = T.part('choir', { voice: 'pad', bus: 'counter', gain: 1.2, o: { attack: 0.12, rel: 0.5 } });
+  const choir = T.part('choir', { voice: 'trombone', bus: 'counter', gain: 0.85, o: { tight: true } });
+  const tuba = T.part('tuba', { voice: 'tuba', bus: 'bass', gain: 0.6 });
   const strLead = T.part('strLead', { voice: 'strings', bus: 'melody', gain: 1.1 });
   T.part('ost', { voice: 'strings', bus: 'bass', pan: -0.25, gain: 0.8, o: { attack: 0.02, rel: 0.08 } });
   T.part('pizz', { voice: 'pizz', bus: 'bass' });
@@ -59,8 +63,10 @@ export function build() {
   const sectionA = (bar) => {
     const h = T.chords(bar, A_HARM);
     horns.seq(bar, A_MELODY, { dyn: 'ff' });
+    if (bar > 4) trumpets.seq(bar, A_MELODY, { dyn: 'f' });
     organ.seq(bar, A_MELODY, { dyn: 'f' });
-    choir.seq(bar, A_MELODY, { dyn: 'pp', oct: -1 });
+    choir.seq(bar, A_MELODY, { dyn: 'f', oct: -1 });
+    T.bass('tuba', h, { pat: [[0, '1', 1.8], [2, '1', 1.8]], base: 'C2', dyn: 'mf', cycle: 4 });
     T.pad('trem', h, { n: 3, lo: 'G3', hi: 'G4', dyn: 'mf' });
     ostinato(h, { dyn: 'f' });
     cym.note(T.bar(bar), 'C5', 2, { dyn: 'f' });

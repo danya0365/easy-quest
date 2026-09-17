@@ -14,12 +14,14 @@ export const MELODY = [
 const HARM = ['D', 'D', 'G|D', 'A', 'D/A|A7', 'D'];
 
 export function build() {
-  const T = Theme({ id: 'victory', title: 'Well Fought!', key: 'D major', bpm: 132, meter: 4, pulse: [0, 2], bars: 6, space: 'HALL', gain: 0.9, kind: 'oneshot' });
-  const horns = T.part('horns', { voice: 'horns', bus: 'melody' });
-  const hornsLo = T.part('hornsLo', { voice: 'horns', bus: 'counter', gain: 0.7 });
+  const T = Theme({ id: 'victory', title: 'Well Fought!', key: 'D major', bpm: 132, meter: 4, pulse: [0, 2], bars: 6, space: 'HALL', gain: 0.732, kind: 'oneshot' });
+  // trumpets ring the D5-D6 tune at pitch, horns an octave below, trombones hold the chords, a tuba under the celli
+  const horns = T.part('horns', { voice: 'trumpet', bus: 'melody' });
+  const hornsLo = T.part('hornsLo', { voice: 'horns', bus: 'melody', gain: 0.95 });
   const str = T.part('strings', { voice: 'strings', bus: 'counter', gain: 0.75 });
   T.part('pad', { voice: 'strings', bus: 'harmony' });
-  T.part('hornPad', { voice: 'horns', bus: 'harmony', gain: 0.6 });
+  T.part('hornPad', { voice: 'trombone', bus: 'harmony', gain: 0.7 });
+  const tuba = T.part('tuba', { voice: 'tuba', bus: 'bass', gain: 0.6 });
   const celli = T.part('celli', { voice: 'strings', bus: 'bass', pan: -0.3, gain: 0.8 });
   const timp = T.part('timp', { voice: 'timp', bus: 'perc' });
   const cym = T.part('cym', { voice: 'cymbal', bus: 'perc' });
@@ -28,9 +30,10 @@ export function build() {
   const cel = T.part('celesta', { voice: 'celesta', bus: 'counter' });
   const h = T.chords(0, HARM);
 
-  horns.seq(0, MELODY, { dyn: 'ff', art: 'tenuto' });
-  hornsLo.seq(0, MELODY, { dyn: 'f', oct: -1, art: 'tenuto' });
-  str.seq(2, MELODY.slice(10), { dyn: 'f', oct: 1 });
+  horns.seq(0, MELODY, { dyn: 'f', art: 'tenuto' });
+  hornsLo.seq(0, MELODY, { dyn: 'ff', oct: -1, art: 'tenuto' });
+  str.seq(2, MELODY.slice(10), { dyn: 'f' });
+  tuba.seq(0, [['D2', 8], ['G1', 2], ['D2', 2], ['A1', 4], ['A1', 4], ['D2', 4]], { dyn: 'mf' });
   T.pad('pad', h, { n: 4, lo: 'D3', hi: 'A4', dyn: 'mf' });
   T.pad('hornPad', T.chords(1, ['D', 'G|D', 'A', 'D/A|A7'], false), { n: 3, lo: 'D3', hi: 'D4', dyn: 'mf' });
   celli.seq(0, [['D2', 8], ['G2', 2], ['D2', 2], ['A1', 4], ['A1', 2], ['A1', 2], ['D2', 4]], { dyn: 'f' });
