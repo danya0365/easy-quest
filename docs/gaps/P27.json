@@ -1,0 +1,13 @@
+{
+  "id": "P27",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Themes repeat one cell instead of having a tune",
+      "detail": "overworld.js bars 5-12 are a D major triad run plus a scale walk in straight quarters, bars 9-12 are those same bars transposed a tone, and that four-bar cell returns verbatim on solo horn and trumpet. Nine distinct bar-rhythms across 38 bars, 58 percent plain quarters. Rewrite as a real period: signature dotted or syncopated march rhythm opening on a leap, plus a different consequent that answers and cadences. Same rule for village and battle.",
+      "state": "open",
+      "opened": "2026-09-17T22:30:08.391Z",
+      "events": []
+    }
+  ]
+}

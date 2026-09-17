@@ -1,0 +1,21 @@
+{
+  "id": "P16",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Same face kit on every species and it never changes",
+      "detail": "About 15 species share one face kit and the face never changes with state: the same expression attacking, hurt or dying. Give species their own faces and drive expression from state.",
+      "state": "open",
+      "opened": "2026-09-17T22:30:08.299Z",
+      "events": []
+    },
+    {
+      "n": 2,
+      "title": "Act I creatures have no models",
+      "detail": "Crabbit, Hoot Couture, Batterfly, Twiglet, Quietling (the Act I footsoldier) and Mumbleroot (the Act I boss) have no body at all, plus the long stand-in list from the battle rules piece. The hours that decide whether a child loves this have no new monsters per region.",
+      "state": "open",
+      "opened": "2026-09-17T22:30:08.330Z",
+      "events": []
+    }
+  ]
+}

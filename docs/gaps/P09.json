@@ -1,0 +1,13 @@
+{
+  "id": "P09",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Camera surveys the boy instead of following him",
+      "detail": "Framing is too high and far, so the hero is a small figure in a surveyed scene. Re-frame the field camera (distance, pitch, lookUp, FOV) so it follows a child at DQV PS2 scale, and make cameraMode read the live map framing instead of writing its own.",
+      "state": "open",
+      "opened": "2026-09-17T22:30:08.203Z",
+      "events": []
+    }
+  ]
+}

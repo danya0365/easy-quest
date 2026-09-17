@@ -1,0 +1,13 @@
+{
+  "id": "P03",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Ground reads as assets on a cloth",
+      "detail": "Terrain needs the mask-driven ground shader per ART-DIRECTION section 10: painterly tonal variation, crisp path edges, no visible tiling, props grounded into it.",
+      "state": "open",
+      "opened": "2026-09-17T22:30:08.013Z",
+      "events": []
+    }
+  ]
+}

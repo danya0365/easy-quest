@@ -524,140 +524,130 @@ function paintVillage({ g, wg, W, H, rnd }) {
 }
 
 /**
- * Saltmarrow: where the Beck meets the tide. Composition (the card's own edges are always land, so a painted
- * coast never ends on a straight line): two headlands close the sides, the open sea shows in the gap between
- * them with a hazy horizon of its own, and the town stands on the near shore round the bay — roofs, a quay, and
- * the tide-mill with its great wheel turning in the millrace (CANON §2: "a tide-mill wheel, a quay, gulls").
+ * Saltmarrow: where the Beck meets the tide. Composition — a green ridge runs right across the card (so the
+ * painted land is one solid mass and never a hole), and it SADDLES in the middle: through that gap you see the
+ * open sea with a hazy horizon of its own, and the little town standing on the near shore of the bay — roofs, a
+ * quay, gulls, and the tide-mill with its great wheel in the millrace (CANON §2).
  */
 function paintSeaTown({ g, wg, W, H }) {
-  const BAY0 = W * 0.26, BAY1 = W * 0.76, seaY = H * 0.40;
-  const shoreAt = (x) => {
-    const u = clamp01((x - BAY0) / (BAY1 - BAY0));
-    return H * 0.60 + H * 0.19 * Math.sin(Math.PI * u) + H * 0.012 * vnoise(u * 9 + 3, 1.7, 5);
+  const seaY = H * 0.315;
+  // the saddle: the crest of the near ridge, dipping to the shore of the bay in the middle of the card
+  const crest = (x) => {
+    const u = clamp01((x - W * 0.14) / (W * 0.72));
+    const dip = Math.pow(Math.sin(Math.PI * u), 1.25);
+    return H * 0.245 + H * 0.40 * dip + H * 0.016 * vnoise(u * 8 + 3, 1.9, 5);
   };
-  // ── the open sea in the gap, from its own hazy horizon down to the shallows ──
-  const sea = g.createLinearGradient(0, seaY, 0, H * 0.86);
-  sea.addColorStop(0, hz(PAL.water.mid, 0.66)); sea.addColorStop(0.3, hz(PAL.water.mid, 0.42));
-  sea.addColorStop(0.75, hz(PAL.water.light, 0.28)); sea.addColorStop(1, hz(PAL.water.foam, 0.2));
-  g.fillStyle = sea; g.fillRect(BAY0 - W * 0.02, seaY, BAY1 - BAY0 + W * 0.04, H - seaY);
-  g.fillStyle = css(PAL.cloud.lit, 0.30); g.fillRect(BAY0 - W * 0.02, seaY, BAY1 - BAY0 + W * 0.04, Math.max(2, H * 0.013));
-  // a pale glint lying down the middle of the water, and long slow swells
+  const BAY0 = W * 0.255, BAY1 = W * 0.745;
+  // ── the open sea in the gap ──
+  const sea = g.createLinearGradient(0, seaY, 0, H * 0.70);
+  sea.addColorStop(0, hz(PAL.water.mid, 0.56)); sea.addColorStop(0.3, hz(PAL.water.mid, 0.34));
+  sea.addColorStop(0.8, hz(PAL.water.light, 0.22)); sea.addColorStop(1, hz(PAL.water.foam, 0.16));
+  g.fillStyle = sea; g.fillRect(0, seaY, W, H * 0.45);
+  g.fillStyle = css(PAL.cloud.lit, 0.34); g.fillRect(0, seaY, W, Math.max(2, H * 0.012));
+  // a far blue headland out at sea on the left, so the water has depth in it
+  g.fillStyle = hz(PAL.hill.farLow, 0.42);
+  g.beginPath(); g.moveTo(W * 0.24, seaY + H * 0.004); g.quadraticCurveTo(W * 0.33, seaY - H * 0.055, W * 0.42, seaY + H * 0.004); g.closePath(); g.fill();
+  // a pale glint down the middle of the water, and long slow swells
   const glint = g.createLinearGradient(W * 0.40, 0, W * 0.64, 0);
-  glint.addColorStop(0, css(PAL.water.foam, 0)); glint.addColorStop(0.5, css(PAL.water.foam, 0.34)); glint.addColorStop(1, css(PAL.water.foam, 0));
-  g.fillStyle = glint; g.fillRect(W * 0.40, seaY, W * 0.24, H * 0.42);
-  g.strokeStyle = css(PAL.water.foam, 0.40); g.lineCap = 'round';
-  for (let i = 0; i < 18; i++) {
-    const y = seaY + H * (0.04 + 0.42 * Math.pow(i / 18, 1.5));
-    const x = BAY0 + (BAY1 - BAY0) * ((i * 0.137) % 0.86), w = W * (0.035 + 0.07 * ((i * 7) % 5) / 5);
-    g.lineWidth = 1.4 + i * 0.18;
+  glint.addColorStop(0, css(PAL.water.foam, 0)); glint.addColorStop(0.5, css(PAL.water.foam, 0.36)); glint.addColorStop(1, css(PAL.water.foam, 0));
+  g.fillStyle = glint; g.fillRect(W * 0.40, seaY, W * 0.24, H * 0.40);
+  g.strokeStyle = css(PAL.water.foam, 0.42); g.lineCap = 'round';
+  for (let i = 0; i < 20; i++) {
+    const y = seaY + H * (0.03 + 0.34 * Math.pow(i / 20, 1.4));
+    const x = BAY0 + (BAY1 - BAY0) * ((i * 0.149) % 0.88), w = W * (0.03 + 0.065 * ((i * 7) % 5) / 5);
+    g.lineWidth = 1.3 + i * 0.16;
     g.beginPath(); g.moveTo(x, y); g.lineTo(x + w, y); g.stroke();
   }
-  // ── the two headlands that close the bay (and the card's edges) ──
-  const headland = (side) => {
-    const p = [];
-    for (let i = 0; i <= 48; i++) {
-      const u = i / 48;                                    // 0 at the bay, 1 at the card edge
-      const x = side < 0 ? lerp(BAY0 + W * 0.06, -W * 0.05, u) : lerp(BAY1 - W * 0.06, W * 1.05, u);
-      const y = lerp(H * 0.475, H * 0.155, Math.pow(u, 0.85)) - H * 0.035 * vnoise(u * 6 + (side < 0 ? 3 : 11), 2.3, side < 0 ? 7 : 13);
-      p.push([x, y]);
-    }
-    g.beginPath(); g.moveTo(p[0][0], H);
-    for (const [x, y] of p) g.lineTo(x, y);
-    g.lineTo(side < 0 ? -W * 0.06 : W * 1.06, H); g.closePath();
-    const hg = g.createLinearGradient(0, H * 0.12, 0, H * 0.92);
-    hg.addColorStop(0, hz(PAL.hill.mid, 0.44)); hg.addColorStop(0.5, hz(PAL.hill.near, 0.30)); hg.addColorStop(1, hz(PAL.hill.nearLow, 0.22));
-    g.fillStyle = hg; g.fill();
-    g.strokeStyle = INK(0.44); g.lineWidth = 3.2;
-    g.beginPath(); p.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
-    // bare rock where it drops into the tide, and surf at its foot
-    const bx = p[6][0], by = p[6][1];
-    g.fillStyle = hz(PAL.stone.mid, 0.36);
-    g.beginPath(); g.moveTo(bx, by + H * 0.01); g.lineTo(bx + side * W * 0.05, by + H * 0.05);
-    g.lineTo(bx + side * W * 0.045, by + H * 0.17); g.lineTo(bx - side * W * 0.01, by + H * 0.13); g.closePath(); g.fill();
-    g.strokeStyle = css(PAL.water.foam, 0.66); g.lineWidth = H * 0.013;
-    g.beginPath(); g.moveTo(bx - side * W * 0.02, by + H * 0.15);
-    g.quadraticCurveTo(bx + side * W * 0.03, by + H * 0.195, bx + side * W * 0.07, by + H * 0.13); g.stroke();
-    return p;
+  // ── sails on the tide (drawn before the ridge, so the near shore overlaps them) ──
+  const boat = (bx, by, s, flip) => {
+    g.fillStyle = hz(PAL.wood.mid, 0.26);
+    g.beginPath(); g.moveTo(bx - s, by); g.quadraticCurveTo(bx, by + s * 0.45, bx + s, by); g.closePath(); g.fill();
+    g.fillStyle = hz(PAL.cloud.lit, 0.06);
+    g.beginPath(); g.moveTo(bx + (flip ? -s * 0.2 : s * 0.2), by - s * 2.1); g.lineTo(bx + (flip ? -s * 0.2 : s * 0.2), by - s * 0.1);
+    g.lineTo(bx + (flip ? -s * 1.2 : s * 1.2), by - s * 0.1); g.closePath(); g.fill();
+    g.strokeStyle = INK(0.3); g.lineWidth = 2.2;
+    g.beginPath(); g.moveTo(bx + (flip ? -s * 0.2 : s * 0.2), by - s * 2.1); g.lineTo(bx + (flip ? -s * 0.2 : s * 0.2), by + s * 0.12); g.stroke();
   };
-  headland(-1); headland(1);
-  // ── the near shore: the town's green shelf, with pale shallows and a wet line along it ──
+  boat(W * 0.475, H * 0.50, H * 0.042, false); boat(W * 0.375, H * 0.415, H * 0.028, true); boat(W * 0.600, H * 0.385, H * 0.022, false);
+  // ── the ridge: one solid green mass across the whole card, saddling down to the bay ──
   g.beginPath(); g.moveTo(0, H);
-  g.lineTo(0, shoreAt(0));
-  for (let x = 0; x <= W; x += W / 96) g.lineTo(x, shoreAt(x));
+  for (let x = 0; x <= W + 1; x += W / 128) g.lineTo(x, crest(x));
   g.lineTo(W, H); g.closePath();
-  const sg = g.createLinearGradient(0, H * 0.55, 0, H);
-  sg.addColorStop(0, hz(PAL.hill.near, 0.30)); sg.addColorStop(1, hz(PAL.hill.nearLow, 0.20));
-  g.fillStyle = sg; g.fill();
-  g.strokeStyle = css(PAL.water.foam, 0.62); g.lineWidth = H * 0.017;
-  g.beginPath(); for (let x = BAY0 - W * 0.03; x <= BAY1 + W * 0.03; x += W / 96) { const y = shoreAt(x) + H * 0.009; x === BAY0 - W * 0.03 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke();
-  g.strokeStyle = INK(0.40); g.lineWidth = 2.8;
-  g.beginPath(); for (let x = 0; x <= W; x += W / 96) { const y = shoreAt(x); x === 0 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke();
-  const win = (x, y, w, h) => { g.fillStyle = hz(PAL.paint.glass, 0.26); g.fillRect(x, y, w, h); wg.fillStyle = PAL.mask.on; wg.fillRect(x, y, w, h); };
+  const rg = g.createLinearGradient(0, H * 0.20, 0, H);
+  rg.addColorStop(0, hz(PAL.hill.mid, 0.40)); rg.addColorStop(0.45, hz(PAL.hill.near, 0.26)); rg.addColorStop(1, hz(PAL.hill.nearLow, 0.18));
+  g.fillStyle = rg; g.fill();
+  // the waterline along the saddle: pale surf, then the ink of the shore
+  g.save();
+  g.beginPath(); g.rect(BAY0 - W * 0.01, 0, BAY1 - BAY0 + W * 0.02, H); g.clip();
+  g.strokeStyle = css(PAL.water.foam, 0.66); g.lineWidth = H * 0.017;
+  g.beginPath(); for (let x = BAY0 - W * 0.02; x <= BAY1 + W * 0.02; x += W / 128) { const y = crest(x) + H * 0.008; x === BAY0 - W * 0.02 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke();
+  g.restore();
+  g.strokeStyle = INK(0.38); g.lineWidth = 3.2; g.lineJoin = 'round';
+  g.beginPath(); for (let x = 0; x <= W + 1; x += W / 128) { const y = crest(x); x === 0 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke();
+  // bare rock on the ridge shoulders where it drops into the tide
+  for (const sx of [-1, 1]) {
+    const bx = sx < 0 ? BAY0 + W * 0.035 : BAY1 - W * 0.035, by = crest(bx);
+    g.fillStyle = hz(PAL.stone.mid, 0.30);
+    g.beginPath(); g.moveTo(bx - sx * W * 0.03, by + H * 0.006); g.lineTo(bx + sx * W * 0.022, by + H * 0.055);
+    g.lineTo(bx - sx * W * 0.006, by + H * 0.10); g.lineTo(bx - sx * W * 0.042, by + H * 0.055); g.closePath(); g.fill();
+    g.strokeStyle = INK(0.3); g.lineWidth = 2; g.stroke();
+  }
+  const win = (x, y, w, h) => { g.fillStyle = hz(PAL.paint.glass, 0.22); g.fillRect(x, y, w, h); wg.fillStyle = PAL.mask.on; wg.fillRect(x, y, w, h); };
   const clear = (x, y, w, h) => { wg.fillStyle = PAL.mask.off; wg.fillRect(x, y, w, h); wg.fillStyle = PAL.mask.on; };
   // ── the quay: a stone jetty running out into the bay ──
-  g.fillStyle = hz(PAL.stone.mid, 0.30);
-  g.beginPath(); g.moveTo(W * 0.335, shoreAt(W * 0.335) - H * 0.005); g.lineTo(W * 0.445, shoreAt(W * 0.445) - H * 0.055);
-  g.lineTo(W * 0.452, shoreAt(W * 0.452) - H * 0.022); g.lineTo(W * 0.342, shoreAt(W * 0.342) + H * 0.028); g.closePath(); g.fill();
-  g.strokeStyle = INK(0.34); g.lineWidth = 2.4; g.stroke();
+  g.fillStyle = hz(PAL.stone.mid, 0.26);
+  g.beginPath(); g.moveTo(W * 0.345, crest(W * 0.345) + H * 0.012); g.lineTo(W * 0.455, crest(W * 0.455) - H * 0.048);
+  g.lineTo(W * 0.462, crest(W * 0.462) - H * 0.012); g.lineTo(W * 0.352, crest(W * 0.352) + H * 0.048); g.closePath(); g.fill();
+  g.strokeStyle = INK(0.3); g.lineWidth = 2.4; g.stroke();
   // ── the tide-mill: a tall gabled house at the water with a great wheel in the millrace ──
   {
-    const cx = W * 0.585, w = W * 0.072, h = H * 0.215, gy = shoreAt(cx) - H * 0.01, y0 = gy - h;
+    const cx = W * 0.565, w = W * 0.072, h = H * 0.20, gy = crest(cx) + H * 0.012, y0 = gy - h;
     clear(cx - w, y0 - h, w * 2.6, h * 2.2);
-    g.fillStyle = hz(PAL.plaster.light, 0.24); g.fillRect(cx - w / 2, y0, w, h);
-    g.fillStyle = hz(PAL.plaster.dark, 0.32); g.globalAlpha = 0.6; g.fillRect(cx + w * 0.1, y0, w * 0.4, h); g.globalAlpha = 1;
-    g.beginPath(); g.moveTo(cx - w * 0.64, y0 + 2); g.lineTo(cx, y0 - h * 0.48); g.lineTo(cx + w * 0.64, y0 + 2); g.closePath();
-    g.fillStyle = hz(PAL.tile.mid, 0.26); g.fill();
-    g.beginPath(); g.moveTo(cx, y0 - h * 0.48); g.lineTo(cx + w * 0.64, y0 + 2); g.lineTo(cx + w * 0.07, y0 + 2); g.closePath();
-    g.fillStyle = hz(PAL.tile.dark, 0.30); g.fill();
-    g.strokeStyle = INK(0.22); g.lineWidth = 3;
-    g.beginPath(); g.moveTo(cx - w * 0.64, y0 + 2); g.lineTo(cx, y0 - h * 0.48); g.lineTo(cx + w * 0.64, y0 + 2); g.stroke();
+    g.fillStyle = hz(PAL.plaster.light, 0.20); g.fillRect(cx - w / 2, y0, w, h);
+    g.fillStyle = hz(PAL.plaster.dark, 0.28); g.globalAlpha = 0.6; g.fillRect(cx + w * 0.1, y0, w * 0.4, h); g.globalAlpha = 1;
+    g.beginPath(); g.moveTo(cx - w * 0.64, y0 + 2); g.lineTo(cx, y0 - h * 0.5); g.lineTo(cx + w * 0.64, y0 + 2); g.closePath();
+    g.fillStyle = hz(PAL.tile.mid, 0.18); g.fill();
+    g.beginPath(); g.moveTo(cx, y0 - h * 0.5); g.lineTo(cx + w * 0.64, y0 + 2); g.lineTo(cx + w * 0.07, y0 + 2); g.closePath();
+    g.fillStyle = hz(PAL.tile.dark, 0.24); g.fill();
+    g.strokeStyle = INK(0.16); g.lineWidth = 3;
+    g.beginPath(); g.moveTo(cx - w * 0.64, y0 + 2); g.lineTo(cx, y0 - h * 0.5); g.lineTo(cx + w * 0.64, y0 + 2); g.stroke();
     g.strokeRect(cx - w / 2, y0, w, h);
     win(cx - w * 0.3, y0 + h * 0.2, w * 0.22, h * 0.2); win(cx + w * 0.08, y0 + h * 0.2, w * 0.22, h * 0.2);
     win(cx - w * 0.12, y0 + h * 0.56, w * 0.26, h * 0.26);
-    const wx = cx - w * 0.82, wy = gy - h * 0.14, wr = h * 0.30;
+    const wx = cx - w * 0.84, wy = gy - h * 0.10, wr = h * 0.31;
     clear(wx - wr * 1.4, wy - wr * 1.4, wr * 2.8, wr * 2.8);
-    g.strokeStyle = hz(PAL.wood.dark, 0.24); g.lineWidth = wr * 0.22;
+    g.strokeStyle = hz(PAL.wood.dark, 0.18); g.lineWidth = wr * 0.22;
     g.beginPath(); g.arc(wx, wy, wr, 0, Math.PI * 2); g.stroke();
     g.lineWidth = wr * 0.12;
     for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; g.beginPath(); g.moveTo(wx + Math.cos(a) * wr * 0.15, wy + Math.sin(a) * wr * 0.15); g.lineTo(wx + Math.cos(a) * wr * 0.95, wy + Math.sin(a) * wr * 0.95); g.stroke(); }
   }
-  // ── the town round the bay: roofs stepping along the shore, and a church tower up on the right headland ──
-  const roof = (cx, w, h, lit, gyOverride) => {
-    const gy = (gyOverride ?? shoreAt(cx)) - H * 0.004, y0 = gy - h;
+  // ── the town round the bay, and a church tower up on the right shoulder ──
+  const roof = (cx, w, h, lit, gyAt) => {
+    const gy = (gyAt ?? crest(cx)) + H * 0.006, y0 = gy - h;
     clear(cx - w, y0 - h, w * 2, h * 2.3);
-    g.fillStyle = lit ? hz(PAL.plaster.light, 0.26) : hz(PAL.plaster.dark, 0.34); g.fillRect(cx - w / 2, y0, w, h);
-    g.beginPath(); g.moveTo(cx - w * 0.62, y0 + 2); g.lineTo(cx, y0 - h * 0.64); g.lineTo(cx + w * 0.62, y0 + 2); g.closePath();
-    g.fillStyle = lit ? hz(PAL.tile.mid, 0.26) : hz(PAL.tile.dark, 0.32); g.fill();
-    g.strokeStyle = INK(0.24); g.lineWidth = 2.6;
-    g.beginPath(); g.moveTo(cx - w * 0.62, y0 + 2); g.lineTo(cx, y0 - h * 0.64); g.lineTo(cx + w * 0.62, y0 + 2); g.stroke();
+    g.fillStyle = lit ? hz(PAL.plaster.light, 0.22) : hz(PAL.plaster.dark, 0.30); g.fillRect(cx - w / 2, y0, w, h);
+    g.beginPath(); g.moveTo(cx - w * 0.62, y0 + 2); g.lineTo(cx, y0 - h * 0.66); g.lineTo(cx + w * 0.62, y0 + 2); g.closePath();
+    g.fillStyle = lit ? hz(PAL.tile.mid, 0.18) : hz(PAL.tile.dark, 0.26); g.fill();
+    g.strokeStyle = INK(0.18); g.lineWidth = 2.6;
+    g.beginPath(); g.moveTo(cx - w * 0.62, y0 + 2); g.lineTo(cx, y0 - h * 0.66); g.lineTo(cx + w * 0.62, y0 + 2); g.stroke();
     g.strokeRect(cx - w / 2, y0, w, h);
     win(cx - w * 0.16, y0 + h * 0.28, w * 0.32, h * 0.36);
   };
-  for (const [u, w, h, lit] of [[0.30, 0.042, 0.068, true], [0.355, 0.034, 0.052, false], [0.415, 0.046, 0.075, true],
-    [0.468, 0.036, 0.056, false], [0.512, 0.040, 0.062, true], [0.665, 0.038, 0.060, false], [0.705, 0.044, 0.070, true],
-    [0.745, 0.034, 0.052, false]]) roof(W * u, W * w, H * h, lit);
+  for (const [u, w, h, lit] of [[0.295, 0.040, 0.062, true], [0.345, 0.032, 0.048, false], [0.400, 0.044, 0.070, true],
+    [0.450, 0.034, 0.052, false], [0.495, 0.038, 0.058, true], [0.645, 0.036, 0.056, false], [0.685, 0.042, 0.066, true],
+    [0.725, 0.032, 0.048, false]]) roof(W * u, W * w, H * h, lit);
   {
-    const cx = W * 0.815, tw = W * 0.030, th = H * 0.175, gy = H * 0.245, y0 = gy - th;
+    const cx = W * 0.775, tw = W * 0.030, th = H * 0.155, gy = crest(cx) + H * 0.006, y0 = gy - th;
     clear(cx - tw, y0 - th, tw * 2.6, th * 2.2);
-    g.fillStyle = hz(PAL.stone.light, 0.26); g.fillRect(cx - tw / 2, y0, tw, th);
-    g.strokeStyle = INK(0.2); g.lineWidth = 2.8; g.strokeRect(cx - tw / 2, y0, tw, th);
-    g.beginPath(); g.moveTo(cx - tw * 0.66, y0 + 1); g.lineTo(cx, y0 - tw * 1.6); g.lineTo(cx + tw * 0.66, y0 + 1); g.closePath();
-    g.fillStyle = hz(PAL.tile.mid, 0.28); g.fill(); g.stroke();
+    g.fillStyle = hz(PAL.stone.light, 0.22); g.fillRect(cx - tw / 2, y0, tw, th);
+    g.strokeStyle = INK(0.16); g.lineWidth = 2.8; g.strokeRect(cx - tw / 2, y0, tw, th);
+    g.beginPath(); g.moveTo(cx - tw * 0.66, y0 + 1); g.lineTo(cx, y0 - tw * 1.7); g.lineTo(cx + tw * 0.66, y0 + 1); g.closePath();
+    g.fillStyle = hz(PAL.tile.mid, 0.20); g.fill(); g.stroke();
     win(cx - tw * 0.2, y0 + th * 0.26, tw * 0.4, th * 0.2);
   }
-  // ── boats on the tide, and gulls over the bay ──
-  const boat = (bx, by, s, flip) => {
-    g.fillStyle = hz(PAL.wood.mid, 0.28);
-    g.beginPath(); g.moveTo(bx - s, by); g.quadraticCurveTo(bx, by + s * 0.45, bx + s, by); g.closePath(); g.fill();
-    g.fillStyle = hz(PAL.cloud.lit, 0.10);
-    g.beginPath(); g.moveTo(bx + (flip ? -s * 0.2 : s * 0.2), by - s * 2.0); g.lineTo(bx + (flip ? -s * 0.2 : s * 0.2), by - s * 0.1);
-    g.lineTo(bx + (flip ? -s * 1.15 : s * 1.15), by - s * 0.1); g.closePath(); g.fill();
-    g.strokeStyle = INK(0.34); g.lineWidth = 2.2;
-    g.beginPath(); g.moveTo(bx + (flip ? -s * 0.2 : s * 0.2), by - s * 2.0); g.lineTo(bx + (flip ? -s * 0.2 : s * 0.2), by + s * 0.12); g.stroke();
-  };
-  boat(W * 0.505, H * 0.575, H * 0.040, false); boat(W * 0.395, H * 0.485, H * 0.028, true); boat(W * 0.620, H * 0.455, H * 0.022, false);
-  g.strokeStyle = css(PAL.char.white, 0.78); g.lineWidth = 3; g.lineCap = 'round';
-  for (const [x, y, s] of [[W * 0.40, H * 0.30, H * 0.026], [W * 0.465, H * 0.245, H * 0.020], [W * 0.575, H * 0.325, H * 0.022], [W * 0.645, H * 0.265, H * 0.017]]) {
+  // ── gulls over the bay ──
+  g.strokeStyle = css(PAL.char.white, 0.80); g.lineWidth = 3; g.lineCap = 'round';
+  for (const [x, y, s] of [[W * 0.39, H * 0.225, H * 0.026], [W * 0.455, H * 0.175, H * 0.020], [W * 0.565, H * 0.245, H * 0.022], [W * 0.635, H * 0.19, H * 0.017]]) {
     g.beginPath(); g.moveTo(x - s, y + s * 0.5); g.quadraticCurveTo(x, y - s * 0.45, x + s, y + s * 0.5); g.stroke();
   }
 }

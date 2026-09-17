@@ -158,3 +158,30 @@ The smoothing agent works through ALL of these.
 ## Final blind-critic gaps on the slice (round 2: look 74, feel 72)
 - Puddlewick Vale is fenced in by a thick ring of about 100 copies of the same low-poly oak. Turn the camera any way but north, or walk to any edge, and the screen fills with a wall of canopy: faceted blobs, dark trunks, dither ghosts, hard-edged polygon shadows. You can't see out. The fix: cut the edge ring down to 2-3 staggered rows of mixed tree clumps at different sizes, and past them raise the ground into 2-3 rolling hill layers that fade into haze, like the approved field-opening frame and F3's own sampler. Then every view out shows hills, sky and distance, and the valley reads as part of a bigger world instead of a boxed-in diorama. (The ledger note is a shorter version of this.)
 - Rebuild the camera see-through (the seeThrough fading). Right now, any tree or cottage near the camera is drawn as a screen-door checkerboard: a grid of dots you can see across 20–50% of the frame. It even does this to objects that are not in front of the hero (the tree in front of the cottage at x=-15, the trees to the left of and ahead of the hero while walking right). Change it to a clean alpha fade: draw the object's depth first, then render it semi-transparent at about 35–45% with its ink outline kept, and fade it in and out over about 150ms. Only apply it to meshes that actually cover the hero's area on screen. Nearby trees that don't block the hero should stay fully solid.
+
+# Round 2 needs (2026-09-18) — from Wave A2 + the smoothing pass
+## Done by the orchestrator
+- tools/shoot.mjs: eval values are no longer cut at 400 chars; full values are in report.json `evals`.
+- tools/audio-probe.mjs: the false 'possible loop click' flag now needs a large seam step AND a quiet loop head.
+## Owed by pieces
+- F1 src/engine/debug.js: Debug.implement('battle', fn) forwards only the FIRST argument, so
+  __DQ.battle('area', {boss:true}) loses its options. Forward every argument.
+- P15 + src/battle/scene.js: wire the rules engine into /index.html per docs/DATA-SHAPES.md §6 —
+  needsCommand() asks the leader only; battle.tactics()/setTactic(id,t) drive a Tactics menu; hold the queue at
+  recruit_offer (clear window, Yes/No, then level-ups); level-up wants the §10.2 panel + spell card.
+  demos/P14.html is the working reference for every beat. Bosses now take two actions a round.
+- P16: models for every stand-in species listed by the battle piece (hoarfax, iron_governess, hush, hark,
+  mortmain + mortmain_enfolded, malgrim_cocoon, malgrim_unravelling, tidewarden, sexton_sootbell,
+  lady_mothbonnet, sir_cumference, hexcalibur, candelabracadabra, jinglebottom, squidgeon, thunderpuff,
+  vesperling, wyrmsley, mirthquake, dune_buggy, barrowmole, grimalkitten, sunspot_cub).
+- P31 + P22: after a boss wipe, result.advice.helper is set from the second wipe in a row — place the unhurried
+  helper at the boss door and print result.advice.text at the church. Pass options.bossWipes into createBattle.
+  Boss levels and boss-door parties come from tests/battle/areas.js.
+- P21/P22 economy gap: the assumed kit in tests/battle/areas.js costs 31,338 G against ~18,000 G earned.
+  Either the legs pay more or the kit becomes one big buy per leg with hand-me-downs (DATA-SHAPES §9.3).
+- P23: point the meadow's 'lane-sheep' exit at puddlewick (to:'puddlewick', tx, tz) and add it to maps/index.js;
+  widen the signpost reach so a child stopping beside it on the lane can read it.
+- P27 + docs owner: MUSIC-BIBLE §3 still describes the old octave-doubled orchestration; the score now has
+  hand-written counter-melodies and walking basses. Update it so builders and critics read current truth.
+- P27/P28: demos/P27.html (instruments not ready within 20s) and demos/P28.html (hitCheck envelope assertion)
+  were failing at the end of the wave. Both must shoot clean again.

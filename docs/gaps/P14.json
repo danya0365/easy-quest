@@ -1,0 +1,21 @@
+{
+  "id": "P14",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Confirm is not the fight heartbeat",
+      "detail": "One Confirm press must finish the current line and open the next window immediately, and dismiss the victory tally and level-up card. Measured: one Flapjack round takes 15.1s and about 60 unanswered Enter taps; a mashing child sat through 121 taps looking at the word Victory with no tally or menu. DQV PS2 equivalent fight is about 6s and every second is caused by a button press.",
+      "state": "open",
+      "opened": "2026-09-17T22:30:08.236Z",
+      "events": []
+    },
+    {
+      "n": 2,
+      "title": "Everyone takes orders instead of only Bram",
+      "detail": "Mashing Enter commands every front-line member, so healers swing sticks. Make Bram the only one who takes commands; everyone else fights on Tactics (the existing auto policy) with Follow Orders as a per-member choice. Critic sim: Attack-only child wins Hoarfax first try 92 percent versus 41 percent, wipes per playthrough 11.1 down to 3.3.",
+      "state": "open",
+      "opened": "2026-09-17T22:30:08.268Z",
+      "events": []
+    }
+  ]
+}

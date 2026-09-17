@@ -1,0 +1,21 @@
+{
+  "id": "P04",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Props are not planted",
+      "detail": "Every piece of set dressing sits at a nominal height with no grounding pass, so the field reads as assets laid on a flat cloth. Sample terrain height and normal for every prop, sink it slightly, give each a contact shadow. Rubric: nothing floats.",
+      "state": "open",
+      "opened": "2026-09-17T22:30:08.043Z",
+      "events": []
+    },
+    {
+      "n": 2,
+      "title": "See-through is a dotted checkerboard",
+      "detail": "Trees and cottages near the lens dissolve as a screen-door dither across 20-50 percent of the frame, and it triggers on objects not covering the hero. Rebuild kit.updateSee in src/art/props.js plus Toon.see in src/art/toon.js as a clean alpha fade at 35-45 percent with the ink outline kept, eased over 150ms, only for meshes actually covering the hero on screen.",
+      "state": "open",
+      "opened": "2026-09-17T22:30:08.075Z",
+      "events": []
+    }
+  ]
+}

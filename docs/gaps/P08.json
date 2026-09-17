@@ -1,0 +1,13 @@
+{
+  "id": "P08",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Gaze is built but never wired",
+      "detail": "ch.lookAt(worldVec3) exists in src/art/anim.js and is exposed on every character, but nothing calls it: characters always stare straight ahead instead of looking at the player, the speaker, or what they are doing. Wire it in npc.js, dialogue and field, and add idle glances.",
+      "state": "open",
+      "opened": "2026-09-17T22:30:08.168Z",
+      "events": []
+    }
+  ]
+}

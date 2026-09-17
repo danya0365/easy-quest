@@ -49,7 +49,7 @@ if (sp) scenario = JSON.parse(fs.readFileSync(sp, 'utf8'));
 const report = {
   scenario: scenario.name || path.basename(sp || 'default'),
   url: URL_, viewport: { w: W, h: H },
-  shots: [], notes: [], assertions: [],
+  shots: [], notes: [], assertions: [], evals: [],
   consoleErrors: [], consoleWarnings: [], pageErrors: [], failedRequests: [],
   perf: null, finalState: null, ok: true, fatal: null,
 };
@@ -112,7 +112,11 @@ try {
       }
       if (step.eval) {
         const v = await page.evaluate(`(async()=>{ return await (${step.eval}); })()`);
-        if (v !== undefined && v !== null) report.notes.push(`eval ${step.eval} -> ${JSON.stringify(v).slice(0, 400)}`);
+        if (v !== undefined && v !== null) {
+          const full = JSON.stringify(v);
+          report.evals.push({ expr: step.eval, value: v });
+          report.notes.push(`eval ${step.eval} -> ${full.length > 4000 ? full.slice(0, 4000) + ' …[full value in report.json evals]' : full}`);
+        }
       }
       if (step.key) {
         await page.keyboard.down(step.key);

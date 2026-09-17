@@ -1,0 +1,21 @@
+{
+  "id": "P07",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Adults are scaled-up child dolls",
+      "detail": "Halvard and the other adults need real Toriyama adult bodies and faces: head about one quarter of height, thick moving eyebrows, eyes with whites, shaggy hair and beard silhouette, barrel chest about twice the waist, thick arms, greatsword touching the ground. Reuse that adult head and face kit for grown Bram and the villagers.",
+      "state": "open",
+      "opened": "2026-09-17T22:30:08.107Z",
+      "events": []
+    },
+    {
+      "n": 2,
+      "title": "Hero reads too small at the gameplay camera",
+      "detail": "At distance 10.5 and FOV 50 the real six-year-old Bram is much smaller than the placeholder the approved frames were composed around. Either the hero scale or the camera framing must change so he reads.",
+      "state": "open",
+      "opened": "2026-09-17T22:30:08.137Z",
+      "events": []
+    }
+  ]
+}

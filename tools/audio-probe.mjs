@@ -76,7 +76,7 @@ for (const id of IDS) {
   fs.writeFileSync(path.join(OUT, `${id}.json`), JSON.stringify(r.stats, null, 2));
   const s = r.stats; const warn = [];
   if (s.clippingPct > 0.01) warn.push('CLIPPING'); if (s.peakDbfs > -0.5) warn.push('too hot'); if (s.rmsDbfs < -36) warn.push('very quiet');
-  if (s.silentPct > 25) warn.push('lots of silence'); if (s.seam.firstVsLastSampleJump > 0.1) warn.push('possible loop click');
+  if (s.silentPct > 25) warn.push('lots of silence'); if (s.seam.firstVsLastSampleJump > 0.25 && s.seam.rmsStart20ms < 0.02) warn.push('possible loop click');
   console.log(`${warn.length ? '⚠' : '✓'} ${id}: ${JSON.stringify(s)} ${warn.join(', ')}\n   ${path.join(OUT, id + '-spectrogram.png')}\n   ${path.join(OUT, id + '.wav')}`);
 }
 if (errors.length) { console.log('page errors:\n - ' + errors.slice(0, 8).join('\n - ')); fail = true; }

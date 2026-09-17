@@ -1,0 +1,13 @@
+{
+  "id": "P19",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Extra fights cannot buy safety",
+      "detail": "Over-level EXP is cut to 0.2x and the cap is 30, so fighting three times as many battles puts a child only about one level ahead at each boss, and an Attack-only child hits the cap with nowhere to grow. Raise the over-level floor to about 0.6 and the cap to 40 (extend EXP_TABLE and growth anchors) so grinding always helps.",
+      "state": "open",
+      "opened": "2026-09-17T22:30:08.360Z",
+      "events": []
+    }
+  ]
+}
