@@ -203,7 +203,8 @@ export function pickPartyTarget(B, attacker, pool) {
   const never = (attacker && attacker.neverTargets) || [];
   const list = (pool || B.party).filter((c) => targetable(c) && !never.includes(c.id) && !never.includes(c.baseId));
   if (!list.length) return null;
-  const weights = list.map((c) => (B.party.indexOf(c) === 0 ? 35 : 22));
+  // a mentor guest (Halvard) is enormous: monsters give him a wide berth and go for the children instead
+  const weights = list.map((c) => (B.party.indexOf(c) === 0 ? 35 : 22) * (c.guest && c.member && c.member.mentor ? 0.35 : 1));
   return B.rng.weighted(list, (c) => weights[list.indexOf(c)]);
 }
 
@@ -782,6 +783,11 @@ export function doMove(B, e, move, targetHint) {
   const foes = e.side === 'enemy' ? B.party : B.enemies;
   const pickFoe = () => {
     if (move.lowestHp) return foes.filter(targetable).sort((a, b) => a.hp - b.hp)[0] || null;
+    if (move.targetCaster) { // "Silence the Choir" goes for whoever is carrying the most magic and still has a voice
+      const st = move.status && move.status.id;
+      const c = foes.filter((f) => targetable(f) && f.maxMp > 0 && !(st && f.status[st])).sort((a, b) => b.mp - a.mp)[0];
+      if (c) return c;
+    }
     if (targetHint && targetable(targetHint)) return targetHint;
     return e.side === 'enemy' ? pickPartyTarget(B, e) : pickEnemyTarget(B);
   };
@@ -856,6 +862,14 @@ export function doMove(B, e, move, targetHint) {
       push(B, { t: 'act', actor: e.id, kind: 'move', move: move.id, name: move.name, text: actText(targets.length === 1 ? targets[0] : null) });
       for (const t of targets) if (t.hp < effMaxHp(t)) healTarget(B, e, t, move.amount || 20);
       if (move.healsParty) for (const t of B.party.filter(isUp)) if (t.hp < effMaxHp(t)) healTarget(B, e, t, move.amount || 20);
+      return;
+    }
+    case 'mercy': { // Malgrim's "Listen": it gives you a moment, and every standing hero gets `pct` of their HP back
+      push(B, { t: 'act', actor: e.id, kind: 'move', move: move.id, name: move.name, text: actText(null) });
+      for (const t of foes.filter(isUp)) {
+        const max = effMaxHp(t);
+        if (t.hp < max) healTarget(B, e, t, Math.max(1, Math.round(max * (move.pct ?? 0.35))));
+      }
       return;
     }
     case 'buff': {

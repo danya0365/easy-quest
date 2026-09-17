@@ -10,7 +10,7 @@
  */
 
 /* ── page chrome (index.html / demos) ─────────────────────────────────────────────────────────────────────── */
-html,body{margin:0;height:100%;background:black;overflow:hidden}
+html,body{margin:0;height:100%;background:var(--pal-sky-page, black);overflow:hidden}   /* sky colour behind the first frame, never a black flash */
 #game-root{position:fixed;inset:0}
 #game-canvas{display:block;width:100%;height:100%}
 #ui-root{position:absolute;inset:0;pointer-events:none}

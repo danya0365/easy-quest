@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-17T13:47:41.346Z",
+  "updated": "2026-09-17T14:44:56.929Z",
   "wave": 0,
   "waveTitle": "Foundation (attempt 2) — canon + art direction + engine + vertical slice",
   "pieces": {
@@ -27,12 +27,12 @@
     },
     "F3": {
       "id": "F3",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "Art foundation: PAL (every colour + time-of-day/UI/ink), Toon (3-band tinted-shade toon, outlines, wind, worldPlanar/AO patches, light rig + presets, fog, blob/AO contact shadows), Tex (13 seamless materials + masks/sprites/clouds); demo Puddlewick Sampler",
       "history": [],
       "name": "Art foundation — palette, toon shading, textures"
     },
@@ -203,13 +203,19 @@
     },
     "P14": {
       "id": "P14",
-      "status": "building",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
+      "status": "iterating",
+      "score": 50,
+      "best": 50,
+      "rounds": 1,
+      "gap": "Difficulty is flat then a wall: 60-90% of fights 1 round/0 dmg, bosses 1-8 won first try even 4 Lv under; Mortmain/Malgrim never beaten by a mash kid in 20 tries at S=100. Tune to arrival level.",
       "note": "first build done",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-17T13:56:16.568Z",
+          "score": 50,
+          "gap": "Difficulty is flat then a wall: 60-90% of fights 1 round/0 dmg, bosses 1-8 won first try even 4 Lv under; Mortmain/Malgrim never beaten by a mash kid in 20 tries at S=100. Tune to arrival level."
+        }
+      ],
       "name": "Battle core"
     },
     "P15": {
@@ -258,13 +264,19 @@
     },
     "P19": {
       "id": "P19",
-      "status": "building",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
+      "status": "iterating",
+      "score": 45,
+      "best": 45,
+      "rounds": 1,
+      "gap": "Levels don't matter: flee-everything kid beats 8 bosses 2-7 Lv under on boss EXP alone; walker +3 Lv in Act I, -3 in Act III, hits Lv30 cap in final dungeon; Mend 29%->17% of HP",
       "note": "first build done: growth.js (six personalities + Lantern, templates, guests, learnsets) and formulas.js; 51 tests; sim over every area",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-17T13:56:16.683Z",
+          "score": 45,
+          "gap": "Levels don't matter: flee-everything kid beats 8 bosses 2-7 Lv under on boss EXP alone; walker +3 Lv in Act I, -3 in Act III, hits Lv30 cap in final dungeon; Mend 29%->17% of HP"
+        }
+      ],
       "name": "Stats, growth, level-up ceremony"
     },
     "P20": {
@@ -346,13 +358,19 @@
     },
     "P27": {
       "id": "P27",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 56,
+      "best": 56,
+      "rounds": 1,
+      "gap": "strings+horns (58% of all note-time) are lowpassed saw stacks: swap them for real multisampled string & horn sections (e.g. VSCO-2 CE, CC0) in the same engine",
+      "note": "first build done",
+      "history": [
+        {
+          "at": "2026-09-17T14:23:09.788Z",
+          "score": 56,
+          "gap": "strings+horns (58% of all note-time) are lowpassed saw stacks: swap them for real multisampled string & horn sections (e.g. VSCO-2 CE, CC0) in the same engine"
+        }
+      ],
       "name": "Music — the symphonic score"
     },
     "P28": {
@@ -360,14 +378,19 @@
       "status": "iterating",
       "score": 62,
       "best": 62,
-      "rounds": 1,
-      "gap": "Hits don't connect: sword_hit is a sub-150Hz thud (59% energy <150Hz, main energy gone in ~120ms), 3dB under battle music and level with the menu confirm on a TV speaker. Re-voice the impact family (hit/crit/hurt) with a 200-900Hz crack + 2-5kHz slash over ~250ms, and duck music ~6dB for 150ms on every hit",
-      "note": "first build done",
+      "rounds": 2,
+      "gap": "Impacts are one flat-topped 70ms noise wall (hit/monster/player env corr .95-.98) +11LU over music; rebuild slash/crack transient-first w/ distinct bodies",
+      "note": "Impacts rebuilt (200-900 Hz crack + 2-5 kHz slash, ~250 ms) + sample-accurate -6 dB music dips: hits now +7 dB over battle theme with lows cut; real music on the mixer in demo; beds never repeat",
       "history": [
         {
           "at": "2026-09-17T13:26:52.189Z",
           "score": 62,
           "gap": "Hits don't connect: sword_hit is a sub-150Hz thud (59% energy <150Hz, main energy gone in ~120ms), 3dB under battle music and level with the menu confirm on a TV speaker. Re-voice the impact family (h"
+        },
+        {
+          "at": "2026-09-17T14:26:29.505Z",
+          "score": 62,
+          "gap": "Impacts are one flat-topped 70ms noise wall (hit/monster/player env corr .95-.98) +11LU over music; rebuild slash/crack transient-first w/ distinct bodies"
         }
       ],
       "name": "Sound effects & mixer"
@@ -479,6 +502,18 @@
     {
       "at": "2026-09-17T13:47:41.346Z",
       "t": "P28 SFX first critic round: 62 — gap: sword hits are sub-150Hz thuds that vanish on laptop speakers. Builder fixing."
+    },
+    {
+      "at": "2026-09-17T14:37:35.640Z",
+      "t": "Integrator: first vertical slice — boots into Puddlewick Vale (meadow map, spring/orbit camera with occlusion, circle collision w/ sliding + corner assist, placeholder Bram, F4 signpost dialogue). scenarios/slice.json passes: 0 errors, ~120 fps, ~130-145k tris, <230 calls."
+    },
+    {
+      "at": "2026-09-17T14:44:56.607Z",
+      "t": "Vertical slice integrated: boots into Puddlewick Vale, walkable, signpost dialogue. Blind critics (look, feel) judging now."
+    },
+    {
+      "at": "2026-09-17T14:44:56.929Z",
+      "t": "Critic r1: P14 battle rules 50, P19 growth 45 (difficulty flat then a wall; levels don't matter), P27 music 56 (strings/horns sound like filtered saws), P28 SFX 62→62 (hits lack a transient snap)."
     }
   ]
 }

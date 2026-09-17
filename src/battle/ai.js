@@ -191,6 +191,37 @@ export function chooseAllyAction(B, a, policy = 'auto') {
   return { type: 'attack', target: target.id };
 }
 
+/**
+ * A mentor guest (Halvard, Act I — "walking beside someone enormous and safe") leaves the children their own fight:
+ * he takes a monster nobody has picked, and otherwise steps back so Bram actually swings (the critic's first-hour
+ * run had Bram never acting in 35% of fights). He stops holding back the moment a child is under half HP, from
+ * round 4, and against a boss. Returns a normal command, or {type:'watch'} (battle.js prints his line).
+ */
+export function chooseMentorAction(B, a) {
+  const kids = B.party.filter((c) => isUp(c) && !c.guest);
+  const foes = B.enemies.filter(targetable);
+  if (!kids.length || !foes.length) return chooseAllyAction(B, a, 'auto');
+  const worried = B.round >= 4 || foes.some((e) => e.boss) || kids.some((c) => c.hp / effMaxHp(c) < 0.5);
+  if (worried) return chooseAllyAction(B, a, 'auto');
+  const claimed = new Set();
+  let pending = false;
+  for (const c of kids) {
+    if (c.flags.actedRound === B.round) continue;
+    const cmd = B.commands.get(c.id);
+    pending = true;
+    if (!cmd || cmd.type === 'attack') { claimed.add(cmd && cmd.target ? cmd.target : foes[0].id); continue; }
+    if (cmd.type === 'spell') {
+      const s = B.data.spells[cmd.id];
+      if (s && s.target === 'enemies') for (const f of foes) claimed.add(f.id);
+      else if (cmd.target) claimed.add(cmd.target);
+    }
+  }
+  const free = foes.filter((e) => !claimed.has(e.id)).sort((x, y) => x.hp - y.hp);
+  if (free.length) return { type: 'attack', target: free[0].id };
+  if (pending || B.round <= 2) return { type: 'watch' };
+  return chooseAllyAction(B, a, 'auto');
+}
+
 /** Is this command legal right now? (used by AI fallbacks) */
 export function commandLooksOk(B, a, cmd) {
   if (cmd.type === 'spell') return !spellProblem(B, a, B.data.spells[cmd.id], cmd.target);

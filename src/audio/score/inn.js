@@ -16,12 +16,12 @@ const HARM = ['C', 'F', 'C|G7', 'C', 'Am', 'Fmaj7', 'G7', 'C'];
 const HARP = { pat: ['1', '5', '8', '10', '8', '5'], step: 0.5, base: 'C3', dyn: 'pp', len: 1.8, cycle: 3 };
 
 export function build() {
-  const T = Theme({ id: 'inn', title: 'Rest Your Boots', key: 'C major', bpm: 108, meter: 3, pulse: [0, 1.5], loop: 8, space: 'ROOM', gain: 2.6 });
+  const T = Theme({ id: 'inn', title: 'Rest Your Boots', key: 'C major', bpm: 108, meter: 3, sig: '6/8', pulse: [0, 1.5], loop: 8, space: 'ROOM', gain: 2.6 });
   T.part('celesta', { voice: 'celesta', bus: 'melody' }).seq(0, MELODY, { dyn: 'p' });
   T.part('harp', { voice: 'harp', bus: 'harmony' });
   T.arp('harp', T.chords(0, HARM), HARP);
 
-  const S = Theme({ id: 'inn.sleep', title: 'Sleep Tight', key: 'C major', bpm: 108, meter: 3, pulse: [0, 1.5], space: 'ROOM', gain: 3.4, kind: 'oneshot' });
+  const S = Theme({ id: 'inn.sleep', title: 'Sleep Tight', key: 'C major', bpm: 108, meter: 3, sig: '6/8', pulse: [0, 1.5], space: 'ROOM', gain: 3.4, kind: 'oneshot' });
   const cel = S.part('celesta', { voice: 'celesta', bus: 'melody' });
   S.part('harp', { voice: 'harp', bus: 'harmony' });
   cel.seq(0, MELODY.slice(0, 5), { cresc: ['p', 'pp'] });

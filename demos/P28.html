@@ -48,6 +48,8 @@ canvas{display:block;width:100%;height:62px;border-radius:6px;background:#050a2a
 .msg .caret{display:inline-block;margin-left:6px;animation:blink .8s steps(2) infinite}
 @keyframes blink{50%{opacity:0}}
 .hint{font-size:13px;color:var(--dim);margin-top:6px}
+.fightrow{margin-top:10px}
+.fightrow .entry{font-size:20px;color:var(--gold)}
 .meter{height:10px;border-radius:5px;background:#050a2a;border:2px solid #ffffff22;overflow:hidden;margin-top:8px}
 .meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--good),var(--gold) 75%,var(--warn));transition:width .05s}
 #unlock{position:fixed;inset:0;display:grid;place-items:center;background:#0009;z-index:9}
@@ -57,7 +59,9 @@ canvas{display:block;width:100%;height:62px;border-radius:6px;background:#050a2a
 </style>
 </head><body>
 <div class="top">
-  <div class="win"><span class="tag">P28</span><h1>The Sound Board<small>every effect in the game, made from nothing — arrows to choose, Enter to play, Esc to hush</small></h1></div>
+  <div class="win"><span class="tag">P28</span><h1>The Sound Board<small>every effect in the game, made from nothing — arrows to choose, Enter to play, Esc to hush</small></h1>
+    <div class="btns fightrow"><button class="entry" data-act="fight">&#9876; Fight! &mdash; hits over the battle theme</button></div>
+    <div class="hint">Starts the real battle theme on the music bus, then: slash, smack, a terrific whack, the poof, the party gets hit, a spell. Every impact dips the music about 6 dB for 150 ms so it lands on top.</div></div>
   <div class="win outwin"><span class="tag">Output</span><canvas id="scope" width="720" height="124"></canvas><div class="status" id="status">starting…</div></div>
 </div>
 <div class="layout">
@@ -69,8 +73,6 @@ canvas{display:block;width:100%;height:62px;border-radius:6px;background:#050a2a
       <div class="meter"><i id="meterbar"></i></div>
       <div class="hint">The real score (P27) plays through this mixer's music bus, so every duck and every hit's dip acts on it.</div>
     </div>
-    <div class="win"><span class="tag">Battle test</span><div class="btns"><button class="entry" data-act="fight">Fight! (hits over the battle theme)</button></div>
-      <div class="hint">Starts the battle theme, then: slash, smack, a terrific whack, the poof, the party gets hit, a spell. Each impact dips the music by about 6 dB for 150 ms.</div></div>
     <div class="win"><span class="tag">Ambience</span><div class="btns" id="amb"></div><div class="hint">Seamless loops, crossfaded. Only one bed at a time.</div></div>
     <div class="win"><span class="tag">Talk</span><div class="btns" id="talk"></div><div class="hint">Types a line at 38 glyphs a second, one tick per glyph, in that speaker's voice.</div></div>
     <div class="win"><span class="tag">Walk</span><div class="btns" id="walk"></div><div class="hint">Footsteps at a walking pace. Every step is a little different.</div></div>
@@ -306,11 +308,12 @@ async function renderMix(theme, ids, seconds, times) {
   return Audio.renderOffline((octx, dest) => {
     const m = M.createMusic();
     m.init({ ctx: octx, output: dest.bus('music'), reverbSend: dest.reverbSend, quality: 'high' });
-    for (let k = 1; k * 0.2 < seconds + 0.4; k++) octx.suspend(k * 0.2).then(() => { try { m._pump(); } catch (_) {} octx.resume(); });
+    // the score is scheduled by a pump; step it every 200 ms of render time (never past the end of the render)
+    for (let k = 1; k * 0.2 < seconds + 0.25; k++) octx.suspend(k * 0.2).then(() => { try { m._pump(); } catch (_) {} octx.resume(); }).catch(() => {});
     if (theme) m.play(theme, { fade: 0, at: 0.02 });
     m._pump();
-    if (ids.length) (times || []).concat(times ? [] : Array.from({ length: Math.max(0, Math.floor((seconds - 1.5) / 0.9) + 1) }, (_, i) => 1 + i * 0.9))
-      .forEach((t, i) => Sfx.renderInto(ids[i % ids.length], dest, t, { variant: i + 1 }));
+    const ts = times || Array.from({ length: Math.max(0, Math.floor((seconds - 1.5) / 0.9) + 1) }, (_, i) => 1 + i * 0.9);
+    if (ids.length) ts.forEach((t, i) => Sfx.renderInto(ids[i % ids.length], dest, t, { variant: i + 1 }));
     return m;
   }, seconds, { sampleRate: 48000 });
 }
@@ -347,17 +350,29 @@ Object.assign(window.__DQ, {
   talk: (who) => talk(who), walk: (m) => walk(m),
   setVolume: (b, v) => { Audio.setVolume(b, v); const el = $('#v-' + b); if (el) { el.value = Math.round(v * 100); $('#o-' + b).textContent = el.value; } },
   fight: () => fight(),
+  /** Play an effect live and watch the music bus for 600 ms: {minDip, recovered} (minDip 0.5 = -6 dB). */
+  dipProbe: (id = 'sword_hit') => new Promise((res) => {
+    Audio.unlock(); Sfx.play(id);
+    let min = 1; const t0 = performance.now();
+    const tick = () => { const v = Audio.state().pulses.music; if (v < min) min = v;
+      if (performance.now() - t0 < 600) requestAnimationFrame(tick);
+      else setTimeout(() => res({ id, minDip: +min.toFixed(2), recovered: Audio.state().pulses.music }), 250); };
+    requestAnimationFrame(tick);
+  }),
   music: (theme) => { Audio.unlock(); return setMusic(theme); },
   /**
    * 'seq:<id>'  the effect repeated as the game uses it (text at 38/s, footsteps at a walk)
    * 'var:<id>:<n>'  a specific random variation
-   * 'mix:<theme>+<id>,<id>'  the TRUE mix: P27's theme on this mixer's music bus with the effects landing on it
+   * 'loop:<amb_id>:<n>'  ONE variant of an ambience bed looped end to end (to inspect its own seam); plain
+   *               '<amb_id>' renders the live chain (variants crossfaded, never exactly repeating)
+   * 'mix:<theme>+<id>&<id>'  the TRUE mix: P27's theme on this mixer's music bus with the effects landing on it
    *               every 0.9 s from 1.0 s (music dips included). 'mix:battle' alone = the music bus with no effects.
    */
   renderAudio: (id, seconds) => {
     if (id.startsWith('seq:')) { const real = id.slice(4); return Sfx.render(real, seconds, { every: SEQ[real] || 0.5 }); }
     if (id.startsWith('var:')) { const [, real, v] = id.split(':'); return Sfx.render(real, seconds, { variant: Number(v) }); }
-    if (id.startsWith('mix:')) { const [theme, fx = ''] = id.slice(4).split('+'); return renderMix(theme, fx.split(',').filter(Boolean), seconds || 8); }
+    if (id.startsWith('loop:')) { const [, real, v = 0] = id.split(':'); return Sfx.render(real, seconds, { single: true, variant: Number(v) }); }
+    if (id.startsWith('mix:')) { const [theme, fx = ''] = id.slice(4).split('+'); return renderMix(theme, fx.split(/[,&]/).filter(Boolean), seconds || 8); }
     return Sfx.render(id, seconds);
   },
   /**

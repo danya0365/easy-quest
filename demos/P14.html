@@ -19,7 +19,7 @@ html,body{margin:0;height:100%;background:#050716;overflow:hidden;font-family:va
 /* ------------------------------------------------ top bar */
 #top{grid-column:1/3;display:flex;align-items:center;gap:14px;padding:8px 14px;background:linear-gradient(#0c1030,#070a20);border-bottom:2px solid #1f2a66}
 #top h1{font-size:18px;margin:0;letter-spacing:.04em;color:#cfd6ff;white-space:nowrap}
-#top .area{padding:4px 12px;font-size:17px;font-weight:bold;min-width:360px;text-align:center;animation:none}
+#top .area{padding:4px 12px;font-size:17px;font-weight:bold;min-width:360px;max-width:600px;text-align:center;animation:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #top .keys{font-size:13px;color:#a8b0e0;line-height:1.35}
 #top .keys b{color:#fff;background:#26306e;border-radius:4px;padding:0 5px;margin:0 1px}
 /* ------------------------------------------------ battlefield */
@@ -153,6 +153,7 @@ html,body{margin:0;height:100%;background:#050716;overflow:hidden;font-family:va
 // Data: tests/battle/data.js (fixture in the docs/DATA-SHAPES.md shapes), areas: tests/battle/areas.js.
 import { createBattle } from '/src/battle/battle.js';
 import { makeRng } from '/src/battle/formulas.js';
+import { newCompanion } from '/src/data/growth.js';
 import DATA from '/tests/battle/data.js';
 import { AREAS, rollEncounter } from '/tests/battle/areas.js';
 
@@ -165,7 +166,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&
 const TERRAIN = {
   long_lane: 'meadow', long_lane_alone: 'meadow', saltmarrow_coast: 'coast', whispering_wood: 'wood', cobwell_manor: 'manor',
   coddleston_downs: 'meadow', whistling_caves: 'cave', gogglestone_caves: 'cave', marbleford_downs: 'meadow', sogglemarsh: 'wood',
-  frittering_sands: 'desert', bellhollow_belfry: 'manor', sighing_grotto: 'sea', glasswing_grotto: 'snow', grey_ruins: 'ruins',
+  frittering_sands: 'desert', bellhollow_belfry: 'manor', pelican_coast: 'coast', ambergarde_road: 'meadow', sighing_grotto: 'sea', glasswing_grotto: 'snow', grey_ruins: 'ruins',
   quiet_quarry: 'cave', highfeather: 'sky', whistfell_abbey: 'abbey', quiet_deep: 'deep',
 };
 // MONSTER-BIBLE §9 body colours (demo-only CSS blobs; the real models are P16's)
@@ -190,23 +191,47 @@ const UI = {
   order: { party: [], wagon: [], enemies: [] }, vm: {}, renderedKey: { party: '', enemies: '' },
   queue: [], cur: null, typed: 0, hold: 0, lines: [], busy: false, instant: false, fast: false,
   menu: null, pendingMenu: null, cmdIdx: {}, activeId: null,
+  // carried between fights, like a real walk (balance pass r2): levels/EXP/HP/MP per member, gold, S, befriending
+  carry: {}, gold: 120, friends: [], recruit: { enabled: true, kidMode: true, joined: {}, misses: {}, battlesSinceRecruit: 0 },
+  offer: null, fights: 0,
 };
 
 // ------------------------------------------------------------------------------------------------ battle setup
-function startBattle({ areaId, boss = false, level, seed, enemies } = {}) {
+/** Fresh party at a level (new area picked by hand), or the carried one (another fight, the boss, the next area). */
+function partyFor(area, level, fresh) {
+  if (fresh) { UI.carry = {}; UI.friends = []; }
+  const list = area.party(level).map((m) => {
+    const k = UI.carry[m.id];
+    if (!k || m.kind === 'guest') return m;
+    return { ...m, lvl: k.lvl, exp: k.exp, hp: k.hp, mp: k.mp };
+  });
+  if (area.act >= 2) {
+    for (const f of UI.friends) {
+      const k = UI.carry[f.id] || {};
+      list.push({ ...f, lvl: k.lvl ?? f.lvl, exp: k.exp ?? f.exp, hp: k.hp, mp: k.mp });
+    }
+  }
+  return list;
+}
+
+function startBattle({ areaId, boss = false, level, seed, enemies, fresh, carry } = {}) {
+  const moved = areaId && AREAS.findIndex((a) => a.id === areaId) !== UI.areaIdx;
   if (areaId) UI.areaIdx = Math.max(0, AREAS.findIndex((a) => a.id === areaId));
   if (seed != null) UI.rng = makeRng(seed);
   const area = AREAS[UI.areaIdx];
   const bossSpec = boss ? (boss === 2 && area.boss2 ? area.boss2 : area.boss) : null;
   UI.isBoss = !!bossSpec;
-  UI.level = level ?? (bossSpec ? bossSpec.level : area.levels[UI.levelIdx]);
+  // a level given by hand (L key, __DQ.battle(area, {level})) starts a fresh party; otherwise carry on
+  const freshParty = fresh || level != null || (moved && !carry) || !UI.carry.hero;
+  UI.level = level ?? (!freshParty && UI.carry.hero ? UI.carry.hero.lvl : (bossSpec ? bossSpec.level : area.levels[UI.levelIdx]));
   const foes = enemies || (bossSpec ? bossSpec.enemies : rollEncounter(area, UI.rng, DATA.monsters));
+  UI.offer = null;
   UI.battle = createBattle({
-    party: area.party(UI.level), enemies: foes, data: DATA, rng: UI.rng,
+    party: partyFor(area, UI.level, freshParty), enemies: foes, data: DATA, rng: UI.rng,
     options: {
-      gold: 120, bag: { ...(area.bag || {}) }, assist: { s: UI.S },
+      gold: UI.gold, bag: { ...(area.bag || {}) }, assist: { s: UI.S }, areaLevel: bossSpec ? undefined : area.areaLevel,
       wagonReachable: bossSpec ? false : (area.wagonReachable ?? true), ambush: bossSpec ? 'none' : undefined,
-      recruit: area.act >= 2 ? { enabled: true, kidMode: true } : null,
+      recruit: area.act >= 2 && !bossSpec ? { ...UI.recruit } : null,
     },
   });
   UI.vm = {}; UI.queue = []; UI.cur = null; UI.lines = []; UI.busy = false; UI.menu = null; UI.pendingMenu = null; UI.cmdIdx = {};
@@ -305,10 +330,31 @@ function idle() {
   if (!b) return;
   syncFromSnapshot(); UI.activeId = null; render(); renderStats();
   if (UI.pendingMenu) { const m = UI.pendingMenu; UI.pendingMenu = null; showMenu(m); return; }
+  if (UI.afterMessages) { const f = UI.afterMessages; UI.afterMessages = null; f(); return; }
   if (b.phase === 'command') {
     const n = b.needsCommand();
     if (n) openCommand(n); else enqueue(b.resolveRound());
-  } else if (b.over) openEnd();
+  } else if (b.over) { carryResult(); if (UI.offer) openRecruit(); else openEnd(); }
+}
+
+/** Write the finished battle back into the carried party (once per battle). */
+function carryResult() {
+  const r = UI.battle && UI.battle.result;
+  if (!r || UI.battle._carried) return;
+  UI.battle._carried = true;
+  UI.fights++;
+  const wiped = r.outcome === 'defeat';
+  for (const m of r.party.concat(r.wagon)) {
+    if (m.kind === 'guest') continue;
+    // a wipe wakes everyone on the church bench, healed (SYSTEMS §6.2); EXP earned is kept
+    UI.carry[m.id] = { lvl: m.lvl, exp: m.exp, hp: wiped ? undefined : m.hp, mp: wiped ? undefined : m.mp };
+  }
+  UI.gold = r.goldAfter;
+  UI.S = r.assist.after;
+  if (r.recruit) {
+    UI.recruit = { ...UI.recruit, ...r.recruit.state };
+    if (r.recruit.offer) UI.offer = r.recruit.offer;
+  }
 }
 
 let last = performance.now();
@@ -390,7 +436,8 @@ function logEvent(ev) {
 // ------------------------------------------------------------------------------------------------ rendering (in place)
 function renderTop() {
   const a = AREAS[UI.areaIdx];
-  $('areaWin').textContent = `◀  ${a.name} · Lv ${UI.level}${UI.isBoss ? ' · BOSS' : ''}${UI.S ? ' · S ' + UI.S : ''}  ▶`;
+  const lv = UI.battle ? (UI.battle.snapshot().party.find((p) => p.id === 'hero') || {}).lvl || UI.level : UI.level;
+  $('areaWin').textContent = `◀ ${a.name} · Lv ${lv}${UI.isBoss ? ' · BOSS' : ` (area ${a.areaLevel})`}${UI.S ? ' · S ' + UI.S : ''} ▶`;
 }
 
 function render() { renderParty(); renderEnemies(); }
@@ -414,12 +461,12 @@ function renderParty() {
     if (!m || !node) continue;
     const pct = Math.max(0, Math.min(100, (100 * m.hp) / Math.max(1, m.maxHp)));
     node.querySelector('.n').textContent = m.name;
-    node.querySelector('.lv').textContent = (node.classList.contains('wr') ? '' : 'Lv ') + m.lvl;
+    node.querySelector('.lv').textContent = m.guest ? 'guest' : (node.classList.contains('wr') ? '' : 'Lv ') + m.lvl;
     node.querySelector('.hpv').textContent = m.hp;
     node.querySelector('.mpv').textContent = m.mp;
     const i = node.querySelector('.bar i'); if (i) i.style.width = pct + '%';
     const tags = node.querySelector('.tags');
-    if (tags) tags.textContent = [m.guest ? 'guest' : '', ...(m.tags ? [...m.tags] : [])].filter(Boolean).join(' · ');
+    if (tags) tags.textContent = [...(m.tags ? [...m.tags] : [])].filter(Boolean).join(' · ');
     node.classList.toggle('ko', m.hp <= 0);
     node.classList.toggle('low', m.hp > 0 && pct < 25);
     node.classList.toggle('active', UI.activeId === id);
@@ -552,24 +599,68 @@ function choose() {
       if (!pool.length) return refuse('Nobody needs it right now.', m);
       return targetMenu({ type: 'item', id: it.id }, pool, `The ${it.name} for whom?`, true);
     }
+    case 'recruit': return answerRecruit(o.v === 'yes');
     case 'swap': return doCommand(actorId, { type: 'swap', target: o.v }, m.prev);
     case 'target': return doCommand(actorId, { ...m.pending, target: o.v }, m.prev);
     case 'end':
       hideMenu();
       if (o.v === 'again') return startBattle({});
+      if (o.v === 'inn') return restAtInn();
       if (o.v === 'boss') return startBattle({ boss: true });
       if (o.v === 'boss2') return startBattle({ boss: 2 });
-      if (o.v === 'next') { UI.areaIdx = (UI.areaIdx + 1) % AREAS.length; return startBattle({}); }
+      if (o.v === 'next') { UI.areaIdx = nextStoryArea(UI.areaIdx); restAtInn(true); return startBattle({ carry: true }); }
   }
 }
 
+const nextStoryArea = (i) => { let j = (i + 1) % AREAS.length; while (AREAS[j].stress) j = (j + 1) % AREAS.length; return j; };
+
 function openEnd() {
   const a = AREAS[UI.areaIdx], r = UI.battle.result;
-  const opts = [{ label: 'Another fight', v: 'again' }];
+  const opts = [{ label: 'Another fight', v: 'again' }, { label: 'Rest at the inn', v: 'inn' }];
   if (a.boss) opts.push({ label: 'Fight the boss', v: 'boss' });
   if (a.boss2) opts.push({ label: 'The last boss', v: 'boss2' });
   opts.push({ label: 'Next area', v: 'next' });
-  showMenu({ kind: 'end', actor: null, opts, idx: 0, title: r ? ({ victory: 'Victory!', defeat: 'Back at the church', fled: 'Got away!', scripted: 'That was never a fight you could win' }[r.outcome]) : 'Done' });
+  showMenu({ kind: 'end', actor: null, opts, idx: 0, hint: `${UI.fights} fights so far · ${UI.gold} G in the purse`,
+    title: r ? ({ victory: 'Victory!', defeat: 'Back at the church', fled: 'Got away!', scripted: 'That was never a fight you could win' }[r.outcome]) : 'Done' });
+}
+
+/** MONSTER-BIBLE §7: "Shall it come along?" ▸ Yes / No, cursor on Yes. */
+function openRecruit() {
+  const o = UI.offer;
+  const m = DATA.monsters[o.species] || {};
+  showMenu({ kind: 'recruit', actor: null, idx: 0, title: `Shall the ${o.name} come along?`,
+    opts: [{ label: 'Yes', v: 'yes' }, { label: 'No', v: 'no' }], hint: m.nameSuggest ? `It would like to be called ${m.nameSuggest}.` : '' });
+}
+
+function answerRecruit(yes) {
+  const o = UI.offer;
+  if (!o) return;
+  UI.offer = null;
+  hideMenu();
+  const mon = DATA.monsters[o.species];
+  if (yes) {
+    const n = (UI.recruit.joined[o.species] || 0) + 1;
+    UI.recruit = { ...UI.recruit, joined: { ...UI.recruit.joined, [o.species]: n } };
+    const base = mon.nameSuggest || mon.name;
+    const name = n > 1 ? `${base} ${['', '', 'II', 'III', 'IV', 'V'][n] || n}` : base;
+    const hero = UI.carry.hero ? UI.carry.hero.lvl : UI.level;
+    const friend = newCompanion(mon, { id: `${o.species}_${n}`, name, lvl: Math.max(1, hero - 2) });
+    UI.friends.push(friend);
+    UI.pendingMenu = null;
+    enqueue([{ t: 'message', text: `${name} joined the party!` }, { t: 'message', text: `${name} hops up into the wagon, very pleased with itself.` }]);
+  } else {
+    UI.recruit = { ...UI.recruit, misses: { ...UI.recruit.misses, [o.species]: (UI.recruit.misses[o.species] || 0) + 1 } };
+    enqueue([{ t: 'message', text: `The ${o.name} waves you off cheerfully and wanders home.` }]);
+  }
+  UI.afterMessages = openEnd;
+}
+
+/** The inn (or the church bench): everyone back to full, levels kept. */
+function restAtInn(quiet) {
+  for (const k of Object.values(UI.carry)) { k.hp = undefined; k.mp = undefined; }
+  if (quiet) return;
+  startBattle({});
+  UI.queue.unshift({ t: 'message', text: 'A night at the inn. Everybody is in the pink again. Off you go.' });
 }
 
 function cancel() {
@@ -603,9 +694,10 @@ window.addEventListener('keydown', (e) => {
       case 'KeyF': if (!UI.busy && UI.menu && UI.menu.kind === 'command') { UI.menu.idx = 6; choose(); } break;
       case 'KeyN': startBattle({}); break;
       case 'KeyB': if (AREAS[UI.areaIdx].boss) startBattle({ boss: true }); break;
-      case 'BracketRight': UI.areaIdx = (UI.areaIdx + 1) % AREAS.length; startBattle({}); break;
-      case 'BracketLeft': UI.areaIdx = (UI.areaIdx - 1 + AREAS.length) % AREAS.length; startBattle({}); break;
-      case 'KeyL': UI.levelIdx = (UI.levelIdx + 1) % 3; startBattle({}); break;
+      case 'BracketRight': UI.areaIdx = (UI.areaIdx + 1) % AREAS.length; startBattle({ fresh: true }); break;
+      case 'BracketLeft': UI.areaIdx = (UI.areaIdx - 1 + AREAS.length) % AREAS.length; startBattle({ fresh: true }); break;
+      case 'KeyL': UI.levelIdx = (UI.levelIdx + 1) % 3; startBattle({ fresh: true }); break;
+      case 'KeyI': if (!UI.busy && UI.battle && UI.battle.over) restAtInn(); break;
       case 'KeyS': UI.S = [0, 30, 60, 75][([0, 30, 60, 75].indexOf(UI.S) + 1) % 4]; startBattle({}); break;
       case 'KeyT': UI.instant = !UI.instant; if (UI.instant) flush(); break;
     }
@@ -615,7 +707,7 @@ window.addEventListener('keyup', (e) => { if (KEYS[e.code] === 'confirm') UI.fas
 
 // ------------------------------------------------------------------------------------------------ window.__DQ
 window.__DQ = {
-  ready: false, version: 'P14-demo-2', errors,
+  ready: false, version: 'P14-demo-3', errors,
   state() {
     const b = UI.battle, snap = b ? b.snapshot() : null;
     return {
@@ -623,6 +715,9 @@ window.__DQ = {
       battle: snap ? { turn: snap.round, phase: snap.phase, enemies: snap.enemies.map((e) => ({ id: e.id, name: e.name, hp: e.hp, maxHp: e.maxHp, alive: e.alive, telegraphing: !!e.telegraphing, bigCooldown: e.bigCooldown })) } : null,
       party: snap ? snap.party.map((p) => ({ name: p.name, hp: p.hp, mhp: p.maxHp, mp: p.mp, lvl: p.lvl })) : [],
       assist: snap ? snap.assist : null,
+      carried: { fights: UI.fights, gold: UI.gold, friends: UI.friends.map((f) => ({ id: f.id, name: f.name, species: f.species })),
+        levels: Object.fromEntries(Object.entries(UI.carry).map(([k, v]) => [k, v.lvl])), recruitOffer: UI.offer },
+      areaLevel: AREAS[UI.areaIdx].areaLevel,
       ui: { menu: UI.menu ? { kind: UI.menu.kind, options: UI.menu.opts.map((o) => o.label), idx: UI.menu.idx } : null, typing: UI.busy, lines: UI.lines.slice() },
       snapshot: snap, errors: errors.length + (b ? b.errors.length : 0),
     };
@@ -650,6 +745,11 @@ window.__DQ = {
     return { phase: bt.phase, round: bt.round, outcome: bt.result ? bt.result.outcome : null };
   },
   press(btn) { press(btn); return this.state().ui; },
+  /** Answer "Shall it come along?" (only while the offer is showing). */
+  answer(yes = true) { if (!UI.offer) return false; UI.busy = false; answerRecruit(!!yes); return true; },
+  rest() { restAtInn(); return this.state(); },
+  /** The last n event texts of the current battle (the message window only keeps a few lines). */
+  log(n = 30) { return UI.battle ? UI.battle.log.slice(-n).map((e) => `${e.t}${e.move ? ':' + e.move : ''} ${e.text || ''}`.trim()) : []; },
   instant(v = true) { UI.instant = !!v; if (UI.instant) flush(); return UI.instant; },
   assist(s) { UI.S = Number(s) || 0; return UI.S; },
   level(i) { UI.levelIdx = Math.max(0, Math.min(2, i)); return UI.levelIdx; },

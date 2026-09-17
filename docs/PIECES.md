@@ -53,4 +53,13 @@ inside a directory you own are yours. `docs/progress.json` is written only via `
 ## Shared files — integrator only
 `index.html`, `src/main.js`, `src/world/field.js`, `src/world/map.js`, `src/data/strings.js`,
 `docs/*`, `tools/*`.
+
+Added by the integrator for the first vertical slice (request changes via `NEEDS:` like any shared file):
+- `src/world/scenery.js` — the scenery kit hand-built maps use (sky dome, hill rings, painted ground, cottages, trees
+  with chunked LOD, fences, rocks, water, signposts, smoke, butterflies, birds, instanced critters). P02/P03/P04/P05
+  replace pieces of it with their own modules; keep its function signatures working while they do.
+- `src/world/placeholder-hero.js` — the stand-in Bram (model + procedural idle/walk/run/nod). P07/P08 replace it; the
+  field calls only `buildPlaceholderHero() -> {group, animate(dt, t, {speed, run, onStep}), nod(), state()}`.
+- `src/world/maps/meadow.js` — Puddlewick Vale, the opening meadow. Authored by the integrator inside P23's
+  directory; P23 owns it from here (keep `layout()` data and `view()` art separate).
 Everyone else requests changes to these via `NEEDS:` in their report.

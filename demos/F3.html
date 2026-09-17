@@ -585,7 +585,7 @@ function build() {
   const t0 = performance.now();
   scene = new THREE.Scene(); scene.name = 'F3 showcase';
   camera = new THREE.PerspectiveCamera(42, App.aspect(), 0.3, 1400);
-  rig = makeLightRig({ scene, preset: 'day', extent: 20 });
+  rig = makeLightRig({ scene, preset: 'day' });
   skyParts = buildSky(scene, rig);
   ringHill(scene, 'mid', 115, 150, 200, 10, 30, 71, PAL.hill.midLow, PAL.hill.mid, 0.18);
   ringHill(scene, 'far', 240, 300, 380, 20, 95, 81, PAL.hill.farLow, PAL.hill.far, 0.25, { fogged: false, peaky: 1.7 });

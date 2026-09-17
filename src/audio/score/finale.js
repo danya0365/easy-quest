@@ -15,7 +15,7 @@ const PUD_HARM = ['D', 'A7|D', 'Bm', 'Gmaj7|A', 'D', 'G|D/F#', 'Em|A7', 'D'];
 
 export function build() {
   const T = Theme({ id: 'finale', title: 'Welcome Home', key: 'D major', bpm: 72, meter: 3, pulse: [0], intro: 4, loop: 28, space: 'HALL', gain: 0.9 });
-  const vns = T.part('violins', { voice: 'strings', bus: 'melody' });
+  const vns = T.part('violins', { voice: 'strings', bus: 'melody', gain: 1.25 });
   const lull = T.part('lullaby', { voice: 'hornSolo', bus: 'counter' });
   const flute = T.part('flute', { voice: 'flute', bus: 'counter' });
   const horns = T.part('horns', { voice: 'horns', bus: 'melody' });

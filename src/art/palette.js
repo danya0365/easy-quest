@@ -42,12 +42,16 @@ const RAW = {
             green: '#4f8f45', greenDark: '#35632f', blue: '#4f7fc4', blueDark: '#34568f', mustard: '#e0b040', pink: '#e98fae' },
   foliage:{ dark: '#2d5a2b', mid: '#4a8a3a', light: '#78b048', sun: '#a8cc5c', trunk: '#7d5433', trunkDark: '#523622', bush: '#467f36', poplar: '#3c7336' },
   flower: { white: '#fffaf0', yellow: '#ffd64a', pink: '#f59bbd', red: '#e8535a', blue: '#8fb0ff', center: '#f0a232' },
-  char:   { skin: '#fcd4ac', hair: '#2a2130', eye: '#1c1418', boot: '#6b4428', white: '#ffffff', carrot: '#f08a2c', coal: '#2e2a2c' },
+  char:   { skin: '#fcd4ac', hair: '#2a2130', eye: '#1c1418', boot: '#6b4428', white: '#ffffff', carrot: '#f08a2c', coal: '#2e2a2c',
+            hairBrown: '#5a3a26', belt: '#6e4527' },   // integrator: Bram's warm dark-brown hair, a plain belt
   slime:  { body: '#3b8fea', light: '#9bd2ff', mouth: '#7a1f2e', tongue: '#f07a8a' },
   hill:   { nearLow: '#4f8c40', near: '#76a852', midLow: '#4e8868', mid: '#86b088', farLow: '#86a6cc', far: '#bccde4', nearHaze: '#d9e6d2' },
   shadow: { contact: '#23301c', ao: '#6e7a52', aoCool: '#5d6484' },
   outline:{ char: '#2b1d1a', prop: '#3a2a20', leaf: '#1e3219', snow: '#5a6488' },
   paint:  { shutterGreen: '#4f8f5c', shutterBlue: '#4a74a8', glass: '#2d3f58', iron: '#4d4a50', doorRed: '#a8453a', gold: '#e9b949' },
+
+  // added by the integrator for the first field (sheep, ducks): warm cream wool, a soft charcoal face, a farm duck
+  animal: { wool: '#f7f1e2', woolShade: '#e3d8c2', face: '#4a3c38', ear: '#5b4a44', hoof: '#34292a', duck: '#fbf8ef', beak: '#f3a93c', cheek: '#f2b6a8' },
 
   // ── added by the art foundation (F3) — tuned under the standard rig in demos/F3.html ──────────────────────
   sand:   { light: '#f4e2b4', mid: '#e5c78f', dark: '#c9a56c', ripple: '#b58f5a', shell: '#fdf1e2', wet: '#a98b5f' },

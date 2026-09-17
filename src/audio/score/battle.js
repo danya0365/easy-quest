@@ -28,7 +28,7 @@ const B_HARM = ['Dm', 'C#dim7', 'A7', 'Dm', 'Gm', 'F#dim7', 'A7', 'A7'];
 
 export function build() {
   const T = Theme({ id: 'battle', title: 'Draw Steel!', key: 'D minor', bpm: 156, meter: 4, pulse: [0, 2], intro: 2, loop: 32, space: 'HALL', gain: 0.95 });
-  const horns = T.part('horns', { voice: 'horns', bus: 'melody', o: { tight: true } });
+  const horns = T.part('horns', { voice: 'horns', bus: 'melody', gain: 1.3, o: { tight: true } });
   const hornsLo = T.part('hornsLo', { voice: 'horns', bus: 'counter', gain: 0.65, o: { tight: true } });
   const strMel = T.part('strMel', { voice: 'strings', bus: 'counter', gain: 0.85 });
   T.part('trem', { voice: 'strings', bus: 'harmony', o: { trem: 60 / 156 / 4 } });
@@ -53,14 +53,14 @@ export function build() {
     }
   };
   const timpBeats = (h, dyn = 'mf') => {
-    for (const c of h) for (let x = c.b; x < c.b + c.d - 1e-6; x += 2) timp.note(x, c.pcs.has(2) ? 'D2' : 'A2', 0.5, { dyn });
+    for (const c of h) for (let x = c.b; x < c.b + c.d - 1e-6; x += 2) timp.note(x, c.pcs.has(2) ? 'D2' : 'A2', 0.5, { dyn: x % 4 ? 'mp' : dyn });
   };
   const section = (bar, mel, harm, { dyn = 'f', trem = false } = {}) => {
     const h = T.chords(bar, harm);
     horns.seq(bar, mel, { dyn, oct: -1, art: 'marcato' });
     strMel.seq(bar, mel, { dyn: dyn === 'ff' ? 'f' : 'mf' });
-    T.bass('pizz', h, { ...drive, dyn: 'mf' });
-    T.bass('celli', h, { pat: [[0, '1', 2], [2, '1', 2]], base: 'D2', dyn: 'mf', cycle: 4 });
+    T.bass('pizz', h, { ...drive, dyn: 'mp' });
+    T.bass('celli', h, { pat: [[0, '1', 2], [2, '1', 2]], base: 'D2', dyn: 'mp', cycle: 4 });
     if (trem) T.pad('trem', h, { n: 3, lo: 'A3', hi: 'A4', dyn: 'mp' });
     else T.pad('violas', h, { n: 3, lo: 'A3', hi: 'A4', dyn: 'mp' });
     timpBeats(h);

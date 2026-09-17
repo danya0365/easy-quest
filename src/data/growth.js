@@ -181,7 +181,14 @@ export const GUESTS = {
     id: 'halvard', name: 'Halvard', kind: 'guest',
     stats: { hp: 260, mp: 40, might: 78, nimble: 40, resil: 70, wis: 45, luck: 30 },
     gear: { power: 66, def: 30, mdef: 6 }, // carries Halvard's Greatsword "like a walking stick"
-    spells: ['mend', 'mendmore'], provisional: ['gear', 'spells'],
+    spells: ['mend', 'mendmore'], provisional: ['gear', 'spells', 'mentorLines'],
+    // Act I: he leaves the lad his own monster (battle.js / ai.js chooseMentorAction). VOICE: "lad", "if you would".
+    mentor: true,
+    mentorLines: [
+      'Halvard leans on his greatsword. "That one\'s yours, lad."',
+      'Halvard folds his arms. "Go on, lad. Mind its teeth, if you would."',
+      'Halvard steps back half a pace. "Your go, lad."',
+    ],
   },
   willow_child: { id: 'willow_child', name: 'Willow', kind: 'guest', growth: 'firecracker', lvl: 3,
     gear: { power: 7, def: 6, mdef: 0 }, provisional: ['gear'] },   // sling + clothes + straw hat
@@ -345,6 +352,7 @@ export function newMember(id, lvl = 1, extra = {}) {
     if (g.stats) m.stats = { ...g.stats };
     if (g.growth) m.growth = g.growth;
     m.gear = { ...g.gear };
+    if (g.mentor) m.mentor = true;
   } else if (COMPANIONS[id]) {
     const c = COMPANIONS[id];
     m = { id, name: c.name, kind: 'monster', species: c.species, template: c.template, mult: c.mult, cap: c.cap,

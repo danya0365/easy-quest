@@ -1,0 +1,14 @@
+{ "name":"critic-feel camera tree clip repro (index)", "steps":[
+  {"waitFor":"window.__DQ && __DQ.ready","timeout":30000},
+  {"wait":1200},
+  {"eval":"__DQ.teleport('meadow', 10.1, 13.5)"},
+  {"wait":1500},
+  {"shot":"start"},
+  {"eval":"(()=>{window.__S=[];const t0=performance.now();const f=()=>{const s=__DQ.state();const p=s.player,c=s.field.camera;const dx=c.pos[0]-p.x,dz=c.pos[2]-p.z,dy=c.pos[1]-p.y;window.__S.push([Math.round(performance.now()-t0),+p.speed.toFixed(1),Math.round(p.facing),+Math.hypot(dx,dy,dz).toFixed(2),+c.dist.toFixed(2),c.occluded?1:0,+p.x.toFixed(1),+p.z.toFixed(1),+c.pos[0].toFixed(1),+c.pos[1].toFixed(1),+c.pos[2].toFixed(1)]);if(performance.now()-t0<6000)requestAnimationFrame(f)};requestAnimationFrame(f);window.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',code:'ArrowDown'}));return 'ok'})()"},
+  {"burst":{"name":"down","count":16,"interval":60}},
+  {"eval":"window.dispatchEvent(new KeyboardEvent('keyup',{key:'ArrowDown',code:'ArrowDown'}))"},
+  {"wait":1500},
+  {"shot":"settled"},
+  {"eval":"(()=>{const S=__S;let out=[];let last=-100;for(const r of S){if(r[0]-last>=80){out.push(r.join(','));last=r[0]}};window.__O=out.join(' ');return window.__O.length})()"},
+  {"eval":"__O.slice(0,390)"},{"eval":"__O.slice(390,780)"},{"eval":"__O.slice(780,1170)"},{"eval":"__O.slice(1170,1560)"},{"eval":"__O.slice(1560,1950)"},{"eval":"__O.slice(1950,2340)"},{"eval":"__O.slice(2340,2730)"},{"eval":"__O.slice(2730,3120)"},{"eval":"__O.slice(3120,3510)"},{"eval":"__O.slice(3510,3900)"}
+]}

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// tests/battle/sim.mjs — P14/P19 balance simulator.
+// tests/battle/sim.mjs — P14/P19 balance simulator, one area × level at a time.
+// THE pass/fail balance check is tests/battle/journey.mjs (whole playthroughs with EXP, S and gold carried from area to
+// area). This file is the microscope: a fresh party at each of an area's three levels, thousands of fights.
 // Simulates thousands of fights for every area in docs/WORLD-BIBLE.md (tests/battle/areas.js) with the party a
 // never-grinding child would plausibly have there, and prints the numbers the difficulty contract cares about.
 //
@@ -33,7 +35,8 @@ const rng = makeRng(SEED);
 function runFight(party, enemies, area, policy, extra = {}) {
   const b = createBattle({
     party, enemies, data: DATA, rng,
-    options: { bag: extra.bag ? { ...extra.bag } : { ...(area.bag || {}) }, gold: 100, wagonReachable: extra.wagonReachable ?? area.wagonReachable ?? true, ...extra.options },
+    options: { bag: extra.bag ? { ...extra.bag } : { ...(area.bag || {}) }, gold: 100, areaLevel: area.areaLevel,
+      wagonReachable: extra.wagonReachable ?? area.wagonReachable ?? true, ...extra.options },
   });
   const startMax = b.snapshot().party.reduce((s, p) => s + p.maxHp, 0);
   let r = 0;
@@ -183,7 +186,8 @@ for (const area of AREAS) {
       if (walk.wipePct > 0.05) verdict.push('WALK-WIPE');
       if (goldPer < area.goldTarget * 0.6) verdict.push('POOR');
       if (goldPer > area.goldTarget * 1.8) verdict.push('RICH');
-      if (mean(smart.rounds) > 6.5) verdict.push('LONG');
+      if (mean(smart.rounds) > 3.6) verdict.push('LONG');
+      if (mean(smart.rounds) < 2.0) verdict.push('SHORT');
     }
     if (verdict.length && L === area.levels[1]) flags.push(`${area.id} Lv${L}: ${verdict.join(', ')}`);
     normalRows.push([
@@ -215,8 +219,9 @@ for (const area of AREAS) {
     const bflags = [];
     if (!scripted && brow.winSmart < 0.9) bflags.push('HARD');
     if (!scripted && brow.winAuto < 0.6) bflags.push('AUTO-WALL');
-    if (!scripted && r < 5) bflags.push('SHORT');
-    if (!scripted && r > 14) bflags.push('LONG');
+    if (!scripted && r < 6) bflags.push('SHORT');
+    if (!scripted && r > 12) bflags.push('LONG');
+    if (!scripted && brow.winMashAssisted < 0.6) bflags.push('MASH-WALL');
     if (bflags.length) flags.push(`${area.id} boss ${name}: ${bflags.join(', ')}`);
     bossRows.push([name, area.name, boss.level, pct(brow.winSmart), pct(brow.winAuto), pct(brow.winMash), pct(brow.winMashAssisted), f1(r), f1(brow.roundsMash),
       f1(brow.tele), f1(brow.big), pct(brow.koPct), pct(brow.hpLeft), totalHp, scripted ? 'scripted' : brow.hpFor8, bflags.join(' ') || 'ok']);
@@ -228,7 +233,7 @@ console.log(`\nP14/P19 battle simulator — seed ${SEED}, ${N} fights per area×
 console.log('NORMAL ENCOUNTERS  (fresh party each fight unless noted)');
 console.log(table(['Area', 'Lv', 'Win smart', 'Win mash', 'Rounds', 'Dmg taken', 'KO', 'Max hit', 'Capped/100', 'EXP/fight', 'Fights→Lv', 'G/fight', 'G bible', 'Next buy', 'Fights→buy', 'Walk wipe', 'HP after walk', 'Flags'], normalRows));
 if (bossRows.length) {
-  console.log('\nBOSSES  (party at the CANON §8 level, no wagon, smart vs mash)');
+  console.log('\nBOSSES  (party at the level children arrive at — journey-measured — no wagon; smart, Fight!, Attack-only)');
   console.log(table(['Boss', 'Area', 'Lv', 'Win smart', 'Win auto', 'Win mash', 'Mash S=36', 'Rounds', 'Rounds mash', 'Telegraphs', 'Big attacks', 'Someone KO', 'HP left (wins)', 'Boss HP', 'HP for ~8 rnds', 'Flags'], bossRows));
 }
 console.log('\nColumns: Dmg taken = HP lost / party max HP per fight. Max hit = biggest single enemy hit as % of the target\'s max HP (normal fights are capped at 40% by the §6.5 floor). Capped/100 = hits that needed that cap per 100 fights. Fights→Lv = EXP to next level ÷ EXP per fight (hero, no catch-up). G bible = SYSTEMS §5 average gold per battle for the area\'s economy leg; Next buy and walk length are that leg\'s too. Walk wipe = chance of a wipe walking the area\'s fights back-to-back with no inn (smart play; Mend/Herbs on the road between fights, starting herbs only). Boss: auto = the "Fight!" auto-battle (never items, never MP below half); Mash S=36 = attack-only after three wipes, with the invisible rubber band on. "HP for ~8 rnds" = the HP that would make the smart fight last about eight rounds.');

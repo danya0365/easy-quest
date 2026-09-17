@@ -1,0 +1,10 @@
+{ "name": "critic-look drift+seams", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000},
+  {"wait": 1500},
+  {"eval": "__DQ.timeOfDay(12)"},
+  {"burst": {"name": "cloud-drift", "count": 3, "interval": 3000}},
+  {"eval": "__DQ.teleport('meadow', 18, -12)"}, {"eval": "__DQ.cameraOrbit(20)"}, {"wait": 1800},
+  {"burst": {"name": "pond-join", "count": 3, "interval": 250}},
+  {"eval": "__DQ.teleport('meadow', 38, 0)"}, {"eval": "__DQ.cameraOrbit(270)"}, {"wait": 1800}, {"shot": "east-edge-outward"},
+  {"eval": "__DQ.teleport('meadow', 0, 38)"}, {"eval": "__DQ.cameraOrbit(180)"}, {"wait": 1800}, {"shot": "south-edge-outward"}
+]}

@@ -437,7 +437,10 @@ export function makeLightRig(opts = {}) {
     extent: 30,
     preset: null,
     fogRef: null,
-    setExtent(e) {
+    userExtent: opts.extent ?? null,          // an explicit extent always beats the preset's
+    /** Half-size of the shadow frustum in world units (bigger = softer, blurrier shadows over more ground). */
+    setExtent(e) { this.userExtent = e; return this._extent(e); },
+    _extent(e) {
       this.extent = e;
       Object.assign(sun.shadow.camera, { left: -e, right: e, top: e, bottom: -e, near: 1, far: this.distance * 2 });
       sun.shadow.camera.updateProjectionMatrix();
@@ -450,7 +453,8 @@ export function makeLightRig(opts = {}) {
       sun.color.copy(C3(P.sun)); sun.intensity = P.sunI;
       hemi.color.copy(C3(P.sky)); hemi.groundColor.copy(C3(P.ground)); hemi.intensity = P.hemiI;
       this.dir.set(P.dir[0], P.dir[1], P.dir[2]).normalize();
-      if (P.extent && P.extent !== this.extent) this.setExtent(P.extent);
+      const ext = this.userExtent ?? P.extent;
+      if (ext && ext !== this.extent) this._extent(ext);
       if (this.fogRef && P.fog) { this.fogRef.color.copy(C3(P.fog.color)); this.fogRef.near = P.fog.near; this.fogRef.far = P.fog.far; }
       this.preset = typeof name === 'string' ? name : 'custom';
       this.follow(this.focus);
@@ -503,7 +507,7 @@ export function makeLightRig(opts = {}) {
     },
     dispose() { try { sun.shadow.dispose(); group.removeFromParent(); } catch (e) { reportError('LightRig.dispose', e); } },
   };
-  rig.setExtent(opts.extent ?? (RIG_PRESETS[opts.preset || 'day'] || RIG_PRESETS.day).extent ?? 30);
+  rig._extent(opts.extent ?? (RIG_PRESETS[opts.preset || 'day'] || RIG_PRESETS.day).extent ?? 30);
   rig.apply(opts.preset || 'day');
   if (opts.scene) { opts.scene.add(group); if (opts.fog !== false) rig.fog(opts.scene); }
   return rig;

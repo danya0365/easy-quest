@@ -5,6 +5,8 @@
 // This file is test/demo data. The real game reads src/data/{monsters,spells,items}.js (owned by P16/P20/P21).
 // Synced to the canon-pass bibles (SYSTEMS §2.4/§3/§4, MONSTER §6/§6b) on 2026-09-17.
 
+import { BALANCE } from './balance.js';
+
 // ------------------------------------------------------------------------------------------------ spells
 const sp = (id, name, mp, tier, kind, extra = {}) => ({ id, name, mp, tier, kind, target: 'enemy', battle: true, ...extra });
 
@@ -378,6 +380,28 @@ export const MONSTERS = Object.fromEntries([
   // Pip's species (a party companion, never a wild encounter)
   mon('sunspot_cub', 'Sunspot Cub', 2, [5, 30, 0, 20, 12, 30, 0, 0, 0], ['attack'], { companionOnly: true, provisional: true }),
 ].map((m) => [m.id, m]));
+
+// ------------------------------------------------------------------------------------------------ balance pass r2
+// The stat blocks above are the MONSTER-BIBLE's, verbatim. tests/battle/balance.js holds the journey-measured numbers
+// that supersede them (home `partyLevel`, HP/ATK/DEF/EXP/gold, boss move numbers); the bible block is kept on
+// `monster.bible` so every change is visible. See docs/DATA-SHAPES.md §9.
+export function applyBalance(monsters, balance) {
+  for (const [id, patch] of Object.entries(balance)) {
+    const m = monsters[id];
+    if (!m) continue;
+    if (!m.bible) m.bible = Object.fromEntries(['lvl', 'hp', 'mp', 'atk', 'def', 'agi', 'exp', 'gold'].map((k) => [k, m[k]]));
+    const { moves: movePatch, ...rest } = patch;
+    Object.assign(m, rest);
+    for (const [mid, mp] of Object.entries(movePatch || {})) {
+      const mv = m.moves.find((x) => typeof x === 'object' && x.id === mid);
+      if (mp === null) m.moves = m.moves.filter((x) => x !== mv);
+      else if (mv) Object.assign(mv, mp);
+      else m.moves.push({ id: mid, ...mp });
+    }
+  }
+  return monsters;
+}
+applyBalance(MONSTERS, BALANCE);
 
 export const DATA = { monsters: MONSTERS, spells: SPELLS, items: ITEMS };
 export default DATA;

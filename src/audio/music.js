@@ -7,7 +7,7 @@
  *   Music.stinger(id, opts)            battle_start · victory · level_up · item_get · join · inn · sad_sting
  *   Music.themes() -> [{id,title,bpm,bars,kind,key,loopSec,introSec}]
  *   Music.renderOffline(id, seconds, {raw, quality}) -> Promise<AudioBuffer>   same graph, OfflineAudioContext
- *   Music.state() -> {theme, bar, beat, iteration, voices, ducked, ctxState, quality, space, steals, stingers}
+ *   Music.state() -> {theme, bar, beat, iteration, voices, ducked, ctxState, quality, space, steals, sampler}
  *
  * Graph (§2.3, standalone):
  *   voice ─► part bus (per performance) ─► perf.dry ─► THEME_SUM ─► DUCK ─► MUSIC ─► [output | MASTER]
@@ -16,7 +16,7 @@
  *   MASTER = compressor(-14, knee 8, 3:1, 6 ms, 180 ms) ─► masterGain ─► limiter ─► destination
  * Loops (§5.3): a beat clock that never resets; a note whose tail crosses the seam simply keeps ringing.
  */
-import { makeKit, VOICES, SEND, HUM, seatPan, makeIR, makeFDN } from './instruments.js';
+import { makeKit, VOICES, SEND, HUM, seatPan, makeIR, makeFDN, Bank } from './instruments.js';
 import { THEMES, ALIASES, STINGER_THEME, STINGER_IDS } from './score/index.js';
 import { mtof } from './score/_lib.js';
 
@@ -31,6 +31,9 @@ const CAP = { high: 30, med: 24, low: 14 };
 const LOOKAHEAD = 0.15, PUMP_MS = 25;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ART = { staccato: 0.5, marcato: 0.78, tenuto: 0.96, legato: 1.0 };
+/** Loudness follows the marking more steeply than the bible's linear gains (pp .18 ... ff .92): an orchestra's ff is not
+ * 1.4 dB above its f. Normalised at mf so single-voice calibration holds; ff +2.2 dB, p -3.6 dB, pp -6.2 dB extra. */
+const dynLoud = (vel) => Math.pow(Math.max(0.02, vel) / 0.6, 0.6);
 
 function report(where, e) {
   try {
@@ -76,7 +79,7 @@ export function createMusic() {
       E = {
         ctx, offline, quality, kit: makeKit(ctx, { quality }), perfs: [], handles: [], current: null, steals: 0,
         spaces: {}, injectedSend: opts.reverbSend || null, setSpaceCb: opts.setSpace || null, space: null,
-        duckLevel: 1, lastPump: 0, timer: null, lastPositions: {}, raw: !!opts.raw, verbMul: opts.verbMul,
+        duckLevel: 1, lastPump: 0, timer: null, lastPositions: {}, raw: !!opts.raw, verbMul: opts.verbMul, busMul: opts.busMul,
       };
       E.music = g(0.85);
       E.hp = ctx.createBiquadFilter(); E.hp.type = 'highpass'; E.hp.frequency.value = 38; E.hp.Q.value = 0.7;
@@ -88,10 +91,11 @@ export function createMusic() {
       else if (opts.raw) E.hp.connect(ctx.destination);
       else {
         const comp = ctx.createDynamicsCompressor();
-        comp.threshold.value = -14; comp.knee.value = 8; comp.ratio.value = 3; comp.attack.value = 0.006; comp.release.value = 0.18;
+        // gentler than the bible's -14 dB 3:1: that setting ate the score's dynamics (an ff restatement measured +0.6 dB)
+        comp.threshold.value = -10; comp.knee.value = 8; comp.ratio.value = 2.2; comp.attack.value = 0.012; comp.release.value = 0.25;
         const master = g(opts.masterGain ?? 0.80);
         const lim = ctx.createDynamicsCompressor();
-        lim.threshold.value = -2; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.08;
+        lim.threshold.value = -1.5; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.08;
         E.hp.connect(comp); comp.connect(master); master.connect(lim); lim.connect(ctx.destination);
         E.comp = comp; E.master = master;
       }
@@ -141,7 +145,7 @@ export function createMusic() {
       dry: g(fadeIn > 0 ? 0 : 1), send: g(fadeIn > 0 ? 0 : 1), buses: {}, muted: new Set(), seed: hash(th.id),
       createdAt: ctx.currentTime, startAt: at,
     };
-    for (const [b, lv] of Object.entries(BUS_LEVEL)) { p.buses[b] = g(lv); p.buses[b].connect(p.dry); }
+    for (const [b, lv] of Object.entries(BUS_LEVEL)) { p.buses[b] = g(lv * (E.busMul?.[b] ?? 1)); p.buses[b].connect(p.dry); }
     p.dry.connect(sting ? E.stingSum : E.themeSum);
     const sp = space(th.space);
     p.send.connect(sting ? sp.inSting : sp.inTheme);
@@ -163,6 +167,10 @@ export function createMusic() {
 
   function pumpPerf(p, now, horizon) {
     if (p.exhausted) return;
+    if (p.holdUntil != null) { // live boot: wait (<= 2.5 s) for the string/brass multisamples so the first bars aren't the fallback
+      if (!Bank.ready(p.need) && now < p.holdUntil) { if (p.idx === 0 && p.iter === 0) p.t0 = Math.max(p.t0, now + horizon + 0.02); return; }
+      p.holdUntil = null;
+    }
     const th = p.th, evs = th.events;
     for (let guard = 0; guard < 4000; guard++) {
       if (p.idx >= evs.length) {
@@ -198,7 +206,7 @@ export function createMusic() {
     if (th.loopDb && p.iter > 0) vel *= Math.pow(10, Math.min(p.iter * th.loopDb.per, th.loopDb.max) / 20);
     vel = clamp(vel, 0.02, 1.15);
     const n = {
-      t: ts, dur: Math.max(0.02, dur), m: e.m, f: e.m != null ? mtof(e.m) : 0, vel, gain: (e.g ?? 1) * th.gain,
+      t: ts, dur: Math.max(0.02, dur), m: e.m, f: e.m != null ? mtof(e.m) : 0, vel, gain: (e.g ?? 1) * th.gain * dynLoud(vel), art: e.art,
       pan: e.pan ?? seatPan(e.voice, e.m ?? 60), send: (e.send ?? SEND[e.voice] ?? 0.3) + th.sendAdd,
       long: e.voice === 'celesta' ? 0.25 : 0, spb, o: e.o, voice: e.voice, ci: e.ci,
     };
@@ -305,6 +313,11 @@ export function createMusic() {
       if (enter.gap != null && opts.fade === 0) start = at;
       const startBeat = opts.resume ? (E.lastPositions[id] || 0) : (opts.startBeat || 0);
       const p = newPerf(th, start, { fadeIn, startBeat });
+      if (!E.offline) {
+        p.need = th.need || (th.need = Bank.keysFor(th.events));
+        Bank.prioritize(p.need);
+        if (!cur && !opts.noHold && !fadeIn && !startBeat && !Bank.ready(p.need)) p.holdUntil = now + 2.5;
+      }
       E.current = p;
       if (E.setSpaceCb) { try { E.setSpaceCb(SPACE[th.space]?.ext || 'hall'); } catch (e) { report('setSpace', e); } }
       E.space = th.space;
@@ -356,12 +369,12 @@ export function createMusic() {
           cut(t, 0.06);
           sting('battle_start', t);
           const next = opts.then === undefined ? 'battle' : opts.then;
-          if (next) { E.current = null; play(next, { at: t + 0.55, fade: 0 }); }
+          if (next) { E.current = null; play(next, { at: t + 0.55, fade: 0, noHold: true }); }
           return { id, duration: 0.55 };
         }
         case 'victory': {
           cut(t, 0.06); E.current = null;
-          play('victory', { at: t + 0.06 + 0.25, fade: 0 });
+          play('victory', { at: t + 0.06 + 0.25, fade: 0, noHold: true });
           return { id, duration: 0.31 + len('victory') };
         }
         case 'level_up': case 'item_get': case 'join': case 'sad_sting': {
@@ -387,7 +400,7 @@ export function createMusic() {
 
   function themes() {
     return Object.values(THEMES).map((th) => ({ id: th.id, title: th.title, bpm: th.bpm, bars: th.bars, kind: th.kind, key: th.key,
-      meter: th.meter, loopSec: +th.loopSec.toFixed(2), introSec: +th.introSec.toFixed(2), lengthSec: +th.lengthSec.toFixed(2), stinger: !!th.stingerOnly }));
+      meter: th.meter, sig: th.sig, loopSec: +th.loopSec.toFixed(2), introSec: +th.introSec.toFixed(2), lengthSec: +th.lengthSec.toFixed(2), stinger: !!th.stingerOnly }));
   }
 
   function state() {
@@ -400,7 +413,8 @@ export function createMusic() {
       beat: pos ? +((pos.beat % c.th.meter) + 1).toFixed(2) : 0,
       iteration: pos ? pos.iter : 0,
       voices: E.handles.filter((h) => h.t0 <= now && h.end > now).length,
-      ducked: +E.duckLevel.toFixed(2), ctxState: E.ctx.state, quality: E.quality, space: E.space, steals: E.steals,
+      ducked: E.duckUntil != null && now > E.duckUntil ? 1 : +E.duckLevel.toFixed(2), ctxState: E.ctx.state, quality: E.quality, space: E.space, steals: E.steals,
+      sampler: Bank.state(),
       performances: E.perfs.map((p) => ({ id: p.id, sting: p.sting, stopping: p.stopAt != null })),
     };
   }
@@ -411,7 +425,7 @@ export function createMusic() {
     const sr = opts.sampleRate || 44100;
     const off = new OAC(2, Math.max(256, Math.ceil(seconds * sr)), sr);
     const m = createMusic();
-    m.init({ ctx: off, quality: opts.quality || (E && E.quality) || 'high', raw: opts.raw, masterGain: opts.masterGain, verbMul: opts.verbMul });
+    m.init({ ctx: off, quality: opts.quality || (E && E.quality) || 'high', raw: opts.raw, masterGain: opts.masterGain, verbMul: opts.verbMul, busMul: opts.busMul });
     const step = 0.2;
     for (let k = 1; k * step < seconds - 0.01; k++) {
       off.suspend(k * step).then(() => { try { m._pump(); } catch (e) { report('offline pump', e); } off.resume(); });

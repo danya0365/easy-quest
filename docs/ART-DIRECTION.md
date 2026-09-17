@@ -203,11 +203,17 @@ Per-family toon parameters used in the final frame (anything not listed = `TOON_
 | ground + near hill ring | | 0.10 (ring 0.15) | 0.80 (ring 0.82) | 0.25 | **1.05** |
 | grass tufts (normals forced up) | | 0.10 | 0.80 | 0.25 | 1.05 |
 | flowers (normals forced up) | | 0.10 | 0.90 | | |
-| tree/bush canopies | 0.05 | 0.06 | 0.74 | 0.38 | 1.15 |
+| tree/bush canopies (`TOON_PRESETS.canopy`, accepted after the frame lock) | 0.05 | **0.10** | **0.80** | **0.22** | 1.15 |
+| tree/bush canopies, original frame tuning (`TOON_PRESETS.canopyTuned`) | 0.05 | 0.06 | 0.74 | 0.38 | 1.15 |
 | far forest belts | | 0.06 | 0.78 | 0.35 | 1.10 |
 | mid/far hill rings | | 0.25 | 0.86 | 0.30 | 1.10 |
 | hero skin | | | 0.85 | | |
 | slime body | | | 0.78 | 0.35 | 1.20 |
+
+**Canopy preset change (accepted by the integrator).** Under the free 360° field orbit, side and back light shrank the
+full band of the tuned canopy values to a hard straight stripe across the blobs. `TOON_PRESETS.canopy` (soft 0.10,
+mid 0.80, midEdge 0.22) is identical at gameplay distance and turns that stripe into a soft sweep; compare
+`shots/F3-tree-a` (tuned) with `shots/F3-tree-f` (accepted). The original values stay available as `canopyTuned`.
 
 `dqToon` materials share one GPU program per `key`; the ground uses key `'dqground'`. Live-tune any parameter with
 `__DQ.toon('mid', 0.7)`.

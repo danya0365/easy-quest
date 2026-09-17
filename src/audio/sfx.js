@@ -7,7 +7,9 @@
  *   Sfx.render(id, seconds, {variant, every, vol, pitch}) -> Promise<AudioBuffer>  (same graph, offline)
  *   Sfx.renderInto(id, dest, t, opts)  schedule one play into an Audio.renderOffline dest at time t (true-mix renders,
  *                              e.g. battle music on the music bus with hits landing on it; ducks included)
- *   Sfx.ambience(id|null, {fade}) crossfade the one ambience bed (amb_meadow|amb_town|amb_cave|amb_night)
+ *   Sfx.ambience(id|null, {fade}) crossfade the one ambience bed (amb_meadow|amb_town|amb_cave|amb_night). A bed is a
+ *                              chain of 3 differently seeded variants of a seamless loop, crossfaded, so it never
+ *                              repeats exactly (render(id, s, {single:true}) renders one variant looped, for seams)
  *   Sfx.glyph(charId)          text tick in that speaker's voice (rate-limited; call once per typed glyph)
  *   Sfx.state()                -> {voices, last:[ids], ambience, played}
  *
@@ -216,7 +218,8 @@ function chain(E, src, T, o) {
   for (const spec of (o.filters || (o.filter ? [o.filter] : []))) { const f = filt(E, T, spec); node.connect(f); node = f; }
   if (o.drive) {
     const pre = ctx.createGain(); pre.gain.value = o.driveIn ?? 1;
-    const ws = ctx.createWaveShaper(); ws.curve = driveCurve(ctx, o.drive); ws.oversample = '2x';
+    // oversampling costs ~2 ms of latency in Chrome: impact layers pass os:'none' so they stay sample-aligned
+    const ws = ctx.createWaveShaper(); ws.curve = driveCurve(ctx, o.drive); ws.oversample = o.os ?? '2x';
     node.connect(pre); pre.connect(ws); node = ws;
     for (const spec of (o.post || [])) { const f = filt(E, T, spec); node.connect(f); node = f; }
   }
@@ -558,19 +561,28 @@ S('chest_open', { group: 'Treasure', gain: 1.0, send: 0.06, pj: 0.3, vj: 0.05, d
   noise(E, { a: 0.0005, d: 0.014, g: 0.45, filters: [{ type: 'bandpass', f: 3200, Q: 2 }] });
   bell(E, { f: 1560, g: 0.08, d: 0.07, a: 0.0006, partials: [[1, 1, 1], [2.71, 0.5, 0.6]] });
   noise(E, { t: 0.045, a: 0.0005, d: 0.012, g: 0.3, filters: [{ type: 'bandpass', f: 2500, Q: 2 }] });
-  // the hinge: a short stick-slip squeal (a real creak, pitched, wobbling), not a ratchet
-  creak(E, { t: 0.06, dur: 0.17, f: 190, f1: 260, g: 0.16, res: [950, 1850], Q: 5 });
-  // the lid lands: GA-CHAN, wood knock body you can hear on a telly, an iron band ringing on top
+  // the hinge: one short stick-slip squeal, pitched and wobbling, kept soft
+  creak(E, { t: 0.06, dur: 0.15, f: 170, f1: 260, g: 0.1, res: [950, 1850], Q: 5 });
+  // the lid lands: GA-CHAN. A hollow wooden box (its own ringing modes, not a hit), then the iron band clanks
   const t = 0.24;
-  crack(E, t, 0.7, 360);
-  tone(E, { t, type: 'triangle', f: 300, f1: 150, ft: 0.07, a: 0.001, d: 0.14, g: 0.42 });
-  tone(E, { t, type: 'sine', f: 190, f1: 105, ft: 0.08, a: 0.001, d: 0.14, g: 0.35 });
-  bell(E, { t: t + 0.004, f: 1180, g: 0.1, d: 0.2, a: 0.0006, partials: [[1, 1, 1], [2.43, 0.55, 0.6], [3.93, 0.3, 0.4]] });
-  noise(E, { t, a: 0.0005, d: 0.02, g: 0.35, filters: [{ type: 'bandpass', f: 2300, Q: 1.2 }] });
-  // and the treasure winks
-  bell(E, { t: 0.3, f: 2637, g: 0.07, d: 0.5, partials: GLINT });
-  bell(E, { t: 0.37, f: 3520, g: 0.06, d: 0.5, partials: GLINT });
+  lid(E, t, 1);
+  lid(E, t + 0.055, 0.35); // ...and settles with a little bounce
+  bell(E, { t: t + 0.006, f: 1180, g: 0.13, d: 0.28, a: 0.0006, partials: [[1, 1, 1], [2.43, 0.55, 0.6], [3.93, 0.3, 0.4]] });
+  bell(E, { t: t + 0.008, f: 1660, g: 0.06, d: 0.2, a: 0.0006, partials: [[1, 1, 1], [2.71, 0.4, 0.5]] });
+  noise(E, { t, a: 0.0005, d: 0.02, g: 0.3, filters: [{ type: 'bandpass', f: 2300, Q: 1.2 }] });
+  // and the treasure winks: a warm two-note celesta "ti-rin"
+  bell(E, { t: 0.32, f: nf('A6'), g: 0.1, d: 0.6, partials: CELESTA, pan: -0.15 });
+  bell(E, { t: 0.4, f: nf('D7'), g: 0.1, d: 0.8, partials: CELESTA, pan: 0.15 });
 });
+
+/** A wooden lid landing on a wooden box: the box's hollow modes ringing briefly, a low knock, a puff of dull noise. */
+function lid(E, t, k) {
+  for (const [f, d, g] of [[176, 0.16, 0.34], [398, 0.11, 0.26], [742, 0.07, 0.16], [1210, 0.045, 0.1]]) {
+    tone(E, { t, type: 'sine', f: f * E.rr(0.97, 1.03), f1: f * 0.94, ft: 0.03, a: 0.0008, d, g: g * k });
+  }
+  tone(E, { t, type: 'triangle', f: 260, f1: 130, ft: 0.05, a: 0.001, d: 0.1, g: 0.2 * k });
+  noise(E, { t, a: 0.0008, d: 0.06, g: 0.3 * k, filters: [{ type: 'bandpass', f: 520, Q: 0.9 }, { type: 'lowpass', f: 1800, nojit: true }] });
+}
 
 S('item_get', { group: 'Treasure', gain: 0.6, send: 0.28, pj: 0.05, vj: 0.03, duck: 0.45, desc: 'ta-ta-ta-taaa! (short)' }, (E) => {
   for (const [n, t, len] of [['A5', 0, 0.09], ['D6', 0.09, 0.09], ['F#6', 0.18, 0.09], ['A6', 0.27, 0.5]]) {
@@ -597,61 +609,75 @@ S('gold_coins', { group: 'Treasure', gain: 1.0, send: 0.08, pj: 0.5, desc: 'a li
 
 // =================================================================================================================
 // BATTLE
-// Impacts. The body lives where a telly speaker still plays it (a noisy, slightly driven 200-900 Hz crack), the
-// edge lives at 2-5 kHz (a slash that sweeps down and across), and only a pinch of sub sits underneath. The crack
-// and slash hold for ~40 ms before they fall away, so the hit is a solid ~250 ms "zubash", not a 50 ms tick.
-function slash(E, t, k = 1, dir = 1) {
-  const bright = E.rr(0.9, 1.12);
-  // the knife-point: a 12 ms tick that skips the shaper so the hit starts sharp
-  noise(E, { t, a: 0.0004, d: 0.018, g: 0.75 * Math.min(k, 1), to: E.post, filters: [{ type: 'highpass', f: 1400 }, { type: 'lowpass', f: 7000 }] });
-  // the slash: a resonant band of noise sweeping 5.2 -> 1.9 kHz, clipped hard BEFORE its envelope (dense, not
-  // peaky), cleaned up, then swiped across the stereo field
-  noise(E, { t, a: 0.0015, h: 0.012, d: 0.09, s: 0.35, sd: 0, r: 0.34 * k, g: 0.6 * k,
-    filters: [{ type: 'bandpass', f: 5200 * bright, fp: [[0.06, 3300 * bright], [0.26, 1900 * bright]], Q: 1.8 }], drive: 3, driveIn: 4,
-    post: [{ type: 'bandpass', f: 3000 * bright, f1: 2100, ft: 0.2, Q: 0.55 }, { type: 'lowpass', f: 6500, Q: 0.6, nojit: true }],
-    panSweep: [-0.3 * dir, 0.3 * dir, 0.22] });
-  // the swish you can follow: an unclipped, resonant band falling 4.8 -> 1.5 kHz (the motion in "zu-BASH")
-  noise(E, { t, a: 0.002, h: 0.012, d: 0.17 * k, g: 0.5 * k,
-    filters: [{ type: 'bandpass', f: 4800 * bright, fp: [[0.05, 3000 * bright], [0.18, 1500 * bright]], Q: 4 }],
-    panSweep: [-0.35 * dir, 0.35 * dir, 0.18] });
-}
-function crack(E, t, k = 1, f = 520) {
-  const fc = f * E.rr(0.9, 1.1);
-  // noisy body: band-passed, clipped into a crunch, trimmed to ~170-1500 Hz, then enveloped
-  noise(E, { t, a: 0.001, h: 0.015, d: 0.09, s: 0.35, sd: 0, r: 0.3 * k, g: 0.55 * k,
-    filters: [{ type: 'bandpass', f: fc * 1.15, fp: [[0.18, fc * 0.7]], Q: 0.9 }], drive: 3, driveIn: 4,
-    post: [{ type: 'lowpass', f: 1400, Q: 0.6 }, { type: 'highpass', f: 180, Q: 0.6 }] });
-  // splinters: irregular ticks in the same band so it crunches instead of hissing
-  grains(E, { t, span: 0.1 * k, count: Math.round(9 * k), fLo: 260, fHi: 950, Q: 2.4, dLo: 0.008, dHi: 0.022, gLo: 0.2 * k, gHi: 0.4 * k, fade: true });
+// Impacts are SNAP -> BODY -> TAIL, and nothing in them holds or sustains:
+//   snap  a flick of noise clipped into a dense 3 ms burst, with a pitched tick inside it that falls more than an
+//         octave in 6 ms. It peaks 1-2 ms after onset, about 8 dB over the body, so every blow starts sharp:
+//         "tsk" for steel, "pok" for hide, "dok" for the party.
+//   body  each impact's OWN pitched sound. It swells in over 3.5 ms, so it peaks just as the snap has fallen away
+//         (the two never pile their peaks on each other), then decays at once: about -10 dB by 35-40 ms.
+//         sword_hit    a bright swish band falling 3.4 -> 1.4 kHz over a mid "kn" thwack (~640 -> 250 Hz)
+//         monster_hurt a rubbery "bop" (~470 -> 170 Hz) under a short smack of hide
+//         player_hurt  a heavy thud (~230 -> 80 Hz, with low-mid harmonics a telly still plays) and a dark crunch
+//   tail  what gives each one its own shape once the body has gone: the blade's air, a little yelp, the rattle
+//         under the screen shake.
+// No peak shaver and no glue compressor in the way (the sfx bus joins after it, see audio.js): what is drawn here is
+// what comes out. Over the battle theme a hit lifts the true mix ~6 LU; it no longer stands on it as a wall of noise.
+const BODY_IN = 0.004;
+/**
+ * The snap: a noise flick and a pitched tick (falling more than an octave in 6 ms), summed and driven together
+ * into a clipper: ~2 ms of dense burst whose loudness sits close under its peak (a lone click wastes ~7 dB of
+ * headroom as crest), then -10 dB within another ~2 ms. `g` is its level, `f` the tick, `hp`/`lp` its colour.
+ */
+function snap(E, t, o = {}) {
+  const ctx = E.ctx, T = E.t + t, k = o.k ?? 1, f = o.f ?? 2000;
+  const pre = ctx.createGain(); pre.gain.value = o.drive ?? 4;
+  const ws = ctx.createWaveShaper(); ws.curve = driveCurve(ctx, 1.6); ws.oversample = 'none';
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.lp ?? 7000; lp.Q.value = 0.5;
+  const out = ctx.createGain(); out.gain.value = (o.g ?? 0.5) * k;
+  pre.connect(ws); ws.connect(lp); lp.connect(out); out.connect(E.out);
+  const h = o.h ?? 0.001, d = o.d ?? 0.011;
+  // band-limit the flick BEFORE the clipper: clipped white noise is mostly energy above the lowpass, all crest
+  noise(E, { t, a: 0.0003, h, d, g: o.ng ?? 1, to: pre, filters: [{ type: 'highpass', f: o.hp ?? 1000, nojit: true }, { type: 'lowpass', f: (o.lp ?? 7000) * 0.7, nojit: true }] });
+  tone(E, { t, type: 'sine', f, f1: f * 0.4, ft: 0.006, a: 0.0003, h, d, g: o.tg ?? 0.3, to: pre });
+  return T + h + d;
 }
 
-S('sword_hit', { group: 'Battle', gain: 1.5, sat: 0.55, satOut: 1.15, send: 0.035, pj: 0.7, vj: 0.07, fj: 0.1, poly: 4,
-  pulse: [0.5, 0.008, 0.15, 0.22], desc: 'zubash! a bright slash on a crunchy crack' }, (E) => {
+/** The sword's part of a hit: the swish band, the thwack and a faint ring of the blade. `k` scales it, `lo` lowers it. */
+function blade(E, t, k = 1, dir = 1, lo = 1) {
+  const br = E.rr(0.92, 1.1) * lo, a = BODY_IN;
+  // swish: a band of driven noise falling 3.4 -> 1.4 kHz
+  noise(E, { t, a, d: 0.26, g: 0.29 * k, filters: [{ type: 'bandpass', f: 3400 * br, fp: [[0.05, 2200 * br], [0.2, 1400 * br]], Q: 1.3 }], drive: 2.2, driveIn: 3, os: 'none',
+    post: [{ type: 'lowpass', f: 6500, nojit: true }], panSweep: [-0.3 * dir, 0.3 * dir, 0.15] });
+  // thwack: the blade meeting something, pitched in the mids
+  tone(E, { t, type: 'triangle', f: 640 * lo, f1: 250 * lo, ft: 0.05, a, d: 0.2, g: 0.12 * k });
+  tone(E, { t, type: 'sine', f: 330 * lo, f1: 150 * lo, ft: 0.06, a, d: 0.16, g: 0.08 * k });
+  // the blade's ring, faint and short (a sword, not a stick)
+  bell(E, { t, f: 2350 * br, g: 0.03 * k, d: 0.16, a, partials: [[1, 1, 1], [1.53, 0.5, 0.7], [2.21, 0.3, 0.5]] });
+  // the air behind the blade: a pink swish that trails away across the field
+  noise(E, { t: t + 0.01, color: 'pink', a: 0.015, d: 0.3, g: 0.15 * k, filters: [{ type: 'bandpass', f: 2600 * br, f1: 1000, ft: 0.25, Q: 1.6 }], panSweep: [0.2 * dir, 0.5 * dir, 0.25] });
+}
+
+S('sword_hit', { group: 'Battle', gain: 1.0, send: 0.035, pj: 0.6, vj: 0.06, fj: 0.08, poly: 4,
+  pulse: [0.7, 0.003, 0.06, 0.18], desc: 'zush! a sharp snap, a bright swish and a thwack' }, (E) => {
   const dir = E.r() < 0.5 ? -1 : 1;
-  slash(E, 0, 1, dir);
-  crack(E, 0.002, 1, 520);
-  // the whack: a pitched mid thump you can still hear on a telly
-  tone(E, { type: 'triangle', f: 460, f1: 210, ft: 0.07, a: 0.001, d: 0.12, g: 0.34 });
-  tone(E, { type: 'sine', f: 300, f1: 150, ft: 0.08, a: 0.001, d: 0.1, g: 0.22 });
-  // a pinch of sub for big speakers (this is a slash, not a punch)
-  tone(E, { type: 'sine', f: 120, f1: 62, ft: 0.08, a: 0.001, d: 0.12, g: 0.16 });
+  snap(E, 0, { f: 2600 * E.rr(0.94, 1.08), hp: 1200, lp: 7500 });
+  blade(E, 0, 1, dir);
 });
 
-S('sword_crit', { group: 'Battle', gain: 1.55, sat: 0.55, satOut: 1.0, send: 0.07, pj: 0.4, vj: 0.05, fj: 0.08, poly: 3,
-  pulse: [0.4, 0.006, 0.26, 0.3], desc: 'KIN! — then a heavier ZUBASH (a terrific whack!)' }, (E) => {
+S('sword_crit', { group: 'Battle', gain: 1.0, send: 0.07, pj: 0.35, vj: 0.05, fj: 0.07, poly: 3,
+  pulse: [0.45, 0.003, 0.14, 0.26], desc: 'KIN! — then a heavier GASHUN (a terrific whack!)' }, (E) => {
   const dir = E.r() < 0.5 ? -1 : 1;
   // kin: a hard, bright glint of steel (low partials only, nothing shrill above 7 kHz)
-  noise(E, { a: 0.0004, d: 0.01, g: 0.45, filters: [{ type: 'highpass', f: 2500 }, { type: 'lowpass', f: 8000 }] });
-  bell(E, { f: 1980, g: 0.34, d: 0.42, a: 0.0006, partials: [[1, 1, 1], [1.48, 0.45, 0.6, 7], [2.32, 0.4, 0.45], [3.07, 0.14, 0.3]] });
-  tone(E, { type: 'triangle', f: 990, a: 0.0006, d: 0.09, g: 0.16 });
-  // 80 ms later: the whack, bigger than a normal hit, with a second crack for weight
+  noise(E, { a: 0.0004, d: 0.01, g: 0.3, filters: [{ type: 'highpass', f: 2500 }, { type: 'lowpass', f: 8000 }] });
+  bell(E, { f: 1980, g: 0.2, d: 0.42, a: 0.0006, partials: [[1, 1, 1], [1.48, 0.45, 0.6, 7], [2.32, 0.4, 0.45], [3.07, 0.14, 0.3]] });
+  tone(E, { type: 'triangle', f: 990, a: 0.0006, d: 0.09, g: 0.1 });
+  // 80 ms later: GA — a bigger snap and a lower, heavier blade — SHUN, a thud under it that the whole screen feels
   const t = 0.08;
-  slash(E, t, 1.25, dir);
-  crack(E, t, 1.3, 430);
-  crack(E, t + 0.035, 0.75, 700);
-  tone(E, { t, type: 'triangle', f: 400, f1: 150, ft: 0.1, a: 0.001, d: 0.18, g: 0.4 });
-  tone(E, { t, type: 'sine', f: 260, f1: 118, ft: 0.12, a: 0.001, d: 0.16, g: 0.26 });
-  tone(E, { t, type: 'sine', f: 100, f1: 48, ft: 0.12, a: 0.001, d: 0.18, g: 0.2 });
+  snap(E, t, { f: 2200, hp: 900, lp: 7500, k: 1.25 });
+  blade(E, t, 1.3, dir, 0.85);
+  tone(E, { t, type: 'sine', f: 190, f1: 66, ft: 0.1, a: BODY_IN, d: 0.32, g: 0.2 });
+  tone(E, { t, type: 'triangle', f: 300, f1: 105, ft: 0.09, a: BODY_IN, d: 0.2, g: 0.08 });
+  noise(E, { t: t + 0.03, a: 0.0008, d: 0.12, g: 0.1, filters: [{ type: 'bandpass', f: 900, f1: 500, ft: 0.08, Q: 1 }], drive: 2, driveIn: 2.5, os: 'none', post: [{ type: 'lowpass', f: 2200, nojit: true }] });
 });
 
 S('miss', { group: 'Battle', gain: 1.0, pj: 1.5, desc: 'whoosh — swung and missed' }, (E) => {
@@ -659,41 +685,49 @@ S('miss', { group: 'Battle', gain: 1.0, pj: 1.5, desc: 'whoosh — swung and mis
   noise(E, { a: 0.08, d: 0.18, g: 0.3, filters: [{ type: 'lowpass', f: 900 }] });
 });
 
-S('player_hurt', { group: 'Battle', gain: 1.65, sat: 0.55, satOut: 1.6, send: 0.035, pj: 0.5, vj: 0.06, fj: 0.08, poly: 3,
-  pulse: [0.5, 0.008, 0.17, 0.25], desc: 'GASHUN — the party takes a hit (goes with screen shake)' }, (E) => {
-  // a blunt crunch, darker than a sword hit: the body is low-mid, the edge is gritty rather than bright
-  crack(E, 0, 1.25, 400);
-  noise(E, { a: 0.0006, h: 0.01, d: 0.06, s: 0.25, sd: 0, r: 0.1, g: 0.42, filters: [{ type: 'bandpass', f: 2400, f1: 1600, ft: 0.1, Q: 0.9 }], drive: 3, driveIn: 4,
-    post: [{ type: 'bandpass', f: 2200, Q: 0.7 }, { type: 'lowpass', f: 5000, nojit: true }] });
-  grains(E, { t: 0.004, span: 0.1, count: 10, fLo: 1400, fHi: 3400, Q: 1.6, dLo: 0.005, dHi: 0.014, gLo: 0.1, gHi: 0.25, fade: true });
-  // the thud you feel through the controller: pitched in the low mids so it survives small speakers
-  tone(E, { type: 'triangle', f: 330, f1: 120, ft: 0.12, a: 0.001, d: 0.2, g: 0.42 });
-  tone(E, { type: 'sine', f: 210, f1: 95, ft: 0.14, a: 0.001, d: 0.2, g: 0.3 });
-  // the shake: a rattling low-mid buzz under the screen shake
-  noise(E, { t: 0.02, a: 0.004, h: 0.08, d: 0.16, g: 0.3, filters: [{ type: 'bandpass', f: 520, Q: 1.3 }], am: { rate: 23, depth: 0.85, type: 'square' } });
-  tone(E, { type: 'sine', f: 95, f1: 45, ft: 0.2, a: 0.001, d: 0.24, g: 0.16 });
+S('player_hurt', { group: 'Battle', gain: 1.0, send: 0.035, pj: 0.4, vj: 0.05, fj: 0.08, poly: 3,
+  pulse: [0.55, 0.003, 0.09, 0.22], desc: 'DOSH — the party takes a hit (goes with screen shake)' }, (E) => {
+  const a = BODY_IN;
+  snap(E, 0, { f: 950, hp: 500, lp: 4500, tg: 0.7, ng: 0.45 });
+  // the thud: heavy and pitched, falling to the floor of the low mids
+  tone(E, { type: 'sine', f: 230, f1: 78, ft: 0.1, a, d: 0.28, g: 0.2 });
+  tone(E, { type: 'triangle', f: 340, f1: 115, ft: 0.09, a, d: 0.2, g: 0.1 });
+  // a dark crunch, brief
+  noise(E, { a, d: 0.16, g: 0.14, filters: [{ type: 'bandpass', f: 700, f1: 380, ft: 0.1, Q: 0.9 }], drive: 2.5, driveIn: 3, os: 'none', post: [{ type: 'lowpass', f: 1800, nojit: true }, { type: 'highpass', f: 150, nojit: true }] });
+  grains(E, { t: 0.004, span: 0.06, count: 6, fLo: 1200, fHi: 2800, Q: 1.6, dLo: 0.004, dHi: 0.01, gLo: 0.03, gHi: 0.07, fade: true });
+  // the shake: a rattling buzz under the screen shake, well below the thud, swelling in as the thud falls away
+  noise(E, { t: 0.02, a: 0.03, h: 0.08, d: 0.18, g: 0.12, filters: [{ type: 'bandpass', f: 520, Q: 1.1 }], am: { rate: 22, depth: 0.95, type: 'square' } });
+  tone(E, { t: 0.02, type: 'triangle', f: 140, f1: 105, ft: 0.25, a: 0.03, h: 0.08, d: 0.18, g: 0.05, am: { rate: 22, depth: 0.9, type: 'square' } });
 });
 
-S('monster_hurt', { group: 'Battle', gain: 1.7, sat: 0.55, satOut: 1.7, send: 0.04, pj: 1.0, vj: 0.07, fj: 0.1, poly: 4,
-  pulse: [0.55, 0.008, 0.12, 0.2], desc: 'bshk! a smack and a little yelp' }, (E) => {
-  // smack: a short crack with a bright slap on top
-  crack(E, 0, 0.85, 640);
-  noise(E, { a: 0.0005, h: 0.014, d: 0.05, s: 0.3, sd: 0, r: 0.12, g: 0.45, filters: [{ type: 'bandpass', f: 3100, f1: 2200, ft: 0.08, Q: 1.1 }], drive: 3, driveIn: 4,
-    post: [{ type: 'bandpass', f: 2700, Q: 0.7 }, { type: 'lowpass', f: 6000, nojit: true }] });
-  tone(E, { type: 'triangle', f: 520, f1: 240, ft: 0.05, a: 0.001, d: 0.08, g: 0.28 });
-  // the yelp: a squeaky rise-and-fall, kept in the mids so it reads on any speaker
-  const y = E.rr(0.92, 1.1), fp = [[0.035, 1250 * y], [0.16, 560 * y]];
-  tone(E, { t: 0.025, type: 'triangle', f: 820 * y, fp, a: 0.006, h: 0.03, d: 0.15, g: 0.3 });
-  tone(E, { t: 0.025, type: 'pulse25', f: 820 * y, fp, a: 0.006, h: 0.02, d: 0.11, g: 0.07, filter: { type: 'lowpass', f: 2600 } });
+S('monster_hurt', { group: 'Battle', gain: 1.0, send: 0.04, pj: 0.9, vj: 0.06, fj: 0.1, poly: 4,
+  pulse: [0.6, 0.003, 0.06, 0.2], desc: 'bshk! a snap, a rubbery bop and a little yelp' }, (E) => {
+  const a = BODY_IN;
+  snap(E, 0, { f: 1500, hp: 700, lp: 6000 });
+  // the smack: a short, lightly driven band of hide
+  noise(E, { a, d: 0.17, g: 0.16, filters: [{ type: 'bandpass', f: 1300, f1: 650, ft: 0.08, Q: 1.1 }], drive: 2, driveIn: 2.5, os: 'none', post: [{ type: 'lowpass', f: 3000, nojit: true }] });
+  // the bop: rubbery and pitched
+  tone(E, { type: 'sine', f: 470, f1: 170, ft: 0.06, a, d: 0.2, g: 0.15 });
+  tone(E, { type: 'triangle', f: 470, f1: 170, ft: 0.06, a, d: 0.12, g: 0.06 });
+  // the yelp arrives as the bop falls away: a second little bump, kept in the mids so it reads on any speaker
+  const y = E.rr(0.92, 1.1), fp = [[0.04, 1250 * y], [0.15, 560 * y]];
+  tone(E, { t: 0.045, type: 'triangle', f: 820 * y, fp, a: 0.012, h: 0.02, d: 0.14, g: 0.12 });
+  tone(E, { t: 0.045, type: 'pulse25', f: 820 * y, fp, a: 0.012, h: 0.015, d: 0.1, g: 0.03, filter: { type: 'lowpass', f: 2600 } });
 });
 
-S('monster_defeat', { pulse: [0.6, 0.01, 0.2, 0.3], group: 'Battle', gain: 1.3, send: 0.12, pj: 0.4, desc: 'the poof: pop, puff, three falling notes' }, (E) => {
-  tone(E, { type: 'sine', f: 320, f1: 1300, ft: 0.035, a: 0.001, d: 0.07, g: 0.55 });
-  noise(E, { a: 0.0008, d: 0.03, g: 0.35, filters: [{ type: 'bandpass', f: 1600, Q: 1.2 }] });
-  noise(E, { color: 'pink', t: 0.01, a: 0.015, d: 0.4, g: 0.4, filters: [{ type: 'lowpass', f: 2200, f1: 350, ft: 0.35 }] });
+S('monster_defeat', { pulse: [0.5, 0.004, 0.25, 0.3], group: 'Battle', gain: 1.0, send: 0.14, pj: 0.4, desc: 'the poof: pop, a vanishing swoosh, three falling notes' }, (E) => {
+  // pop: a round upward blip with a snap on it and a "bof" of weight underneath
+  snap(E, 0, { f: 1400, hp: 800, lp: 6000, k: 0.6 });
+  tone(E, { type: 'sine', f: 300, f1: 1300, ft: 0.035, a: BODY_IN, d: 0.09, g: 0.4 });
+  tone(E, { type: 'triangle', f: 160, f1: 90, ft: 0.06, a: BODY_IN, d: 0.14, g: 0.22 });
+  // the vanishing swoosh: a puff of air that rises and thins away
+  noise(E, { color: 'pink', t: 0.01, a: 0.02, d: 0.42, g: 0.75, filters: [{ type: 'bandpass', f: 700, fp: [[0.12, 2400], [0.4, 3800]], Q: 1.4 }, { type: 'lowpass', f: 6000, nojit: true }] });
+  noise(E, { color: 'pink', t: 0.01, a: 0.015, d: 0.35, g: 0.45, filters: [{ type: 'lowpass', f: 2200, f1: 350, ft: 0.3 }] });
+  // and three falling notes
   for (const [n, t] of [['A6', 0.08], ['E6', 0.15], ['C#6', 0.22]]) {
-    tone(E, { t, type: 'triangle', f: nf(n), a: 0.002, d: 0.2, g: 0.27 });
-    tone(E, { t, type: 'sine', f: nf(n) * 2, a: 0.002, d: 0.08, g: 0.05 });
+    tone(E, { t, type: 'triangle', f: nf(n), a: 0.002, d: 0.24, g: 0.36 });
+    tone(E, { t, type: 'pulse25', f: nf(n), a: 0.002, d: 0.1, g: 0.06, filter: { type: 'lowpass', f: 3500 } });
+    tone(E, { t, type: 'sine', f: nf(n) * 2, a: 0.002, d: 0.08, g: 0.06 });
   }
 });
 
@@ -751,14 +785,17 @@ S('spell_cast', { group: 'Magic', gain: 1.25, send: 0.35, pj: 0.3, desc: 'the ri
   noise(E, { a: 0.2, d: 0.35, g: 0.06, filters: [{ type: 'highpass', f: 5000 }, { type: 'lowpass', f: 9500 }] });
 });
 
-S('fire', { pulse: [0.6, 0.03, 0.45, 0.35], group: 'Magic', gain: 0.68, send: 0.2, pj: 0.8, desc: 'Scorcha: whoomph and crackle' }, (E) => {
-  tone(E, { type: 'sine', f: 90, f1: 40, ft: 0.3, a: 0.003, d: 0.35, g: 0.55 });
+S('fire', { pulse: [0.6, 0.03, 0.45, 0.35], group: 'Magic', gain: 1.0, send: 0.2, pj: 0.8, desc: 'Scorcha: whoomph and crackle' }, (E) => {
+  tone(E, { type: 'sine', f: 90, f1: 40, ft: 0.3, a: 0.003, d: 0.35, g: 0.3 });
+  // the roar you hear on a small speaker: a driven 400-1000 Hz flame body that swells and settles
+  noise(E, { a: 0.03, h: 0.12, d: 0.5, g: 0.28, filters: [{ type: 'bandpass', f: 420, fp: [[0.15, 950], [0.7, 480]], Q: 0.9 }], drive: 2.5, driveIn: 3,
+    post: [{ type: 'lowpass', f: 1700, Q: 0.6 }, { type: 'highpass', f: 200, Q: 0.6 }] });
   noise(E, { color: 'pink', a: 0.04, h: 0.15, d: 0.55, g: 0.7, filters: [{ type: 'bandpass', f: 280, fp: [[0.12, 1800], [0.7, 500]], Q: 0.8 }] });
   noise(E, { color: 'brown', a: 0.05, h: 0.25, d: 0.5, g: 0.6, filters: [{ type: 'lowpass', f: 450, fp: [[0.15, 1000], [0.75, 300]] }] });
   grains(E, { t: 0.06, span: 0.7, count: 22, fLo: 2000, fHi: 5500, Q: 1.4, dLo: 0.003, dHi: 0.01, gLo: 0.08, gHi: 0.32, panj: 0.5, fade: true });
 });
 
-S('ice', { pulse: [0.65, 0.03, 0.5, 0.35], group: 'Magic', gain: 0.82, send: 0.35, pj: 0.6, desc: 'Nip: crystals chiming, frost crackling' }, (E) => {
+S('ice', { pulse: [0.65, 0.03, 0.5, 0.35], group: 'Magic', gain: 1.05, send: 0.35, pj: 0.6, desc: 'Nip: crystals chiming, frost crackling' }, (E) => {
   for (let i = 0; i < 7; i++) {
     bell(E, { t: i * 0.055 + E.rr(0, 0.02), f: E.rr(2000, 3900), g: 0.12, d: E.rr(0.25, 0.5), pan: E.rr(-0.5, 0.5), partials: GLINT });
   }
@@ -768,18 +805,29 @@ S('ice', { pulse: [0.65, 0.03, 0.5, 0.35], group: 'Magic', gain: 0.82, send: 0.3
   bell(E, { t: 0.55, f: 2637, g: 0.22, d: 0.8, partials: GLINT });
 });
 
-S('wind', { pulse: [0.65, 0.08, 0.6, 0.4], group: 'Magic', gain: 1.3, send: 0.25, pj: 1, desc: 'Whiffle: a whistling gust across the field' }, (E) => {
+S('wind', { pulse: [0.65, 0.08, 0.6, 0.4], group: 'Magic', gain: 3.0, send: 0.25, pj: 1, desc: 'Whiffle: a whistling gust across the field' }, (E) => {
   noise(E, { color: 'pink', a: 0.18, h: 0.25, d: 0.55, g: 1.5, filters: [{ type: 'bandpass', f: 600, fp: [[0.35, 1500], [0.95, 750]], Q: 18 }, { type: 'bandpass', f: 600, fp: [[0.35, 1500], [0.95, 750]], Q: 4 }], panSweep: [-0.6, 0.6, 0.9] });
   noise(E, { t: 0.1, color: 'pink', a: 0.18, h: 0.2, d: 0.5, g: 1.0, filters: [{ type: 'bandpass', f: 1100, fp: [[0.4, 2300], [0.9, 1300]], Q: 22 }, { type: 'bandpass', f: 1100, fp: [[0.4, 2300], [0.9, 1300]], Q: 5 }], panSweep: [0.5, -0.5, 0.9] });
-  noise(E, { color: 'pink', a: 0.2, h: 0.2, d: 0.6, g: 0.3, filters: [{ type: 'lowpass', f: 650 }] });
+  noise(E, { color: 'pink', a: 0.2, h: 0.2, d: 0.6, g: 0.15, filters: [{ type: 'lowpass', f: 650 }] });
+  // the gust itself, in the mids: a broad band rushing up and away
+  noise(E, { color: 'pink', a: 0.15, h: 0.3, d: 0.5, g: 0.5, filters: [{ type: 'bandpass', f: 520, fp: [[0.4, 1150], [0.9, 620]], Q: 1.2 }], panSweep: [-0.5, 0.5, 0.9] });
 });
 
-S('lightning', { pulse: [0.5, 0.01, 0.4, 0.45], group: 'Magic', gain: 0.9, send: 0.3, pj: 0.6, desc: 'Zapple: bzzt — CRACK — rumble' }, (E) => {
+/** Lightning's own crack: a noisy, crunchy 170-1500 Hz body that holds for a moment (a bolt is a wall of noise). */
+function boltCrack(E, t, k = 1, f = 520) {
+  const fc = f * E.rr(0.9, 1.1);
+  noise(E, { t, a: 0.001, h: 0.015, d: 0.09, s: 0.35, sd: 0, r: 0.3 * k, g: 0.55 * k,
+    filters: [{ type: 'bandpass', f: fc * 1.15, fp: [[0.18, fc * 0.7]], Q: 0.9 }], drive: 3, driveIn: 4,
+    post: [{ type: 'lowpass', f: 1400, Q: 0.6 }, { type: 'highpass', f: 180, Q: 0.6 }] });
+  grains(E, { t, span: 0.1 * k, count: Math.round(9 * k), fLo: 260, fHi: 950, Q: 2.4, dLo: 0.008, dHi: 0.022, gLo: 0.2 * k, gHi: 0.4 * k, fade: true });
+}
+
+S('lightning', { pulse: [0.5, 0.01, 0.4, 0.45], group: 'Magic', gain: 1.35, sat: 0.55, satOut: 1.1, send: 0.3, pj: 0.6, desc: 'Zapple: bzzt — CRACK — rumble' }, (E) => {
   tone(E, { type: 'sawtooth', f: 62, a: 0.01, h: 0.03, d: 0.06, g: 0.22, filters: [{ type: 'bandpass', f: 1800, Q: 1.5 }], am: { rate: 47, depth: 0.9 } });
   noise(E, { a: 0.01, h: 0.02, d: 0.06, g: 0.1, filters: [{ type: 'bandpass', f: 3500, Q: 2 }], am: { rate: 53, depth: 0.9 } });
   const t = 0.07;
   noise(E, { t, a: 0.0006, d: 0.07, g: 0.95, filters: [{ type: 'highpass', f: 250 }, { type: 'lowpass', f: 7500 }] });
-  crack(E, t, 0.9, 640); // the crack's body in the mids, so the bolt still lands on a small speaker
+  boltCrack(E, t, 0.9, 640); // the crack's body in the mids, so the bolt still lands on a small speaker
   noise(E, { t, a: 0.001, d: 0.2, g: 0.55, filters: [{ type: 'bandpass', f: 1400, f1: 500, ft: 0.15, Q: 0.9 }] });
   tone(E, { t, type: 'sine', f: 70, f1: 30, ft: 0.3, d: 0.4, g: 0.8 });
   noise(E, { t: 0.12, color: 'brown', a: 0.06, h: 0.1, d: 1.1, g: 0.75, filters: [{ type: 'lowpass', f: 320, f1: 150, ft: 1 }], am: { rate: 6.5, depth: 0.55 } });
@@ -962,10 +1010,12 @@ S('amb_meadow', { ...AMB, gain: 1.5, send: 0.25, loop: { len: 16, warm: 4, space
     let t = E.rr(0.2, 2);
     while (t < E.L - 1.5) { const tt = t; E.every(tt, (x) => birdCall(E, b, x)); t += E.rr(b.gap[0], b.gap[1]); }
   }
-  E.every(9.3, (t) => birdCall(E, { kind: 'cuckoo', f: 700, pan: -0.8, g: 2.2 }, t));
-  E.every(12.6, (t) => birdCall(E, { kind: 'cuckoo', f: 690, pan: -0.8, g: 1.8 }, t));
+  // the far cuckoo and the bumblebee move (or stay away) from one variant of the bed to the next
+  const ck = E.rr(7.5, 10.5), ckPan = E.rr(-0.85, -0.5);
+  if (E.r() < 0.85) E.every(ck, (t) => birdCall(E, { kind: 'cuckoo', f: 700, pan: ckPan, g: 2.2 }, t));
+  if (E.r() < 0.6) E.every(ck + E.rr(3, 4.5), (t) => birdCall(E, { kind: 'cuckoo', f: 690, pan: ckPan, g: 1.8 }, t));
   // a bumblebee drifting past
-  E.every(5.5, (t) => {
+  if (E.r() < 0.7) E.every(E.rr(2.5, 9), (t) => {
     tone(E, { t, type: 'sawtooth', f: 205, fixed: true, a: 0.9, h: 0.4, d: 1.0, g: 0.018, panSweep: [0.7, -0.4, 2.3], filters: [{ type: 'lowpass', f: 900, nojit: true }], am: { rate: 11, depth: 0.3 }, vib: { rate: 3, depth: 40 } });
   });
 });
@@ -974,7 +1024,8 @@ S('amb_town', { ...AMB, gain: 2.2, send: 0.35, loop: { len: 16, warm: 4, space: 
   noise(E, { bed: true, color: 'pink', g: 0.12, to: E.dry, filters: [{ type: 'lowpass', f: 700, nojit: true }, { type: 'highpass', f: 120, nojit: true }], am: [{ rate: E.loopRate(0.19), depth: 0.35 }] });
   const pitches = [112, 128, 145, 178, 205, 232];
   for (let i = 0; i < 6; i++) murmurVoice(E, { f0: pitches[i] * E.rr(0.95, 1.05), pan: -0.7 + (1.4 * i) / 5, g: E.rr(0.03, 0.045) });
-  for (const t0 of [1.2, 6.8, 12.1]) {
+  for (const t0 of [E.rr(0.6, 2.5), E.rr(5.8, 7.8), E.rr(11.2, 12.8)]) {
+    if (E.r() < 0.2) continue; // the smith stops for a sip now and then
     E.every(t0, (t) => {
       for (let i = 0; i < 3; i++) {
         bell(E, { t: t + i * 0.42, f: 1850, fixed: true, g: 0.03, d: 0.5, pan: -0.6, partials: [[1, 1, 1], [2.63, 0.6, 0.6], [4.1, 0.4, 0.4], [5.9, 0.2, 0.3]] });
@@ -982,7 +1033,7 @@ S('amb_town', { ...AMB, gain: 2.2, send: 0.35, loop: { len: 16, warm: 4, space: 
       }
     });
   }
-  for (const [t0, p0, p1] of [[3.5, -0.5, 0.5], [10.2, 0.6, -0.2]]) {
+  for (const [t0, p0, p1] of [[E.rr(2.8, 4.5), -0.5, 0.5], [E.rr(9.2, 11), 0.6, -0.2]]) {
     E.every(t0, (t) => {
       for (let i = 0; i < 6; i++) {
         const tt = t + i * 0.46, pan = p0 + ((p1 - p0) * i) / 5, g = 0.05 * (1 - Math.abs(i - 2.5) / 5);
@@ -991,12 +1042,12 @@ S('amb_town', { ...AMB, gain: 2.2, send: 0.35, loop: { len: 16, warm: 4, space: 
       }
     });
   }
-  for (const t0 of [0.6, 8.4, 14.2]) E.every(t0, (t) => birdCall(E, { kind: 'tweet', f: 4200, pan: 0.6, g: 0.7 }, t));
-  E.every(5.2, (t) => {
+  for (const t0 of [E.rr(0.3, 1.5), E.rr(7.5, 9), E.rr(13.5, 14.3)]) E.every(t0, (t) => birdCall(E, { kind: 'tweet', f: 4200 * E.rr(0.92, 1.08), pan: E.rr(0.3, 0.7), g: 0.7 }, t));
+  E.every(E.rr(4.4, 6), (t) => {
     noise(E, { t, color: 'brown', a: 1.2, h: 0.5, d: 1.2, g: 0.12, panSweep: [-0.8, 0.8, 2.9], filters: [{ type: 'lowpass', f: 180, nojit: true }] });
     grains(E, { t: t + 0.6, span: 1.6, count: 14, fLo: 900, fHi: 2000, Q: 4, dLo: 0.006, dHi: 0.018, gLo: 0.01, gHi: 0.03 });
   });
-  E.every(13.4, (t) => creak(E, { t, dur: 0.3, f: 40, f1: 55, g: 0.035, res: [800, 1500], Q: 6, pan: 0.4 }));
+  if (E.r() < 0.75) E.every(E.rr(12.6, 13.8), (t) => creak(E, { t, dur: 0.3, f: 40, f1: 55, g: 0.035, res: [800, 1500], Q: 6, pan: 0.4 }));
 });
 
 S('amb_cave', { ...AMB, gain: 0.63, send: 0.7, loop: { len: 16, warm: 5, space: 'cave' }, desc: 'cave: deep hush, drips echoing' }, (E) => {
@@ -1012,7 +1063,7 @@ S('amb_cave', { ...AMB, gain: 0.63, send: 0.7, loop: { len: 16, warm: 5, space: 
       E.every(e, (t) => drip(E, t, f, dr.pan, g));
     }
   }
-  E.every(7.3, (t) => {
+  if (E.r() < 0.8) E.every(E.rr(5.5, 10), (t) => {
     for (let i = 0; i < 4; i++) {
       noise(E, { t: t + i * 0.09 + E.rr(0, 0.03), a: 0.0008, d: 0.03, g: 0.03 * (1 - i * 0.2), pan: 0.35, filters: [{ type: 'bandpass', f: E.rr(900, 1800), Q: 3, nojit: true }] });
     }
@@ -1028,13 +1079,13 @@ S('amb_night', { ...AMB, gain: 2.5, send: 0.3, loop: { len: 12, warm: 3, space: 
     { f: 5100, pan: -0.2, period: 0.4, pulses: 3, g: 0.009, off: 0.12, rest: 0.3 },
   ];
   for (const c of crickets) cricket(E, c);
-  E.every(4.7, (t) => {
+  if (E.r() < 0.85) E.every(E.rr(3.2, 5.8), (t) => {
     for (const [dt, f, h] of [[0, 392, 0.14], [0.55, 380, 0.08], [0.78, 370, 0.2]]) {
       tone(E, { t: t + dt, type: 'sine', f, f1: f * 0.94, ft: h + 0.1, fixed: true, a: 0.05, h, d: 0.22, g: 0.03, pan: 0.65, filter: { type: 'lowpass', f: 900, nojit: true } });
       tone(E, { t: t + dt, type: 'triangle', f: f * 2, fixed: true, a: 0.05, h: h * 0.5, d: 0.15, g: 0.004, pan: 0.65 });
     }
   });
-  E.every(9.1, (t) => {
+  if (E.r() < 0.8) E.every(E.rr(7.6, 9.4), (t) => {
     for (const dt of [0, 0.34]) {
       tone(E, { t: t + dt, type: 'pulse25', f: 110, fixed: true, a: 0.01, h: 0.1, d: 0.08, g: 0.06, pan: -0.7, filters: [{ type: 'bandpass', f: 750, Q: 3, nojit: true }], am: { rate: 30, depth: 0.9 } });
     }
@@ -1083,7 +1134,7 @@ function renderLoop(d, sr, variant = 0) {
   })();
   job.catch(() => loopCache.delete(key));
   loopCache.set(key, job);
-  if (loopCache.size > 6) loopCache.delete(loopCache.keys().next().value);
+  if (loopCache.size > 10) loopCache.delete(loopCache.keys().next().value);
   return job;
 }
 
@@ -1120,36 +1171,98 @@ function seedFor(id, variant) {
   return variant != null ? (hashStr(id) ^ Math.imul((variant | 0) + 1, 2654435761)) >>> 0 : (Math.random() * 4294967296) >>> 0;
 }
 
+// A bed never repeats exactly: it is a chain of differently seeded variants of the same seamless loop, each one
+// crossfaded into the next (equal power, BED_XF seconds). Live and offline use the same scheduler.
+const BED_VARIANTS = 3, BED_XF = 2.0;
+let _xfIn = null, _xfOut = null;
+function xfCurves() {
+  if (!_xfIn) {
+    const N = 64; _xfIn = new Float32Array(N); _xfOut = new Float32Array(N);
+    for (let i = 0; i < N; i++) { const x = i / (N - 1); _xfIn[i] = Math.sin(x * Math.PI / 2); _xfOut[i] = Math.cos(x * Math.PI / 2); }
+  }
+  return [_xfIn, _xfOut];
+}
+/**
+ * Schedule one segment of a bed at ctx time `t` into `out`: one loop's length of `buf`, entered at `offset` (the loop is
+ * seamless, so any rotation of it is too). Returns when the next segment should start (as this one begins to fade).
+ */
+function bedSegment(ctx, out, buf, t, offset, fadeIn, keep) {
+  const [cin, cout] = xfCurves(), X = Math.min(BED_XF, buf.duration / 4);
+  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const g = ctx.createGain();
+  src.connect(g); g.connect(out);
+  offset = ((offset % buf.duration) + buf.duration) % buf.duration;
+  const dur = buf.duration, end = t + dur;
+  if (fadeIn) { g.gain.setValueAtTime(0, t); g.gain.setValueCurveAtTime(cin, t, X); } else g.gain.setValueAtTime(1, t);
+  g.gain.setValueCurveAtTime(cout, end - X, X);
+  src.start(t, offset); src.stop(end + 0.02);
+  if (keep) keep.push({ src, g, end });
+  return end - X; // the next segment starts as this one begins to fade
+}
+
+/** Never the same variant twice in a row, otherwise a random pick: the chain has no period at all. */
+function nextVariant(prev, rnd) { return (prev + 1 + Math.floor(rnd() * (BED_VARIANTS - 1))) % BED_VARIANTS; }
+
 function playLoop(d, opts) {
   const ctx = Audio.ctx; if (!ctx) return null;
-  const handle = { id: d.id, loop: true, stopped: false, src: null, gain: null,
+  const sr = ctx.sampleRate, keep = [];
+  const handle = { id: d.id, loop: true, stopped: false, gain: null, timer: 0, k: 0, nextAt: 0, last: null, next: null,
     stop(ms = 1200) {
       if (handle.stopped) return; handle.stopped = true;
-      const { src, gain } = handle; if (!src) return;
+      clearInterval(handle.timer);
+      const gain = handle.gain; if (!gain) return;
       const now = ctx.currentTime;
       gain.gain.cancelScheduledValues(now); gain.gain.setValueAtTime(gain.gain.value, now); gain.gain.linearRampToValueAtTime(0, now + ms / 1000);
-      try { src.stop(now + ms / 1000 + 0.05); } catch (_) {}
+      for (const sg of keep) { try { sg.src.stop(now + ms / 1000 + 0.05); } catch (_) {} }
       setTimeout(() => { try { gain.disconnect(); } catch (_) {} }, ms + 200);
     } };
-  renderLoop(d, ctx.sampleRate, opts.variant ?? 0).then((buf) => {
-    if (handle.stopped) return;
-    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const first = (opts.variant ?? 0) % BED_VARIANTS; // variant 0 is the one Sfx.preload() warms, so the first play is instant
+  const bufs = [];
+  const want = (v) => (bufs[v] !== undefined ? bufs[v]
+    : (bufs[v] = renderLoop(d, sr, v).then((b) => (bufs[v] = b)).catch((e) => { bufs[v] = false; reportError('ambience ' + d.id, e); return null; })));
+  const pump = () => {
+    try {
+      if (handle.stopped) return;
+      const now = ctx.currentTime;
+      // keep ~4 s of bed scheduled ahead; if the next variant is still rendering, reuse one that is ready
+      while (handle.nextAt - now < 4) {
+        let v = handle.next, b = bufs[v];
+        if (!(b instanceof AudioBuffer)) { want(v); v = first; b = bufs[first]; }
+        if (!(b instanceof AudioBuffer)) return;
+        const t = Math.max(handle.nextAt, now + 0.02);
+        handle.nextAt = bedSegment(ctx, handle.gain, b, t, Math.random() * b.duration, true, keep);
+        handle.k++; handle.last = v;
+        handle.next = nextVariant(v, Math.random);
+        want(handle.next);
+      }
+      for (let i = keep.length - 1; i >= 0; i--) if (keep[i].end < now - 0.1) { try { keep[i].g.disconnect(); } catch (_) {} keep.splice(i, 1); }
+    } catch (e) { reportError('ambience ' + d.id, e); }
+  };
+  Promise.resolve(want(first)).then((buf) => {
+    if (handle.stopped || !(buf instanceof AudioBuffer)) return;
+    try {
     const g = ctx.createGain(), now = ctx.currentTime, target = (opts.vol ?? 1) * (d.gain ?? 1);
     g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(target, now + (opts.fade ?? 1500) / 1000);
-    src.connect(g); g.connect(Audio.bus(d.bus));
-    src.start(now, opts.offset ?? Math.random() * buf.duration);
-    handle.src = src; handle.gain = g;
-  }).catch((e) => reportError('ambience ' + d.id, e));
+    g.connect(Audio.bus(d.bus));
+    handle.gain = g;
+    handle.nextAt = bedSegment(ctx, g, buf, now + 0.02, opts.offset ?? Math.random() * buf.duration, false, keep);
+    handle.k = 1; handle.last = first;
+    handle.next = nextVariant(first, Math.random);
+    want(handle.next);
+    handle.timer = setInterval(pump, 700);
+    } catch (e) { reportError('ambience ' + d.id, e); }
+  });
   return handle;
 }
 
 /** A quiet play dips the music less: depth scales with the requested volume. */
 function pulseDepth(amount, opts) { const v = clamp(opts.vol ?? 1, 0, 1); return 1 - (1 - amount) * v; }
 
+/** One play of def `d` into an Audio.renderOffline dest at time t, with its music-bus dip (same as live). */
 function scheduleInto(d, dest, t, opts, rng) {
   const E = makeEnv(dest.ctx, dest.bus(d.bus), dest.sendFor(d.bus), d, opts, rng, t);
   d.fn(E, opts);
-  if (d.pulse && dest.duckPulse) { const [amt, at, ho, re] = d.pulse; dest.duckPulse('music', pulseDepth(amt, opts), { at: t, attack: at, hold: ho, release: re }); }
+  if (d.pulse && dest.duckPulse) { const [amt, at, ho, re] = d.pulse; dest.duckPulse('music', pulseDepth(amt, opts), { at: Math.max(0, t - at), attack: at, hold: ho, release: re }); }
   return E;
 }
 
@@ -1164,6 +1277,9 @@ const SPEAKERS = {
 };
 
 // =================================================================================================================
+/** For measurement: a bare voice environment (no jitter) writing into `out` at time t. */
+export function _testEnv(ctx, out, t = 0) { return makeEnv(ctx, out, null, { gain: 1, pj: 0, vj: 0, fj: 0 }, {}, mulberry32(1), t); }
+
 export const Sfx = {
   /** Play a sound. Never throws. Returns a handle {id, stop(ms)} or null (locked, rate-limited, unknown). */
   play(id, opts = {}) {
@@ -1189,7 +1305,7 @@ export const Sfx = {
       v.handle = handle;
       active.push(v);
       played++; recent.push(d.id); if (recent.length > 12) recent.shift();
-      if (d.pulse) { const [amt, at, ho, re] = d.pulse; Audio.duckPulse('music', pulseDepth(amt, opts), { at: E.t, attack: at, hold: ho, release: re }); }
+      if (d.pulse) { const [amt, at, ho, re] = d.pulse; Audio.duckPulse('music', pulseDepth(amt, opts), { at: E.t - at, attack: at, hold: ho, release: re }); }
       if (d.duck) {
         const rel = Audio.duck('music', d.duck, 60);
         v.releaseDuck = rel;
@@ -1253,12 +1369,29 @@ export const Sfx = {
     if (!d) throw new Error(`unknown sfx id "${id}"`);
     const sr = opts.sampleRate || Audio.sampleRate || 48000;
     if (d.loop) {
-      const buf = await renderLoop(d, sr, opts.variant ?? 0);
+      // the same variant chain the game plays: v0 from its start, crossfading into v1, v2, v0 ...
+      // opts.single renders just one variant looped end-to-end (to inspect a loop's own seam)
+      const first = opts.variant ?? 0, secs = seconds ?? d.loop.len * 2;
+      if (opts.single) {
+        const buf = await renderLoop(d, sr, first);
+        return Audio.renderOffline((octx, dest) => {
+          const src = octx.createBufferSource(); src.buffer = buf; src.loop = true;
+          const g = octx.createGain(); g.gain.value = (opts.vol ?? 1) * (d.gain ?? 1);
+          src.connect(g); g.connect(dest.bus(d.bus)); src.start(0);
+        }, secs, { sampleRate: sr });
+      }
+      // same order rule as live (never the same variant twice running), seeded so a render is repeatable
+      const n = Math.max(1, Math.ceil(secs / Math.max(1, d.loop.len - BED_XF)) + 1), rnd = mulberry32(hashStr(d.id) + first);
+      const order = [first % BED_VARIANTS];
+      while (order.length < n) order.push(nextVariant(order[order.length - 1], rnd));
+      const bufs = {};
+      for (const v of new Set(order)) bufs[v] = await renderLoop(d, sr, v);
       return Audio.renderOffline((octx, dest) => {
-        const src = octx.createBufferSource(); src.buffer = buf; src.loop = true;
         const g = octx.createGain(); g.gain.value = (opts.vol ?? 1) * (d.gain ?? 1);
-        src.connect(g); g.connect(dest.bus(d.bus)); src.start(0);
-      }, seconds ?? d.loop.len * 2, { sampleRate: sr });
+        g.connect(dest.bus(d.bus));
+        let t = 0;
+        for (let k = 0; t < secs && k < order.length; k++) t = bedSegment(octx, g, bufs[order[k]], t, k ? rnd() * d.loop.len : 0, k > 0, null);
+      }, secs, { sampleRate: sr });
     }
     return Audio.renderOffline((octx, dest) => {
       const rng = mulberry32(seedFor(d.id, opts.variant ?? 1));
@@ -1284,7 +1417,9 @@ export const Sfx = {
   state() {
     const ctx = Audio.ctx;
     if (ctx) prune(ctx.currentTime);
-    return { voices: active.length, played, last: recent.slice(-6), ambience: amb ? amb.id : null, ids: ORDER.length };
+    const h = amb && amb.handle;
+    return { voices: active.length, played, last: recent.slice(-6), ambience: amb ? amb.id : null, ids: ORDER.length,
+      bed: h && h.loop ? { segments: h.k, last: h.last ?? null, next: h.next ?? null, scheduledAhead: h.gain && ctx ? +(h.nextAt - ctx.currentTime).toFixed(2) : 0 } : null };
   },
 };
 

@@ -1,6 +1,7 @@
 /**
  * instruments.js — the synthesised orchestra (MUSIC-BIBLE §1) + reverb impulse responses (§2.1/§2.2).  (P27)
  *
+ * `strings` and `horns` are sample players over multisamples GROWN at boot from instrument models (growZone, below).
  * Every voice is `VOICES[name](K, n, out) -> handle` where
  *   K   = the per-context kit (shared noise buffer, LFO bank, periodic waves)       — makeKit(ctx, {quality})
  *   n   = {t, dur, f, m, vel, gain, pan, send, long, spb, o, rng, path:[[sec,freq]], ci}
@@ -12,12 +13,12 @@
 
 // base amplitude per voice at vel=1 (calibrated from single-note offline renders — see demos/P27.html __DQ.calib)
 export const LEVEL = {
-  horns: 0.15, hornSolo: 0.49, strings: 0.205, violin: 0.54, flute: 0.28, oboe: 0.83, harpsi: 0.21, harp: 0.69,
+  horns: 0.75, hornsSynth: 0.15, hornSolo: 0.49, strings: 0.66, stringsSynth: 0.205, violin: 0.54, flute: 0.28, oboe: 0.83, harpsi: 0.21, harp: 0.69,
   timp: 0.57, snare: 0.46, cymbal: 0.32, pizz: 0.46, celesta: 0.32, organ: 0.195, twinkle: 0.45, pad: 0.17,
   vox: 0.157, bell: 0.32, tri: 0.16,
 };
 export const SEND = {
-  horns: 0.30, hornSolo: 0.42, strings: 0.45, violin: 0.50, flute: 0.40, oboe: 0.45, harpsi: 0.28, harp: 0.50,
+  horns: 0.30, hornsSynth: 0.30, hornSolo: 0.42, strings: 0.45, stringsSynth: 0.45, violin: 0.50, flute: 0.40, oboe: 0.45, harpsi: 0.28, harp: 0.50,
   timp: 0.55, snare: 0.22, cymbal: 0.60, pizz: 0.30, celesta: 0.55, organ: 0.65, twinkle: 0.18, pad: 0.70,
   vox: 0.50, bell: 0.60, tri: 0.50,
 };
@@ -26,12 +27,12 @@ export const SEAT = {
   timp: -0.15, snare: 0.10, cymbal: 0.20, organ: 0, pizz: -0.20, twinkle: 0.30, pad: 0, vox: 0.05, bell: -0.10, tri: 0.30,
 };
 export const seatPan = (voice, m) => {
-  if (voice === 'strings') return m >= 67 ? 0.25 : m >= 55 ? 0 : -0.30;
+  if (voice === 'strings' || voice === 'stringsSynth') return m >= 67 ? 0.25 : m >= 55 ? 0 : -0.30;
   return SEAT[voice] ?? 0;
 };
 export const HUM = {
   hornSolo: [0.009, 0.06], violin: [0.009, 0.06], flute: [0.009, 0.06], oboe: [0.009, 0.06], vox: [0.009, 0.05],
-  horns: [0.0045, 0.03], strings: [0.0045, 0.03], pad: [0.0045, 0.03], pizz: [0.0045, 0.03], harp: [0.0045, 0.04],
+  horns: [0.0045, 0.03], strings: [0.0045, 0.03], hornsSynth: [0.0045, 0.03], stringsSynth: [0.0045, 0.03], pad: [0.0045, 0.03], pizz: [0.0045, 0.03], harp: [0.0045, 0.04],
   celesta: [0.004, 0.03], organ: [0.002, 0.0], twinkle: [0, 0], harpsi: [0.005, 0.03],
   timp: [0.003, 0.04], snare: [0.003, 0.05], cymbal: [0.003, 0.03], tri: [0.003, 0.03], bell: [0.003, 0.02],
 };
@@ -41,7 +42,10 @@ const cents = (c) => Math.pow(2, c / 1200);
 
 // ------------------------------------------------------------------------------------------------ kit
 export function makeKit(ctx, { quality = 'high', seed = 1234 } = {}) {
-  const K = { ctx, quality, sr: ctx.sampleRate, nyq: ctx.sampleRate / 2 };
+  const offline = typeof OfflineAudioContext !== 'undefined' && ctx instanceof OfflineAudioContext;
+  const K = { ctx, quality, sr: ctx.sampleRate, nyq: ctx.sampleRate / 2, offline };
+  // live: grow the string and brass multisamples in a Worker now; offline renders grow each zone on first use
+  if (!offline) { try { Bank.startWorker(ctx); } catch (e) { /* the oscillator fallbacks keep playing */ } }
   let s = seed >>> 0;
   const rnd = () => { s = (s + 0x6d2b79f5) >>> 0; let x = s; x = Math.imul(x ^ (x >>> 15), x | 1); x ^= x + Math.imul(x ^ (x >>> 7), x | 61); return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
   const len = Math.floor(ctx.sampleRate * 2.5);
@@ -164,8 +168,9 @@ function applyPath(n, oscs, ratios, extra) {
 // ------------------------------------------------------------------------------------------------ voices
 export const VOICES = {};
 
-// 1.1 HORN SECTION — four detuned saws + a bore triangle, formant low-pass, the brass honk
-VOICES.horns = (K, n, out) => {
+// 1.1 HORN SECTION (oscillator fallback) — four detuned saws + a bore triangle, formant low-pass, the brass honk.
+// Only sounds while the grown multisamples for a zone are still being made (live, first second after boot).
+VOICES.hornsSynth = (K, n, out) => {
   const { ctx } = K; const { t, f, vel } = n; const low = K.quality === 'low';
   const A = Math.min(0.045, n.dur * 0.5), D = 0.12, S = 0.72, R = n.o?.rel ?? 0.22;
   const tOff = t + Math.max(n.dur, A + 0.01);
@@ -242,8 +247,8 @@ VOICES.hornSolo = (K, n, out) => {
   return finish(K, n, out, amp, end, [...oscs, nz], [amp.gain], { peak, S }, () => { if (vib) disc(K.vibHS, vib); });
 };
 
-// 1.3 STRINGS (section) — five saws, slow bow filter, late vibrato, shimmer, swell; tremolo variant via o.trem
-VOICES.strings = (K, n, out) => {
+// 1.3 STRINGS (oscillator fallback) — five saws, slow bow filter, late vibrato, shimmer, swell; tremolo via o.trem
+VOICES.stringsSynth = (K, n, out) => {
   const { ctx } = K; const { t, f, vel } = n; const low = K.quality === 'low';
   const dur = n.dur;
   let A = n.o?.attack ?? clamp(0.4 * (n.spb || 0.5), 0.12, 0.45);
@@ -652,6 +657,406 @@ VOICES.tri = (K, n, out) => {
   return finish(K, n, out, sum, end, oscs, amps, { peak, tau: 0.6 });
 };
 
+// ------------------------------------------------------------------------------------------------ grown multisamples
+/*
+ * THE SECTIONS. A string section and a brass section are the two sounds a child's ear checks first, and no stack of
+ * detuned oscillators through a low-pass passes that check. So the `strings` and `horns` voices are sample players —
+ * multisampled one zone every minor third, a sustain (attack head + seamless 1.6 s loop) and staccatos, two
+ * dynamic layers per sample (soft / loud) that crossfade phase-coherently — and every sample is GROWN here at boot,
+ * from a model of the instrument, not downloaded:
+ *   strings: 8 players seated across the stereo field, each a bowed string (Helmholtz sawtooth, corner-rounded by the
+ *            bow, per-instrument harmonic scatter) with its own detune, drift, bow-pressure wander and a vibrato that
+ *            starts late; slip-synchronised bow noise and an onset scratch; all through a body with real resonances
+ *            (air mode, the B1-/B1+ corpus pair, the nasal dip, the bridge hill) scaled from violin down to bass.
+ *            Harmonics sweeping through those resonances under vibrato give the shimmer recorded strings have.
+ *   brass:   6 players, near-sine at piano steepening to a bright cuivré spectrum at forte (the loud layer), lip scoops
+ *            and staggered tongued attacks in the head, breath buzz, bell formants.
+ * growZone is self-contained so it runs in a Worker (live: the whole bank grows in ~1 s off the main thread) or
+ * synchronously (OfflineAudioContext renders). Until a zone exists live, the oscillator fallback voices sound instead.
+ */
+export function growZone(job) {
+  const t0 = (typeof performance !== 'undefined' ? performance : Date).now();
+  const kind = job.kind, root = job.root, art = job.art || 'sus', SR = job.sr || 24000;
+  const STR = kind === 'str', SUS = art === 'sus';
+  let seed = ((job.seed || 0x5eed1) ^ Math.imul(root + 11, 2654435761) ^ (STR ? 0x13579 : 0x2468a) ^ (SUS ? 0 : 0x5a5a5)) >>> 0;
+  const rnd = () => { seed = (seed + 0x6d2b79f5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2) * 1.732;
+  const TAU = Math.PI * 2;
+  const B = 16; // control block (frames)
+  const q16 = (sec) => Math.max(B, Math.round(sec * SR / B) * B);
+  const f0 = 440 * Math.pow(2, (root - 69) / 12);
+  const H = q16(SUS ? (STR ? 0.40 : 0.32) : (STR ? 0.56 : 0.52));
+  const L = SUS ? q16(1.6) : 0;
+  const N = H + 2 * L; // the loop is rendered twice so every filter reaches its periodic steady state
+  const Lsec = L / SR;
+  const lerpTab = (tab, x) => { if (x <= tab[0][0]) return tab[0][1]; for (let i = 1; i < tab.length; i++) if (x <= tab[i][0]) { const [a, va] = tab[i - 1], [b, vb] = tab[i]; return va + (vb - va) * (x - a) / (b - a); } return tab[tab.length - 1][1]; };
+
+  const fft = (re, im) => { const m = re.length; for (let i = 1, j = 0; i < m; i++) { let bit = m >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit;
+    if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; } }
+    for (let len = 2; len <= m; len <<= 1) { const ang = -TAU / len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for (let i = 0; i < m; i += len) { let cr = 1, ci = 0; for (let j = 0; j < len / 2; j++) { const a = i + j, b = a + len / 2; const vr = re[b] * cr - im[b] * ci, vi = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - vr; im[b] = im[a] - vi; re[a] += vr; im[a] += vi; const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t; } } } };
+  const TS = 2048, TM = TS - 1;
+  /** one period: x[k] = sum a_n sin(n 2pi k/TS + ph_n), RMS 0.5 */
+  const table = (amps, phs) => {
+    const re = new Float64Array(TS), im = new Float64Array(TS);
+    let e = 0;
+    for (let n = 1; n < amps.length && n < TS / 2; n++) { const a = amps[n]; if (!a) continue; re[n] = a * Math.sin(phs[n]) * 0.5; im[n] = -a * Math.cos(phs[n]) * 0.5; re[TS - n] = re[n]; im[TS - n] = -im[n]; e += a * a / 2; }
+    fft(re, im);
+    const out = new Float32Array(TS); const k = 0.5 / Math.sqrt(e || 1);
+    for (let i = 0; i < TS; i++) out[i] = re[(TS - i) & TM] * k;
+    return out;
+  };
+
+  // register -> section character (violins ... violas ... celli ... basses)
+  const nMax = Math.max(1, Math.floor(10500 / (f0 * 1.03)));
+  const bs = STR ? lerpTab([[33, 0.30], [43, 0.40], [50, 0.52], [57, 0.76], [64, 1], [127, 1]], root) : 1;
+  const P = STR ? 8 : 6;
+  const specLoud = new Float64Array(nMax + 1), specSoft = new Float64Array(nMax + 1);
+  const hillHz = 2600 * Math.pow(bs, 0.55), radLo = 260 * bs;
+  for (let n = 1; n <= nMax; n++) {
+    const f = n * f0;
+    if (STR) {
+      // body radiation climbs ~+4.5 dB/oct from the air mode to the bridge hill
+      const rad = Math.pow(Math.max(1, Math.min(f, hillHz) / radLo), 0.75) / Math.pow(Math.max(1, Math.min(f0, hillHz) / radLo), 0.75);
+      // Helmholtz bridge force ~1/n, corner-rounded by the bow; soft bowing rounds the corner much earlier
+      specLoud[n] = rad * (1 / n) / Math.sqrt(1 + Math.pow(n / 22, 2)) / (1 + Math.pow(f / 8500, 2.5));
+      specSoft[n] = rad * (1 / n) / (1 + Math.pow(n / 7, 2)) / (1 + Math.pow(f / 2000, 2.4));
+    } else {
+      // brass: piano is round with a warm 2nd/3rd; forte steepens into the bright buzzy cuivre spectrum
+      specLoud[n] = Math.pow(n, -0.22) / (1 + Math.pow(f / 3300, 2.0));
+      specSoft[n] = Math.pow(n, -0.6) / (1 + Math.pow(f / 1000, 2.6));
+    }
+  }
+
+  // noise tables, periodic over the loop
+  const NZ = SUS ? L : H;
+  const noiseTab = (hpHz, lpHz) => {
+    const w = new Float32Array(NZ); for (let i = 0; i < NZ; i++) w[i] = rnd() * 2 - 1;
+    const ah = Math.exp(-TAU * hpHz / SR), al = 1 - Math.exp(-TAU * lpHz / SR);
+    let lpS = 0, hpS = 0, prev = 0;
+    const out = new Float32Array(NZ);
+    for (let pass = 0; pass < 2; pass++) for (let i = 0; i < NZ; i++) { const x = w[i]; hpS = ah * (hpS + x - prev); prev = x; lpS += al * (hpS - lpS); out[i] = lpS; }
+    let ss = 0; for (let i = 0; i < NZ; i++) ss += out[i] * out[i]; const k = 0.5 / Math.sqrt(ss / NZ || 1);
+    for (let i = 0; i < NZ; i++) out[i] *= k;
+    return out;
+  };
+  const nzLoud = noiseTab(STR ? 700 : 900, STR ? 11000 : 7000), nzSoft = noiseTab(STR ? 500 : 700, STR ? 3500 : 2500);
+  const PULSE = new Float32Array(257); for (let i = 0; i <= 256; i++) { const x = Math.min(i, 256 - i) / 256; PULSE[i] = Math.exp(-Math.pow(x / (STR ? 0.07 : 0.1), 2)); }
+
+  // players
+  const outL = [new Float64Array(N), new Float64Array(N)];
+  const outS = [new Float64Array(N), new Float64Array(N)];
+  const tl = (i) => (i < H ? i : H + ((i - H) % (L || 1)));
+  const nLoud = STR ? 0.085 : 0.018, nSoft = STR ? 0.028 : 0.007;
+  for (let p = 0; p < P; p++) {
+    const pan = Math.max(-1, Math.min(1, -0.8 + 1.6 * (p + 0.5) / P + (rnd() - 0.5) * 0.2));
+    const gl = Math.cos((pan + 1) * Math.PI / 4), gr = Math.sin((pan + 1) * Math.PI / 4);
+    const det = gauss() * (STR ? 4.5 : 2.6);
+    const kv = STR ? [9, 10, 11][Math.floor(rnd() * 3)] : 9 + Math.floor(rnd() * 2);
+    const vph = rnd() * TAU, vwob = 0.25 + 0.5 * rnd(), vwk = 1 + Math.floor(rnd() * 2), vwph = rnd() * TAU;
+    const vdep = !SUS ? 0 : STR ? (root < 52 ? 7 + 4 * rnd() : 9 + 6 * rnd()) : (rnd() < 0.35 ? 1.5 + 2 * rnd() : 0);
+    const vOn = STR ? 0.13 + 0.08 * rnd() : 0.2, vFull = H / SR;
+    const d1 = gauss() * (STR ? 2.2 : 1.4), d1p = rnd() * TAU, d2 = gauss() * (STR ? 1.2 : 0.7), d2p = rnd() * TAU;
+    const a1 = (STR ? 0.05 : 0.025) * (0.5 + rnd()), a1k = 1 + Math.floor(rnd() * 2), a1p = rnd() * TAU;
+    const a2 = (STR ? 0.03 : 0.015) * (0.5 + rnd()), a2k = 3 + Math.floor(rnd() * 3), a2p = rnd() * TAU;
+    const onset = rnd() * (STR ? (SUS ? 0.03 : 0.012) : 0.02);
+    const atk = STR ? (SUS ? 0.06 + 0.05 * rnd() : 0.012 + 0.006 * rnd()) : (SUS ? 0.028 + 0.02 * rnd() : 0.014 + 0.006 * rnd());
+    const scoop = STR ? -(3 + 7 * rnd()) : -(16 + 22 * rnd()), scTau = STR ? 0.035 : 0.014 + 0.012 * rnd();
+    const noff = Math.floor(rnd() * NZ);
+    const amps = [new Float64Array(nMax + 1), new Float64Array(nMax + 1)], phs = new Float64Array(nMax + 1);
+    for (let n = 1; n <= nMax; n++) {
+      const jit = Math.pow(10, gauss() * 1.8 / 20);
+      amps[0][n] = specSoft[n] * jit; amps[1][n] = specLoud[n] * jit;
+      phs[n] = (STR ? 0 : Math.PI / 2) + gauss() * (STR ? 0.5 : 0.25);
+    }
+    const tabS = table(amps[0], phs), tabL = table(amps[1], phs);
+    const nb = N / B + 1;
+    const inc = new Float64Array(nb), amp = new Float64Array(nb), nzk = new Float64Array(nb);
+    for (let j = 0; j < nb; j++) {
+      const i = tl(Math.min(j * B, N)); const t = i / SR; const tc = i >= H ? (i - H) / SR : t;
+      const ph = TAU * tc / (Lsec || 1);
+      let c = det + d1 * Math.sin(ph + d1p) + d2 * Math.sin(2 * ph + d2p);
+      let vd = vdep; if (i < H) { const x = (t - vOn) / Math.max(0.01, vFull - vOn); vd *= x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x); }
+      if (vd) c += vd * Math.sin(kv * ph + vph + vwob * Math.sin(vwk * ph + vwph));
+      const ts = t - onset;
+      if (i < H && ts > -0.01) c += scoop * Math.exp(-Math.max(0, ts) / scTau);
+      inc[j] = f0 * Math.pow(2, c / 1200) / SR;
+      let a = 1 + a1 * Math.sin(a1k * ph + a1p) + a2 * Math.sin(a2k * ph + a2p) + (vd ? 0.0125 * vd * Math.sin(kv * ph + vph) : 0);
+      let nk = 1;
+      if (i < H) {
+        if (ts <= 0) { a = 0; nk = 0; } else {
+          const r = Math.min(1, ts / atk); a *= SUS ? r * r * (3 - 2 * r) : Math.sin(r * Math.PI / 2);
+          nk = 1 + (STR ? 3.5 : 5) * Math.exp(-ts / (STR ? 0.035 : 0.018));
+          if (!SUS) { const hold = STR ? 0.045 : 0.06, tau = STR ? 0.085 : 0.11; if (ts > hold) a *= Math.exp(-(ts - hold) / tau); nk *= STR ? 1.3 : 1; }
+        }
+      }
+      amp[j] = a; nzk[j] = nk;
+    }
+    if (SUS) { // close the loop: a whole number of cycles
+      const j0 = H / B, j1 = (H + L) / B; let S = 0;
+      for (let j = j0; j < j1; j++) S += B * inc[j] + (inc[j + 1] - inc[j]) * (B - 1) / 2;
+      const kS = Math.max(1, Math.round(S)) / S; for (let j = 0; j < nb; j++) inc[j] *= kS;
+    }
+    let phase = rnd();
+    const oLl = outL[0], oLr = outL[1], oSl = outS[0], oSr = outS[1];
+    for (let j = 0; j < N / B; j++) {
+      const i0 = j * B; const di = (inc[j + 1] - inc[j]) / B, da = (amp[j + 1] - amp[j]) / B, dn = (nzk[j + 1] - nzk[j]) / B;
+      let ic = inc[j], ac = amp[j], nc = nzk[j];
+      if (ac === 0 && amp[j + 1] === 0) { for (let k = 0; k < B; k++) { phase += ic; ic += di; } continue; }
+      const tb = tl(i0);
+      for (let k = 0; k < B; k++) {
+        phase += ic; ic += di;
+        const fr = phase - Math.floor(phase), x = fr * TS, xi = x | 0, xf = x - xi, i1 = (xi + 1) & TM;
+        const vS = tabS[xi] + xf * (tabS[i1] - tabS[xi]), vL = tabL[xi] + xf * (tabL[i1] - tabL[xi]);
+        const ni = (tb + k + noff) % NZ, pu = 0.3 + PULSE[(fr * 256) | 0];
+        const sL = (vL + nzLoud[ni] * nLoud * nc * pu) * ac, sS = (vS + nzSoft[ni] * nSoft * nc * pu) * ac;
+        const idx = i0 + k;
+        oLl[idx] += sL * gl; oLr[idx] += sL * gr; oSl[idx] += sS * gl; oSr[idx] += sS * gr;
+        ac += da; nc += dn;
+      }
+    }
+  }
+
+  // body / bell: the same filters on both layers so the dynamic crossfade stays phase-coherent
+  const biq = (type, f, Q, dB) => {
+    f = Math.min(f, SR * 0.45);
+    const A = Math.pow(10, (dB || 0) / 40), w = TAU * f / SR, cw = Math.cos(w), sw = Math.sin(w), al = sw / (2 * Q);
+    let b0, b1, b2, a0, a1, a2;
+    if (type === 'pk') { b0 = 1 + al * A; b1 = -2 * cw; b2 = 1 - al * A; a0 = 1 + al / A; a1 = -2 * cw; a2 = 1 - al / A; }
+    else if (type === 'lp') { b0 = (1 - cw) / 2; b1 = 1 - cw; b2 = b0; a0 = 1 + al; a1 = -2 * cw; a2 = 1 - al; }
+    else { b0 = (1 + cw) / 2; b1 = -(1 + cw); b2 = b0; a0 = 1 + al; a1 = -2 * cw; a2 = 1 - al; }
+    return [b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0];
+  };
+  const bodySpec = (sh) => {
+    const s = bs * sh, hill = Math.pow(bs, 0.55) * sh;
+    if (STR) return [
+      ['hp', 185 * s, 0.75], ['pk', 275 * s, 6, 6], ['pk', 405 * s, 5, 2.5], ['pk', 470 * s, 8, 7], ['pk', 555 * s, 8, 8],
+      ['pk', 760 * s, 6, 3], ['pk', 1000 * s, 7, 3.5], ['pk', 1320 * s, 1.6, -5 * Math.pow(bs, 1.5)], ['pk', 1750 * s, 5, 2.5],
+      ['pk', 2550 * hill, 1.0, 7.5], ['pk', 3350 * hill, 3.5, 2.5], ['lp', 10500, 0.6],
+    ];
+    return [['hp', 70, 0.7], ['pk', 480 * sh, 1.1, 2], ['pk', 1150 * sh, 1.5, 3.5], ['pk', 2700 * sh, 2.2, 2], ['lp', 9000, 0.6]];
+  };
+  const runFilters = (x, spec) => {
+    for (const [ty, f, Q, dB] of spec) {
+      const [b0, b1, b2, a1, a2] = biq(ty, f, Q, dB);
+      let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+      for (let i = 0; i < x.length; i++) { const xi = x[i]; const y = b0 * xi + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = xi; y2 = y1; y1 = y; x[i] = y; }
+    }
+  };
+  for (let ch = 0; ch < 2; ch++) { const sp = bodySpec(ch ? 1.022 : 0.978); runFilters(outL[ch], sp); runFilters(outS[ch], sp); }
+
+  // head + steady loop, equal-RMS layers (both at SR: a half-rate soft layer measured -35 dB resampling images at 8-11 kHz)
+  const M = H + L;
+  const pick = (x) => { const o = new Float32Array(M); for (let i = 0; i < H; i++) o[i] = x[i]; for (let i = 0; i < L; i++) o[H + i] = x[H + L + i]; return o; };
+  const loud = [pick(outL[0]), pick(outL[1])], soft = [pick(outS[0]), pick(outS[1])];
+  const rmsOf = (arrs, a, b) => { let s = 0, n = 0; for (const x of arrs) for (let i = a; i < b; i++) { s += x[i] * x[i]; n++; } return Math.sqrt(s / Math.max(1, n)); };
+  const refA = SUS ? H : Math.round(0.01 * SR), refB = SUS ? M : Math.round(0.16 * SR);
+  const kL = 0.25 / (rmsOf(loud, refA, refB) || 1), kS = 0.25 / (rmsOf(soft, refA, refB) || 1);
+  for (const x of loud) for (let i = 0; i < M; i++) x[i] *= kL;
+  for (const x of soft) for (let i = 0; i < M; i++) x[i] *= kS;
+  const ms = (typeof performance !== 'undefined' ? performance : Date).now() - t0;
+  return { kind, root, art, sr: SR, H, L, loud, soft, ms };
+}
+
+/** The bank: zone roots every minor third across each section's written range; live growth in a Worker, sync offline. */
+export const ZONES = { str: [34, 97], brass: [46, 88] };
+const SMP_SR = 24000;
+export const Bank = (() => {
+  const zones = new Map();
+  const stats = { zones: 0, total: 0, sync: 0, worker: 0, ms: 0, bytes: 0, errors: 0, workerOk: null };
+  const jobs = [];
+  for (const kind of Object.keys(ZONES)) for (const art of ['sus', 'stac']) for (let r = ZONES[kind][0]; r <= ZONES[kind][1]; r += art === 'stac' ? 6 : 3) jobs.push({ kind, art, root: r });
+  stats.total = jobs.length;
+  let worker = null, busy = null, queue = [], started = false;
+  // sustains: a zone every minor third (<= 1 semitone of stretch); staccatos, which never sustain long enough to expose it, every tritone
+  const rootOf = (kind, m, art = 'sus') => { const [lo, hi] = ZONES[kind]; const st = art === 'stac' ? 6 : 3; return lo + st * Math.max(0, Math.min(Math.floor((hi - lo) / st), Math.round((m - lo) / st))); };
+  const key = (kind, art, root) => `${kind}:${art}:${root}`;
+  const mkBuf = (ctx, chans, sr) => {
+    let b;
+    try { b = new AudioBuffer({ numberOfChannels: 2, length: chans[0].length, sampleRate: sr }); } catch (e) { b = ctx.createBuffer(2, chans[0].length, sr); }
+    b.copyToChannel(chans[0], 0); b.copyToChannel(chans[1], 1);
+    return b;
+  };
+  function adopt(raw, ctx) {
+    const k = key(raw.kind, raw.art, raw.root);
+    if (zones.has(k)) return zones.get(k);
+    const z = { kind: raw.kind, art: raw.art, root: raw.root, loud: mkBuf(ctx, raw.loud, raw.sr), soft: mkBuf(ctx, raw.soft, raw.sr),
+      loopStart: raw.L ? raw.H / raw.sr : 0, loopEnd: raw.L ? (raw.H + raw.L) / raw.sr : 0, dur: raw.loud[0].length / raw.sr };
+    zones.set(k, z);
+    stats.zones = zones.size; stats.ms += raw.ms || 0; stats.bytes += (raw.loud[0].length + raw.soft[0].length) * 8;
+    return z;
+  }
+  let ctxRef = null;
+  function pumpWorker() {
+    if (!worker || busy) return;
+    while (queue.length && zones.has(key(queue[0].kind, queue[0].art, queue[0].root))) queue.shift();
+    const job = queue.shift(); if (!job) return;
+    busy = job;
+    worker.postMessage({ ...job, sr: SMP_SR });
+  }
+  function startWorker(ctx) {
+    ctxRef = ctxRef || ctx;
+    if (started) return; started = true;
+    queue = jobs.slice().sort((a, b) => (a.art === b.art ? 0 : a.art === 'sus' ? -1 : 1) || Math.abs(a.root - 64) - Math.abs(b.root - 64));
+    try {
+      if (typeof Worker === 'undefined' || typeof Blob === 'undefined' || typeof URL === 'undefined') throw new Error('no Worker');
+      const src = `const growZone = ${growZone.toString()};\nonmessage = (e) => { try { const r = growZone(e.data); postMessage(r, [r.loud[0].buffer, r.loud[1].buffer, r.soft[0].buffer, r.soft[1].buffer]); } catch (err) { postMessage({ error: String(err && err.message || err), job: e.data }); } };`;
+      const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      worker = new Worker(url);
+      worker.onmessage = (e) => {
+        const r = e.data; busy = null;
+        if (r && r.error) { stats.errors++; } else { try { adopt(r, ctxRef); stats.worker++; stats.workerOk = true; } catch (err) { stats.errors++; } }
+        pumpWorker();
+      };
+      worker.onerror = (e) => { stats.workerOk = false; stats.errors++; try { e.preventDefault(); } catch (_) { /* ignore */ } worker = null; busy = null; idleGrow(); };
+      pumpWorker();
+    } catch (e) { stats.workerOk = false; worker = null; idleGrow(); }
+  }
+  /** no Worker: grow one zone per idle slice on the main thread */
+  function idleGrow() {
+    const step = () => {
+      while (queue.length && zones.has(key(queue[0].kind, queue[0].art, queue[0].root))) queue.shift();
+      const job = queue.shift(); if (!job) return;
+      try { adopt(growZone({ ...job, sr: SMP_SR }), ctxRef); stats.sync++; } catch (e) { stats.errors++; }
+      if (typeof requestIdleCallback === 'function') requestIdleCallback(step, { timeout: 500 }); else setTimeout(step, 30);
+    };
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(step, { timeout: 500 }); else setTimeout(step, 30);
+  }
+  return {
+    rootOf, stats,
+    /** the zone for a note: grown synchronously when `sync` (offline renders); live returns null until the worker delivers it */
+    zone(ctx, kind, art, m, sync) {
+      const r = rootOf(kind, m, art); const k = key(kind, art, r);
+      const z = zones.get(k); if (z) return z;
+      if (sync) { const nz = adopt(growZone({ kind, art, root: r, sr: SMP_SR }), ctx); stats.sync++; return nz; }
+      this.prioritize([k]);
+      return null;
+    },
+    /** keys ('str:sus:64') needed by a list of {voice, m, d} events */
+    keysFor(events) {
+      const ks = new Set();
+      for (const e of events) {
+        if (e.m == null) continue;
+        const kind = e.voice === 'strings' ? 'str' : e.voice === 'horns' ? 'brass' : null; if (!kind) continue;
+        ks.add(key(kind, 'sus', rootOf(kind, e.m))); ks.add(key(kind, 'stac', rootOf(kind, e.m, 'stac')));
+      }
+      return [...ks];
+    },
+    ready(keys) { return keys.every((k) => zones.has(k)); },
+    prioritize(keys) {
+      if (!started) return;
+      const front = [];
+      for (const k of keys) { if (zones.has(k)) continue; const [kind, art, root] = k.split(':'); front.push({ kind, art, root: +root }); }
+      if (!front.length) return;
+      const set = new Set(keys); queue = [...front, ...queue.filter((j) => !set.has(key(j.kind, j.art, j.root)))];
+      pumpWorker();
+    },
+    startWorker,
+    state() { return { zones: stats.zones, total: stats.total, sync: stats.sync, worker: stats.worker, workerOk: stats.workerOk, errors: stats.errors, growMs: Math.round(stats.ms), mb: +(stats.bytes / 1048576).toFixed(1) }; },
+  };
+})();
+
+const brightOf = (vel, lo, span) => clamp((vel - lo) / span, 0, 1);
+/** the two dynamic layers of a zone as looping buffer sources, crossfaded by `bright` (0 soft .. 1 loud) */
+function layerPair(K, Z, n, t, end, offset) {
+  const { ctx } = K;
+  const rate = Math.pow(2, (n.m - Z.root) / 12);
+  const gS = G(ctx, 0), gL = G(ctx, 0), mix = G(ctx, 1);
+  const srcs = [[Z.soft, gS], [Z.loud, gL]].map(([buf, g]) => {
+    const s = ctx.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate;
+    if (Z.loopEnd) { s.loop = true; s.loopStart = Z.loopStart; s.loopEnd = Z.loopEnd; }
+    s.connect(g); g.connect(mix); s.start(t, Math.min(offset, Z.dur * 0.5)); s.stop(end); return s;
+  });
+  /** brightness automation helpers: both gains always sum to 1 (equal-RMS, phase-coherent layers) */
+  const set = (v, at) => { gL.gain.setValueAtTime(v, at); gS.gain.setValueAtTime(1 - v, at); };
+  const target = (v, at, tau) => { gL.gain.setTargetAtTime(v, at, tau); gS.gain.setTargetAtTime(1 - v, at, tau); };
+  const ramp = (v, at) => { gL.gain.linearRampToValueAtTime(v, at); gS.gain.linearRampToValueAtTime(1 - v, at); };
+  if (n.path) {
+    let prev = n.f;
+    for (let i = 1; i < n.path.length; i++) {
+      const [sec, f] = n.path[i]; const ts = t + sec; const semis = Math.abs(12 * Math.log2(f / prev));
+      for (const s of srcs) {
+        const r0 = rate * prev / n.f, r1 = rate * f / n.f;
+        if (semis <= 3.01 && semis > 0) { s.playbackRate.setValueAtTime(r0, ts - 0.02); s.playbackRate.exponentialRampToValueAtTime(r1, ts + 0.02); } else s.playbackRate.setValueAtTime(r1, ts);
+      }
+      prev = f;
+    }
+  }
+  return { srcs, mix, set, target, ramp, gains: [gS.gain, gL.gain] };
+}
+
+// 1.1 HORN SECTION — grown brass multisamples: tongued, staggered, lip-scooped attacks; brightness rides the dynamic
+VOICES.horns = (K, n, out) => {
+  const short = n.art === 'staccato' || (n.art === 'marcato' && n.dur < 0.3) || n.dur < 0.16;
+  const Z = Bank.zone(K.ctx, 'brass', short ? 'stac' : 'sus', n.m, K.offline);
+  if (!Z) return VOICES.hornsSynth(K, n, out);
+  const { ctx } = K; const { t, vel } = n;
+  const b = Math.pow(brightOf(vel, 0.18, 0.74), 1.2); // p .08 · mf .47 · f .74 · ff .96
+  const A = short ? 0.004 : Math.min(n.o?.attack ?? 0.012, n.dur * 0.4), D = short ? 0.05 : 0.14, S = short ? 0.9 : 0.74 + 0.16 * (1 - b), R = n.o?.rel ?? (short ? 0.12 : 0.22);
+  const tOff = t + Math.max(n.dur, A + 0.01);
+  const end = (short ? Math.min(t + Z.dur, tOff + R * 1.6) : tOff + R * 1.6) + 0.05;
+  const peak = LEVEL.horns * vel * n.gain;
+  const L = layerPair(K, Z, n, t, end, 0);
+  // the brass bite: the attack flares brighter than the held tone, more so the harder it is played
+  const bA = Math.min(1, b + 0.16 + 0.22 * b);
+  L.set(bA, t); L.target(b * 0.94, t + 0.03, short ? 0.05 : 0.09);
+  const sw = n.o?.swell ?? 1;
+  if (sw > 1 && tOff > t + 0.5) { L.set(b * 0.94, t + 0.45); L.ramp(Math.min(1, b + 0.55 * (sw - 1)), tOff); }
+  const lp = BQ(ctx, 'lowpass', 1200 + 1800 * b, 0.6);
+  lp.frequency.setValueAtTime(1200 + 1800 * b, t);
+  lp.frequency.exponentialRampToValueAtTime(16000, t + (short ? 0.03 : 0.07));
+  lp.frequency.setTargetAtTime(1300 + 1800 * b, Math.max(tOff, t + 0.08), R / 3);
+  lp.frequency.setValueAtTime(1300 + 1800 * b, end);
+  const amp = G(ctx, 0);
+  envASR(amp.gain, t, tOff, peak, A, D, S, R, sw);
+  L.mix.connect(lp); lp.connect(amp);
+  return finish(K, n, out, amp, end, L.srcs, [amp.gain], { peak, S });
+};
+
+// 1.3 STRINGS (section) — grown string multisamples: bow scratch, body resonances, late vibrato, swell; o.trem tremolo
+VOICES.strings = (K, n, out) => {
+  const trem = n.o?.trem;
+  const short = !trem && (n.art === 'staccato' || n.dur < 0.14);
+  const Z = Bank.zone(K.ctx, 'str', short ? 'stac' : 'sus', n.m, K.offline);
+  if (!Z) return VOICES.stringsSynth(K, n, out);
+  const { ctx } = K; const { t, vel } = n; const dur = n.dur;
+  const b = Math.pow(brightOf(vel, 0.14, 0.8), 1.4); // p .06 · mp .26 · mf .45 · f .70 · ff .92
+  // a bow change inside a line speaks quickly (the grown onset does the rest); pads and long notes still swell in slowly
+  let A = n.o?.attack ?? clamp(Math.min(0.4 * (n.spb || 0.5), 0.3 * dur), 0.05, 0.45);
+  A = short ? 0.004 : Math.min(A, Math.max(0.03, dur * 0.45));
+  if (trem) A = 0.01;
+  const D = 0.25, S = short ? 0.95 : 0.85, R = n.o?.rel ?? (short ? 0.1 : clamp(dur * 0.8, 0.18, 0.55));
+  const tOff = t + Math.max(dur, A + 0.01);
+  const end = (short ? Math.min(t + Z.dur, tOff + R * 1.6) : tOff + R * 1.6) + 0.05;
+  const peak = LEVEL.strings * vel * n.gain;
+  // a slow bow starts past the onset scratch (the sampler's start offset); a quick one keeps the bite
+  const L = layerPair(K, Z, n, t, end, !short && A >= 0.15 ? 0.05 : 0);
+  const bA = Math.min(1, b + (short ? 0.28 : 0.12));
+  L.set(bA, t); L.target(b, t + Math.min(0.12, Math.max(0.03, A)), 0.15);
+  const sw = n.o?.swell ?? (dur >= 1.2 ? 1.14 : 1);
+  const tSw = t + Math.max(A + 0.4, 0.5);
+  if (sw > 1 && tOff > tSw + 0.1) { L.set(b, tSw); L.ramp(Math.min(1, b + 0.9 * (sw - 1)), tOff); }
+  const lp = BQ(ctx, 'lowpass', 16000, 0.5);
+  if (!short && A > 0.08) { lp.frequency.setValueAtTime(1800 + 3200 * b, t); lp.frequency.exponentialRampToValueAtTime(16000, t + A); }
+  lp.frequency.setTargetAtTime(2200 + 2400 * b, Math.max(tOff, t + A + 0.01), R / 3);
+  lp.frequency.setValueAtTime(2200 + 2400 * b, end);
+  const amp = G(ctx, 0);
+  if (trem) {
+    const st = trem; const pS = peak * S;
+    amp.gain.setValueAtTime(0, t);
+    for (let k = 0, ts = t; ts < tOff - 0.02; ts += st, k++) {
+      const r = 1 + (K.rnd() * 2 - 1) * 0.12;
+      amp.gain.linearRampToValueAtTime(pS * r, ts + 0.012);
+      amp.gain.linearRampToValueAtTime(pS * r * 0.42, Math.min(ts + st - 0.004, tOff));
+    }
+    amp.gain.setTargetAtTime(0, tOff, 0.04 / 5);
+  } else envASR(amp.gain, t, tOff, peak, A, D, S, R, sw);
+  const sh = G(ctx, 1); K.shimmer.connect(sh.gain);
+  L.mix.connect(lp); lp.connect(amp); amp.connect(sh);
+  return finish(K, n, out, sh, end, L.srcs, [amp.gain], { peak, S }, () => disc(K.shimmer, sh.gain));
+};
+
 // ------------------------------------------------------------------------------------------------ reverb
 export const IR_SPECS = {
   HALL: { seconds: 2.6, decayExp: 2.4, tiltHz: 7000, taps: [[11, 0.35], [17, 0.28], [23, 0.24], [31, 0.19], [43, 0.14], [59, 0.10]] },
@@ -696,18 +1101,24 @@ export function makeIR(ctx, name) {
   return b;
 }
 
-/** FDN fallback for quality 'low' (§2.2): four mutually-prime delays, one-pole damping, Hadamard x 0.78. */
+/**
+ * Cheap reverb for quality 'low' (§2.2's job, rebuilt): four damped feedback combs at 29.7/37.1/41.3/53.9 ms, each its own
+ * loop (a cross-coupled Hadamard matrix measured unstable in Chromium's cycle handling), gains set for RT60 ≈ 2.1 s
+ * including the render quantum Chromium adds to every cycle, plus two early taps. Lines 1+2 → L, 3+4 → R (3 inverted).
+ */
 export function makeFDN(ctx) {
   const input = G(ctx, 1), output = G(ctx, 1);
   const pre = ctx.createDelay(0.1); pre.delayTime.value = 0.012; input.connect(pre);
-  const times = [0.0297, 0.0371, 0.0413, 0.0539];
-  const lines = times.map((d) => { const dl = ctx.createDelay(0.1); dl.delayTime.value = d; const lp = BQ(ctx, 'lowpass', 4500, 0.5); dl.connect(lp); return { dl, lp }; });
-  const H = [[1, 1, 1, 1], [1, -1, 1, -1], [1, 1, -1, -1], [1, -1, -1, 1]];
-  lines.forEach((src, i) => { lines.forEach((dst, j) => { const g = G(ctx, 0.78 * 0.5 * H[i][j]); src.lp.connect(g); g.connect(dst.dl); }); pre.connect(src.dl); });
+  const q = 128 / ctx.sampleRate, RT60 = 2.1;
   const mer = ctx.createChannelMerger(2);
-  const l1 = G(ctx, 0.5), l2 = G(ctx, 0.5), r3 = G(ctx, -0.5), r4 = G(ctx, 0.5);
-  lines[0].lp.connect(l1); lines[1].lp.connect(l2); lines[2].lp.connect(r3); lines[3].lp.connect(r4);
-  l1.connect(mer, 0, 0); l2.connect(mer, 0, 0); r3.connect(mer, 0, 1); r4.connect(mer, 0, 1);
+  [0.0297, 0.0371, 0.0413, 0.0539].forEach((d, i) => {
+    const dl = ctx.createDelay(0.1); dl.delayTime.value = d;
+    const lp = BQ(ctx, 'lowpass', 4500, -3);
+    const fb = G(ctx, Math.pow(10, -3 * (d + q) / RT60));
+    pre.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl);
+    const o = G(ctx, (i === 2 ? -1 : 1) * 0.16); lp.connect(o); o.connect(mer, 0, i < 2 ? 0 : 1);
+  });
+  [[0.019, 0.22, 0], [0.027, 0.18, 1]].forEach(([d, g, ch]) => { const t = ctx.createDelay(0.1); t.delayTime.value = d; const tg = G(ctx, g); pre.connect(t); t.connect(tg); tg.connect(mer, 0, ch); });
   mer.connect(output);
   return { input, output };
 }

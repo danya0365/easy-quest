@@ -196,7 +196,7 @@ function buildState() {
     gold: fallback.gold,
     flags: { ...fallback.flags },
     fps: Loop.fps,
-    errors: errorTotal,
+    errors: Math.max(errorTotal, ERRORS.length),   // audio modules push straight into __DQ.errors: count those too
     dialogue: null,
     battle: null,
     // extensions (F1)

@@ -2,13 +2,16 @@
 **Owner: P14/P19 (the battle rules engine). Law for `src/data/monsters.js` (P16), `src/data/spells.js` (P20),
 `src/data/items.js` (P21), the party/wagon/save shapes (P18, F5), `src/battle/recruit.js` (P17) and the
 presentation layer `src/battle/present.js` (P15).**
-Names are CANON (`docs/CANON.md`). Numbers are SYSTEMS-BIBLE / MONSTER-BIBLE. When this file and the engine
+Names are CANON (`docs/CANON.md`). Numbers are SYSTEMS-BIBLE / MONSTER-BIBLE, **except where the balance pass (§9)
+supersedes a stat block** — `tests/battle/balance.js` holds those, measured end to end. When this file and the engine
 disagree, the engine is the bug — report it.
 
 The engine is `src/battle/battle.js` (pure logic, runs under plain node). A working, complete example of every shape
 below is `tests/battle/data.js` (all 33 MONSTER-BIBLE monsters + every CANON boss, the 28 CANON spells, the SYSTEMS
-§4 items) — copy from it. Run `node --test tests/battle` after changing data; run `node tests/battle/sim.mjs` to
-see what your numbers do to a child.
+§4 items) with `tests/battle/balance.js` applied on top — copy the *balanced* numbers (print them with
+`node -e "import('./tests/battle/data.js').then(m => console.log(m.default.monsters.gloop))"`). Run
+`node --test tests/battle` after changing data, and **`node tests/battle/journey.mjs`** — whole playthroughs with EXP
+carried, every kind of child, exit code 1 if the difficulty contract breaks — before calling a number done.
 
 Contents: §1 conventions · §2 monsters · §3 spells · §4 items · §5 party members · §6 battle API & events ·
 §7 the result object · §8 open numbers the bibles do not give · §9 what the simulator says.
@@ -31,8 +34,10 @@ Contents: §1 conventions · §2 monsters · §3 spells · §4 items · §5 part
 gloop: {
   id: 'gloop', name: 'Gloop', plural: 'Gloops',      // plural defaults to name+'s' ("Dune Buggies" needs it)
   tier: 1,                                           // MONSTER-BIBLE tier 1..5 (danger band)
-  lvl: 2, hp: 9, mp: 0, atk: 10, def: 6, agi: 5,     // the stat block, verbatim. atk is total ATK (no weapon)
-  exp: 3, gold: 3, recruit: 1/8,                      // recruit 0 = never asks
+  lvl: 2, hp: 18, mp: 0, atk: 11, def: 6, agi: 5,    // the stat block (balance pass r2). atk is total ATK (no weapon)
+  exp: 2, gold: 2, recruit: 1/8,                      // recruit 0 = never asks; lvl = danger rank (recruit odds)
+  partyLevel: 2,    // WILD MONSTERS: the party level this block is tuned for — its home. An encounter-table entry
+                    // met elsewhere carries it there (§6 enemy spec `partyLevel`, formulas.scaleMonster)
   // optional ----------------------------------------------------------------------------------------------
   wis: 10,          // spell power (MAG). default round(5 + lvl*2.5)
   mdef: 2,          // magic resistance. default round(lvl*1.2)
@@ -49,7 +54,8 @@ gloop: {
   // bosses -------------------------------------------------------------------------------------------------
   boss: true,       // no fleeing (refused with fleeRefusal, no turn lost), no ambush, no 40% floor
   properName: true, // "Mumbleroot the Grudge draws near!" (no article)
-  partyLevel: 6,    // CANON §8 party level: sets expectedMaxHP for the Big Attack cap
+  partyLevel: 7,    // bosses: the level children really arrive at (journey-measured); sets expectedMaxHP for the Big
+                    // Attack cap and the EXP keel. Bosses never scale.
   expectedMaxHP: 52,// or give it directly
   actions: 1,       // actions per round (phases can raise it)
   fleeRefusal: 'The belfry door has swung shut…',
@@ -96,6 +102,11 @@ each hit re-picks), `'self'`, `'ally'` (most-hurt monster), `'allies'` (all mons
 | `shuffle` | — | Jinglebottom's Swap (reorders two heroes) |
 | `pullBack` | `power` | Undertow: one hero is dragged to the back row (then hit at `power`) |
 | `echo` | `partner` (species id) | Hark: repeats the partner's last move (never its Big Attack) |
+| `mercy` | `pct` (0.3) | Malgrim's *Listen*: every standing hero gets `pct` of their max HP back ("somewhere, a lullaby") |
+
+Other move fields: `targetCaster` (a single-target move goes for the hero carrying the most MP who isn't already
+under that status — Mortmain's *Silence the Choir*, Hoarfax's *Hush*); `then` works after a telegraphed move too
+(*Nothing At All* → *Listen*; before balance pass r2 a wind-up swallowed it).
 
 **Telegraphs & Big Attacks (SYSTEMS §6.3).** Any move with `telegraph` spends one turn winding up (event
 `telegraph`) and fires on the monster's next turn one round later. `big: true` additionally: damage per target
@@ -174,7 +185,10 @@ One shape for the front line, the wagon, the paddock and the save file.
 ```
 Build them with `newMember(id, lvl, extra)` / `newCompanion(monsterData, {id, name, lvl})` from `src/data/growth.js`.
 Guests (`halvard`, `willow_child`, `sera_child`, `bertie`, `willow_grown`) are AI-controlled, cannot be equipped,
-never level and earn no EXP (SYSTEMS §2.4: Halvard and Bertie fixed, the children on their own Lv 3 rows, grown
+never level and earn no EXP. A guest with `mentor: true` (Halvard) leaves the children their own fight: he takes a
+monster nobody has picked, otherwise steps back with one of his `mentorLines` (event `act` kind `watch`), and stops
+holding back when a child is under half HP, from round 4, or against a boss; monsters give him a wide berth (a third
+of the usual share of blows). Guests (SYSTEMS §2.4: Halvard and Bertie fixed, the children on their own Lv 3 rows, grown
 Willow at the party's level). Queen Elowen (`elowen`) is family on the Lantern curve and knows every healing spell. Stats come from `growth.js`: `statsFor(member)`, `gainsAt(member, L)`,
 `spellsKnownAt(member)`, `EXP_TABLE`, `levelForExp`. Derived combat values: `formulas.derive(stats, gear)`.
 
@@ -184,12 +198,19 @@ import { createBattle } from './src/battle/battle.js';
 const battle = createBattle({
   party,            // members; the first 4 fight, the rest ride in the wagon
   wagon,            // more members (up to 8 total in the wagon)
-  enemies,          // ['gloop', 'gloop'] or [{id:'chestnut', hp: 60}] (per-instance overrides)
+  enemies,          // ['gloop', 'gloop'], or specs: {id, partyLevel, areaLevel, hpMult, ...overrides}
+                    //   partyLevel — met at this party level: the species' block is carried there (encounter tables:
+                    //                P31's `encounters.table[{id, weight, lvl}]` → `{id, partyLevel: lvl}`)
+                    //   areaLevel  — the map's level, for the EXP keel (pass it on every spec, or as options.areaLevel)
+                    //   hpMult     — a sturdier one of these (tests/battle/areas.js uses it per area)
+                    //   anything else — per-instance overrides ({id:'chestnut', hp: 60})
   rng,              // seed number/string, () => [0,1), or {next()}; same seed = same battle, event for event
   data,             // {monsters, spells, items, strings?}
   emit,             // optional (event) => void, called as each event happens
   options: {
     gold, bag: {herb: 3},            // carried gold (for Gold Gobble / defeat) and the bag
+    areaLevel: 12,                   // the map's party level: the invisible EXP keel (formulas.expKeel). Default: the
+                                     // specs' areaLevel, else their partyLevel, else a boss's partyLevel. expKeel:false = off
     wagonReachable: true,            // false in caves, towers, interiors and every boss room
     assist: { s: 0 },                // the hidden struggle score (SYSTEMS §6.4)
     ambush: undefined,               // undefined = roll; 'party' | 'enemy' | 'none' to force
@@ -224,7 +245,7 @@ Every event is `{t, text?, ...}`. `text` is ready to type into the message windo
 | `appear` | `enemies[]`, `boss` | "Two Gloops and a Bloop draw near!" (§7.1) |
 | `ambush` | `side` `'party'\|'enemy'` | "You've caught them napping!" / "They came out of nowhere!" |
 | `round` | `n` | the 220 ms beat before initiative |
-| `act` | `actor`, `kind` `attack\|spell\|item\|move\|defend\|confused`, `spell?`, `item?`, `move?`, `name?`, `element?`, `big?`, `nothing?`, `confused?` | actor steps forward / monster lunges |
+| `act` | `actor`, `kind` `attack\|spell\|item\|move\|defend\|confused\|watch` (a mentor guest stepping back), `spell?`, `item?`, `move?`, `name?`, `element?`, `big?`, `nothing?`, `confused?` | actor steps forward / monster lunges |
 | `damage` | `actor`, `target`, `side`, `amount` (shown), `dealt` (HP removed), `crit`, `miss`, `reason?` `miss\|hidden\|fluffed\|blocked\|unreachable\|immune\|swallowed`, `element?`, `poison?`, `hp`, `maxHp` | contact frame, number pop (gold x1.6 + 6 px shake on `crit`), HP bar eases. `miss: true` → whiff, **no number** |
 | `heal` | `actor`, `target`, `amount`, `mp?` (MP not HP), `hp`, `maxHp`, `quiet?` | green motes, `+N` |
 | `status` | `target`, `status`, `on`, `turns?`, `skip?` (turn lost to it), `resisted?`, `cured?`, `expired?`, `maxed?`, `mult?` | buffs are `atk_up` `def_up` `agi_up` `…_down` |

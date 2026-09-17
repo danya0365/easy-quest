@@ -14,7 +14,7 @@ export const MELODY = [
 const HARM = ['D', 'D', 'G|D', 'A', 'D/A|A7', 'D'];
 
 export function build() {
-  const T = Theme({ id: 'victory', title: 'Well Fought!', key: 'D major', bpm: 132, meter: 4, pulse: [0, 2], bars: 6, space: 'HALL', gain: 1.0, kind: 'oneshot' });
+  const T = Theme({ id: 'victory', title: 'Well Fought!', key: 'D major', bpm: 132, meter: 4, pulse: [0, 2], bars: 6, space: 'HALL', gain: 0.9, kind: 'oneshot' });
   const horns = T.part('horns', { voice: 'horns', bus: 'melody' });
   const hornsLo = T.part('hornsLo', { voice: 'horns', bus: 'counter', gain: 0.7 });
   const str = T.part('strings', { voice: 'strings', bus: 'counter', gain: 0.75 });

@@ -1,14 +1,17 @@
 /**
  * audio.js — THE AudioContext, the mixer, the shared reverb.            (P28, owner: src/audio/{audio,sfx}.js)
  *
- *   buses  music ─┐
- *          sfx   ─┤   each bus:  in(volume) ─► duck ─► pulse ─► MASTER_SUM
- *          ui    ─┤
- *          voice ─┤   per-bus reverb sends:  send(volume) ─► sendDuck ─► sendPulse ─► REVERB_IN
- *          ambience┘   (duck = held ducks for dialogue/fanfares; pulse = sample-accurate transient dips under hits)
+ *   buses  music ───┐ each bus:  in(volume) ─► duck ─► pulse ─► MASTER_SUM (music, ambience) | FX_SUM (sfx, ui, voice)
+ *          ambience─┘
+ *          sfx   ─┐    per-bus reverb sends:  send(volume) ─► sendDuck ─► sendPulse ─► REVERB_IN
+ *          ui    ─┤    (duck = held ducks for dialogue/fanfares; pulse = sample-accurate transient dips under hits)
+ *          voice ─┘
  *   (sfx/ui/voice sends pass a 320 Hz highpass first, so short effects keep a room without a boomy low-mid tail)
  *   REVERB_IN ─► predelay ─► HP 180 ─► convolver A/B (crossfaded on setSpace) ─► LP ─► wet ─► MASTER_SUM
- *   MASTER_SUM ─► glue compressor (-14 dB, knee 8, 3:1) ─► masterGain ─► limiter (-2 dB, 20:1) ─► soft clip ─► out
+ *   MASTER_SUM ─► glue compressor (-14 dB, knee 8, 3:1) ─┬─► masterGain ─► limiter (-2 dB, 20:1) ─► soft clip ─► out
+ *   FX_SUM (x the glue's small-signal gain) ─────────────┘
+ *   Effects skip the glue so a hit's snap and decay are not squashed by a compressor riding the score, and a menu blip
+ *   is not pulled down while the music drives it; below the glue threshold the two paths are exactly equal in level.
  *
  * Nothing touches `destination` except the end of this chain. The very same builder (`buildMixer`) makes the
  * live graph and the offline graph used by `renderOffline`, so what the probe measures is what the game plays.
@@ -41,6 +44,10 @@
  */
 
 export const BUS_NAMES = ['music', 'sfx', 'ui', 'voice', 'ambience'];
+/** Buses that go through the glue compressor. The rest (sfx, ui, voice) join after it: see buildMixer. */
+const GLUED_BUSES = new Set(['music', 'ambience']);
+/** Small-signal gain of the glue compressor below. Chrome adds make-up gain, (full-range gain)^-0.6; measured +4.123 dB. */
+const GLUE_SMALL_SIGNAL = Math.pow(10, 4.123 / 20);
 export const DEFAULT_VOLUMES = { master: 1.0, music: 0.75, sfx: 0.9, ui: 0.85, voice: 0.8, ambience: 0.7 };
 
 // --- small shared helpers (exported for sfx.js) -------------------------------------------------------------
@@ -157,6 +164,12 @@ export function buildMixer(ctx, out, volumes = DEFAULT_VOLUMES, space = 'hall') 
   m.master.connect(glue); glue.connect(m.masterGain); m.masterGain.connect(limiter); limiter.connect(clip);
   clip.connect(out || ctx.destination);
   m.glue = glue; m.limiter = limiter; m.clip = clip; m.post = clip;
+  // EFFECTS SUM: sfx/ui/voice skip the glue. A glue busy with the score would squash every hit's snap and stretch
+  // its decay (measured: -10 dB took 44 ms instead of 29), and would pull menu blips down whenever the music drives
+  // it. They join after the glue at its exact small-signal gain (Chrome's make-up, +4.123 dB), so an effect below the
+  // threshold is exactly as loud as through the glue; the limiter and soft clip still catch every peak.
+  m.fxSum = g(GLUE_SMALL_SIGNAL);
+  m.fxSum.connect(m.masterGain);
 
   // shared reverb, two convolvers so a space change crossfades instead of clicking
   const S = SPACES[space] || SPACES.hall;
@@ -173,7 +186,7 @@ export function buildMixer(ctx, out, volumes = DEFAULT_VOLUMES, space = 'hall') 
   for (const name of BUS_NAMES) {
     const v = volumes[name] ?? DEFAULT_VOLUMES[name];
     const bin = g(v), duck = g(1), pulse = g(1), sin = g(v), sduck = g(1), spulse = g(1);
-    bin.connect(duck); duck.connect(pulse); pulse.connect(m.master);
+    bin.connect(duck); duck.connect(pulse); pulse.connect(GLUED_BUSES.has(name) ? m.master : m.fxSum);
     sin.connect(sduck); sduck.connect(spulse);
     if (name === 'music' || name === 'ambience') spulse.connect(m.reverbIn);
     else {

@@ -178,6 +178,73 @@ export function catchUpMultiplier(lvl, partyHighest) {
   return 1;
 }
 
+/**
+ * The EXP keel (balance pass r2, invisible — the §2.1 catch-up rule's big sister). Every map is tuned for a party
+ * level (its encounter table's `lvl`, a boss's `partyLevel`). A party below it earns more, a party above it earns
+ * less, so the child who fights everything, the child who runs from most things and the child who grinds all
+ * arrive at the next door within a level or two of each other — and the monsters there were tuned for that level.
+ * Measured by tests/battle/journey.mjs: without it, a child who fights every battle reaches Mumbleroot 3 levels
+ * over and Hoarfax 3 levels under.
+ *   gap = partyHighest - areaLevel:  -3 → x2.5, -2 → x2, -1 → x1.5, 0 → x1, +1 → x0.65, +2 → x0.35, +3 or more → x0.2
+ */
+export function expKeel(partyHighest, areaLevel) {
+  if (!areaLevel || !partyHighest) return 1;
+  const gap = partyHighest - areaLevel;
+  if (gap <= 0) return Math.min(2.5, 1 + 0.5 * -gap);
+  return Math.max(0.2, 1 - 0.325 * gap);
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Monster scaling (balance pass r2). A wild species' stat block is tuned for one party level (`partyLevel`, its
+// home). The bible puts the same species in places a child reaches ten levels apart (Quietlings on Coddleston Moor
+// at Lv 7 and in the Quiet Deep at Lv 26), so an encounter-table entry names the level it is met at
+// (ARCHITECTURE map format `encounters.table[{id, weight, lvl}]` → enemy spec `{id, partyLevel: lvl}`) and the
+// block is carried there along these reference curves: what Bram (the one member always in the party) has at that
+// level with the gear a non-grinding child is wearing (SYSTEMS §2.3 + §4/§5). HP and DEF follow the party's
+// attack (so it takes the same number of hits), the monster's blow keeps the same share of a hero's HP past his
+// guard, speed follows Nimbleness, EXP follows "EXP to next level" and gold follows the SYSTEMS §5 economy leg.
+// No entry level → the block exactly as written ("Gloop: always politely a little too weak").
+
+export const REF = {
+  hp:   [20, 26, 32, 38, 44, 52, 59, 67, 74, 82, 91, 100, 110, 119, 128, 139, 150, 160, 171, 182, 195, 208, 220, 233, 246, 261, 276, 290, 305, 320],
+  atk:  [12, 15, 22, 29, 31, 34, 37, 40, 43, 46, 49, 53, 73, 84, 87, 91, 103, 115, 126, 138, 143, 148, 152, 157, 162, 168, 173, 179, 184, 190],
+  def:  [8, 10, 13, 15, 23, 25, 34, 37, 41, 48, 52, 59, 69, 71, 74, 78, 86, 93, 100, 107, 109, 111, 118, 123, 141, 146, 149, 151, 153, 156],
+  spd:  [8, 10, 12, 13, 15, 17, 19, 22, 24, 26, 28, 31, 33, 36, 38, 41, 43, 46, 48, 51, 54, 57, 59, 62, 65, 68, 71, 74, 77, 80],
+  gold: [5, 6, 6, 8, 11, 14, 18, 20, 25, 28, 34, 42, 55, 66, 80, 95, 108, 120, 140, 155, 168, 190, 215, 248, 300, 355, 380, 400, 420, 440],
+};
+const refAt = (k, L) => {           // fractional levels interpolate (an encounter table may sit at 12.5)
+  const x = clamp(L, 1, 30), i = Math.floor(x), t = x - i;
+  return i >= 30 ? REF[k][29] : REF[k][i - 1] * (1 - t) + REF[k][i] * t;
+};
+const toNextAt = (L) => { const l = clamp(Math.round(L), 1, 29); return EXP_TABLE[l + 1] - EXP_TABLE[l]; };
+const MOVE_AMOUNTS = ['amount', 'fixed', 'drain', 'recoil', 'heal', 'base', 'selfMissDamage'];
+
+/**
+ * Carry a (normalised) wild monster from its home party level to `toLvl`. Bosses never scale. Returns a new object.
+ */
+export function scaleMonster(m, toLvl) {
+  const from = m.partyLevel;
+  if (!from || !toLvl || Math.abs(toLvl - from) < 0.01 || m.boss) return m;
+  const r = (k) => refAt(k, toLvl) / refAt(k, from);
+  const toNextF = (L) => { const i = Math.floor(L), t = L - i; return toNextAt(i) * (1 - t) + toNextAt(i + 1) * t; };
+  const rHp = r('hp'), rAtk = r('atk'), rSpd = r('spd'), rGold = r('gold'), rExp = toNextF(toLvl) / toNextF(from);
+  const margin = Math.max(m.atk - refAt('def', from) / 2, m.atk * 0.25);
+  const n = (x, f, min = 0) => (x == null ? x : Math.max(min, round(x * f)));
+  const moves = (m.moves || []).map((mv) => {
+    if (typeof mv !== 'object') return mv;
+    const out = { ...mv };
+    for (const k of MOVE_AMOUNTS) if (typeof out[k] === 'number') out[k] = n(out[k], rHp, 1);
+    return out;
+  });
+  return {
+    ...m, moves, partyLevel: toLvl, scaledFrom: from,
+    lvl: Math.max(1, Math.round((m.lvl || 1) + (toLvl - from))),
+    hp: n(m.hp, rAtk, 1), def: n(m.def, rAtk), atk: Math.max(1, round(refAt('def', toLvl) / 2 + margin * rHp)),
+    agi: n(m.agi, rSpd, 1), mp: n(m.mp, rHp), wis: n(m.wis, rHp), mdef: n(m.mdef, rSpd),
+    exp: n(m.exp, rExp), gold: n(m.gold, rGold),
+  };
+}
+
 // §3 control — Snoozle landing
 export function sleepLandChance(casterLuck, targetRes) {
   return clamp(0.55 + (casterLuck - targetRes) / 120, 0.15, 0.85);

@@ -25,7 +25,7 @@
   .row .t small{display:block;font-size:12px;color:var(--dim);letter-spacing:.04em}
   .row .k{font-size:12px;color:var(--dim);text-align:right;white-space:nowrap}
   .row.playing .t{color:var(--gold)}
-  .row.playing .t::after{content:" ♪";color:var(--gold)}
+  .row.playing .nm::after{content:" ♪";color:var(--gold)}
   .right{display:grid;grid-template-rows:auto auto 1fr;gap:22px;min-height:0}
   .now{display:grid;grid-template-columns:1fr 150px;gap:12px;min-height:230px}
   .now .title{font-size:30px;line-height:1.15;margin:8px 0 4px;text-shadow:0 2px 0 #000a}
@@ -103,7 +103,7 @@ const $ = (id) => document.getElementById(id);
 const rows = list.map((t, i) => {
   const r = document.createElement('div'); r.className = 'row'; r.dataset.i = i;
   const len = t.kind === 'loop' ? `${Math.round(t.introSec + t.loopSec)}s loop` : `${t.lengthSec.toFixed(1)}s`;
-  r.innerHTML = `<span class="arrow">▶</span><span class="t">${t.title}<small>${t.id} · ${t.key || ''}</small></span><span class="k">${len}</span>`;
+  r.innerHTML = `<span class="arrow">▶</span><span class="t"><span class="nm">${t.title}</span><small>${t.id} · ${t.key || ''}</small></span><span class="k">${len}</span>`;
   r.onmouseenter = () => select(i); r.onclick = () => { select(i); start(list[i].id); };
   $('list').appendChild(r); return r;
 });
@@ -146,8 +146,8 @@ function frame(ts) {
     rows.forEach((r, k) => r.classList.toggle('playing', list[k].id === s.theme));
     if (th) {
       $('title').textContent = `“${th.title}”`;
-      const m = th.meter === 3 && [99, 108, 81].includes(th.bpm) ? '6/8' : `${th.meter}/4`;
-      $('meta').textContent = `${th.id} · ${th.key} · ♩=${th.bpm} · ${m} · ${th.kind === 'loop' ? th.bars + ' bars, loops forever' : 'one-shot'}`;
+      const tempo = th.sig === '6/8' ? `♩.=${Math.round(th.bpm / 1.5)}` : `♩=${th.bpm}`;
+      $('meta').textContent = `${th.id} · ${th.key} · ${tempo} · ${th.sig} · ${th.kind === 'loop' ? th.bars + ' bars, loops forever' : 'one-shot'}`;
       $('counter').innerHTML = `<span>BAR</span>${s.bar} · ${Math.floor(s.beat)}`;
       const beatsDone = (s.bar - 1) * th.meter + (s.beat - 1);
       $('prog').style.width = `${Math.min(100, 100 * beatsDone / th.totalBeats)}%`;
@@ -195,7 +195,7 @@ function calib(voice, note, dur = 1.5, vel = 0.78) {
 }
 // audition: one voice alone — a phrase, a chord, staccatos, a swell (renderAudio('aud:horns', 14))
 const MEL = [['A4', 1], ['D5', 1], ['F#5', 1], ['A5', 1], ['G5', 2], ['F#5', 1], ['E5', 1], ['D5', 1.5], ['E5', 0.5], ['F#5', 1], ['D5', 1], ['E5', 3], ['R', 1]];
-const TR = { horns: 0, hornSolo: -12, strings: 0, violin: 12, flute: 12, oboe: 0, harpsi: 0, harp: -12, pizz: -24, celesta: 12, organ: -12, twinkle: 12, pad: -12, vox: -12, bell: -12 };
+const TR = { horns: 0, hornsSynth: 0, stringsSynth: 0, hornSolo: -12, strings: 0, violin: 12, flute: 12, oboe: 0, harpsi: 0, harp: -12, pizz: -24, celesta: 12, organ: -12, twinkle: 12, pad: -12, vox: -12, bell: -12 };
 function audition(voice) {
   const id = 'aud:' + voice; if (THEMES[id]) return id;
   const T = Theme({ id, title: 'Audition — ' + voice, key: 'D major', bpm: 100, meter: 4, space: 'HALL', kind: 'oneshot' });
@@ -214,9 +214,18 @@ function audition(voice) {
   THEMES[id] = T.build(); return id;
 }
 
+// one held note (or a chord with '+'): renderAudio('note:strings:E5:mf:8', 6)
+function held(spec) {
+  const id = 'note:' + spec; if (THEMES[id]) return id;
+  const [voice, notes, dyn = 'mf', beats = '6', bpm = '100'] = spec.split(':');
+  const T = Theme({ id, title: 'Held — ' + spec, key: 'C', bpm: +bpm, meter: 4, space: 'HALL', kind: 'oneshot' });
+  const P = T.part('v', { voice, bus: 'melody' });
+  P.chord(0, notes.split('+'), +beats, { dyn });
+  THEMES[id] = T.build(); return id;
+}
 window.__DQ = Object.assign(window.__DQ, {
   ready: true, version: 'P27-1',
-  renderAudio: (id, s, opts) => Music.renderOffline(String(id).startsWith('aud:') ? audition(String(id).slice(4)) : id, s, opts),
+  renderAudio: (id, s, opts) => Music.renderOffline(String(id).startsWith('aud:') ? audition(String(id).slice(4)) : String(id).startsWith('note:') ? held(String(id).slice(5)) : id, s, opts),
   state: () => ({ scene: 'jukebox', audio: Music.state(), selected: list[sel].id, themes: Music.themes().length, errors: errors.length }),
   play: (id, o) => { wake(); return Music.play(id, o); }, stinger: (id) => { wake(); return Music.stinger(id); },
   stop: (o) => Music.stop(o), duck: (a, ms) => Music.duck(a, ms), themes: () => Music.themes(),

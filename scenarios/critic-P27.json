@@ -1,0 +1,18 @@
+{ "name": "critic P27 music — live jukebox, hero themes, stingers, errors",
+  "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000},
+  {"wait": 600}, {"shot": "jukebox-boot"},
+  {"eval": "document.getElementById('wake').click()"}, {"wait": 300},
+  {"eval": "(__DQ.select('village'), __DQ.play('village', {fade: 0.2}))"}, {"wait": 4000}, {"shot": "live-village"},
+  {"assert": "__DQ.state().audio.theme === 'village' && __DQ.state().audio.voices > 0", "msg": "village sounds live"},
+  {"eval": "(__DQ.select('overworld'), __DQ.play('overworld', {fade: 1.2}))"}, {"wait": 12000}, {"shot": "live-overworld-A"},
+  {"assert": "__DQ.state().audio.theme === 'overworld' && __DQ.state().audio.voices > 0", "msg": "overworld sounds live"},
+  {"eval": "__DQ.stinger('battle_start')"}, {"wait": 5000}, {"shot": "live-battle"},
+  {"assert": "__DQ.state().audio.theme === 'battle'", "msg": "battle stinger chains into battle"},
+  {"eval": "__DQ.stinger('victory')"}, {"wait": 1500}, {"shot": "live-victory"},
+  {"eval": "__DQ.stinger('level_up')"}, {"wait": 1200},
+  {"eval": "__DQ.stinger('item_get')"}, {"wait": 1200},
+  {"eval": "__DQ.stinger('join')"}, {"wait": 1500}, {"shot": "live-stingers"},
+  {"assert": "__DQ.state().audio.voices <= 60", "msg": "voice budget holds under stacked stingers"},
+  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"}
+]}

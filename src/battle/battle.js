@@ -15,10 +15,10 @@
 
 import * as F from './formulas.js';
 import * as X from './actions.js';
-import { chooseEnemyAction, afterEnemyMove, chooseAllyAction } from './ai.js';
+import { chooseEnemyAction, afterEnemyMove, chooseAllyAction, chooseMentorAction } from './ai.js';
 import {
   statsFor, spellsKnownAt, mpOverrides, naturalGear, spellsLearnedAt, capFor, EXP_TABLE, LEVEL_CAP,
-  personalityAt, GAIN_ORDER,
+  personalityAt, GAIN_ORDER, GUESTS,
 } from '../data/growth.js';
 
 const { push, say, nameOf, capFirst, isUp, byId } = X;
@@ -123,12 +123,25 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
       minHpPct: m.minHpPct || 0, partnerGivesUp: !!m.partnerGivesUp,
     };
   };
+  const specLevels = [], specAreaLevels = [];
 
   B.addEnemy = (spec) => {
     const id = typeof spec === 'string' ? spec : spec.id;
     const raw = data.monsters[id];
     if (!raw) { B.errors.push(`unknown monster "${id}"`); return null; }
-    const base = B.makeEnemyStats(typeof spec === 'string' ? raw : { ...raw, ...spec });
+    let src = raw;
+    if (typeof spec === 'object') {
+      // {id, partyLevel}: met at that party level (encounter-table `lvl`) — carry the block there; then overrides
+      const { id: _i, partyLevel: want, at, hpMult, areaLevel, ...over } = spec;
+      const lvlWanted = want ?? at;
+      if (lvlWanted != null) specLevels.push(Number(lvlWanted));
+      if (areaLevel != null) specAreaLevels.push(Number(areaLevel));
+      if (lvlWanted != null && raw.partyLevel && !raw.boss) src = F.scaleMonster(normalizeMonster(raw), lvlWanted);
+      else if (lvlWanted != null && !raw.boss) src = { ...raw, partyLevel: lvlWanted };
+      if (hpMult) src = { ...src, hp: Math.max(1, F.round((src.hp ?? 10) * hpMult)) };   // a sturdier one of these
+      src = { ...src, ...over };
+    }
+    const base = B.makeEnemyStats(src);
     const e = Object.assign(base, {
       id: 'e' + (++B.enemyCounter), uid: null, side: 'enemy', status: {}, buffs: {}, flags: {},
       used: new Map(), cooldowns: {}, bigCooldown: 0, bigUsedOn: new Set(), phaseDone: new Set(),
@@ -214,6 +227,11 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
   if (!B.party.length) throw new Error('createBattle: party is empty');
   if (!B.enemies.length) throw new Error('createBattle: no enemies');
   B.isBoss = B.enemies.some((e) => e.boss);
+  // the level this fight was tuned for (drives the EXP keel): given, else the map's level carried on the encounter
+  // spec, else the encounter-table level, else the boss's
+  B.areaLevel = options.areaLevel ?? (specAreaLevels.length ? Math.max(...specAreaLevels) : null)
+    ?? (specLevels.length ? Math.max(...specLevels) : null)
+    ?? (B.isBoss ? Math.max(0, ...B.enemies.filter((e) => e.boss).map((e) => e.partyLevel || 0)) || null : null);
   B.normalCap = options.normalHitCap !== undefined ? options.normalHitCap : (B.isBoss || B.scripted ? null : F.NORMAL_HIT_CAP);
   if (B.scripted) for (const e of B.enemies) if (B.scripted.untouchable !== false) e.untouchable = true;
 
@@ -502,6 +520,7 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
   }
 
   function partyTurn(a, cmd) {
+    a.flags.actedRound = B.round;
     if (turnBlocked(a)) return;
     if (a.status.confuse) {
       const r = B.rng.next();
@@ -517,7 +536,18 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
       push(B, { t: 'act', actor: a.id, kind: 'confused', text: say(B, 'confused.dither', { ACTOR: nameOf(a) }) });
       return;
     }
-    if (a.control !== 'player' || !cmd) cmd = chooseAllyAction(B, a, a.guest ? 'auto' : (options.autoPolicy || 'auto'));
+    const mentor = a.guest && (a.member.mentor || (GUESTS[a.member.guestOf || a.baseId] || {}).mentor);
+    if (mentor && a.control !== 'player') {
+      // Act I: Papa leaves the lad his own monster, and steps in the moment anyone is hurt (ai.js chooseMentorAction)
+      const m = chooseMentorAction(B, a);
+      if (m.type === 'watch') {
+        const g = GUESTS[a.member.guestOf || a.baseId] || {};
+        const lines = a.member.mentorLines || g.mentorLines || ['%ACTOR% steps back and lets the others have a go.'];
+        push(B, { t: 'act', actor: a.id, kind: 'watch', text: sentence(B.rng.pick(lines), { ACTOR: nameOf(a) }) });
+        return;
+      }
+      cmd = m;
+    } else if (a.control !== 'player' || !cmd) cmd = chooseAllyAction(B, a, a.guest ? 'auto' : (options.autoPolicy || 'auto'));
     switch (cmd.type) {
       case 'spell': return X.doSpell(B, a, cmd.id, cmd.target);
       case 'item': return X.doItem(B, a, cmd.id, cmd.target);
@@ -541,6 +571,7 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
       e.windup = null;
       X.doMove(B, e, m);
       afterEnemyMove(B, e, m);
+      if (m.then && isUp(e)) e.followUp = m.then;   // a telegraphed move's follow-up (Nothing At All → Listen)
       return;
     }
     if (e.status.confuse && B.rng.chance(0.5)) {
@@ -591,10 +622,17 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
   // ---- endings ---------------------------------------------------------------------------------------------
   function beatenEnemies() { return B.enemies.filter((e) => e.gone === 'defeated' || e.gone === 'spared'); }
 
+  /** F.expKeel for this fight: the party's highest level (guests never count) against the level it was tuned for. */
+  function keel() {
+    if (options.expKeel === false || !B.areaLevel) return 1;
+    const own = B.party.concat(B.wagon).filter((c) => !c.guest);
+    return own.length ? F.expKeel(Math.max(...own.map((c) => c.lvl)), B.areaLevel) : 1;
+  }
+
   function finishVictory() {
     B.ended = true; B.phase = 'victory';
     const beaten = beatenEnemies();
-    let exp = beaten.reduce((s, e) => s + e.expTotal, 0);
+    let exp = Math.round(beaten.reduce((s, e) => s + e.expTotal, 0) * keel());
     let gold = beaten.reduce((s, e) => s + e.goldTotal, 0);
     if (!B.isBoss && B.fx.rewardMult > 1) { exp = Math.round(exp * B.fx.rewardMult); gold = Math.round(gold * B.fx.rewardMult); }
     const drops = [];
@@ -638,7 +676,7 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
     const lines = [say(B, 'wipe'), say(B, 'wipe.church')];
     push(B, { t: 'wipe', goldBefore, goldAfter, wakeAt: 'church', text: lines[0], lines });
     // "You keep ... every point of EXP earned in the battle you just lost" (SYSTEMS §6.2)
-    const exp = beatenEnemies().reduce((s, e) => s + e.expTotal, 0);
+    const exp = Math.round(beatenEnemies().reduce((s, e) => s + e.expTotal, 0) * keel());
     B.earned = { exp, gold: 0, drops: [] };
     if (exp > 0) awardExp(exp);
     B.result = buildResult('defeat');
@@ -653,7 +691,10 @@ export function createBattle({ party = [], wagon = [], enemies = [], rng, data =
       battlesSinceRecruit: (R.battlesSinceRecruit || 0) + 1,
     };
     const hero = B.party.concat(B.wagon).find((c) => c.baseId === 'hero') || B.party[0];
-    const cands = beaten.filter((e) => e.recruit > 0).sort((a, b) => a.recruit - b.recruit);
+    // one roll per species (rarest first): three Crabbits in one fight are one Crabbit's worth of asking
+    const seen = new Set();
+    const cands = beaten.filter((e) => e.recruit > 0).sort((a, b) => a.recruit - b.recruit)
+      .filter((e) => (seen.has(e.species) ? false : seen.add(e.species)));
     let offer = null;
     for (const e of cands) {
       if (offer) break;

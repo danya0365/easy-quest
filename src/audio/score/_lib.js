@@ -183,7 +183,7 @@ export function Theme(meta) {
   T.build = () => {
     const introBeats = T.intro * T.meter;
     const loopBeats = (T.loop || 0) * T.meter;
-    const bars = T.bars || T.intro + (T.loop || 0);
+    const bars = T.bars || T.intro + (T.loop || 0) || Math.ceil(T.events.reduce((m, e) => Math.max(m, e.b + e.d), 0) / T.meter - 1e-6);
     const totalBeats = Math.max(bars * T.meter, introBeats + loopBeats);
     const events = T.events.slice().sort((a, b) => a.b - b.b || (a.ci || 0) - (b.ci || 0));
     events.forEach((e, i) => { e.i = i; });
@@ -191,7 +191,7 @@ export function Theme(meta) {
     const firstLoop = events.findIndex((e) => e.b >= introBeats - 1e-6);
     let lastEnd = 0; for (const e of events) lastEnd = Math.max(lastEnd, time(e.b + e.d) + (e.sec || 0));
     return {
-      id: T.id, title: T.title, key: T.key, bpm: T.bpm, meter: T.meter, pulse: T.pulse, space: T.space || 'HALL',
+      id: T.id, title: T.title, key: T.key, bpm: T.bpm, meter: T.meter, sig: T.sig || `${T.meter}/4`, pulse: T.pulse, space: T.space || 'HALL',
       gain: T.gain, sendAdd: T.sendAdd, kind: T.loop ? 'loop' : (T.kind || 'oneshot'), bars, intro: T.intro, loop: T.loop || 0,
       introBeats, loopBeats, totalBeats, events, firstLoop: firstLoop < 0 ? events.length : firstLoop, harm: T.harm,
       time, introSec: time(introBeats), loopSec: T.loop ? time(introBeats + loopBeats) - time(introBeats) : 0,

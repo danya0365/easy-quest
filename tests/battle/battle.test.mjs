@@ -6,7 +6,9 @@ import { createBattle } from '../../src/battle/battle.js';
 import { EXP_TABLE } from '../../src/data/growth.js';
 import { DATA, newMember, heroAt, runToEnd, battle, types } from './helpers.js';
 import { AREAS, rollEncounter } from './areas.js';
-import { makeRng } from '../../src/battle/formulas.js';
+import { makeRng, expKeel, scaleMonster } from '../../src/battle/formulas.js';
+import { normalizeMonster } from '../../src/battle/battle.js';
+import { spawnSync } from 'node:child_process';
 
 const kidParty = () => [heroAt(5), newMember('willow_child'), newMember('sera_child'), newMember('bobble', 5)];
 
@@ -102,7 +104,8 @@ test('events: appear, ambush (both sides), round, act, damage, defeat, victory, 
   assert.equal(out.lvl, 4);
   assert.ok(b.snapshot().party[0].spells.includes('mend'));
   const v = b.log.find((x) => x.t === 'victory');
-  assert.deepEqual(v.lines.slice(0, 3), ['Victory!', 'The party gains 3 experience points.', '...and 3 gold coins.']);
+  const g = DATA.monsters.gloop;
+  assert.deepEqual(v.lines.slice(0, 3), ['Victory!', `The party gains ${g.exp} experience points.`, `...and ${g.gold} gold coins.`]);
   assert.ok(b.log.indexOf(v) < b.log.indexOf(lvl), 'victory tally before level-ups');
 });
 
@@ -219,8 +222,11 @@ test('events: monster moves — status, steal (and the gold comes back), summon,
   for (let seed = 1; seed < 60; seed++) {
     const party = () => [heroAt(14, { weapon: 'wooden_sword', armour: 'iron_armour' }), newMember('barty', 14, { equip: { armour: 'iron_armour' } })];
     const fights = [
-      ['chestnut'], ['barrowmole'], ['bogwallop'], ['sexton_sootbell'], ['jinglebottom', 'jinglebottom'], ['mumbleroot'],
-      ['grumbleglop', 'crabbit', 'toadstooligan'], ['gloopold'], ['glimmergloop'],
+      // wild monsters met where a Lv 14 party meets them (encounter-table level), bosses as they are
+      [{ id: 'chestnut', partyLevel: 14 }], [{ id: 'barrowmole', partyLevel: 14 }], ['bogwallop'], ['sexton_sootbell'],
+      [{ id: 'jinglebottom', partyLevel: 14 }, { id: 'jinglebottom', partyLevel: 14 }], ['mumbleroot'],
+      [{ id: 'grumbleglop', partyLevel: 14 }, { id: 'crabbit', partyLevel: 14 }, { id: 'toadstooligan', partyLevel: 14 }],
+      [{ id: 'gloopold', partyLevel: 14 }], ['glimmergloop'],
     ];
     for (const f of fights) {
       const b = createBattle({ party: party(), enemies: f, data: DATA, rng: seed, options: { ambush: 'none', gold: 500 } });
@@ -251,7 +257,8 @@ test('events: phases (Mortmain becomes Enfolded, two actions), transform (the Co
   assert.equal(a.phase, 'victory');
   assert.ok(a.log.some((e) => e.t === 'spared' && /ordinary, very old man/.test(e.text)), 'Mortmain is not killed');
   assert.ok(!a.log.some((e) => e.t === 'defeat' && e.side === 'enemy'));
-  assert.equal(a.result.exp, DATA.monsters.mortmain.exp);
+  assert.equal(a.result.exp, Math.round(DATA.monsters.mortmain.exp * expKeel(30, DATA.monsters.mortmain.partyLevel)),
+    'boss EXP goes through the keel: a Lv 30 party earns a fifth of it');
 
   const c = createBattle({ party: party(), enemies: ['malgrim_cocoon'], data: DATA, rng: 3, options: { ambush: 'none' } });
   runToEnd(c, 'smart', 160);
@@ -312,7 +319,7 @@ test('wagon: a party beyond four rides in the wagon, earns full EXP, and jumps d
   const d = battle({ party: [heroAt(10, { weapon: 'steel_sword' })], wagon: [newMember('barty', 4)], enemies: ['gloop'] });
   runToEnd(d, 'mash');
   const barty = d.result.wagon.find((m) => m.id === 'barty');
-  assert.equal(barty.exp, EXP_TABLE[4] + 3 * 3, 'wagon earns full EXP with the x3 catch-up (6 levels behind)');
+  assert.equal(barty.exp, EXP_TABLE[4] + DATA.monsters.gloop.exp * 3, 'wagon earns full EXP with the x3 catch-up (6 levels behind)');
 });
 
 // ------------------------------------------------------------------------------------------------ flee
@@ -609,4 +616,120 @@ test('gear: the Larkweave Cloak halves spell damage; the Larksteel Sword adds 25
   };
   const lark = zap('larksteel_sword'), steel = zap('steel_sword');
   assert.ok(lark > steel * 1.12, `larksteel ${lark} vs steel ${steel}`);
+});
+
+// ------------------------------------------------------------------------------------------------ balance pass r2
+test('scaling: a wild species met at another party level is carried there; bosses and bare ids are not', () => {
+  const q = DATA.monsters.quietling;
+  const home = scaleMonster(normalizeMonster(q), q.partyLevel);
+  assert.equal(home.hp, q.hp, 'at its home level the block is exactly as written');
+  const deep = scaleMonster(normalizeMonster(q), 26);
+  assert.ok(deep.hp > q.hp * 3 && deep.atk > q.atk * 2 && deep.exp > q.exp * 10, `Quietling at Lv 26: ${deep.hp} HP, ${deep.atk} ATK, ${deep.exp} EXP`);
+  assert.ok(deep.lvl > q.lvl, 'its danger rank rises with it (recruit odds stay the same)');
+  const boss = DATA.monsters.mortmain;
+  assert.equal(scaleMonster(normalizeMonster(boss), 10).hp, boss.hp, 'bosses never scale');
+  const b = battle({ party: [heroAt(26, { weapon: 'halvards_greatsword' })], enemies: ['quietling', { id: 'quietling', partyLevel: 26 }, { id: 'quietling', partyLevel: 26, hpMult: 1.5 }] });
+  const hp = b.snapshot().enemies.map((e) => e.maxHp);
+  assert.equal(hp[0], q.hp);
+  assert.equal(hp[1], deep.hp);
+  assert.equal(hp[2], Math.round(deep.hp * 1.5), 'hpMult: a sturdier one of these');
+});
+
+test('the EXP keel: under the area level earns more, over it earns less, nothing without an area level', () => {
+  assert.equal(expKeel(5, 8), 2.5); assert.equal(expKeel(6, 8), 2); assert.equal(expKeel(7, 8), 1.5);
+  assert.equal(expKeel(8, 8), 1); assert.equal(expKeel(9, 8), 0.675); assert.equal(expKeel(20, 8), 0.2);
+  assert.equal(expKeel(8, null), 1);
+  const run = (lvl, areaLevel) => {
+    const b = battle({ party: [heroAt(lvl, { weapon: 'steel_sword' })], enemies: ['gloop'], options: { areaLevel } });
+    runToEnd(b, 'mash');
+    return b.result.exp;
+  };
+  const g = DATA.monsters.gloop.exp;
+  assert.equal(run(10, undefined), g, 'a bare battle pays the block');
+  assert.equal(run(10, 13), Math.round(g * 2.5));
+  assert.equal(run(10, 10), g);
+});
+
+test('Halvard the mentor: he leaves the lad his own monster, takes the spare ones, and steps in when anyone is hurt', () => {
+  // one Gloop, Bram picks it: Papa steps back with a line
+  const one = battle({ party: [heroAt(2, { weapon: 'wooden_sword' }), newMember('halvard')], enemies: [{ id: 'gloop', hpMult: 5 }] });
+  one.command('hero', { type: 'attack', target: 'e1' });
+  const ev = one.resolveRound();
+  const watch = ev.find((e) => e.t === 'act' && e.actor === 'halvard');
+  assert.equal(watch.kind, 'watch');
+  assert.match(watch.text, /^Halvard .*lad/);
+  assert.ok(!ev.some((e) => e.t === 'damage' && e.actor === 'halvard'), 'Papa did not swing');
+  // two Gloops, Bram picks the first: Papa takes the other
+  const two = battle({ party: [heroAt(2, { weapon: 'wooden_sword' }), newMember('halvard')], enemies: [{ id: 'gloop', hpMult: 5 }, { id: 'gloop', hpMult: 5 }] });
+  two.command('hero', { type: 'attack', target: 'e1' });
+  const ev2 = two.resolveRound();
+  assert.ok(ev2.some((e) => e.t === 'damage' && e.actor === 'halvard' && e.target === 'e2'), 'Papa took the spare one');
+  // the lad is hurt: Papa does not hold back
+  const hurt = battle({ party: [heroAt(2, { weapon: 'wooden_sword' }, { hp: 5 }), newMember('halvard')], enemies: [{ id: 'gloop', hpMult: 5 }] });
+  hurt.command('hero', { type: 'defend' });
+  const ev3 = hurt.resolveRound();
+  assert.ok(!ev3.some((e) => e.t === 'act' && e.actor === 'halvard' && e.kind === 'watch'));
+  // monsters give him a wide berth: the children draw most of the blows
+  let onPapa = 0, onKids = 0;
+  for (let seed = 1; seed < 80; seed++) {
+    const b = createBattle({ party: [heroAt(4, { weapon: 'copper_sword' }), newMember('halvard'), newMember('bobble', 4)], enemies: [{ id: 'gloop', hpMult: 9 }], data: DATA, rng: seed, options: { ambush: 'none' } });
+    for (let r = 0; r < 3 && !b.over; r++) b.autoRound('mash');
+    for (const e of b.log) if (e.t === 'damage' && e.side === 'party') (e.target === 'halvard' ? onPapa++ : onKids++);
+  }
+  assert.ok(onPapa < onKids * 0.35, `blows on Papa ${onPapa}, on the children ${onKids}`);
+});
+
+test('befriending: one roll per species, so three Crabbits ask no more often than one', () => {
+  const offers = (n) => {
+    let k = 0;
+    for (let seed = 1; seed <= 300; seed++) {
+      const b = createBattle({ party: [heroAt(20, { weapon: 'steel_sword' })], enemies: Array.from({ length: n }, () => 'crabbit'), data: DATA, rng: seed,
+        options: { ambush: 'none', recruit: { enabled: true, kidMode: true } } });
+      runToEnd(b, 'mash');
+      if (b.result.recruit.offer) k++;
+      if (seed === 1) assert.equal(b.result.recruit.state.misses.crabbit || 0, b.result.recruit.offer ? 0 : 1, 'a miss counts once per battle');
+    }
+    return k / 300;
+  };
+  const p1 = offers(1), p3 = offers(3);
+  assert.ok(Math.abs(p3 - p1) < 0.07, `one Crabbit ${p1}, three Crabbits ${p3}`);
+});
+
+test('Malgrim: Nothing At All leaves everyone on 1 HP, and the moment it gives you is a lullaby that gives some back', () => {
+  const party = () => [heroAt(27, { weapon: 'halvards_greatsword', armour: 'gleaming_plate' }), newMember('rowan', 26, { equip: { weapon: 'larksteel_sword' } }),
+    newMember('linnet', 26), newMember('elowen', 26)];
+  let seen = false;
+  for (let seed = 1; seed < 40 && !seen; seed++) {
+    const b = createBattle({ party: party(), enemies: ['malgrim_unravelling'], data: DATA, rng: seed, options: { ambush: 'none' } });
+    let n = 0;
+    while (!b.over && n++ < 30) {
+      const ev = b.autoRound('mash');
+      const i = ev.findIndex((e) => e.t === 'act' && e.move === 'listen');
+      if (i < 0) continue;
+      const heals = ev.slice(i).filter((e) => e.t === 'heal' && e.side === 'party');
+      assert.ok(heals.length >= 1, 'somebody got colour back');
+      assert.match(ev[i].text, /lullaby/);
+      seen = true; break;
+    }
+  }
+  assert.ok(seen, 'Listen happened');
+});
+
+test('Silence the Choir goes for whoever is carrying the most magic', () => {
+  const hits = {};
+  for (let seed = 1; seed < 40; seed++) {
+    const b = createBattle({ party: [heroAt(27), newMember('linnet', 26), newMember('elowen', 26)], data: DATA, rng: seed,
+      enemies: [{ id: 'mortmain', moves: [{ id: 'silence_the_choir', name: 'Silence the Choir', kind: 'status', targetCaster: true, status: { id: 'silence', chance: 1, turns: 3 } }] }],
+      options: { ambush: 'none' } });
+    b.command('hero', { type: 'defend' }); b.command('linnet', { type: 'defend' }); b.command('elowen', { type: 'defend' });
+    for (const e of b.resolveRound()) if (e.t === 'status' && e.status === 'silence' && e.on) hits[e.target] = (hits[e.target] || 0) + 1;
+  }
+  assert.ok(!hits.hero, 'never the hero while a caster still has a voice');
+  assert.ok((hits.elowen || 0) + (hits.linnet || 0) >= 30);
+});
+
+test('journey (whole playthroughs, EXP carried): no kind of child is ever walled', () => {
+  const r = spawnSync(process.execPath, [new URL('./journey.mjs', import.meta.url).pathname, '--kids', 'normal,masher,skipper', '--trials', '5', '--retry', '0', '--seed', '9'], { encoding: 'utf8' });
+  assert.equal(r.stderr, '');
+  for (const kid of ['normal', 'masher', 'skipper']) assert.match(r.stdout, new RegExp(`## ${kid} — walls 0/5`), kid);
 });

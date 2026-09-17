@@ -28,8 +28,8 @@ const B_MELODY = [
 const B_HARM = ['G', 'Em|D', 'Am7', 'D', 'C', 'D/F#', 'Bm|A', 'D|A7'];
 
 export function build() {
-  const T = Theme({ id: 'overworld', title: 'Over Hill, Over Homeward', key: 'D major', bpm: 108, meter: 4, pulse: [0, 2], intro: 4, loop: 34, space: 'HALL', gain: 1 });
-  const horns = T.part('horns', { voice: 'horns', bus: 'melody' });
+  const T = Theme({ id: 'overworld', title: 'Over Hill, Over Homeward', key: 'D major', bpm: 108, meter: 4, pulse: [0, 2], intro: 4, loop: 34, space: 'HALL', gain: 0.92 });
+  const horns = T.part('horns', { voice: 'horns', bus: 'melody', gain: 1.25 });
   const hornsLo = T.part('hornsLo', { voice: 'horns', bus: 'counter', gain: 0.7 });
   const strMel = T.part('strMel', { voice: 'strings', bus: 'counter', gain: 0.9 });
   const flute = T.part('flute', { voice: 'flute', bus: 'counter' });
@@ -68,8 +68,8 @@ export function build() {
   horns.seq(4, A_MELODY, { dyn: 'f' });
   strMel.seq(4, A_MELODY, { dyn: 'mf', oct: -1 });
   T.pad('strPad', hA, { n: 3, lo: 'D3', hi: 'D4', dyn: 'mp' });
-  T.bass('celli', hA, { pat: [[0, '1', 2], [2, '5', 2]], base: 'D2', dyn: 'mf' });
-  T.bass('pizz', hA, { pat: [[0, '1', 1], [2, '5', 1]], base: 'D2', dyn: 'mf' });
+  T.bass('celli', hA, { pat: [[0, '1', 2], [2, '5', 2]], base: 'D2', dyn: 'mp' });
+  T.bass('pizz', hA, { pat: [[0, '1', 1], [2, '5', 1]], base: 'D2', dyn: 'mp' });
   footfall(hA);
   cym.note(T.bar(4, 0), 'C5', 2, { dyn: 'mp' });
 
