@@ -1,0 +1,8 @@
+.claude/
+.p02tmp/
+tests/
+tools/
+shots/
+node_modules/
+*.md
+package-lock.json
