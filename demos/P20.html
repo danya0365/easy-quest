@@ -1,0 +1,243 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>P20 — Spells &amp; spell VFX</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#000}
+#game-canvas{display:block;width:100vw;height:100vh}#ui-root{position:fixed;inset:0;pointer-events:none}
+.p20-card{position:absolute;left:calc(22 * var(--u,1px));top:calc(20 * var(--u,1px));
+  min-width:calc(330 * var(--u,1px));padding:calc(14 * var(--u,1px)) calc(20 * var(--u,1px));
+  border-radius:calc(14 * var(--u,1px));font-size:calc(23 * var(--u,1px));line-height:1.35;
+  background:linear-gradient(180deg,var(--pal-ui-winTop,#2c4fb8),var(--pal-ui-winBottom,#132a78));
+  border:calc(4 * var(--u,1px)) solid var(--pal-ui-border,#f4f1ea);
+  box-shadow:0 calc(6 * var(--u,1px)) calc(18 * var(--u,1px)) rgba(5,10,32,.55);
+  color:var(--pal-ui-text,#fff);font-family:var(--dq-font,system-ui,sans-serif);text-shadow:0 2px 0 rgba(5,10,32,.6)}
+.p20-card b{color:var(--pal-ui-cursor,#ffe98a)}
+.p20-card .dim{color:var(--pal-ui-textDim,#c9d4f2);font-size:calc(19 * var(--u,1px))}
+.p20-tag{position:absolute;left:0;top:0;transform:translate(-50%,-100%);white-space:nowrap;
+  font-family:var(--dq-font,system-ui,sans-serif);font-size:calc(17 * var(--u,1px));color:#fff;
+  text-shadow:0 2px 0 rgba(5,10,32,.85),0 0 6px rgba(5,10,32,.9);pointer-events:none}
+</style>
+</head><body>
+<canvas id="game-canvas"></canvas><div id="ui-root"></div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// DEMO — P20: every spell in CANON §7 and every effect in src/art/fx.js, fired on command over a warm meadow.
+//
+//   __DQ.fx('fire_burst')           one effect at the middle pad
+//   __DQ.fxAt('lightning', x,y,z)   one effect anywhere
+//   __DQ.showAll()                  every effect at once, laid out on a grid of pads (one screenshot, everything)
+//   __DQ.cast('kascorcha')          a SPELL: looks its fx up in src/data/spells.js and plays it, with its sound
+//   __DQ.castAll()                  all 28 spells in a ring, one every 120 ms
+//   __DQ.spells()                   the audit: 28 spells, every school, nothing missing
+//   __DQ.page(n)                    step through the effects six at a time (readable close-ups)
+import * as THREE from 'three';
+import { App } from '/src/engine/app.js';
+import { Scenes } from '/src/engine/states.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { PAL, C3, applyCssVars } from '/src/art/palette.js';
+import { Toon, makeLightRig, makeFog } from '/src/art/toon.js';
+import { FX } from '/src/art/fx.js';
+import { SPELLS, list as spellList, audit, fxFor } from '/src/data/spells.js';
+import { Sfx } from '/src/audio/sfx.js';
+import { Audio } from '/src/audio/audio.js';
+
+applyCssVars();
+Input.init();
+App.start({ canvas: document.getElementById('game-canvas'), version: '0.1.0-P20', beforeUpdate: Input.update });
+
+const IDS = FX.ids();
+const state = { last: null, page: 0, mode: 'single', plays: 0, tags: [] };
+
+// ── the little blue card, so a critic always knows what is on screen ────────────────────────────────────────
+const card = document.createElement('div');
+card.className = 'p20-card';
+document.getElementById('ui-root').appendChild(card);
+const tagLayer = document.createElement('div');
+tagLayer.style.cssText = 'position:absolute;inset:0;pointer-events:none';
+document.getElementById('ui-root').appendChild(tagLayer);
+function setCard(title, sub) {
+  const u = Math.min(innerWidth / 1280, innerHeight / 720);
+  card.style.setProperty('--u', u + 'px');
+  tagLayer.style.setProperty('--u', u + 'px');
+  card.innerHTML = `<b>${title}</b><br><span class="dim">${sub}</span>`;
+}
+setCard('P20 — spells &amp; VFX', `${IDS.length} effects · ${spellList().length} spells`);
+
+// ── where things stand ──────────────────────────────────────────────────────────────────────────────────────
+const GRID = { cols: 6, gapX: 3.5, gapZ: 3.4 };
+function padAt(i) {
+  const c = i % GRID.cols, r = (i / GRID.cols) | 0;
+  return { x: (c - (GRID.cols - 1) / 2) * GRID.gapX, y: 0, z: (r - 2) * GRID.gapZ };
+}
+
+Scenes.register('demo', () => {
+  const scene = new THREE.Scene();
+  scene.background = C3(PAL.sky.page);
+  const camera = new THREE.PerspectiveCamera(46, App.aspect(), 0.3, 1400);
+  let offResize = null, t = 0;
+  const cam = { orbit: 0, zoom: 1, tx: 0, tz: 0, ty: 1.4, dist: 11 };
+
+  return {
+    opaque: true,
+    enter() {
+      offResize = App.onResize(() => { camera.aspect = App.aspect(); camera.updateProjectionMatrix(); });
+      try {
+        makeLightRig({ scene, preset: 'day', extent: 40 });
+        makeFog(scene, 'day');
+        // a gentle meadow to stand the effects on, so nothing is judged against black
+        const g = new THREE.CircleGeometry(60, 56); g.rotateX(-Math.PI / 2);
+        const ground = new THREE.Mesh(g, Toon.surface('grass', { worldPlanar: true }));
+        ground.receiveShadow = true; ground.name = 'meadow';
+        scene.add(ground);
+        const sky = new THREE.Mesh(new THREE.SphereGeometry(300, 26, 16),
+          new THREE.MeshBasicMaterial({ color: C3(PAL.sky.upper), side: THREE.BackSide, fog: false }));
+        scene.add(sky);
+        // pale stone pads mark where each effect will go
+        const padGeo = new THREE.CylinderGeometry(0.85, 0.9, 0.12, 26);
+        const padMat = Toon.surface ? Toon.surface('stone') : new THREE.MeshLambertMaterial({ color: C3(PAL.stone.mid) });
+        const pads = new THREE.InstancedMesh(padGeo, padMat, 30);
+        pads.name = 'pads'; pads.receiveShadow = true; pads.castShadow = false;
+        const m = new THREE.Matrix4();
+        for (let i = 0; i < 30; i++) { const p = padAt(i); m.makeTranslation(p.x, 0.06, p.z); pads.setMatrixAt(i, m); }
+        pads.count = 0;                                     // only shown in showAll
+        scene.add(pads);
+        scene.userData.pads = pads;
+        FX.attach(scene, { camera, sound: (id, o) => { try { if (Audio.ready) Sfx.play(id, o); } catch (_) {} } });
+      } catch (e) { reportError('P20 demo build', e); }
+    },
+    exit() { if (offResize) offResize(); FX.detach(); },
+    update(dt) {
+      t += dt;
+      const a = cam.orbit * Math.PI / 180;
+      const d = cam.dist * cam.zoom;
+      camera.position.set(cam.tx + Math.sin(a) * d, 6.4 * cam.zoom, cam.tz + Math.cos(a) * d);
+      camera.lookAt(cam.tx, cam.ty, cam.tz);
+      FX.setCamera(camera);
+      FX.update(dt);
+      layTags(camera);
+    },
+    render() { App.render(scene, camera); },
+    onInput() { return true; },
+    cam, scene,
+  };
+});
+Scenes.push('demo');
+const S = () => Scenes.topScene();
+
+let tagKey = '';
+function layTags(camera) {
+  if (!state.tags.length) { if (tagLayer.childElementCount) { tagLayer.innerHTML = ''; tagKey = ''; } return; }
+  const key = state.tags.map((x) => x.text).join('|');
+  if (key !== tagKey) {
+    tagKey = key;
+    tagLayer.innerHTML = state.tags.map((x) => `<div class="p20-tag">${x.text}</div>`).join('');
+  }
+  const v = new THREE.Vector3();
+  const kids = tagLayer.children;
+  for (let i = 0; i < state.tags.length; i++) {
+    const p = state.tags[i];
+    v.set(p.x, p.y, p.z).project(camera);
+    const el = kids[i];
+    if (!el) continue;
+    el.style.left = ((v.x * 0.5 + 0.5) * innerWidth) + 'px';
+    el.style.top = ((-v.y * 0.5 + 0.5) * innerHeight) + 'px';
+    el.style.opacity = v.z > 1 ? '0' : '1';
+  }
+}
+
+function camTo(x, z, dist, orbit) {
+  const s = S(); if (!s || !s.cam) return;
+  s.cam.tx = x; s.cam.tz = z; s.cam.dist = dist; if (orbit != null) s.cam.orbit = orbit;
+}
+function showPads(n) { const s = S(); if (s && s.scene && s.scene.userData.pads) s.scene.userData.pads.count = n; }
+
+// ── the controls a critic drives ────────────────────────────────────────────────────────────────────────────
+function one(id, at, scale) {
+  const r = FX.play(id, { at: at || { x: 0, y: 0.6, z: 0 }, scale: scale || 1, dir: { x: 0, z: -1 } });
+  state.last = r.id; state.plays++;
+  return r;
+}
+
+const TALL = { lightning: 15, level_pillar: 16, holy_light: 11, warp_swirl: 11, frost: 9, fire_big: 9.5, lantern_glow: 10 };
+Debug.expose('fx', (id, o) => { state.mode = 'single'; state.tags = []; showPads(0); camTo(0, 0, TALL[id] || 8.5);
+  const r = FX.play(id, Object.assign({ at: { x: 0, y: 0.6, z: 0 }, dir: { x: 0, z: -1 } }, o || {}));
+  state.last = r.id; state.plays++; setCard(r.ok ? r.id : `unknown "${id}"`, FX.spec(id) ? `sound: ${FX.spec(id).sfx || 'none'} · ${FX.spec(id).ms} ms` : 'not an effect');
+  return r; });
+
+Debug.expose('fxAt', (id, x, y, z, scale) => one(id, { x, y, z }, scale));
+
+Debug.expose('showAll', () => {
+  state.mode = 'all';
+  const n = IDS.length;
+  showPads(n);
+  camTo(0, 0, 21, 0);
+  state.tags = IDS.map((id, i) => { const p = padAt(i); return { x: p.x, y: 0.2, z: p.z, text: id }; });
+  IDS.forEach((id, i) => { const p = padAt(i); FX.play(id, { at: { x: p.x, y: 0.35, z: p.z }, scale: 0.8, dir: { x: 0, z: -1 }, sound: false, flash: false }); });
+  state.plays += n;
+  setCard('every effect at once', `${n} effects on ${n} pads`);
+  return { effects: n, ids: IDS };
+});
+
+Debug.expose('page', (n) => {
+  state.mode = 'page';
+  const per = 6, pages = Math.ceil(IDS.length / per);
+  state.page = ((n | 0) % pages + pages) % pages;
+  const slice = IDS.slice(state.page * per, state.page * per + per);
+  showPads(0);
+  camTo(0, 0, 10.5, 0);
+  state.tags = slice.map((id, i) => { const x = (i % 3 - 1) * 4.2, z = ((i / 3) | 0) * 4.0 - 2.0; return { x, y: 0.2, z, text: id }; });
+  slice.forEach((id, i) => { const x = (i % 3 - 1) * 4.2, z = ((i / 3) | 0) * 4.0 - 2.0;
+    FX.play(id, { at: { x, y: 0.4, z }, scale: 0.95, dir: { x: 0, z: -1 }, sound: false, flash: false }); });
+  state.plays += slice.length;
+  setCard(`effects ${state.page + 1} / ${pages}`, slice.join(' · '));
+  return { page: state.page, pages, ids: slice };
+});
+
+Debug.expose('cast', (id) => {
+  const sp = SPELLS[id];
+  if (!sp) return { ok: false, unknown: id };
+  const f = fxFor(id);
+  state.mode = 'spell'; state.tags = []; showPads(0); camTo(0, 0, TALL[f.fx] || 8.5);
+  FX.play(f.fx, { at: { x: 0, y: 0.6, z: 0 }, scale: f.scale, dir: { x: 0, z: -1 }, sound: f.sfx });
+  state.last = f.fx; state.plays++;
+  setCard(sp.name, `${sp.blurb} <br>${sp.mp} MP · ${sp.school} · fx ${f.fx}`);
+  return { ok: true, id, fx: f.fx, sfx: f.sfx, mp: sp.mp, school: sp.school };
+});
+
+Debug.expose('castAll', () => {
+  const all = spellList();
+  state.mode = 'spells'; showPads(0); camTo(0, 0, 19, 0);
+  state.tags = all.map((sp, i) => { const a = i / all.length * Math.PI * 2, R = 7.4;
+    return { x: Math.sin(a) * R, y: 0.2, z: Math.cos(a) * R, text: sp.name }; });
+  all.forEach((sp, i) => {
+    const a = i / all.length * Math.PI * 2, R = 7.4;
+    const f = fxFor(sp.id);
+    setTimeout(() => { try { FX.play(f.fx, { at: { x: Math.sin(a) * R, y: 0.4, z: Math.cos(a) * R }, scale: 0.7, dir: { x: Math.sin(a), z: Math.cos(a) }, sound: false, flash: false }); } catch (_) {} }, i * 40);
+  });
+  state.plays += all.length;
+  setCard('all 28 spells', all.map((s) => s.name).join(' · '));
+  return { spells: all.length };
+});
+
+Debug.expose('travel', (id) => {
+  state.mode = 'travel'; showPads(0); camTo(0, 0, 9.5, 20);
+  const from = { x: -4.5, y: 1.0, z: 3.2 }, to = { x: 3.2, y: 0.7, z: -2.0 };
+  state.tags = [{ x: from.x, y: 1.6, z: from.z, text: 'caster' }, { x: to.x, y: 1.4, z: to.z, text: 'monster' }];
+  const r = FX.play(id || 'fire_burst', { at: to, from, travelMs: 260, scale: 1, sound: false, flash: false });
+  state.last = r.id; state.plays++;
+  setCard('a spell that flies', `${r.id} leaves the caster and lands ${r.travelMs} ms later`);
+  return r;
+});
+Debug.expose('spells', () => audit());
+Debug.expose('spellTable', () => spellList().map((s) => ({ id: s.id, name: s.name, mp: s.mp, school: s.school, kind: s.kind, target: s.target, fx: s.fx, sfx: s.sfx })));
+Debug.expose('fxClear', () => { FX.clear(); state.tags = []; return true; });
+Debug.expose('orbit', (deg) => { const s = S(); if (s && s.cam) s.cam.orbit = +deg || 0; return deg; });
+Debug.implement('cameraOrbit', (deg) => { const s = S(); if (s && s.cam) s.cam.orbit = +deg || 0; return deg; });
+Debug.implement('cameraZoom', (n) => { const s = S(); if (s && s.cam) s.cam.zoom = Math.max(0.35, Math.min(3, +n || 1)); return n; });
+
+Debug.provide('demo', () => ({ piece: 'P20', mode: state.mode, last: state.last, plays: state.plays,
+  effects: IDS.length, spells: spellList().length, audit: audit().problems.length }));
+Debug.provide('fx', () => FX.state());
+</script></body></html>

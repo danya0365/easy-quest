@@ -1,0 +1,12 @@
+{ "name": "critic P21 prices as a shop shows them", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 40000},
+  {"wait": 1200},
+  {"eval": "JSON.stringify(__DQ.gold(2000))"},
+  {"eval": "JSON.stringify(__DQ.shop('puddlewick_shop'))"},
+  {"wait": 1600}, {"shot": "01-shop-open"},
+  {"eval": "__DQ.press('confirm')"}, {"wait": 1400}, {"shot": "02-buy-list"},
+  {"eval": "JSON.stringify([...document.querySelectorAll('.dq-ui .dq-win')].map(w=>(w.textContent||'').replace(/\\s+/g,' ').slice(0,260)))"},
+  {"eval": "__DQ.press('down')"}, {"wait": 500}, {"shot": "03-buy-row2"},
+  {"eval": "JSON.stringify([...document.querySelectorAll('.dq-ui .dq-win')].map(w=>(w.textContent||'').replace(/\\s+/g,' ').slice(0,260)))"},
+  {"assert": "__DQ.errors.length===0", "msg": "no runtime errors in the shop"}
+]}

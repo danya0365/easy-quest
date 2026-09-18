@@ -1,0 +1,123 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>P06 — Interiors</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>html,body{margin:0;height:100%;overflow:hidden}
+#game-canvas{display:block;width:100vw;height:100vh}#ui-root{position:fixed;inset:0;pointer-events:none}</style>
+</head><body>
+<canvas id="game-canvas"></canvas><div id="ui-root"></div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// DEMO — P06 INTERIORS: the ten rooms the ten doors of Puddlewick open into, walkable, one keypress apart.
+//
+// This is the real field scene with the real map layers, not a diorama: the same code path /index.html uses, so
+// what a critic sees here is what a child gets. __DQ.room('int_bakery') jumps to any room; __DQ.rooms() lists
+// every Puddlewick door and the map behind it; __DQ.next() walks the whole ring.
+import { App } from '/src/engine/app.js';
+import { Loop } from '/src/engine/loop.js';
+import { Scenes } from '/src/engine/states.js';
+import { Bus } from '/src/engine/events.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { Save } from '/src/engine/save.js';
+import { applyCssVars } from '/src/art/palette.js';
+import { UI } from '/src/ui/window.js';
+import { Text } from '/src/ui/text.js';
+import { Audio } from '/src/audio/audio.js';
+import { Sfx } from '/src/audio/sfx.js';
+import { Maps } from '/src/world/map.js';
+import { Field } from '/src/world/field.js';
+import { preloadHero } from '/src/world/player.js';
+import { DOORS, INTERIOR_IDS, INTERIOR_COUNT } from '/src/world/maps/int_rooms.js';
+
+const VERSION = '0.1.0-P06';
+const step = (name, fn) => { try { return fn(); } catch (e) { reportError('P06 demo: ' + name, e); return undefined; } };
+
+applyCssVars();
+step('input', () => Input.init());
+step('app', () => App.start({ canvas: document.getElementById('game-canvas'), version: VERSION, beforeUpdate: Input.update }));
+Debug.busy('demo.boot', true);
+step('save', () => Save.init());
+step('audio', () => { Audio.init(); Audio.bindEvents(Bus); });
+
+let musicPromise = null, musicLib = null;
+function loadMusic() {
+  if (!musicPromise) {
+    musicPromise = import('/src/audio/music.js').then((m) => {
+      const M = m.Music || m.default;
+      M.init({ ctx: Audio.ctx, output: Audio.bus('music'), reverbSend: Audio.reverbSend, setSpace: (n, ms) => Audio.setSpace(n, ms), quality: App.quality });
+      musicLib = M;
+      return M;
+    }).catch((e) => { reportError('P06 demo: music did not load (the rooms run silent)', e); musicPromise = null; return null; });
+  }
+  return musicPromise;
+}
+const want = { theme: null };
+Bus.on('map.enter', (m) => {
+  want.theme = (m && m.music) || null;                      // CANON §9: 'village' in the houses, 'church' in the chapel
+  Audio.onUnlock(() => {
+    if (want.theme) loadMusic().then((M) => { try { if (M && want.theme) M.play(want.theme, { fade: 1.2 }); } catch (e) { reportError('music play', e); } });
+    try { Audio.setSpace('room', 500); } catch (_) { /* a room is a small space */ }
+  });
+});
+
+// The plugins a room actually needs: the fade through a door (P29), the words (P12), the menu and its Search
+// (P13), the place card (P32), and the people and animals in the room (P11).
+const PLUGINS = [
+  ['transitions', '/src/ui/transitions.js'],
+  ['dialogue', '/src/ui/dialogue.js'],
+  ['menu', '/src/ui/menu.js'],
+  ['hud', '/src/ui/hud.js'],
+  ['npc', '/src/world/npc.js'],
+];
+const BOOT = { plugins: {}, rooms: INTERIOR_COUNT, maps: [] };
+
+const ctx = {
+  version: VERSION,
+  App, Loop, Scenes, Bus, Debug, reportError, Input, UI, Text, Save, Audio, Sfx, Field, Maps,
+  Music: loadMusic,
+  vars: { HERO: 'Bram' },
+  boot: { scene: 'field', ctx: { map: 'int_bakery' }, newGame: false },
+};
+
+/** Every door on the green, the room behind it, and whether that room is registered. */
+const doorTable = () => DOORS.map(d => ({ door: d.plot, room: d.room, name: d.name, owner: d.owner, built: Maps.has(d.room) }));
+
+(async function boot() {
+  BOOT.maps = await Maps.loadAll().catch((e) => { reportError('P06 demo: maps', e); return []; });
+  await preloadHero().catch(() => false);
+  step('field', () => Field.install());
+  for (const [name, path] of PLUGINS) {
+    try {
+      const m = await import(path);
+      const install = m.install || (typeof m.default === 'function' ? m.default : null);
+      if (typeof install !== 'function') { BOOT.plugins[name] = 'no install()'; continue; }
+      install(ctx);
+      BOOT.plugins[name] = 'installed';
+    } catch (e) { BOOT.plugins[name] = 'failed'; reportError(`P06 demo: plugin "${name}"`, e); }
+  }
+  step('first room', () => Scenes.push('field', { map: 'int_bakery' }));
+  Debug.busy('demo.boot', false);
+})().catch((e) => { reportError('P06 demo boot', e); Debug.busy('demo.boot', false); });
+
+// ── what a critic can drive ──────────────────────────────────────────────────────────────────────────────────
+Debug.provide('demo', () => ({ piece: 'P06', rooms: INTERIOR_COUNT, ids: INTERIOR_IDS.slice(), plugins: Object.assign({}, BOOT.plugins) }));
+Debug.provide('doors', doorTable);
+/** __DQ.room('int_inn') — jump straight into any room (no argument: the list). */
+Debug.expose('room', (id) => {
+  if (id === undefined) return doorTable();
+  return Field.teleport(String(id));
+});
+/** __DQ.rooms() — every Puddlewick door, the room behind it, and whether that room exists. */
+Debug.expose('rooms', doorTable);
+let ring = -1;
+/** __DQ.next() — walk the whole ring of doors, one call per room. */
+Debug.expose('next', () => {
+  const all = DOORS.map(d => d.room).filter(id => Maps.has(id));
+  ring = (ring + 1) % all.length;
+  return Object.assign({ ring, of: all.length }, Field.teleport(all[ring]));
+});
+/** __DQ.audioTheme() — which CANON §9 theme this room asked for. */
+Debug.expose('audioTheme', () => ({ theme: want.theme, music: musicLib ? (() => { try { return musicLib.state().theme; } catch (_) { return 'error'; } })() : null }));
+</script></body></html>

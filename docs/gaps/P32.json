@@ -42,6 +42,14 @@
           "note": "The bake is now 1.6 samples per world tile (the meadow went from 64 to 128 a side, reported as hud.map.tiles), upscaled with smoothing on; ground colours are lifted 16 per cent towards the window light; solid ground is the same colour mixed 38 per cent to shadow, so trees and walls read as shade rather than a flat grey slab; an N sits in the top right of the plan; and a two-line legend under it says you, people, treasure, a way out with the matching glyph colours. The plan is 248 design px (was 232). Verified by eye at 2.6x and 3x crops of shots/P13-r4 and shots/P13-idx2 against the before crop of shots/P13-r0."
         }
       ]
+    },
+    {
+      "n": 4,
+      "title": "the interaction prompt says 'the the'",
+      "detail": "src/ui/hud.js line 343 builds the prompt as 'Look at the ' plus the object name, but map object names already carry their article ('the low wall', 'the inn door'), so the HUD reads 'Look at the the low wall'. Seen in shots/P22-game-r3/12-12-still-walking.png in Puddlewick. Either strip a leading 'the ' from the name or drop it from the template.",
+      "state": "open",
+      "opened": "2026-09-18T02:42:53.692Z",
+      "events": []
     }
   ]
 }

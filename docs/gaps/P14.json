@@ -16,6 +16,30 @@
       "state": "open",
       "opened": "2026-09-17T22:30:08.268Z",
       "events": []
+    },
+    {
+      "n": 3,
+      "title": "Battle and __DQ.give validate items against the test fixture",
+      "detail": "src/battle/scene.js imports DATA from tests/battle/data.js and checks DATA.items[itemId] in Debug.implement(give) and when building the in-battle bag list, so the 15 canon rows that exist only in src/data/items.js (the four seeds, the 13 key items minus retreat_bell, Silver Waltz-Charm) cannot be given, carried or used. Measured in /index.html: __DQ.give(seed_of_life) is refused as unknown item while __DQ.give(pot_lid) works. Fix: import ITEMS from ../data/items.js in scene.js and use it for the bag and give, falling back to DATA.items only if the import fails.",
+      "state": "open",
+      "opened": "2026-09-18T02:12:18.213Z",
+      "events": []
+    },
+    {
+      "n": 4,
+      "title": "main.js does not install src/art/fx.js, so spell VFX are absent from the real game",
+      "detail": "src/art/fx.js exports install(ctx) to the main.js plugin contract (it attaches to the field on load, ticks on the field render hook, plays an effect for any fx.play Bus event, gives level-ups and chests their sparkle, and exposes __DQ.fx(id, opts) plus __DQ.state().fx). It needs ONE line in the PLUGINS list of src/main.js, before battle.present: [fx, () => import(./art/fx.js)]. Verified working by installing it into the running game by hand: scenarios/P20-game.json, shots/P20-game-r8, 11 frames, 102 fps, 0 errors. Filed under P14 because src/main.js is integrator-owned.",
+      "state": "open",
+      "opened": "2026-09-18T02:34:10.836Z",
+      "events": []
+    },
+    {
+      "n": 5,
+      "title": "areas.js assumed kit still 4157 G over budget",
+      "detail": "tests/battle/areas.js hands every child a kit that costs 36068 G at SYSTEMS section 4 prices. P22 now gives 75 percent trade-in credit on a piece handed over while buying its replacement, which brings the net to 28110 G against 23953 G earned walking the whole game once (battle 16968 plus chests 6955 plus 30 start). Still 4157 G short. Measured by src/data/shops.js Economy.audit(). SYSTEMS section 5 legs themselves are fine: Economy.nextBuyCheck() shows every leg affording its own big buy with 45 to 5389 G left over. The fix per DATA-SHAPES 9.3 is in areas.js: bring the assumed kit down to one big buy a leg with hand-me-downs instead of five filled slots per member.",
+      "state": "open",
+      "opened": "2026-09-18T02:42:53.655Z",
+      "events": []
     }
   ]
 }

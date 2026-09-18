@@ -1,0 +1,56 @@
+{ "name": "P20 spells and spell VFX", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000},
+  {"wait": 700},
+  {"note": "the 28-spell table is complete and every spell names an effect and a sound"},
+  {"assert": "__DQ.spells().count === 28", "msg": "28 CANON spells"},
+  {"assert": "__DQ.spells().problems.length === 0", "msg": "every spell has shape, fx and blurb"},
+  {"assert": "__DQ.state().fx.effects >= 24", "msg": "24+ effects in the library"},
+  {"assert": "__DQ.state().fx.attached === true", "msg": "FX attached to the demo scene"},
+
+  {"note": "every effect at once, labelled"},
+  {"eval": "__DQ.showAll()"},
+  {"wait": 90},
+  {"assert": "__DQ.state().fx.particles > 100", "msg": "particles in flight"},
+  {"assert": "__DQ.state().fx.draws <= 2", "msg": "all particles in at most 2 draw calls"},
+  {"wait": 90}, {"shot": "all-effects"},
+  {"wait": 450}, {"shot": "all-effects-late"},
+
+  {"note": "readable close-ups, six at a time"},
+  {"eval": "(__DQ.fxClear(), __DQ.page(0))"}, {"wait": 240}, {"shot": "page-0"},
+  {"eval": "(__DQ.fxClear(), __DQ.page(1))"}, {"wait": 240}, {"shot": "page-1"},
+  {"eval": "(__DQ.fxClear(), __DQ.page(2))"}, {"wait": 240}, {"shot": "page-2"},
+  {"eval": "(__DQ.fxClear(), __DQ.page(3))"}, {"wait": 240}, {"shot": "page-3"},
+  {"eval": "(__DQ.fxClear(), __DQ.page(4))"}, {"wait": 240}, {"shot": "page-4"},
+
+  {"note": "single spells, cast by id out of src/data/spells.js"},
+  {"eval": "(__DQ.fxClear(), __DQ.cast('kascorcha'))"}, {"wait": 130}, {"shot": "cast-kascorcha"},
+  {"eval": "(__DQ.fxClear(), __DQ.cast('kazapple'))"}, {"wait": 90}, {"shot": "cast-kazapple"},
+  {"eval": "(__DQ.fxClear(), __DQ.cast('kanip'))"}, {"wait": 170}, {"shot": "cast-kanip"},
+  {"eval": "(__DQ.fxClear(), __DQ.cast('kawhiffle'))"}, {"wait": 140}, {"shot": "cast-kawhiffle"},
+  {"eval": "(__DQ.fxClear(), __DQ.cast('mendall'))"}, {"wait": 210}, {"shot": "cast-mendall"},
+  {"eval": "(__DQ.fxClear(), __DQ.cast('rouse'))"}, {"wait": 260}, {"shot": "cast-rouse"},
+  {"eval": "(__DQ.fxClear(), __DQ.cast('snoozle'))"}, {"wait": 520}, {"shot": "cast-snoozle"},
+  {"eval": "(__DQ.fxClear(), __DQ.cast('homeward'))"}, {"wait": 320}, {"shot": "cast-homeward"},
+
+  {"note": "the ceremonies and the field effects"},
+  {"eval": "(__DQ.fxClear(), __DQ.fx('level_pillar'))"}, {"wait": 320}, {"shot": "level-pillar"},
+  {"eval": "(__DQ.fxClear(), __DQ.fx('defeat_poof'))"}, {"wait": 110}, {"shot": "defeat-poof"},
+  {"eval": "(__DQ.fxClear(), __DQ.fx('water_splash'))"}, {"wait": 150}, {"shot": "water-splash"},
+  {"eval": "(__DQ.fxClear(), __DQ.fx('confusion_birds'))"}, {"wait": 420}, {"shot": "confusion-birds"},
+
+  {"note": "a spell that flies: a comet leaves the caster and the burst fires where it lands"},
+  {"eval": "(__DQ.fxClear(), __DQ.travel('fire_burst'))"}, {"wait": 130}, {"shot": "travel-inflight"},
+  {"wait": 210}, {"shot": "travel-impact"},
+  {"assert": "__DQ.state().fx.shakes > 0", "msg": "heavy effects asked for a camera shake"},
+
+  {"note": "all 28 spells in a ring, then the camera swings round to prove the billboards face the viewer"},
+  {"eval": "(__DQ.fxClear(), __DQ.castAll())"}, {"wait": 700}, {"shot": "all-spells"},
+  {"eval": "__DQ.cameraOrbit(140)"}, {"wait": 60}, {"eval": "__DQ.castAll()"}, {"wait": 700}, {"shot": "all-spells-orbit"},
+
+  {"note": "quiet again: everything retires, nothing leaks"},
+  {"eval": "__DQ.cameraOrbit(0)"}, {"wait": 1500},
+  {"eval": "__DQ.fxClear()"}, {"wait": 260}, {"shot": "quiet"},
+  {"assert": "__DQ.state().fx.particles === 0", "msg": "every particle retired"},
+  {"assert": "__DQ.state().fx.dropped === 0", "msg": "the pool never overflowed"},
+  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"}
+]}

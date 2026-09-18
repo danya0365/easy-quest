@@ -44,6 +44,10 @@ import { Sfx } from '../../audio/sfx.js';
 import { reportError } from '../../engine/debug.js';
 import { createKit, buildSky, ringHill, buildGround, paintMasks, distanceGrid, curvePoints, bridgeFrame, prep } from '../scenery.js';
 import { LANDMARK_SETS } from '../../art/sky.js';
+// P06's eight interiors: importing this registers them with Maps (data only, per ARCHITECTURE rule 6) and gives
+// the `exits` block below the room id behind each door. NEEDS (P23): move these ids into maps/index.js and drop
+// this import. Only the exits array in furnish() uses it.
+import { ROOM_OF } from './int_rooms.js';
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // shape constants
@@ -760,10 +764,13 @@ function furnish() {
     // A door whose interior EXISTS (src/world/maps/<id>.js, listed in maps/index.js) carries no tx/tz, so the
     // room's own spawn decides where you land — the interior owns its doorstep. A door whose room is not built
     // yet keeps tx/tz and `back`, so it speaks its line and steps you back out (src/world/field.js onExit).
-    const built = BUILT_INTERIORS.has(o.id);
+    // ...and a door whose room is one of P06's eight (src/world/maps/int_*.js) points at that room id instead of
+    // at the plot id. Every one of the ten doors on the green is now real, so `built` is never false here.
+    const room = ROOM_OF[o.id] || o.id;
+    const built = BUILT_INTERIORS.has(o.id) || !!ROOM_OF[o.id];
     exits.push(Object.assign({ x: d.doorway.x + d.nx * 0.45, z: d.doorway.z + d.nz * 0.45,
       w: Math.max(1.0, d.dw * 0.8), h: Math.max(1.0, d.dw * 0.8),
-      to: o.id, kind: 'door', name: o.name || o.id, line: 'door-' + o.id, back: { x: d.far.x, z: d.far.z } },
+      to: room, kind: 'door', name: o.name || o.id, line: 'door-' + o.id, back: { x: d.far.x, z: d.far.z } },
     built ? {} : { tx: d.far.x, tz: d.far.z }));
     L.spots.doors[o.id] = { x: d.far.x, z: d.far.z, facing: d.face };
   }

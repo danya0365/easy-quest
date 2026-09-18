@@ -1,0 +1,28 @@
+{ "name": "critic P20 d1 pass5 - gap1 travel and gap2 shake, measured", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000},
+  {"wait": 900},
+
+  {"note": "GAP 1: a slow 900 ms flight, sampled at four points along the way"},
+  {"eval": "(__DQ.fxClear(), __DQ.orbit(20), __DQ.fx('fire_burst', {at:{x:3.2,y:0.7,z:-2.0}, from:{x:-4.5,y:1.0,z:3.2}, travelMs:900, sound:false, flash:false}))"},
+  {"wait": 150}, {"shot": "t1-150ms"},
+  {"wait": 200}, {"shot": "t2-350ms"},
+  {"wait": 200}, {"shot": "t3-550ms"},
+  {"wait": 200}, {"shot": "t4-750ms"},
+  {"wait": 250}, {"shot": "t5-impact"},
+  {"eval": "(function(){ return { particles: __DQ.state().fx.particles }; })()"},
+
+  {"note": "an empty frame at the same camera, to diff the comet against"},
+  {"eval": "__DQ.fxClear()"}, {"wait": 900}, {"shot": "t0-base"},
+
+  {"note": "GAP 2: how many listeners does anything have for the shake the heavy effects emit"},
+  {"eval": "(async () => { const B = (await import('/src/engine/events.js')).Bus; return { fxShake: B.count('fx.shake'), fxPlay: B.count('fx.play'), total: B.count() }; })()"},
+  {"eval": "(async () => { const S = (await import('/src/engine/states.js')).Scenes; const c = S.topScene().cam; window.__c0 = JSON.stringify(c); return c; })()"},
+  {"eval": "__DQ.fx('fire_big')"},
+  {"wait": 70},
+  {"eval": "(async () => { const S = (await import('/src/engine/states.js')).Scenes; return { before: window.__c0, after: JSON.stringify(S.topScene().cam), shakes: __DQ.state().fx.shakes, hook: __DQ.state().fx.shakeHook }; })()"},
+
+  {"note": "GAP 3: showAll re-measured - how many pixels across is the smallest effect on that grid"},
+  {"eval": "(__DQ.fxClear(), __DQ.showAll())"}, {"wait": 120}, {"shot": "g3-showall-again"},
+
+  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"}
+]}

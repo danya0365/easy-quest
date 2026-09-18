@@ -239,3 +239,12 @@ This is how a piece gets judged on its own. See `docs/HARNESS.md`. A plugin piec
   zones every minor third (or every major third for a quiet voice), 1-3 velocity layers.
 - **Loading:** lazy per instrument, cached; the game never blocks on audio — a theme starts as soon as its
   instruments are decoded, crossfading in. `Music.renderOffline` must use the same samples.
+
+## The plugin manifest — `src/plugins.js` (the one shared file any piece may edit)
+`src/main.js` loads its plugin list from `src/plugins.js`. **Any piece may append or edit its OWN single line
+there** — `['name', () => import('./path.js')]` — so a finished plugin is live in `/index.html` without waiting
+for the integrator. Never reorder or delete another piece's line. The module must export `install(ctx)`; a
+plugin that fails to load or throws is reported in `__DQ.state().boot.plugins` and skipped, never fatal.
+A library that other modules import (e.g. `src/art/weather.js`) does NOT belong here — only scene/system
+plugins with an `install(ctx)`.
+**If your piece works in its demo but a critic says it is missing from the real game, this file is the reason.**

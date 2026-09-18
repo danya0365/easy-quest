@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-18T01:52:08.586Z",
+  "updated": "2026-09-18T02:55:52.373Z",
   "wave": 2,
   "waveTitle": "Breadth wave: interiors, shops, treasure, spells, items, recruitment, party/wagon, story, more maps — target 65-75 per piece",
   "pieces": {
@@ -196,12 +196,12 @@
     },
     "P06": {
       "id": "P06",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "All ten Puddlewick doors now open into real rooms: interior kit (src/art/interior.js) + eight new int_*.js maps with npcs and chests layers; demo + real game both shoot clean at 100+ fps",
       "history": [],
       "name": "Interiors & furniture"
     },
@@ -420,24 +420,36 @@
     },
     "P17": {
       "id": "P17",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 42,
+      "best": 42,
+      "rounds": 1,
+      "gap": "Unreachable in the real game: src/main.js PLUGINS has no party entry, so no naming, no followers, no wagon, no paddock; the join the player CAN reach auto-names the monster and then promises a wagon that does not exist",
+      "note": "Recruitment live: chance per bible, join line, Yes/No, naming window with defaults + wheel + alphabet, duplicate suffixes; followers, wagon and paddock on the field",
+      "history": [
+        {
+          "at": "2026-09-18T02:52:40.803Z",
+          "score": 42,
+          "gap": "Unreachable in the real game: src/main.js PLUGINS has no party entry, so no naming, no followers, no wagon, no paddock; the join the player CAN reach auto-names the monster and then promises a wagon t"
+        }
+      ],
       "name": "Monster recruitment (the DQV signature)"
     },
     "P18": {
       "id": "P18",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 20,
+      "best": 20,
+      "rounds": 1,
+      "gap": "Nothing of P18 is reachable in /index.html — no followers, no wagon, no roster window; one line in src/main.js PLUGINS turns the whole feature on and it has not been added",
+      "note": "Party rules over P14 Roster: 4 walk / 8 ride / paddock, order, swap (wagon window + mid-battle), guests fixed, saves under Save key friends",
+      "history": [
+        {
+          "at": "2026-09-18T02:52:40.842Z",
+          "score": 20,
+          "gap": "Nothing of P18 is reachable in /index.html — no followers, no wagon, no roster window; one line in src/main.js PLUGINS turns the whole feature on and it has not been added"
+        }
+      ],
       "name": "Party & wagon"
     },
     "P19": {
@@ -474,34 +486,46 @@
     },
     "P20": {
       "id": "P20",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 66,
+      "best": 66,
+      "rounds": 1,
+      "gap": "fire has zero orange/red pixels and reads as a yellow flower; 4 effects invisible on grass; no VFX reach the real game",
+      "note": "28 CANON spells in src/data/spells.js + 25 procedural effects in src/art/fx.js (2 draw calls, pooled instanced billboards), demo + live-in-game verified",
+      "history": [
+        {
+          "at": "2026-09-18T02:53:49.778Z",
+          "score": 66,
+          "gap": "fire has zero orange/red pixels and reads as a yellow flower; 4 effects invisible on grass; no VFX reach the real game"
+        }
+      ],
       "name": "Spells & spell VFX"
     },
     "P21": {
       "id": "P21",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 70,
+      "best": 70,
+      "rounds": 1,
+      "gap": "table is canon-accurate and beautifully voiced, but none of the words reach the running game and 4 of 7 family have no shield or hat above leg 2",
+      "note": "src/data/items.js: 73 canon items (SYSTEMS 4 + CANON 6) with a blurb, a where, prices, stats and who can equip; demos/P21.html shows the whole table; live in /index.html once menu.js/scene.js import it (gaps P13#6, P14#3)",
+      "history": [
+        {
+          "at": "2026-09-18T02:27:59.115Z",
+          "score": 70,
+          "gap": "table is canon-accurate and beautifully voiced, but none of the words reach the running game and 4 of 7 family have no shield or hat above leg 2"
+        }
+      ],
       "name": "Items & equipment"
     },
     "P22": {
       "id": "P22",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "Shops/inn/church/bank built: greeting, Buy+Sell with prices and green up red down per character, I'll take it, gold counting, equip-on-buy with 75pc part-exchange, out-of-money line; inn priced by party size with a night fade and everyone waking full; church saves via Save.write with F5 words, free mending and revive, plus the boss-advice line; bank in hundreds, saved. Live in /index.html via install() + the dialogue.end talk hook — needs one line in main.js PLUGINS.",
       "history": [],
       "name": "Shops, inns, churches, economy"
     },
@@ -653,13 +677,19 @@
     },
     "P30": {
       "id": "P30",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 66,
+      "best": 66,
+      "rounds": 1,
+      "gap": "the eight Puddlewick interiors hold nothing at all (38 containers, 0 rewards) and the chest ceremony has no held-aloft pose and no fanfare",
+      "note": "Chests with a lid that opens, prize aloft, fanfare and the window; locked chests + the Rusty Key; the Chestnut mimic starts a real fight; 40 searchable containers across 4 maps with about 1 in 4 holding something; 4 secrets; all remembered through Save",
+      "history": [
+        {
+          "at": "2026-09-18T02:51:31.762Z",
+          "score": 66,
+          "gap": "the eight Puddlewick interiors hold nothing at all (38 containers, 0 rewards) and the chest ceremony has no held-aloft pose and no fanfare"
+        }
+      ],
       "name": "Discovery — chests, secrets, treasure"
     },
     "P31": {
@@ -845,6 +875,18 @@
     {
       "at": "2026-09-18T01:52:08.586Z",
       "t": "OWNER DIRECTION: stop chasing 85; get every piece to 65-75 and build the missing features so the game exists end to end. Wave C stopped."
+    },
+    {
+      "at": "2026-09-18T02:41:33.251Z",
+      "t": "P06: interiors live — 8 new rooms (bakery shop chapel mill barn twins hob cottage) + the interior kit; every Puddlewick exit resolves (11/11)"
+    },
+    {
+      "at": "2026-09-18T02:55:21.626Z",
+      "t": "P22 first build: src/ui/shop.js + src/ui/church.js + src/data/shops.js. 27 counters (12 shops, 6 inns, 5 churches, 4 banks). Demo and /index.html both shoot exit 0, 0 errors, 120 fps. Needs one line in src/main.js PLUGINS to be live without runtime injection."
+    },
+    {
+      "at": "2026-09-18T02:55:52.373Z",
+      "t": "Orchestrator fix: src/plugins.js — the plugin manifest any piece may append to. shop, treasure, party, fx and story were finished but invisible in the real game (main.js was integrator-only). All 14 plugins now install."
     }
   ]
 }

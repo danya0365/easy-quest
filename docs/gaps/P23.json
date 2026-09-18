@@ -128,6 +128,22 @@
       "state": "open",
       "opened": "2026-09-18T01:18:47.452Z",
       "events": []
+    },
+    {
+      "n": 8,
+      "title": "A bookshelf that hides stairs has nowhere to go",
+      "detail": "The rubric asks for a bookshelf that hides stairs. P30 can already reveal a secret behind a shelf (Hollybank's shelf hides a Lucky Acorn, the inn's third stair hides a cake) but a revealed STAIRWAY needs somewhere for it to lead, and there is no cellar, attic or upper-floor map in src/world/maps/index.js. Fix in P23: add one small interior (the mill cellar is the obvious one, or the inn's upper landing that the rope currently blocks) plus its index entry and its three layer files. P30 can then put the reveal on the mill bookshelf and add the exit from its own chests layer, since layers may append exits. Verify: __DQ.listMaps() names the new interior and the field can reach it.",
+      "state": "open",
+      "opened": "2026-09-18T02:26:39.899Z",
+      "events": []
+    },
+    {
+      "n": 9,
+      "title": "P06's eight interiors are registered from puddlewick.js, not maps/index.js",
+      "detail": "src/world/maps/index.js (P23) does not list the eight new interiors int_bakery int_shop int_chapel int_mill int_barn int_twins int_hob int_cottage, and P06 may not edit it. They are therefore registered as data at import time by src/world/maps/int_rooms.js (P06), which src/world/maps/puddlewick.js imports beside its exits block. It works (all 11 Puddlewick exits resolve; verified in shots/P06-game) but the map index is no longer the single list of maps. Fix: add the eight ids to index.js with layers npcs and chests, then delete the int_rooms.js import from puddlewick.js. Nothing about the rooms changes.",
+      "state": "open",
+      "opened": "2026-09-18T02:41:26.180Z",
+      "events": []
     }
   ]
 }

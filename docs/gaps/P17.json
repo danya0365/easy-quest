@@ -1,0 +1,73 @@
+{
+  "id": "P17",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Not wired into the real game",
+      "detail": "FIX LIVES IN src/main.js (integrator-only, so P17 may not touch it). src/world/party.js is the single install() for the whole P17+P18 feature (it installs companions.js and recruit.js itself). Add one line to the PLUGINS array in src/main.js, after battle.scene and before title: the pair party with an arrow function importing ./world/party.js. Until then followers, the wagon, the paddock, the roster window and the naming window exist only in demos/P17.html. Verify with scenarios/P17-index.json against /index.html: its two LIVE CHECK assertions fail today and pass the moment the line lands.",
+      "state": "still-open",
+      "opened": "2026-09-18T02:30:52.287Z",
+      "events": [
+        {
+          "at": "2026-09-18T02:49:37.998Z",
+          "by": "critic",
+          "pass": false,
+          "note": "In /index.html the boot plugin list is transitions,dialogue,menu,hud,npc,encounter,battle.present,battle.scene,title — no party. __DQ.state().companions and .friends are undefined, __DQ.recruit and __DQ.wagonMenu are undefined. I forced a real join in the game (misses gloop=12, fight vs 2 gloops, answered Yes): the Gloop joined as Dollop and the game printed 'Dollop hops up into the wagon' — then the field showed the hero walking completely ALONE, no Halvard, no Bobble, no Dollop, no wagon. Nothing of P17/P18 is reachable by a player."
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "title": "Naming window has no monster in it",
+      "detail": "MONSTER-BIBLE 7 asks for the monster's model spinning slowly on the LEFT of the naming window while you pick a name. Today the window is a name plate plus the join line plus a suggestion wheel, with no picture of who you are naming. Build a small WebGL or canvas inset in the recruit-name window that renders Monsters.build(species) on a turntable (about 12 degrees a second) with the join pose playing, sized about 180 by 180 design pixels, and keep it cheap: one render at 30 fps, disposed when the window closes.",
+      "state": "still-open",
+      "opened": "2026-09-18T02:30:52.345Z",
+      "events": [
+        {
+          "at": "2026-09-18T02:49:38.035Z",
+          "by": "critic",
+          "pass": false,
+          "note": "With the recruit-name window open (demos/P17.html, Cactuddle and Gloop), document.querySelectorAll('canvas') returns exactly 1 element — the 1280x720 game canvas — and the window contains 0 img and 0 svg. The window is a NAME label, the name in gold, and the join line. There is no picture of the monster anywhere on screen: for the post-battle path the naming window opens back on the FIELD after the battle has already faded out, so the creature being named is not even in the scene."
+        }
+      ]
+    },
+    {
+      "n": 3,
+      "title": "Wagon is oversized in the default field camera",
+      "detail": "The field camera sits 5.97 units behind the hero at 26 degrees, so anything following fills the lower frame. The wagon is therefore parked 2.35 units to one side, scaled 0.8 and kept only 0.8 behind, which reads but still takes the bottom-left corner of many frames and is often clipped by the frame edge. Either model a smaller pony cart (about 1.2 by 0.8) or ask P09 for a small distance or pitch increase while the wagon is following, and re-shoot shots/P17-r8/07-04-the-wagon-rolls.png to compare.",
+      "state": "still-open",
+      "opened": "2026-09-18T02:30:52.396Z",
+      "events": [
+        {
+          "at": "2026-09-18T02:49:38.075Z",
+          "by": "critic",
+          "pass": false,
+          "note": "Default field camera measured as pitch 26, dist 5.971, fov 47. In 1280x720 frames the wagon covers roughly 430x220 px (about 10 percent of the frame), sits in the lower-left and is clipped by the left edge in 6 of 6 outdoor frames; the hero covers about 100x175 px (1.9 percent). Halvard covers about 370x390 px (16 percent) and is clipped by the bottom edge. So the hero is the smallest thing in his own procession and a third of the frame is followers and cargo."
+        }
+      ]
+    },
+    {
+      "n": 4,
+      "title": "Monster followers do not travel, they only hop in place",
+      "detail": "A recruited monster on the field plays its idle hop from src/art/monsters.js while its holder slides along the trail, so it looks like it is being dragged rather than bounding after you. Drive the hop from distance covered instead of wall time (one bounce per about 0.5 units), lean 12 degrees into the direction of travel, and squash on each landing, per the MONSTER-BIBLE construction kit idle spec.",
+      "state": "still-open",
+      "opened": "2026-09-18T02:30:52.438Z",
+      "events": [
+        {
+          "at": "2026-09-18T02:49:38.113Z",
+          "by": "critic",
+          "pass": false,
+          "note": "Measured with the hero stationary (state().player.speed 0, x/z unchanged for 1.2 s, camera dist 10 pitch 34): the Gloop follower's blue blob top edge oscillates between y=522 and y=534 px, about 3 cycles in 12 frames at 100 ms. The bounce is still pure wall-clock (monsters.js hop period 1.15 s) and runs at the same rate whether the hero moves or not. No lean into travel and no landing squash: companions.js render() sets only holder.rotation.y."
+        }
+      ]
+    },
+    {
+      "n": 5,
+      "title": "A child never sees their monsters: followers fall off the bottom of the frame",
+      "detail": "Measured in demos/P17.html with the DEFAULT field camera (pitch 26, dist 5.971, fov 47) and the party DQV actually gives you — Bram, Halvard, Bobble the Gloop, Dollop II the Gloop. In 1280x720 frames, standing still and walking in both directions, ZERO monster-follower pixels are on screen: both Gloops sit below the bottom edge. What IS on screen is Halvard at about 370x390 px (16 percent of the frame, clipped by the bottom edge), the wagon at about 430x220 px (10 percent, clipped by the left edge) and the hero at about 100x175 px (1.9 percent). With only one monster following (a fresh boot) the Gloop is still cropped in half by the bottom edge. So the one thing DQV is loved for — your monsters bounding along behind you — is invisible during normal play, and what you do see is a grown man and a cart eating a third of the frame. The fix lives in src/world/companions.js, which P17 owns: GAP is first 1.00, person 0.70, monster 0.58, wagon 0.80, and STAGGER pushes each walker 0.9-1.1 units sideways, so the whole line sits inside 2.3 units of the hero — nearer the lens than the hero is, hence huge and low. Space the line back down the trail (roughly first 2.2, then 1.1 per person and 0.9 per monster, wagon 1.2 behind the last walker), cut the lateral stagger to about 0.45, and scale each follower holder down with its trail distance so nobody out-masses the hero. Also in the same file: the interactable for the wagon is named the wagon and each follower is named Bobble or Halvard, and src/ui/hud.js prints Look at the NAME — so the prompt a child reads while walking is Look at the the wagon and Look at the Halvard. Name the wagon wagon and give people and monsters a prompt that reads Look at Halvard.",
+      "state": "open",
+      "opened": "2026-09-18T02:52:21.022Z",
+      "events": []
+    }
+  ]
+}

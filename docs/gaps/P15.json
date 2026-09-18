@@ -14,6 +14,22 @@
           "note": "Rebuilt as present.js victory(ev): a UI.window in the command window's own blue/pale-double-border stock, centre frame (top 186, min 560), title tab 'Victory!', sliding up on the last pop — and the combat-log box is CLOSED first, so the composition really changes. Experience then Gold COUNT UP (0..N over 380ms each, 340ms apart, a tick per row), then one line per drop. +EXP and +G are anchored to each monster's recorded death spot (state().battlePresent.deaths) and every pop is clamped into a safe rect (x 104..W-104, y 192..0.64H) so nothing clips the screen edge or lands under a party panel. Frame held 1.15s after it fills (Confirm fills it, Confirm again dismisses, first 0.32s unskippable), then 240ms of nothing, then the ink curtain. Measured in /index.html: phase victory -> tally window 2.72s (was 4.60s); victory -> standing on the lane 5.47s (was 6.69s; critic measured 5.0s of bare grass with no window at all). ALSO found the cause of '18px of plain unoutlined white' numerals: renderMarks() rebuilt the overlay every frame and re-appending a .dqb-pop restarted its CSS animation, freezing every numeral on keyframe 0 at scale .4 — pops now live in their own .dqb-pops layer that is never rebuilt, at 64px/900 weight with a 12-shadow ink outline ring, and they spring and float. Read shots/P15-r3/10-07-victory.png and shots/P15-index-r3/05-04b-victory-window.png + 04-04-the-hit.png. scenarios/P15.json and P15-index.json both exit 0 with new asserts on the window, the log and the pop geometry."
         }
       ]
+    },
+    {
+      "n": 2,
+      "title": "Battle presentation does not play any spell VFX",
+      "detail": "src/art/fx.js (P20) now has 25 effects and src/data/spells.js gives every spell an fx id, an sfx id and a words template. present.js already sounds a spell (HOLD_SFX) but draws nothing. In createPresenter: import FX from ../art/fx.js, FX.attach(S.scene, {camera: S.camera, sound: sfx}) in buildStage, FX.update(dt) in the presenter tick, FX.setCamera(S.camera) when the camera moves, and on an act event of kind spell call FX.play(SPELLS[ev.spell].fx, {at: the target model's world position, scale: 0.7, sound: false, onPeak: () => the damage pop}). Scale 0.7 is right for the battle camera (0.55 up, 2.9 out) - at 1.0 a fire_big fills the frame. Also FX.play(defeat_poof) on a defeat event and FX.play(level_pillar) on the level-up, which is the ceremony the rubric asks for.",
+      "state": "open",
+      "opened": "2026-09-18T02:34:10.787Z",
+      "events": []
+    },
+    {
+      "n": 3,
+      "title": "Nothing honours the fx.shake Bus event, so big spells do not move the camera",
+      "detail": "src/art/fx.js emits Bus 'fx.shake' {amp (world units, 0.25-0.7), ms} at the peak of fire_big, lightning, frost, shockwave and level_pillar. The battle rig already has a shake field (battlePresent.camera.shake), so in present.js install: ctx.Bus.on('fx.shake', (p) => { S.shake = Math.max(S.shake, p.amp); }) and let it decay over p.ms. P09 should do the same for the field camera. Without it the heaviest spells land with no WEIGHT.",
+      "state": "open",
+      "opened": "2026-09-18T02:36:57.453Z",
+      "events": []
     }
   ]
 }

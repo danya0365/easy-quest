@@ -1,0 +1,45 @@
+{ "name": "critic P30 run 5 - what a real confirm does on the shadowed containers, and the two unstandable ones", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 2500},
+  {"eval": "(async () => { const F = (await import('/src/world/field.js')).Field; window.__F = F; return 'ok'; })()"},
+
+  {"note": "1. a real confirm press at the cottage wardrobe the HUD invites you to Search"},
+  {"eval": "(async () => { window.__DQ.teleport('int_cottage'); await new Promise(r => setTimeout(r, 1600)); const t = window.__DQ.state().treasure.here.find(c => c.id === 'ct_wardrobe'); window.__DQ.teleport('int_cottage', t.x, t.z + 1.3); window.__DQ.face(180); await new Promise(r => setTimeout(r, 900)); return JSON.stringify({prompt: (window.__DQ.state().hud||{}).prompt, near: window.__DQ.state().player.near}); })()"},
+  {"eval": "__DQ.press('confirm')"}, {"wait": 2600}, {"shot": "01-wardrobe-real-press"},
+  {"eval": "JSON.stringify({said: (__DQ.state().dialogue||{}).full, found: __DQ.state().treasure.found, taken: __DQ.state().treasure.here.find(c=>c.id==='ct_wardrobe').taken})"},
+  {"eval": "__DQ.press('confirm')"}, {"wait": 900}, {"eval": "__DQ.press('confirm')"}, {"wait": 900},
+
+  {"note": "2. the same at Old Hob's bookshelf"},
+  {"eval": "(async () => { window.__DQ.teleport('int_hob'); await new Promise(r => setTimeout(r, 1600)); const t = window.__DQ.state().treasure.here.find(c => c.id === 'hb_books'); window.__DQ.teleport('int_hob', t.x, t.z + 1.3); window.__DQ.face(180); await new Promise(r => setTimeout(r, 900)); return JSON.stringify({prompt: (window.__DQ.state().hud||{}).prompt, near: window.__DQ.state().player.near}); })()"},
+  {"eval": "__DQ.press('confirm')"}, {"wait": 2600}, {"shot": "02-books-real-press"},
+  {"eval": "JSON.stringify({said: (__DQ.state().dialogue||{}).full, taken: __DQ.state().treasure.here.find(c=>c.id==='hb_books').taken})"},
+  {"eval": "__DQ.press('confirm')"}, {"wait": 900},
+
+  {"note": "3. the two Puddlewick containers with nowhere to stand - fine ring scan, 48 directions x 5 radii"},
+  {"eval": "(async () => { window.__DQ.teleport('puddlewick'); await new Promise(r => setTimeout(r, 1800)); const m = window.__F.map; const out = []; for (const id of ['pw_barrel_mill','pw_mill_stone']) { const c = window.__DQ.state().treasure.here.find(q => q.id === id); const hits = []; for (let a = 0; a < 48; a++) { for (const rad of [0.9, 1.1, 1.3, 1.5, 1.7]) { const th = (a / 48) * Math.PI * 2; const x = c.x + Math.cos(th) * rad, z = c.z + Math.sin(th) * rad; if (m.clear && !m.clear(x, z)) continue; const h = m.nearestInteractable(x, z, (c.x - x) / rad, (c.z - z) / rad, 2.4); if (h && h.target.id === id) hits.push({rad, a}); } } out.push({id, x: c.x, z: c.z, holds: c.holds, standable: hits.length, sample: hits.slice(0, 3)}); } return JSON.stringify(out); })()"},
+
+  {"note": "4. and can the hero WALK to those spots from the village spawn - is the mill yard even inside the map"},
+  {"eval": "(async () => { const m = window.__F.map; const out = []; for (const id of ['pw_barrel_mill','pw_mill_stone']) { const c = window.__DQ.state().treasure.here.find(q => q.id === id); out.push({id, x: c.x, z: c.z, clearOnTop: m.clear ? m.clear(c.x, c.z) : null, walkY: m.walkY ? m.walkY(c.x, c.z) : null}); } return JSON.stringify(out); })()"},
+  {"eval": "(async () => { const c = window.__DQ.state().treasure.here.find(q => q.id === 'pw_barrel_mill'); window.__DQ.teleport('puddlewick', c.x, c.z + 2.2); window.__DQ.face(180); await new Promise(r => setTimeout(r, 1000)); return JSON.stringify({p: window.__DQ.state().player, prompt: (window.__DQ.state().hud||{}).prompt}); })()"},
+  {"shot": "03-mill-barrel"},
+  {"key": "ArrowUp", "hold": 900}, {"wait": 400}, {"shot": "04-mill-barrel-walked"},
+  {"eval": "JSON.stringify({p: __DQ.state().player, prompt: (__DQ.state().hud||{}).prompt, near: __DQ.state().player.near})"},
+  {"eval": "JSON.stringify(__DQ.openNear())"},
+  {"wait": 2200}, {"shot": "05-mill-barrel-open"},
+  {"eval": "JSON.stringify((__DQ.state().dialogue||{}).full)"},
+  {"eval": "__DQ.press('confirm')"}, {"wait": 900},
+
+  {"note": "5. the always-full pot at the dead end - the one thing WORLD-BIBLE promises always pays"},
+  {"eval": "(async () => { const m = window.__F.map; const p = m.props.find(q => q.name === 'a pot at the dead end'); if (!p) return 'no such prop'; window.__DQ.teleport('puddlewick', p.x, p.z + 1.3); window.__DQ.face(180); await new Promise(r => setTimeout(r, 1000)); return JSON.stringify({prompt: (window.__DQ.state().hud||{}).prompt, near: window.__DQ.state().player.near}); })()"},
+  {"shot": "06-deadend-pot"},
+  {"eval": "JSON.stringify(__DQ.openNear())"},
+  {"wait": 2400}, {"shot": "07-deadend-pot-said"},
+  {"eval": "JSON.stringify({said: (__DQ.state().dialogue||{}).full, found: __DQ.state().treasure.found, gold: __DQ.state().gold})"},
+  {"eval": "__DQ.press('confirm')"}, {"wait": 900}, {"eval": "__DQ.press('confirm')"}, {"wait": 900},
+  {"eval": "JSON.stringify(__DQ.openNear())"},
+  {"wait": 2400},
+  {"eval": "JSON.stringify({saidAgain: (__DQ.state().dialogue||{}).full, gold: __DQ.state().gold})"},
+  {"eval": "__DQ.press('confirm')"}, {"wait": 900},
+  {"eval": "JSON.stringify(__DQ.errors.slice(0,6))"},
+  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"}
+]}

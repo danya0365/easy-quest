@@ -1,0 +1,208 @@
+{
+ "name": "P06 interiors",
+ "steps": [
+  {
+   "waitFor": "window.__DQ && __DQ.ready",
+   "timeout": 40000
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "note": "every door on the green and the room behind it"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.rooms())"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().demo)"
+  },
+  {
+   "shot": "01-bakery"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.room('int_shop'))"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "02-shop"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.room('int_chapel'))"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "03-chapel"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.room('int_mill'))"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "04-mill"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.room('int_barn'))"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "05-barn"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.room('int_twins'))"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "06-twins"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.room('int_hob'))"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "07-hob"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.room('int_cottage'))"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "08-cottage"
+  },
+  {
+   "note": "the two rooms P23 built, for comparison in the same camera"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.room('hollybank'))"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "09-hollybank"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.room('puddlewick_inn'))"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "10-inn"
+  },
+  {
+   "note": "talk to somebody, and search something"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.room('int_bakery'))"
+  },
+  {
+   "wait": 1000
+  },
+  {
+   "key": "ArrowUp",
+   "hold": 420
+  },
+  {
+   "wait": 500
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "11-talking"
+  },
+  {
+   "press": "Escape",
+   "times": 2,
+   "delay": 300
+  },
+  {
+   "wait": 500
+  },
+  {
+   "eval": "JSON.stringify({ map: __DQ.state().map, chests: __DQ.state().map.chests, npcs: __DQ.state().map.npcs })"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().field.camera && { mode: __DQ.state().field.camera.mode, pitch: __DQ.state().field.camera.pitch, dist: __DQ.state().field.camera.dist })"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.audioTheme())"
+  },
+  {
+   "eval": "JSON.stringify({ fps: __DQ.state().fps, errors: __DQ.errors })"
+  },
+  {
+   "note": "P30's treasure.js is live (meadow.chests.js boots it): search one of this room's containers, by hand"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.room('int_bakery'))"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "JSON.stringify({near:__DQ.walkTo(-4.4,4.2),faced:__DQ.face(270)})"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "JSON.stringify(__DQ.talkNear())"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "12-searching"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().dialogue)"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.room('int_twins'))"
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "shot": "13-twins-toybox"
+  },
+  {
+   "eval": "JSON.stringify({fps:__DQ.state().fps,errors:__DQ.errors})"
+  },
+  {
+   "assert": "__DQ.errors.length===0",
+   "msg": "no runtime errors"
+  },
+  {
+   "assert": "__DQ.rooms().every(d => d.built)",
+   "msg": "every door on the green has a room behind it"
+  },
+  {
+   "assert": "__DQ.state().map.chests >= 4",
+   "msg": "at least four searchable containers in the room"
+  },
+  {
+   "assert": "__DQ.state().map.npcs >= 1",
+   "msg": "somebody (or something) alive in the room"
+  }
+ ]
+}

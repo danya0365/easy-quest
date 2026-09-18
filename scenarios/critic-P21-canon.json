@@ -1,0 +1,5 @@
+{ "name": "critic P21 can the canon story items be held", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 40000},
+  {"wait": 1000},
+  {"eval": "JSON.stringify(['willows_ribbon','candle','music_box','papas_letter','mums_feather_hairpin','ambergarde_crest','tide_pearl','marsh_lily','stilt_boots','wolfscarf','emberbell','sunlarks_feather','retreat_bell','pips_bell','charm_bell','osrics_wooden_bird','sock_of_considerable_power','halvards_greatsword','larksteel_sword','larksteel_shield','larksteel_helm','larkweave_cloak','elowens_shawl','wooden_sword','silver_waltz_charm','seed_of_strength'].map(function(id){var r=__DQ.give(id,1);return id+'='+(r&&r.ok===false?'REFUSED':'ok')}))"}
+]}

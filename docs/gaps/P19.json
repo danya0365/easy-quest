@@ -8,6 +8,14 @@
       "state": "open",
       "opened": "2026-09-17T22:30:08.360Z",
       "events": []
+    },
+    {
+      "n": 2,
+      "title": "Seeds have no permanent stat hook",
+      "detail": "P30 drops a Seed of Life in the hollow of the fallen oak in the meadow. It is eaten on the spot: treasure.js records it in its own ledger and writes member.seedHp += 3 on the party leader, plus +3 to current HP. But src/data/growth.js statsFor(member, L) recomputes hp purely from the level curve, so the moment Roster.heal() or a level-up runs, the seed bonus vanishes. Fix in growth.js: have statsFor() add member.seedHp / member.seedMp / member.seedMight etc (a small {stat: bonus} bag on the member) on top of the personality curve, and expose a helper addSeed(member, stat, n). P30 already writes and saves member.seedHp, so nothing else has to change. Verify: __DQ.treasure().seeds shows {life:1} and the leader's max HP stays 3 higher after __DQ.heal().",
+      "state": "open",
+      "opened": "2026-09-18T02:26:39.822Z",
+      "events": []
     }
   ]
 }

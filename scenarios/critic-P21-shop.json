@@ -1,0 +1,7 @@
+{ "name": "critic P21 is a shop reachable", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 40000},
+  {"wait": 1000},
+  {"eval": "JSON.stringify(Object.keys(__DQ).filter(function(k){return /shop|buy|inn|church|bank/i.test(k)}))"},
+  {"eval": "JSON.stringify((__DQ.state().boot&&__DQ.state().boot.plugins)||null)"},
+  {"eval": "JSON.stringify(__DQ.listMaps?__DQ.listMaps():null)"}
+]}

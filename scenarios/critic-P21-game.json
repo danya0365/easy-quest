@@ -1,0 +1,15 @@
+{ "name": "critic P21 in the running game", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 40000},
+  {"wait": 1200},
+  {"eval": "JSON.stringify(Object.keys(__DQ))"},
+  {"eval": "JSON.stringify(__DQ.state().stubs||null)"},
+  {"eval": "JSON.stringify(__DQ.state().items||null)"},
+  {"eval": "JSON.stringify(__DQ.state().gold||null)"},
+  {"note": "can the game give the canon rows that only live in items.js?"},
+  {"eval": "JSON.stringify(__DQ.give('seed_of_life',1))"},
+  {"eval": "JSON.stringify(__DQ.give('pot_lid',1))"},
+  {"eval": "JSON.stringify(__DQ.give('papas_letter',1))"},
+  {"eval": "JSON.stringify(__DQ.give('mirror_shield',1))"},
+  {"wait": 400},
+  {"shot": "00-field"}
+]}

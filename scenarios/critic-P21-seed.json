@@ -1,0 +1,17 @@
+{ "name": "critic P21 does a Seed of Life do anything", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 40000},
+  {"wait": 1200},
+  {"eval": "JSON.stringify(__DQ.give('seed_of_life',2))"},
+  {"eval": "JSON.stringify(__DQ.party())"},
+  {"eval": "JSON.stringify(__DQ.menuOpen())"}, {"wait": 600},
+  {"eval": "JSON.stringify(__DQ.menuPick('items'))"}, {"wait": 600},
+  {"eval": "JSON.stringify(__DQ.menuChoose('m-whose','bag'))"}, {"wait": 700},
+  {"eval": "JSON.stringify(__DQ.menuChoose('m-bag','seed_of_life'))"}, {"wait": 800},
+  {"shot": "01-seed-actions"},
+  {"eval": "JSON.stringify(__DQ.menuWindows())"},
+  {"eval": "JSON.stringify(__DQ.menuChoose('m-itemact','use'))"}, {"wait": 1200},
+  {"shot": "02-seed-used"},
+  {"eval": "JSON.stringify([...document.querySelectorAll('.dq-ui .dq-win')].map(w=>(w.textContent||'').replace(/\\s+/g,' ').slice(0,200)))"},
+  {"eval": "JSON.stringify(__DQ.party())"},
+  {"assert": "__DQ.errors.length===0", "msg": "no runtime errors"}
+]}

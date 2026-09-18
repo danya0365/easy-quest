@@ -1,0 +1,16 @@
+{ "name": "P06 all rooms", "steps": [
+  { "waitFor": "window.__DQ && __DQ.ready", "timeout": 40000 },
+  { "wait": 1000 },
+  { "eval": "JSON.stringify(__DQ.listMaps())" },
+  { "eval": "JSON.stringify(__DQ.teleport('int_shop'))" }, { "wait": 1300 }, { "shot": "01-shop" },
+  { "eval": "JSON.stringify(__DQ.teleport('int_chapel'))" }, { "wait": 1300 }, { "shot": "02-chapel" },
+  { "eval": "JSON.stringify(__DQ.teleport('int_mill'))" }, { "wait": 1300 }, { "shot": "03-mill" },
+  { "eval": "JSON.stringify(__DQ.teleport('int_barn'))" }, { "wait": 1300 }, { "shot": "04-barn" },
+  { "eval": "JSON.stringify(__DQ.teleport('int_twins'))" }, { "wait": 1300 }, { "shot": "05-twins" },
+  { "eval": "JSON.stringify(__DQ.teleport('int_hob'))" }, { "wait": 1300 }, { "shot": "06-hob" },
+  { "eval": "JSON.stringify(__DQ.teleport('int_cottage'))" }, { "wait": 1300 }, { "shot": "07-cottage" },
+  { "eval": "JSON.stringify(__DQ.teleport('int_bakery'))" }, { "wait": 1300 }, { "shot": "08-bakery" },
+  { "eval": "JSON.stringify({fps: __DQ.state().fps, map: __DQ.state().map})" },
+  { "eval": "JSON.stringify(__DQ.errors)" },
+  { "assert": "__DQ.errors.length===0", "msg": "no runtime errors" }
+] }

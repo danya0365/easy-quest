@@ -1,0 +1,21 @@
+{ "name": "critic P21 items and equipment (round 1)", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000},
+  {"wait": 600},
+  {"note": "the whole table at a glance"},
+  {"shot": "01-at-a-glance"},
+  {"eval": "JSON.stringify(__DQ.itemAudit())"},
+  {"eval": "JSON.stringify(__DQ.fit())"},
+  {"eval": "__DQ.show('consumable')"}, {"wait": 300}, {"shot": "02-consumables"},
+  {"eval": "__DQ.turn(1)"}, {"wait": 250}, {"shot": "03-seeds"},
+  {"eval": "__DQ.show('key')"}, {"wait": 300}, {"shot": "04-key-items"},
+  {"eval": "__DQ.show('weapon')"}, {"wait": 300}, {"shot": "05-weapons"},
+  {"eval": "__DQ.show('armour')"}, {"wait": 300}, {"shot": "06-armour"},
+  {"eval": "__DQ.show('guard')"}, {"wait": 300}, {"shot": "07-shields-helms"},
+  {"eval": "__DQ.show('accessory')"}, {"wait": 300}, {"shot": "08-trinkets"},
+  {"note": "measurements the bibles can be checked against"},
+  {"eval": "JSON.stringify(__DQ.item('seed_of_life'))"},
+  {"eval": "JSON.stringify(__DQ.item('mirror_shield'))"},
+  {"assert": "__DQ.errors.length===0", "msg": "no runtime errors"},
+  {"assert": "__DQ.itemAudit().missingWords.length===0", "msg": "every row has words"},
+  {"assert": "__DQ.fit().clippedCells.length===0", "msg": "nothing clipped"}
+]}

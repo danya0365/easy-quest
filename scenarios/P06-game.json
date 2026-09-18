@@ -1,0 +1,47 @@
+{ "name": "P06 doors in the real game", "steps": [
+  { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+  { "wait": 1200 },
+  { "eval": "JSON.stringify(__DQ.teleport('puddlewick'))" },
+  { "wait": 1600 },
+  { "shot": "01-village" },
+  { "note": "every exit in Puddlewick, and whether the map it points at is registered" },
+  { "eval": "(async()=>{const m=await import('/src/world/maps/puddlewick.js');const mm=await import('/src/world/map.js');const L=m.puddlewickLayout();window.__P06=L.doors;return JSON.stringify(L.exits.map(e=>({to:e.to,name:e.name,built:mm.Maps.has(e.to)})));})()" },
+  { "eval": "(async()=>{const m=await import('/src/world/maps/puddlewick.js');const mm=await import('/src/world/map.js');const L=m.puddlewickLayout();window.__P06bad=L.exits.filter(e=>!mm.Maps.has(e.to)).map(e=>e.name);return JSON.stringify({exits:L.exits.length,unbuilt:window.__P06bad});})()" },
+
+  { "note": "WALK through the bakery door (no teleport): stand on the doorstep, point the walk frame at it, hold up" },
+  { "eval": "(()=>{const d=window.__P06.puddlewick_bakery;__DQ.teleport('puddlewick',d.x,d.z);__DQ.cameraOrbit(d.facing*180/Math.PI+180,true);return JSON.stringify(d);})()" },
+  { "wait": 700 },
+  { "key": "ArrowUp", "hold": 1100 },
+  { "wait": 1500 },
+  { "eval": "JSON.stringify({map:__DQ.state().map.id,player:__DQ.state().player})" },
+  { "shot": "02-walked-into-bakery" },
+
+  { "note": "...and WALK back out: in a room the door is in the south wall, so the walk frame faces +z" },
+  { "eval": "__DQ.cameraOrbit(180,true)" },
+  { "wait": 500 },
+  { "key": "ArrowUp", "hold": 1800 },
+  { "wait": 1600 },
+  { "eval": "JSON.stringify({map:__DQ.state().map.id,player:__DQ.state().player})" },
+  { "shot": "03-back-on-the-green" },
+
+  { "note": "the chapel, the other end of the village, with its own music" },
+  { "eval": "(()=>{const d=window.__P06.puddlewick_chapel;__DQ.teleport('puddlewick',d.x,d.z);__DQ.cameraOrbit(d.facing*180/Math.PI+180,true);return JSON.stringify(d);})()" },
+  { "wait": 700 },
+  { "key": "ArrowUp", "hold": 1100 },
+  { "wait": 1500 },
+  { "eval": "JSON.stringify({map:__DQ.state().map.id,music:__DQ.state().audio&&__DQ.state().audio.theme})" },
+  { "shot": "04-walked-into-chapel" },
+
+  { "note": "the barn behind Hollybank" },
+  { "eval": "(()=>{__DQ.teleport('puddlewick');const d=window.__P06.hollybank_barn;__DQ.teleport('puddlewick',d.x,d.z);__DQ.cameraOrbit(d.facing*180/Math.PI+180,true);return JSON.stringify(d);})()" },
+  { "wait": 900 },
+  { "key": "ArrowUp", "hold": 1100 },
+  { "wait": 1500 },
+  { "eval": "JSON.stringify({map:__DQ.state().map.id})" },
+  { "shot": "05-walked-into-barn" },
+
+  { "eval": "JSON.stringify({fps:__DQ.state().fps,errors:__DQ.errors})" },
+  { "assert": "__DQ.errors.length===0", "msg": "no runtime errors" },
+  { "assert": "(window.__P06bad||['?']).length===0", "msg": "every Puddlewick exit points at a map that exists" },
+  { "assert": "__DQ.state().map.id==='int_barn'", "msg": "walking into the barn door really arrives in the barn" }
+] }

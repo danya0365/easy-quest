@@ -1,0 +1,15 @@
+{ "name": "P17 + P18 in the REAL game — is the procession live in /index.html?", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 45000},
+  {"wait": 1600},
+  {"shot": "01-the-real-game"},
+  {"note": "P17/P18 install through src/world/party.js. It is not in the src/main.js PLUGINS list yet (integrator-only file), so these two report whether the wiring has landed."},
+  {"eval": "JSON.stringify({friends: !!(__DQ.state().friends), companions: !!(__DQ.state().companions), recruit: typeof __DQ.recruit, wagonMenu: typeof __DQ.wagonMenu})"},
+  {"eval": "JSON.stringify(__DQ.state().boot.plugins)"},
+  {"assert": "__DQ.errors.length === 0", "msg": "the real game boots with no runtime errors"},
+  {"assert": "__DQ.state().fps >= 45", "msg": "55+ fps budget honoured in the real game"},
+  {"note": "Everything below only passes once ONE line is added to src/main.js PLUGINS: [party, () => import('./world/party.js')]"},
+  {"assert": "!!__DQ.state().companions", "msg": "LIVE CHECK: followers/wagon/paddock system installed in the real game"},
+  {"assert": "__DQ.state().companions && __DQ.state().companions.followers.length >= 2", "msg": "LIVE CHECK: Halvard and Bobble walk behind Bram in /index.html"},
+  {"wait": 200},
+  {"shot": "02-the-procession-in-the-real-game"}
+]}

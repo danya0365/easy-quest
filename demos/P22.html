@@ -1,0 +1,176 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>P22 — shops, inn, church and the purse</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>html,body{margin:0;height:100%;overflow:hidden}
+#game-canvas{display:block;width:100vw;height:100vh}#ui-root{position:fixed;inset:0;pointer-events:none}
+#label{position:fixed;left:18px;bottom:16px;font:700 19px "Arial Rounded MT Bold",system-ui,sans-serif;color:#fff;
+  text-shadow:0 2px 0 #23301c,0 0 10px #050a20;pointer-events:none}</style>
+</head><body>
+<canvas id="game-canvas"></canvas><div id="ui-root"></div><div id="label"></div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// DEMO — P22 the counters: a village corner with a shop, an inn and a chapel, and every counter open over it.
+//   __DQ.shop('puddlewick_shop' | 'puddlewick_bakery' | 'puddlewick_inn' | 'puddlewick_shrine' | 'saltmarrow_bank')
+//   __DQ.shop()            -> every counter id and the NPC who keeps it
+//   __DQ.shopPick('buy')   walk the focused window's cursor to that entry and confirm (a child's thumb)
+//   __DQ.economy()         SYSTEMS §5's promise, leg by leg: does the purse cover the next big buy?
+//   __DQ.purse(n)          set the gold   ·  __DQ.orbit(deg)  ·  __DQ.state().shop  ·  __DQ.state().demo
+import * as THREE from 'three';
+import { App } from '/src/engine/app.js';
+import { Scenes } from '/src/engine/states.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { Bus } from '/src/engine/events.js';
+import { PAL, C3, applyCssVars, lerp, smooth } from '/src/art/palette.js';
+import { vnoise } from '/src/art/tex.js';
+import { makeAOMask, makeLightRig, makeBlobShadows } from '/src/art/toon.js';
+import { Roster } from '/src/battle/scene.js';
+import { install as installShop, Shop } from '/src/ui/shop.js';
+import { Economy } from '/src/data/shops.js';
+
+// The scenery kit is loaded dynamically: while the art pieces are being edited in parallel, a module that fails
+// to evaluate must cost this page its props — never its __DQ, and never the whole frame.
+let LIB = null;
+const libReady = import('/src/world/scenery.js').then((m) => { LIB = m; return true; })
+  .catch((e) => { reportError('P22 demo: src/world/scenery.js did not load', e); return false; });
+
+applyCssVars();
+Input.init();
+App.start({ canvas: document.getElementById('game-canvas'), version: '0.1.0-P22', beforeUpdate: Input.update });
+
+const MASK = 96;
+const SPOTS = { shop: { x: -7.5, z: 1.5 }, inn: { x: 3.0, z: 0.0 }, chapel: { x: 15.5, z: -6.0 }, well: { x: -1.0, z: 9.5 } };
+const pads = [];
+function raw(x, z) {
+  return 0.85 * vnoise(x * 0.045 + 3.3, z * 0.045 + 8.1, 5) + 0.3 * vnoise(x * 0.11 + 1.7, z * 0.11 + 2.3, 11) - 0.4;
+}
+function heightAt(x, z) {
+  let h = raw(x, z);
+  for (const p of pads) { const d = Math.hypot(x - p.x, z - p.z); if (d < p.r + 4) h = lerp(h, p.y, 1 - smooth(p.r, p.r + 4, d)); }
+  return h;
+}
+
+const D = { built: [], kit: false };
+
+Scenes.register('demo', () => {
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(46, App.aspect(), 0.3, 1400);
+  const view = { orbit: 5, pitch: 20, dist: 25, target: new THREE.Vector3(3.5, 1.9, 0.5) };
+  let rig = null, kit = null, blobs = null, t = 0, offResize = null;
+  const safe = (name, fn) => { try { return fn(); } catch (e) { reportError('P22 demo: ' + name, e); return null; } };
+
+  function place() {
+    camera.position.set(
+      view.target.x + Math.sin(view.orbit * Math.PI / 180) * Math.cos(view.pitch * Math.PI / 180) * view.dist,
+      view.target.y + Math.sin(view.pitch * Math.PI / 180) * view.dist,
+      view.target.z + Math.cos(view.orbit * Math.PI / 180) * Math.cos(view.pitch * Math.PI / 180) * view.dist);
+    camera.lookAt(view.target);
+  }
+
+  function build() {
+    rig = safe('rig', () => makeLightRig({ scene, preset: 'day' }));
+    if (!LIB) { scene.background = C3(PAL.sky.page); return; }
+    const { createKit, buildSky, ringHill } = LIB;
+    safe('sky', () => buildSky(scene, rig));
+    safe('hills', () => {
+      ringHill(scene, 'mid', 120, 152, 200, 5, 20, 71, PAL.hill.midLow, PAL.hill.mid, 0.2);
+      ringHill(scene, 'far', 230, 290, 360, 12, 74, 81, PAL.hill.farLow, PAL.hill.far, 0.25, { fogged: false, peaky: 1.8 });
+    });
+    for (const [k, p] of Object.entries(SPOTS)) pads.push({ x: p.x, z: p.z, r: k === 'chapel' ? 7 : 4.2, y: raw(p.x, p.z) });
+    const ao = safe('ao', () => makeAOMask({ span: MASK, size: 1024, center: [0, 0] }));
+    kit = safe('kit', () => createKit({ scene, heightAt, ao }));
+    if (!kit) { scene.background = C3(PAL.sky.page); return; }
+    D.kit = true;
+    const masks = safe('masks', () => LIB.paintMasks({ N: 1024, span: MASK, strokes: [
+      { pts: LIB.curvePoints([[-46, 7], [-22, 6], [-6, 5.2], [8, 4.4], [24, 2.6], [46, 0.4]], 0.4), w: 2.6, falloff: 1.1, channel: 0 },
+      { pts: LIB.curvePoints([[15.5, 4.0], [15.5, -2.0], [15.5, -8.0]], 0.4), w: 1.9, falloff: 1.0, channel: 0 },
+    ] }));
+    if (masks) safe('ground', () => LIB.buildGround(scene, { heightAt, masks, ao, inner: 50, step: 0.9, outer: 130, rings: 14 }));
+    safe('shop', () => { kit.shop({ id: 'demo-shop', x: SPOTS.shop.x, z: SPOTS.shop.z, rot: -0.04 }); D.built.push('shop'); });
+    safe('inn', () => { kit.inn({ id: 'demo-inn', x: SPOTS.inn.x, z: SPOTS.inn.z, rot: 0.05 }); D.built.push('inn'); });
+    safe('chapel', () => { kit.church({ id: 'demo-chapel', x: SPOTS.chapel.x, z: SPOTS.chapel.z, rot: 0.02, towerSide: -1 }); D.built.push('chapel'); });
+    safe('well', () => { kit.wellHouse(SPOTS.well.x, SPOTS.well.z, { rot: 0.3 }); D.built.push('well'); });
+    safe('trees', () => {
+      kit.trees([
+        { kind: 'oak', x: -20, z: 9, s: 1.15, r: 0.4 }, { kind: 'oak', x: -15, z: -10, s: 0.95, r: 1.9 },
+        { kind: 'oak', x: 10, z: 11, s: 1.0, r: 2.6 }, { kind: 'chestnut', x: 23, z: 6, s: 1.05, r: 0.9 },
+        { kind: 'oak', x: -26, z: -4, s: 1.0, r: 3.4 }, { kind: 'oak', x: 27, z: -15, s: 1.1, r: 1.2 },
+      ]);
+      D.built.push('trees');
+    });
+    safe('dressing', () => {
+      kit.stoneWall([[-26, 11.0], [-14, 10.4], [-3, 10.0]], { seed: 4 });
+      kit.bench(SPOTS.chapel.x - 3.4, SPOTS.chapel.z + 5.2, 0.1);
+      kit.barrel(SPOTS.shop.x + 3.6, SPOTS.shop.z + 2.6, 1, 0.3);
+      kit.crate(SPOTS.shop.x + 4.4, SPOTS.shop.z + 1.6, 0.6);
+      kit.tufts({ count: 520, radius: 34, seed: 2207 });
+      kit.flowers([{ x: -3.4, z: 8.2, hue: PAL.flower.red, n: 14, spread: 1.4 },
+        { x: 9.4, z: 8.6, hue: PAL.flower.yellow, n: 12, spread: 1.2 },
+        { x: 19.5, z: 3.4, hue: PAL.flower.white, n: 10, spread: 1.1 }]);
+      kit.butterflies([{ x: -3.4, z: 8.2, hue: PAL.flower.yellow }, { x: 9.4, z: 8.6, hue: PAL.flower.white }], { perSpot: 2 });
+      D.built.push('dressing');
+    });
+    // No hero walks this corner, so the see-through fade has nothing to see past: left on, it ghosts the inn and
+    // the front oak into glass every time the camera sits behind them.
+    safe('blobs', () => { blobs = makeBlobShadows(4); scene.add(blobs.mesh); });
+    safe('flush', () => kit.flush());
+    safe('see', () => kit.seeMode('off'));
+  }
+
+  return {
+    opaque: true,
+    enter() {
+      offResize = App.onResize(() => { camera.aspect = App.aspect(); camera.updateProjectionMatrix(); });
+      scene.background = C3(PAL.sky.page);
+      libReady.then(() => { safe('build', build); place(); });
+      place();
+    },
+    exit() { if (offResize) offResize(); },
+    update(dt) {
+      t += dt;
+      if (rig && rig.follow) safe('rig follow', () => rig.follow(view.target));
+      // focus null: nobody is walking here, so nothing needs seeing past — the see-through fade stays out of it
+      if (kit && kit.update) safe('kit update', () => kit.update(t, dt, camera, null));
+    },
+    render() { place(); App.render(scene, camera); },
+    onInput() { return true; },
+  };
+});
+
+Scenes.push('demo');
+
+// ── the piece under test ─────────────────────────────────────────────────────────────────────────────────────
+installShop({ Bus });
+Roster.ensure();
+Roster.gold = 260;                       // enough for a Copper Sword and a change of mind
+
+Debug.provide('demo', () => ({ piece: 'P22', built: D.built.slice(), kit: D.kit, gold: Roster.gold,
+  counters: Shop.Shops.ids().length }));
+Debug.expose('purse', (n) => { Roster.gold = Math.max(0, Math.round(Number(n) || 0)); return { gold: Roster.gold }; });
+/** Knock the family about a bit, so the inn's beds and the church's mending have something to mend. */
+Debug.expose('hurt', (frac = 0.4) => {
+  const out = [];
+  for (const m of Roster.ensure().concat(Roster.wagon || [])) {
+    if (!m || m.kind === 'guest') continue;
+    if (Number.isFinite(m.hp)) m.hp = Math.max(1, Math.round(m.hp * frac));
+    if (Number.isFinite(m.mp)) m.mp = Math.max(0, Math.round(m.mp * frac));
+    m.status = 'poison';
+    out.push(m.name + ' ' + m.hp);
+  }
+  return { hurt: out };
+});
+Debug.expose('orbit', (deg) => { return { orbit: deg }; });
+Debug.expose('legs', () => Economy.nextBuyCheck());
+
+const label = document.getElementById('label');
+function setLabel() {
+  const s = (window.__DQ && window.__DQ.state && window.__DQ.state().shop) || null;
+  label.textContent = s && s.open ? `${s.name} — ${s.keeper || ''} · ${s.stage} · ${s.gold} G`
+    : 'P22 — __DQ.shop(\'puddlewick_shop\') · \'puddlewick_inn\' · \'puddlewick_shrine\' · \'saltmarrow_bank\'';
+}
+Bus.on('shop.open', setLabel); Bus.on('shop.close', setLabel);
+setInterval(setLabel, 400);
+setLabel();
+</script></body></html>

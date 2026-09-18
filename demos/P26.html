@@ -1,0 +1,179 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>DEMO — P26 cutscene engine &amp; P24 Act I</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:var(--pal-sky-page)}
+#game-canvas{display:block;width:100vw;height:100vh}
+#ui-root{position:fixed;inset:0;pointer-events:none;font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif}
+.dqnote{position:absolute;background:linear-gradient(var(--pal-ui-win-top),var(--pal-ui-win-bottom));
+  border:3px solid var(--pal-ui-border);border-radius:12px;color:var(--pal-ui-text);
+  box-shadow:0 0 0 2px var(--pal-ui-border-shade),0 6px 18px var(--p26-shadow)}
+.dqnote::after{content:"";position:absolute;inset:4px;border:1px solid var(--p26-inner);border-radius:8px;pointer-events:none}
+#title{left:16px;bottom:14px;padding:8px 16px 10px;max-width:600px}
+#title h1{margin:0;font-size:18px;font-weight:800;letter-spacing:.3px;text-shadow:0 2px 0 var(--pal-ui-border-shade)}
+#title h1 b{color:var(--pal-ui-gold)}
+#title p{margin:3px 0 0;font-size:12px;color:var(--pal-ui-text-dim);font-weight:600;line-height:1.45}
+#keys{right:16px;bottom:14px;padding:8px 14px;font-size:12px;font-weight:700;line-height:1.55;color:var(--pal-ui-text-dim);text-align:right}
+#keys b{color:var(--pal-ui-cursor)}
+#ledger{left:16px;top:16px;padding:8px 14px 10px;font-size:12px;font-weight:700;line-height:1.5;min-width:236px}
+#ledger h2{margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--pal-ui-gold)}
+#ledger .row{color:var(--pal-ui-text-dim)}
+#ledger .row i{font-style:normal;color:var(--pal-ui-text)}
+#ledger .beat{color:var(--pal-ui-text-dim)}
+#ledger .beat.on{color:var(--pal-ui-cursor)}
+#ledger .beat.done{color:var(--pal-ui-gold)}
+.hide{display:none}
+</style>
+</head><body>
+<canvas id="game-canvas"></canvas>
+<div id="ui-root">
+  <div id="ledger" class="dqnote"><h2>Act I — the ledger</h2><div id="lbody" class="row">booting&hellip;</div></div>
+  <div id="title" class="dqnote"><h1>P26 <b>cutscene engine &amp; story flags</b> &middot; P24 <b>Act I</b></h1>
+    <p id="sub">booting&hellip;</p></div>
+  <div id="keys" class="dqnote"><b>arrows</b> walk &middot; <b>Z</b> talk/hurry &middot; <b>X</b> skip a scene<br/>
+    <b>1</b>&hellip;<b>9</b> play beat B1&hellip;B9 &middot; <b>0</b> the whole Act<br/>
+    <b>D</b> the DSL demo scene &middot; <b>C</b> clear every flag<br/>
+    <b>M</b> Hollybank &middot; <b>N</b> Puddlewick &middot; <b>B</b> the meadow<br/>
+    <b>H</b> hide these captions</p>
+</div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// P26 + P24 — the cutscene engine, the story flags, the quest hint and Act I, installed into the REAL field
+// exactly as src/main.js does it, plus one more line: src/story/script.js's install(ctx). Everything below the
+// install loop is demo scaffolding — a ledger panel so a critic can watch the flags turn over as a scene plays.
+import { App } from '/src/engine/app.js';
+import { Loop } from '/src/engine/loop.js';
+import { Scenes } from '/src/engine/states.js';
+import { Bus } from '/src/engine/events.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { Save } from '/src/engine/save.js';
+import { applyCssVars, css, PAL } from '/src/art/palette.js';
+import { UI } from '/src/ui/window.js';
+import { Text } from '/src/ui/text.js';
+import { Audio } from '/src/audio/audio.js';
+import { Sfx } from '/src/audio/sfx.js';
+import { Maps } from '/src/world/map.js';
+import { Field } from '/src/world/field.js';
+import { preloadHero } from '/src/world/player.js';
+import { Story, say, narrate, move, face, wait, camera, fade, music, sfx, flag, choice, shake, card, spawn, despawn }
+  from '/src/story/script.js';
+import { Flags } from '/src/story/flags.js';
+import { Quests } from '/src/story/quests.js';
+import { Chapter1 } from '/src/story/chapters/ch1.js';
+
+applyCssVars();
+document.documentElement.style.setProperty('--p26-shadow', css(PAL.ui.shadow, 0.45));
+document.documentElement.style.setProperty('--p26-inner', css(PAL.ui.border, 0.35));
+Input.init();
+App.start({ canvas: document.getElementById('game-canvas'), version: '0.3.0-P26', beforeUpdate: Input.update });
+Audio.init();
+Audio.bindEvents(Bus);
+
+const ctx = {
+  version: '0.3.0-P26', App, Loop, Scenes, Bus, Debug, reportError, Input, UI, Text, Save, Audio, Sfx, Field, Maps,
+  Music: () => Promise.resolve(null),
+  vars: { HERO: 'Bram' },
+  boot: { scene: 'field', ctx: { map: 'meadow' }, newGame: false },
+};
+
+await Maps.loadAll();
+await preloadHero().catch(() => false);
+Field.install();
+for (const [name, path] of [
+  ['transitions', '/src/ui/transitions.js'],
+  ['dialogue', '/src/ui/dialogue.js'],
+  ['menu', '/src/ui/menu.js'],
+  ['hud', '/src/ui/hud.js'],
+  ['npc', '/src/world/npc.js'],
+  ['encounter', '/src/world/encounter.js'],
+  ['battle.present', '/src/battle/present.js'],
+  ['battle.scene', '/src/battle/scene.js'],
+  ['story', '/src/story/script.js'],                 // <- P26 + P24: the engine, the flags, the quest, Act I
+]) {
+  try { (await import(path)).install(ctx); } catch (e) { reportError('demo install ' + name, e); }
+}
+
+// ── a scene written here, in front of a critic, to show the language is real ─────────────────────────────────
+const DSL_DEMO = [
+  music('village'),
+  spawn('halvard', 'halvard', { x: 3.0, z: 16.4, facing: 200 }),
+  spawn('bobble', 'monster:gloop', { x: 5.6, z: 17.8, facing: 180 }),
+  face('hero', 'halvard'),
+  camera.shot({ from: { x: 7.2, y: 2.2, z: 20.4 }, lookAt: 'halvard', duration: 1.6, hold: false }),
+  narrate('This whole scene is eighteen lines\nof src/story/script.js, and a\nwriter can read every one.'),
+  say('halvard', 'move, face, say, wait, camera,\nfade, give, flag, joinParty.\nThat is the lot, lad.'),
+  move('hero', { x: 3.0, z: 18.2 }),
+  face('halvard', 'hero'),
+  say('bobble', 'Frankly— Bobble does not read.'),
+  choice(['Nod', 'Nod twice'], [
+    [say('halvard', 'Good lad.')],
+    [say('halvard', 'Steady on.')],
+  ]),
+  shake({ ms: 320, strength: 9 }),
+  sfx('chest_open'),
+  flag('ch1.awake'),
+  say('halvard', 'And every flag it sets is the one\nCANON names — look at the panel.'),
+  camera.follow(),
+  despawn('halvard'), despawn('bobble'),
+];
+
+// ── the ledger panel: flags, the quest hint, and where the next beat is ──────────────────────────────────────
+const sub = document.getElementById('sub');
+const lbody = document.getElementById('lbody');
+function paint() {
+  try {
+    const st = Chapter1.state();
+    const q = Quests.current();
+    const s = Story.state();
+    const rows = [];
+    rows.push(`<div class="row">Act <i>${Flags.act()}</i> &middot; flags set <i>${Flags.describe().set}</i>`
+      + ` &middot; party <i>${Flags.party().join(', ') || '—'}</i></div>`);
+    rows.push(`<div class="row">next: <i>${st.next ? st.next.beat + ' ' + st.next.name : 'Act I complete'}</i></div>`);
+    rows.push(`<div class="row">hint: <i>${q ? q.hint : '—'}</i></div>`);
+    rows.push(`<div class="row">playing: <i>${s.playing ? s.playing.id + ' step ' + s.playing.step + '/' + s.playing.of : 'nothing'}</i></div>`);
+    for (const b of Chapter1.BEATS) {
+      const done = st.done.includes(b.id);
+      const on = st.next && st.next.id === b.id;
+      const where = Chapter1.placeOf(b);
+      rows.push(`<div class="beat ${done ? 'done' : on ? 'on' : ''}">${done ? '✓' : on ? '▶' : '·'} `
+        + `${b.beat} ${b.name} <span style="opacity:.6">${where.journey ? '(by road)' : where.map}</span></div>`);
+    }
+    lbody.innerHTML = rows.join('');
+    sub.textContent = st.missing.length
+      ? `beats on built maps: ${st.built.join(', ')} · played by road until P23 builds: ${st.missing.join(', ')}`
+      : 'every Act I map is built';
+  } catch (e) { reportError('P26 panel', e); }
+}
+Bus.on('flag.set', () => setTimeout(paint, 30));
+Bus.on('story.start', paint);
+Bus.on('story.end', () => setTimeout(paint, 30));
+Bus.on('map.enter', () => setTimeout(paint, 60));
+setInterval(paint, 450);
+
+// ── demo keys ────────────────────────────────────────────────────────────────────────────────────────────────
+addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'h') { for (const id of ['title', 'keys', 'ledger']) document.getElementById(id).classList.toggle('hide'); }
+  if (k >= '1' && k <= '9') Chapter1.play('b' + k);
+  if (k === '0') Chapter1.playAll();
+  if (k === 'd') Story.play(DSL_DEMO, { id: 'dsl' });
+  if (k === 'c') { Flags.clear(); Quests.refresh(); paint(); }
+  if (k === 'm') Field.teleport('hollybank');
+  if (k === 'n') Field.teleport('puddlewick');
+  if (k === 'b') Field.teleport('meadow');
+});
+
+// ── controls a critic (and the harness) drives ───────────────────────────────────────────────────────────────
+Debug.expose('dsl', () => Story.play(DSL_DEMO, { id: 'dsl' }));
+Debug.expose('ledger', () => ({ act1: Chapter1.state(), quest: Quests.current(), flags: Flags.describe(), story: Story.state() }));
+Debug.expose('flagsClear', () => { Flags.clear(); Quests.refresh(); return Flags.describe(); });
+Debug.provide('demo', () => ({ piece: 'P26', beats: Chapter1.BEATS.length, scenes: Story.scenes() }));
+
+Save.newGame();
+Scenes.push('field', { map: 'meadow' });
+paint();
+</script>
+</body></html>

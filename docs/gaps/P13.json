@@ -75,6 +75,37 @@
           "note": "Exact numbers from the real game after the fix: m-misc top 286 bottom 620, m-blurb top 635 bottom 696 - 15 design px of clear air, and both windows report over 0 and spill 0. (An earlier note said 648/28; 635/15 is what the build actually measures.)"
         }
       ]
+    },
+    {
+      "n": 6,
+      "title": "Menu reads the fixture item table, not src/data/items.js",
+      "detail": "src/ui/menu.js imports DATA from tests/battle/data.js, so the bag, Items and Equip windows show 58 fixture rows instead of the 73 canon rows in src/data/items.js (P21, now written). Measured in /index.html: Object.keys(Menu.items).length is 58 at boot; after calling (await import(/src/data/items.js)).install(ctx) it is 73, every row carries its own blurb and where, and the Equip window shows Copper Sword +11 with a green up-arrow 21 delta. Fix: in menu.js install(ctx) add import { ITEMS } from ../data/items.js and call Menu.useData({ items: ITEMS }) (the swap menu.js own header already promises). Then ITEM_WORDS can go, since every row has a blurb.",
+      "state": "still-open",
+      "opened": "2026-09-18T02:12:18.169Z",
+      "events": [
+        {
+          "at": "2026-09-18T02:28:51.948Z",
+          "by": "critic",
+          "pass": false,
+          "note": "Re-measured from the P21 side and still open. At /index.html __DQ.state().items is null, so items.js install() never runs; src/main.js PLUGINS has no data/items.js entry and Menu.useData is never called. The bag therefore shows menu.js's own ITEM_WORDS copy, and 6 of its 17 lines have already drifted from items.js (sunbottle, retreat_bell, homing_feather, whiff_powder, seed_of_life, pot_lid). 41 of the 45 equippable rows fall through to describeGear: Copper Sword reads plus 11 Attack. Only Bram or Rowan can hold it, Mirror Shield reads plus 25 Defence with no word about reflecting Wobble and Snoozle. Note P13 #8, which I opened before spotting this one — it is the same defect with sharper numbers plus the shop case; the orchestrator should merge #8 into #6."
+        }
+      ]
+    },
+    {
+      "n": 7,
+      "title": "No way to see the keys you are carrying",
+      "detail": "P30 gives the player a Rusty Key (found in the pot at the dead end in Puddlewick) which opens the two locked chests. Keys are not battle items so they are not in Roster.bag; treasure.js keeps them in its own ledger and reports them at __DQ.state().treasure.keys. A child therefore has no way to see that they are carrying a key, and no way to learn that the locked chest they could not open is now openable. Fix in src/ui/menu.js: add a Keys (or Important Items) row under Misc that reads the key list. The list is available as Treasure.state().keys from src/world/treasure.js, plus Treasure.KEYS for the display name and blurb of each one.",
+      "state": "open",
+      "opened": "2026-09-18T02:26:39.861Z",
+      "events": []
+    },
+    {
+      "n": 8,
+      "title": "The bag and the shop show a stat line instead of the item's words, because menu.js keeps its own copy of the item table",
+      "detail": "Filed against P13 because the file is src/ui/menu.js, whose own header says Menu.useData swaps in src/data/items.js 'the day P21 lands'. P21 has landed: src/data/items.js holds 73 rows, every one with a one-line blurb in voice, and it exports install(ctx) plus wire(Menu). Nothing calls either — src/main.js's PLUGINS list (transitions, dialogue, menu, hud, npc, encounter, battle.present, battle.scene, title) does not include data/items.js, so __DQ.state().items is null at /index.html and Menu.useData is never called. menu.js therefore keeps ITEMS = DATA.items from tests/battle/data.js (58 rows, 54 of them with no blurb at all) plus its own hand-copied ITEM_WORDS map of 17 lines. Measured at /index.html, walking the bag with __DQ.press('down') and reading .dq-blurb: Copper Sword -> '+11 Attack. Only Bram or Rowan can hold it.' (items.js: 'Your first real sword. It goes green if you sulk.'), Lucky Acorn -> '+8 Luck.', Chain Mail -> '+24 Defence, -2 Speed.', Mirror Shield -> '+25 Defence. Only Bram or Rowan can hold it.' — a 1,700 G shield whose whole point is reflecting Wobble and Snoozle, and the game never says so. All 45 equippable rows and 28 of the 73 rows overall have no words in the running game. The same happens in the shop: shots/P21-critic-d1/p22/03-03-buy-row2.png shows the Sling as '+7 Attack. Only Willow or Linnet can hold it.' instead of 'Willow can knock a pear off a wall with this at thirty paces.' The duplicate has already drifted: 6 of the 17 ITEM_WORDS lines no longer match items.js (sunbottle, retreat_bell, homing_feather, whiff_powder, seed_of_life, and pot_lid, where menu.js says 'Now it is a shield' and items.js says 'Barty would like it back'). Fix inside menu.js: import ITEMS from '../data/items.js' as the default table, delete ITEM_WORDS, and keep DATA.items only as the fallback if that import fails — itemWords() already prefers it.blurb, so the words appear the moment the table is right. Alternative one-liner for the integrator: add ['data.items', () => import('./data/items.js')] to src/main.js PLUGINS, which makes items.js call Menu.useData itself. Related: P14 gap about scene.js reading tests/battle/data.js is the same root — __DQ.give still refuses 12 of the 17 CANON section 6 key items (willows_ribbon, candle, music_box, papas_letter, mums_feather_hairpin, ambergarde_crest, tide_pearl, marsh_lily, stilt_boots, wolfscarf, emberbell, sunlarks_feather) and 3 of the 4 seeds.",
+      "state": "open",
+      "opened": "2026-09-18T02:27:54.811Z",
+      "events": []
     }
   ]
 }

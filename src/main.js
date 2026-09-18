@@ -37,23 +37,14 @@ import { Sfx } from './audio/sfx.js';
 import { Maps } from './world/map.js';
 import { Field } from './world/field.js';
 import { preloadHero } from './world/player.js';
+import { PLUGINS as PLUGIN_MANIFEST } from './plugins.js';
 
 export const VERSION = '0.3.0-seams';
 
 const step = (name, fn) => { try { return fn(); } catch (e) { reportError('boot: ' + name, e); return undefined; } };
 const withTimeout = (p, ms, fallback) => Promise.race([p, new Promise((res) => setTimeout(() => res(fallback), ms))]);
 
-const PLUGINS = [
-  ['transitions', () => import('./ui/transitions.js')],
-  ['dialogue', () => import('./ui/dialogue.js')],
-  ['menu', () => import('./ui/menu.js')],
-  ['hud', () => import('./ui/hud.js')],
-  ['npc', () => import('./world/npc.js')],
-  ['encounter', () => import('./world/encounter.js')],
-  ['battle.present', () => import('./battle/present.js')],
-  ['battle.scene', () => import('./battle/scene.js')],
-  ['title', () => import('./ui/title.js')],
-];
+const PLUGINS = PLUGIN_MANIFEST;
 
 const BOOT = { phase: 'starting', plugins: {}, maps: [], hero: null, booted: null, ms: 0 };
 /** ?hero=placeholder boots with the stand-in hero (before/after comparisons, or when chars.js is being rebuilt). */

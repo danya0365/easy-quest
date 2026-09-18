@@ -1,0 +1,406 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>P21 — Items &amp; Equipment</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#0a1540}
+#game-canvas{display:block;width:100vw;height:100vh}
+#ui-root{position:fixed;inset:0;pointer-events:none}
+
+/* The page is built from the SAME .dq-win the game uses (src/ui/ui.css), laid out in flow instead of absolutely. */
+.p21{position:absolute;inset:0;display:flex;flex-direction:column;gap:calc(14 * var(--u));
+     padding:calc(14 * var(--u)) calc(18 * var(--u));font-family:var(--dq-font);color:var(--dq-ink)}
+.p21 .dq-win{position:relative;visibility:visible;white-space:normal;padding:calc(14 * var(--u)) calc(20 * var(--u))}
+.p21 .hdr{display:flex;align-items:baseline;gap:calc(18 * var(--u));flex:0 0 auto}
+.p21 .hdr .big{font-size:calc(30 * var(--u));color:var(--dq-title-ink);letter-spacing:.06em}
+.p21 .hdr .sub{font-size:calc(20 * var(--u));color:var(--dq-label)}
+.p21 .hdr .g{color:var(--dq-gold)}
+.p21 .mid{flex:1 1 auto;display:flex;gap:calc(14 * var(--u));min-height:0}
+.p21 .nav{flex:0 0 calc(214 * var(--u));display:flex;flex-direction:column;gap:calc(2 * var(--u));
+          font-size:calc(21 * var(--u));overflow:hidden}
+.p21 .nav .e{display:flex;align-items:center;gap:calc(8 * var(--u));padding:calc(3 * var(--u)) calc(2 * var(--u));
+             border-radius:calc(6 * var(--u))}
+.p21 .nav .e .cur{width:calc(16 * var(--u));color:var(--dq-ink);opacity:0}
+.p21 .nav .e.on{background:color-mix(in srgb, var(--dq-ink) 15%, transparent)}
+.p21 .nav .e.on .cur{opacity:1}
+.p21 .nav .e .n{flex:1}
+.p21 .nav .e .c{color:var(--dq-label);font-size:.82em;font-variant-numeric:tabular-nums}
+.p21 .sheet{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;overflow:visible;
+            padding-top:calc(26 * var(--u))}
+.p21 .cols{display:grid;grid-template-columns:1fr calc(98 * var(--u)) calc(222 * var(--u)) calc(152 * var(--u));
+           gap:0 calc(12 * var(--u));align-items:stretch;align-content:start}
+.p21 .colhead{font-size:calc(16 * var(--u));color:var(--dq-title-ink);letter-spacing:.09em;white-space:nowrap;
+              padding-bottom:calc(3 * var(--u));border-bottom:calc(2 * var(--u)) solid var(--dq-hair);margin-bottom:calc(4 * var(--u))}
+.p21 .colhead.r{text-align:right}
+.p21 .rows{overflow:hidden;flex:1 1 auto;min-height:0}
+.p21 .sec{grid-column:1 / -1;font-size:calc(18 * var(--u));color:var(--dq-gold);letter-spacing:.1em;
+          padding:calc(4 * var(--u)) 0 calc(1 * var(--u));border-bottom:calc(1.5 * var(--u)) solid var(--dq-hair);
+          margin-bottom:calc(2 * var(--u))}
+.p21 .cell{padding:calc(3 * var(--u)) 0 calc(4 * var(--u));border-bottom:calc(1 * var(--u)) solid color-mix(in srgb, var(--dq-hair) 45%, transparent)}
+.p21 .nm{font-size:calc(20 * var(--u));color:var(--dq-ink);line-height:1.2}
+.p21 .nm.key{color:var(--dq-gold)}
+.p21 .bl{font-size:calc(15 * var(--u));color:var(--dq-label);line-height:1.2;font-style:italic}
+.p21 .wh{font-size:calc(13 * var(--u));color:color-mix(in srgb, var(--dq-label) 72%, transparent);line-height:1.18}
+.p21 .price{text-align:right;font-variant-numeric:tabular-nums;font-size:calc(19 * var(--u));white-space:nowrap}
+.p21 .price .s{display:block;font-size:calc(13 * var(--u));color:var(--dq-label)}
+.p21 .price .free{color:var(--dq-label);font-size:calc(14 * var(--u));font-style:italic}
+.p21 .st{font-size:calc(16 * var(--u));color:var(--dq-hp);line-height:1.22}
+.p21 .st .down{color:var(--dq-danger)}
+.p21 .tr{font-size:calc(14 * var(--u));color:var(--dq-mp);line-height:1.2;display:block}
+.p21 .who{font-size:calc(16 * var(--u));color:var(--dq-ink);line-height:1.22}
+.p21 .who.any{color:var(--dq-label)}
+/* at-a-glance: the whole table on one screen */
+.p21 .glance{display:flex;gap:calc(20 * var(--u));font-size:calc(var(--gf, 15) * var(--u));align-items:stretch}
+.p21 .glance .gcol{flex:1 1 0;min-width:0;overflow:hidden}
+.p21 .glance .gsec{color:var(--dq-gold);letter-spacing:.08em;font-size:1em;
+                   break-after:avoid;margin:calc(5 * var(--u)) 0 calc(2 * var(--u));
+                   border-bottom:calc(1.5 * var(--u)) solid var(--dq-hair)}
+.p21 .glance .gsec:first-child{margin-top:0}
+.p21 .glance .gr{display:flex;gap:calc(6 * var(--u));align-items:baseline;line-height:1.28;
+                 break-inside:avoid;white-space:nowrap}
+.p21 .glance .gr .gn{flex:1;overflow:hidden;text-overflow:ellipsis}
+.p21 .glance .gr .gn.key{color:var(--dq-gold)}
+.p21 .glance .gr .gv{color:var(--dq-hp);font-variant-numeric:tabular-nums}
+.p21 .glance .gr .gp{color:var(--dq-label);font-variant-numeric:tabular-nums;min-width:calc(46 * var(--u));text-align:right}
+.p21 .foot{flex:0 0 auto;display:flex;align-items:center;gap:calc(16 * var(--u));font-size:calc(18 * var(--u));
+           color:var(--dq-label);padding-top:calc(6 * var(--u))}
+.p21 .foot .pg{color:var(--dq-gold);font-variant-numeric:tabular-nums}
+</style>
+</head><body>
+<canvas id="game-canvas"></canvas><div id="ui-root"></div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// DEMO — P21: the whole item table. Every item in the tale with its words, its price, what it does to your
+// numbers, who can hold it and where a child finds it — so a critic can check the lot at a glance.
+import * as THREE from 'three';
+import { App } from '/src/engine/app.js';
+import { Scenes } from '/src/engine/states.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { PAL, C3, applyCssVars } from '/src/art/palette.js';
+import {
+  ITEMS, ITEM_LIST, KINDS, KIND_NAMES, audit, describe, sellPrice, statPairs, traitWords, whoWords, isKey,
+} from '/src/data/items.js';
+
+applyCssVars();
+Input.init();
+App.start({ canvas: document.getElementById('game-canvas'), version: '0.1.0-P21', beforeUpdate: Input.update });
+
+// ── a warm painted backdrop so the catalogue sits in Dragon Quest daylight, not on a black page ───────────────
+function backdrop() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 288;
+  const g = c.getContext('2d');
+  const sky = g.createLinearGradient(0, 0, 0, 288);
+  sky.addColorStop(0, PAL.sky.zenith); sky.addColorStop(0.42, PAL.sky.upper);
+  sky.addColorStop(0.72, PAL.sky.horizon); sky.addColorStop(1, PAL.sky.sunGlow);
+  g.fillStyle = sky; g.fillRect(0, 0, 512, 288);
+  // big soft clouds
+  g.globalAlpha = 0.85;
+  for (const [x, y, r] of [[80, 70, 34], [110, 62, 26], [138, 74, 22], [330, 52, 30], [362, 46, 22], [392, 58, 18], [230, 96, 18]]) {
+    const cg = g.createRadialGradient(x, y, r * 0.2, x, y, r);
+    cg.addColorStop(0, PAL.cloud.lit); cg.addColorStop(0.7, PAL.cloud.mid); cg.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = cg; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  g.globalAlpha = 1;
+  // three hill layers into haze, then the near meadow
+  const hills = [[196, PAL.hill.far, 26], [216, PAL.hill.mid, 34], [238, PAL.hill.near, 30]];
+  for (const [base, col, amp] of hills) {
+    g.fillStyle = col; g.beginPath(); g.moveTo(0, 288);
+    for (let x = 0; x <= 512; x += 8) g.lineTo(x, base - Math.sin(x * 0.012 + base) * amp * 0.5 - Math.sin(x * 0.031) * amp * 0.25);
+    g.lineTo(512, 288); g.closePath(); g.fill();
+  }
+  g.fillStyle = PAL.grass.mid; g.fillRect(0, 262, 512, 26);
+  g.fillStyle = PAL.grass.sun; g.globalAlpha = 0.5; g.fillRect(0, 262, 512, 8); g.globalAlpha = 1;
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
+}
+
+Scenes.register('demo', () => {
+  const scene = new THREE.Scene();
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10);
+  camera.position.z = 1;
+  let quad = null;
+  return {
+    opaque: true,
+    enter() {
+      try {
+        quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2),
+          new THREE.MeshBasicMaterial({ map: backdrop(), toneMapped: false, depthTest: false }));
+        scene.add(quad);
+      } catch (e) { reportError('P21 backdrop', e); }
+    },
+    exit() { if (quad) { quad.geometry.dispose(); quad.material.dispose(); } },
+    update() {},
+    render() { App.render(scene, camera); },
+    onInput(btn) { Page.input(btn); return true; },
+  };
+});
+Scenes.push('demo');
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// THE CATALOGUE
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+const A = audit();
+const SECTIONS = [
+  { id: 'glance', name: 'At a glance', kinds: KINDS, glance: true },
+  { id: 'all', name: 'Everything', kinds: KINDS },
+  { id: 'consumable', name: 'Things to use', kinds: ['consumable'] },
+  { id: 'key', name: 'Important things', kinds: ['key'] },
+  { id: 'weapon', name: 'Weapons', kinds: ['weapon'] },
+  { id: 'armour', name: 'Armour', kinds: ['armour'] },
+  { id: 'guard', name: 'Shields & helms', kinds: ['shield', 'helm'] },
+  { id: 'accessory', name: 'Trinkets', kinds: ['accessory'] },
+];
+const rowsOf = (sec) => ITEM_LIST.filter((r) => sec.kinds.includes(r.kind));
+/** How many rows fit on one page of this section — measured, never guessed, so nothing is ever cut in half. */
+const perPage = {};
+const pageCount = (sec) => (sec.glance ? 1 : Math.max(1, Math.ceil(rowsOf(sec).length / (perPage[sec.id] || 6))));
+
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const root = el('div', 'dq-ui');
+root.style.pointerEvents = 'auto';
+document.getElementById('ui-root').appendChild(root);
+const page = el('div', 'p21'); root.appendChild(page);
+
+// header
+const hdr = el('div', 'dq-win dq-shown hdr');
+hdr.appendChild(el('span', 'big', 'The Bag'));
+const hdrSub = el('span', 'sub'); hdr.appendChild(hdrSub);
+page.appendChild(hdr);
+
+const mid = el('div', 'mid'); page.appendChild(mid);
+const nav = el('div', 'dq-win dq-shown nav'); mid.appendChild(nav);
+const sheet = el('div', 'dq-win dq-shown sheet'); mid.appendChild(sheet);
+
+const sheetTitle = el('div', 'dq-title'); sheet.appendChild(sheetTitle);
+const grid = el('div', 'cols rows'); sheet.appendChild(grid);
+const foot = el('div', 'foot'); sheet.appendChild(foot);
+
+let secIndex = 0, pageIndex = 0;
+const navEls = SECTIONS.map((s, i) => {
+  const e = el('div', 'e');
+  e.appendChild(el('span', 'cur', '▶'));
+  e.appendChild(el('span', 'n', s.name));
+  e.appendChild(el('span', 'c', String(rowsOf(s).length)));
+  e.addEventListener('click', () => { secIndex = i; pageIndex = 0; draw(); });
+  nav.appendChild(e);
+  return e;
+});
+
+function statCell(r) {
+  const box = el('div', 'cell');
+  const pairs = statPairs(r);
+  if (pairs.length) {
+    const s = el('div', 'st');
+    pairs.forEach(([label, n], i) => {
+      const span = el('span', n < 0 ? 'down' : null, `${n > 0 ? '+' : '−'}${Math.abs(n)} ${label}`);
+      s.appendChild(span);
+      if (i < pairs.length - 1) s.appendChild(document.createTextNode('  '));
+    });
+    box.appendChild(s);
+  }
+  const traits = traitWords(r).filter((t) => t !== 'Cannot be sold or dropped');
+  if (traits.length) box.appendChild(el('span', 'tr', traits.join('. ') + '.'));
+  if (!pairs.length && !traits.length) box.appendChild(el('span', 'tr', '—'));
+  return box;
+}
+
+/** True when the last thing drawn has fallen out of the bottom (or off the side) of its container. */
+function overflows(c) {
+  if (c.scrollHeight > c.clientHeight + 1 || c.scrollWidth > c.clientWidth + 1) return true;
+  for (const kid of c.children) if (kid.scrollHeight > kid.clientHeight + 1) return true;
+  return false;
+}
+
+/** The short number a glance line shows: a weapon's Attack, a piece of kit's Defence, a potion's heal. */
+function glanceValue(r) {
+  if (typeof r.power === 'number') return '+' + r.power;
+  if (typeof r.def === 'number' && r.slot) return '+' + r.def;
+  const b = r.battle;
+  if (b && b.effect === 'heal') return b.amount + ' HP';
+  if (b && b.effect === 'mp') return b.amount + ' MP';
+  if (b && b.effect === 'damageAll') return b.amount + ' dmg';
+  if (typeof r.agi === 'number') return '+' + r.agi + ' Nim';
+  if (typeof r.luck === 'number') return '+' + r.luck + ' Luck';
+  return '';
+}
+
+/** The whole table on one screen: 73 names, their key number and their price, in three columns. */
+function drawGlance() {
+  grid.className = 'glance rows';
+  grid.textContent = '';
+  // Build the lines first, then deal them into three real columns, so the height of each one can be measured.
+  const lines = [];
+  for (const kind of KINDS) {
+    const rows = ITEM_LIST.filter((r) => r.kind === kind);
+    if (!rows.length) continue;
+    lines.push(() => el('div', 'gsec', `${KIND_NAMES[kind]} (${rows.length})`));
+    for (const r of rows) {
+      lines.push(() => {
+        const line = el('div', 'gr');
+        line.appendChild(el('span', 'gn' + (isKey(r) ? ' key' : ''), r.name));
+        line.appendChild(el('span', 'gv', glanceValue(r)));
+        line.appendChild(el('span', 'gp', r.buy > 0 ? r.buy.toLocaleString('en-GB') + 'G' : '—'));
+        return line;
+      });
+    }
+  }
+  const per = Math.ceil(lines.length / 3);
+  const cols = [el('div', 'gcol'), el('div', 'gcol'), el('div', 'gcol')];
+  lines.forEach((make, i) => cols[Math.min(2, Math.floor(i / per))].appendChild(make()));
+  for (const c of cols) grid.appendChild(c);
+  return cols;
+}
+
+/** One page of the detailed sheet. Returns true if every row drawn fits inside the window. */
+function drawRows(slice, withSections) {
+  grid.className = 'cols rows';
+  grid.textContent = '';
+  for (const [h, cls] of [['Item', ''], ['Gold', 'r'], ['What it does', ''], ['Who can hold it', '']]) {
+    grid.appendChild(el('div', 'colhead' + (cls ? ' ' + cls : ''), h));
+  }
+  let lastKind = null;
+  for (const r of slice) {
+    if (withSections && r.kind !== lastKind) { lastKind = r.kind; grid.appendChild(el('div', 'sec', KIND_NAMES[r.kind])); }
+    const c1 = el('div', 'cell');
+    c1.appendChild(el('div', 'nm' + (isKey(r) ? ' key' : ''), r.name));
+    c1.appendChild(el('div', 'bl', r.blurb));
+    c1.appendChild(el('div', 'wh', r.where));
+    grid.appendChild(c1);
+
+    const c2 = el('div', 'cell price');
+    if (r.buy > 0) {
+      c2.appendChild(document.createTextNode(r.buy.toLocaleString('en-GB') + ' G'));
+      c2.appendChild(el('span', 's', 'sells ' + sellPrice(r).toLocaleString('en-GB') + ' G'));
+    } else {
+      c2.appendChild(el('span', 'free', isKey(r) ? 'never sold' : 'found only'));
+    }
+    grid.appendChild(c2);
+
+    grid.appendChild(statCell(r));
+
+    const w = whoWords(r);
+    grid.appendChild(el('div', 'cell who' + (w === 'Anyone' ? ' any' : ''), w));
+  }
+  return grid.scrollHeight <= grid.clientHeight + 1;
+}
+
+function draw() {
+  const sec = SECTIONS[secIndex];
+
+  hdrSub.textContent = '';
+  hdrSub.appendChild(document.createTextNode('every item, weapon and keepsake in the tale — '));
+  hdrSub.appendChild(el('span', 'g', String(A.total)));
+  hdrSub.appendChild(document.createTextNode(` things · ${A.equippable} you can wear · ${A.buyable} in the shops · ${A.keys} that cannot be sold`));
+  navEls.forEach((e, i) => e.classList.toggle('on', i === secIndex));
+  sheetTitle.textContent = sec.name;
+
+  let pages = 1;
+  if (sec.glance) {
+    pageIndex = 0;
+    drawGlance();
+    // Shrink the type until all 73 lines really are on the one screen. Measured, not guessed.
+    let gf = 16;
+    for (let guard = 0; guard < 18; guard++) {
+      grid.style.setProperty('--gf', String(gf));
+      if (!overflows(grid)) break;
+      gf -= 0.5;
+      if (gf < 9) break;
+    }
+  } else {
+    const rows = rowsOf(sec);
+    // Find how many rows really fit, by drawing and measuring. Start from the last answer for this section.
+    let n = perPage[sec.id] || 8;
+    pageIndex = Math.min(pageIndex, Math.max(0, Math.ceil(rows.length / n) - 1));
+    let start = pageIndex * n;
+    for (let guard = 0; guard < 14; guard++) {
+      const ok = drawRows(rows.slice(start, start + n), sec.id === 'all');
+      if (ok || n <= 1) break;
+      n -= 1; start = pageIndex * n;
+    }
+    // If a smaller page now fits more, try to grow again (so a short section does not page needlessly).
+    while (n < rows.length) {
+      const grew = drawRows(rows.slice(pageIndex * (n + 1), pageIndex * (n + 1) + n + 1), sec.id === 'all');
+      if (!grew) { drawRows(rows.slice(pageIndex * n, pageIndex * n + n), sec.id === 'all'); break; }
+      n += 1;
+    }
+    perPage[sec.id] = n;
+    pages = Math.max(1, Math.ceil(rows.length / n));
+    pageIndex = Math.min(pageIndex, pages - 1);
+    drawRows(rows.slice(pageIndex * n, pageIndex * n + n), sec.id === 'all');
+  }
+
+  foot.textContent = '';
+  foot.appendChild(el('span', 'pg', sec.glance ? `all ${A.total}` : `Page ${pageIndex + 1} / ${pages}`));
+  foot.appendChild(el('span', null, '↑↓ pick a shelf  ·  ←→ turn the page'));
+  if (A.missingWords.length) foot.appendChild(el('span', null, 'MISSING WORDS: ' + A.missingWords.join(', ')));
+}
+
+const Page = {
+  input(btn) {
+    const sec = SECTIONS[secIndex];
+    const pages = pageCount(sec);
+    if (btn === 'up') { secIndex = (secIndex + SECTIONS.length - 1) % SECTIONS.length; pageIndex = 0; }
+    else if (btn === 'down') { secIndex = (secIndex + 1) % SECTIONS.length; pageIndex = 0; }
+    else if (btn === 'left') { pageIndex = (pageIndex + pages - 1) % pages; }
+    else if (btn === 'right' || btn === 'confirm') { pageIndex = (pageIndex + 1) % pages; }
+    else return;
+    draw();
+  },
+};
+
+const redraw = () => { try { draw(); } catch (e) { reportError('P21 draw', e); } };
+redraw();
+// The rounded UI font arrives after the first layout and changes every line's height, so measure again once it
+// is really there (and once more on the next frame). Every page is then fitted to the type the child actually sees.
+requestAnimationFrame(redraw);
+try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw, () => {}); } catch (_) { /* ignore */ }
+window.addEventListener('resize', redraw);
+
+// ── what a critic can read and drive ─────────────────────────────────────────────────────────────────────────
+function fit() {
+  // Measure every window and every row in the 1280x720 design frame: nothing may run off the screen, and no
+  // item's words may spill out of its cell.
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const spill = [];
+  for (const w of page.querySelectorAll('.dq-win')) {
+    const r = w.getBoundingClientRect();
+    if (r.left < -0.5 || r.top < -0.5 || r.right > vw + 0.5 || r.bottom > vh + 0.5) spill.push(w.className);
+  }
+  const clipped = [];
+  for (const c of grid.querySelectorAll('.cell, .colhead')) {
+    if (c.scrollHeight > c.clientHeight + 1 || c.scrollWidth > c.clientWidth + 1) clipped.push(c.textContent.slice(0, 24));
+  }
+  const shortened = Array.from(grid.querySelectorAll('.gn')).filter((e) => e.scrollWidth > e.clientWidth + 1)
+    .map((e) => e.textContent);
+  // The row area itself must not be scrolling: if it is, a row is cut in half at the bottom of the window.
+  return {
+    vw, vh, windowsOffScreen: spill, clippedCells: clipped, shortenedNames: shortened,
+    rowsFit: !overflows(grid),
+    overflowPx: Math.max(0, grid.scrollHeight - grid.clientHeight),
+  };
+}
+
+Debug.provide('items', () => ({
+  ...audit(),
+  section: SECTIONS[secIndex].id,
+  page: pageIndex + 1, pages: pageCount(SECTIONS[secIndex]), perPage: perPage[SECTIONS[secIndex].id] || null,
+  shown: Array.from(grid.querySelectorAll('.nm, .gn')).map((e) => e.textContent),
+  fit: fit(),
+}));
+Debug.expose('show', (id) => {
+  const i = SECTIONS.findIndex((s) => s.id === id);
+  if (i < 0) return { ok: false, sections: SECTIONS.map((s) => s.id) };
+  secIndex = i; pageIndex = 0; draw();
+  return { ok: true, section: id, pages: pageCount(SECTIONS[i]) };
+});
+Debug.expose('turn', (n = 1) => {
+  const sec = SECTIONS[secIndex], pages = pageCount(sec);
+  pageIndex = ((pageIndex + n) % pages + pages) % pages;
+  draw();
+  return { page: pageIndex + 1, pages };
+});
+Debug.expose('item', (id) => describe(id));
+Debug.expose('itemAudit', () => audit());
+Debug.expose('fit', () => fit());
+</script></body></html>

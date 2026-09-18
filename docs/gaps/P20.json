@@ -1,0 +1,68 @@
+{
+  "id": "P20",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Spells do not travel from caster to target",
+      "detail": "Every spell effect detonates at the target with no flight: no fireball arcs across, no bolt of frost leaves the caster's hand. DQV reads cast (caster glows) then travel then impact. Add an optional from:{x,y,z} to FX.play so the library can emit a small travelling head that lands at at:{} and then fires the burst, and give each damage spell a castMs so the presenter can time the message box to it.",
+      "state": "verified-fixed",
+      "opened": "2026-09-18T02:33:57.578Z",
+      "events": [
+        {
+          "at": "2026-09-18T02:36:57.375Z",
+          "by": "builder",
+          "note": "FX.play now takes from:{x,y,z} and travelMs (default 190 ms): a comet head plus a 16-spark tail leaves the caster, and the burst is fired at the landing point when it arrives, so play returns {ms: effect+travel, peak: peak+travel, travelMs}. Verified in shots/P20-final/20-travel-inflight.png (the comet is mid-flight between the caster and monster markers) and 21-travel-impact.png (flames at the monster, caster empty), driven by __DQ.travel('fire_burst'). 24 frames, 122.2 fps, 0 errors."
+        },
+        {
+          "at": "2026-09-18T02:52:18.736Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Measured a real flight: FX.play with from and travelMs 900, frames at 150/350/550/750 ms put the comet head at screen x=273, 561, 929, 958 (diff vs a matched empty frame, maxDelta 477-507 of 765), and the burst then fires at the landing pad. It works, but at the default 190-260 ms the head is only about 126x70 px and lives for two frames, so a 7-frame 55 ms burst missed it entirely."
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "title": "No screen shake or hit-stop on a big spell",
+      "detail": "WEIGHT: a Kazapple lands with a flash and a ring but the camera never moves. FX cannot shake the camera (src/world/camera.js is P09 and the battle camera is P15), so add a Bus emit fx.shake {amp, ms} from the heavy effects (fire_big, lightning, level_pillar, shockwave) and a short freeze hint, then ask P09/P15 to honour it.",
+      "state": "still-open",
+      "opened": "2026-09-18T02:33:57.615Z",
+      "events": [
+        {
+          "at": "2026-09-18T02:36:57.414Z",
+          "by": "builder",
+          "note": "The asking side is built: FX now has setShake(fn) and the six heavy effects (fire_big 0.5, lightning 0.7, frost 0.3, shockwave 0.6, level_pillar 0.25, and fire_big via fire_burst) call it with {amp, ms}. install(ctx) routes it to Bus.emit('fx.shake', {amp, ms}), and __DQ.state().fx reports shakes and shakeHook. Measured in the real game: shakeHook true, shakes 4 over 9 effects (shots/P20-game-final/report.json); in the demo shakes 22 with no Bus attached and nothing throws. FX owns no camera, so ACTUALLY MOVING the view is filed under P15 (battle rig) and P09 (field camera)."
+        },
+        {
+          "at": "2026-09-18T02:52:30.566Z",
+          "by": "critic",
+          "pass": false,
+          "note": "The camera still never moves on a heavy spell. Measured in the running build: Bus.count('fx.shake') === 0 in the demo and there is no Bus.on('fx.shake') anywhere in src/ (grep: only fx.js emits it). FX.state().shakes climbs (17 after a pass over the library) and install() does route setShake to the Bus, so P20's asking side is real, but with nobody listening the scene camera is byte-identical before and after fire_big (demo cam {orbit:20,zoom:1,tx:0,tz:0,ty:1.4} unchanged; the dist 8.5->9.5 delta is the demo's own framing table, not a shake). MISFILED: P20 cannot close this. It needs Bus.on('fx.shake') in src/world/camera.js (P09) and src/battle/present.js (P15). Please move it."
+        }
+      ]
+    },
+    {
+      "n": 3,
+      "title": "showAll grid is too far out to judge the quiet effects",
+      "detail": "demos/P20.html showAll puts 25 effects on a 6-wide grid at 21 units, where footstep_dust, smoke_puff, chest_sparkle and poison_bubbles are a few pixels across and cannot be judged. Give showAll a second pass that walks the grid pad by pad with the camera close, or drop the grid to 4 wide at 14 units.",
+      "state": "still-open",
+      "opened": "2026-09-18T02:33:57.648Z",
+      "events": [
+        {
+          "at": "2026-09-18T02:52:37.598Z",
+          "by": "critic",
+          "pass": false,
+          "note": "Unchanged. demos/P20.html still has GRID.cols = 6 and showAll camTo(0,0,21,0). Measured from 01-gap3-showall.png: a 0.9-unit pad projects to about 72 px across at 21 units, and the quiet effects are far smaller than their pad - footstep_dust measures 30x22 px at 8.5 units, so at 21 units and scale 0.8 it is about 10 px across. In the frame footstep_dust, chest_sparkle and root_vines show nothing at all on their pads. __DQ.page(n) does give six-at-a-time close-ups, but showAll itself, the one shot a critic takes first, is still unjudgeable."
+        }
+      ]
+    },
+    {
+      "n": 4,
+      "title": "Fire is not fire: every burst blows out to white-yellow, no orange, no red, no outline",
+      "detail": "Measured at each effect's own stated peak, 1280x720, on the demo meadow. fire_burst: of the non-grass pixels, 52 percent yellow and 48 percent white — ZERO orange and ZERO red pixels. fire_big: 62 percent yellow, 38 percent white, again zero orange and zero red. On screen it reads as a pale lemon lotus flower or a tulip, not a flame: five or six flat symmetrical petals round a blown-out white core. The palette already holds the right colours (K.fireMid is PAL.tile.light #e98657 and K.fireDeep is PAL.tile.dark #93402a) but they never survive, because sixteen additive flame quads at a 0.95 plus an additive white SHAPE.blob stack multiplicatively to white. Three fixes, all inside src/art/fx.js: (1) draw the flame cell in the atlas with a dark cel edge and a warm ramp (deep #93402a rim, #e98657 body, #ffd64a inner, white only in the smallest hottest quad) and render the body quads NON-additive so the colour holds, keeping additive only for the ember sparks; (2) cap the white core to about a quarter of the cluster's area and give it a short life so the peak frame is orange-dominant — a child should see orange in over 40 percent of the effect pixels; (3) make the tiers read apart by shape as well as size: Scorcha one small cluster, Scorchalot a cluster plus a rising column, Kascorcha a ground ring of flame plus the 25 percent warm orange full-screen wash and 4 px shake the SYSTEMS 3.1 brief asks for (the wash is currently screenFlash(PAL.tile.light, 0.2, 300), which the measurement shows arrives as a pale wash, not a warm orange one). The same root cause — additive white-out with no dark edge — is why ice, wind and buff all land as pale mint on green: fixing the atlas cells and the blend mode fixes the whole library.",
+      "state": "open",
+      "opened": "2026-09-18T02:52:57.436Z",
+      "events": []
+    }
+  ]
+}

@@ -1,0 +1,142 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>DEMO — P30 discovery &middot; chests, searching &amp; secrets</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:var(--pal-sky-page)}
+#game-canvas{display:block;width:100vw;height:100vh}
+#ui-root{position:fixed;inset:0;pointer-events:none;font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif}
+.dqwin{position:absolute;background:linear-gradient(var(--pal-ui-win-top),var(--pal-ui-win-bottom));border:3px solid var(--pal-ui-border);
+  border-radius:12px;box-shadow:0 0 0 2px var(--pal-ui-border-shade),0 6px 18px var(--p30-shadow);color:var(--pal-ui-text)}
+.dqwin::after{content:"";position:absolute;inset:4px;border:1px solid var(--p30-inner);border-radius:8px;pointer-events:none}
+#title{left:16px;top:14px;padding:8px 16px 10px;max-width:520px}
+#title h1{margin:0;font-size:20px;letter-spacing:.3px;font-weight:800;text-shadow:0 2px 0 var(--pal-ui-border-shade)}
+#title h1 b{color:var(--pal-ui-gold)}
+#title p{margin:3px 0 0;font-size:12.5px;color:var(--pal-ui-text-dim);font-weight:600;line-height:1.4}
+#keys{right:16px;top:14px;padding:8px 14px;font-size:12.5px;font-weight:700;line-height:1.55;color:var(--pal-ui-text-dim)}
+#keys b{color:var(--pal-ui-cursor)}
+#live{left:16px;bottom:14px;padding:7px 14px;font-size:12.5px;font-weight:700;color:var(--pal-ui-text-dim);max-width:560px;line-height:1.5}
+#live b{color:var(--pal-ui-gold)}
+</style>
+</head><body>
+<canvas id="game-canvas"></canvas>
+<div id="ui-root">
+  <div id="title" class="dqwin"><h1>P30 <b>discovery</b> &middot; chests, searching &amp; secrets</h1>
+    <p id="sub">booting the vale&hellip;</p></div>
+  <div id="keys" class="dqwin"><b>Z</b> open / search &middot; <b>arrows</b> walk &middot; <b>Q/E</b> orbit<br/>
+    <b>1</b> the chest on the lane &middot; <b>2</b> a locked chest<br/>
+    <b>3</b> the key, then the locked chest &middot; <b>4</b> the mimic<br/>
+    <b>5</b> the secret in the fallen oak &middot; <b>6</b> search a hay bale<br/>
+    <b>7</b> Puddlewick &middot; <b>8</b> Bram&rsquo;s cottage &middot; <b>9</b> the inn<br/>
+    <b>0</b> forget every chest ever opened</div>
+  <div id="live" class="dqwin">booting&hellip;</div>
+</div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// P30 — the treasure system installed into the REAL field exactly as the game does it (src/world/treasure.js boots
+// itself from src/world/maps/meadow.chests.js), with the dialogue and NPC plugins so the ceremony has a window to
+// speak in. Everything below the install calls is demo scaffolding.
+import { App } from '/src/engine/app.js';
+import { Loop } from '/src/engine/loop.js';
+import { Scenes } from '/src/engine/states.js';
+import { Bus } from '/src/engine/events.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { Save } from '/src/engine/save.js';
+import { applyCssVars, css, PAL } from '/src/art/palette.js';
+import { UI } from '/src/ui/window.js';
+import { Text } from '/src/ui/text.js';
+import { Audio } from '/src/audio/audio.js';
+import { Sfx } from '/src/audio/sfx.js';
+import { Maps } from '/src/world/map.js';
+import { Field } from '/src/world/field.js';
+import { preloadHero } from '/src/world/player.js';
+import { Treasure } from '/src/world/treasure.js';
+
+applyCssVars();
+document.documentElement.style.setProperty('--p30-shadow', css(PAL.ui.shadow, 0.45));
+document.documentElement.style.setProperty('--p30-inner', css(PAL.ui.border, 0.35));
+Input.init();
+App.start({ canvas: document.getElementById('game-canvas'), version: '0.3.0-P30', beforeUpdate: Input.update });
+Audio.init();
+Audio.bindEvents(Bus);
+
+const ctx = {
+  version: '0.3.0-P30', App, Loop, Scenes, Bus, Debug, reportError, Input, UI, Text, Save, Audio, Sfx, Field, Maps,
+  Music: () => Promise.resolve(null),
+  vars: { HERO: 'Bram' },
+  boot: { scene: 'field', ctx: { map: 'meadow' }, newGame: false },
+};
+
+const sub = document.getElementById('sub');
+const live = document.getElementById('live');
+
+await Maps.loadAll();                                   // importing meadow.chests.js boots Treasure
+await preloadHero().catch(() => false);
+Field.install();
+Treasure.install(ctx);                                  // idempotent: boot() already ran during loadAll
+for (const [name, path] of [['transitions', '/src/ui/transitions.js'], ['dialogue', '/src/ui/dialogue.js'],
+  ['menu', '/src/ui/menu.js'], ['npc', '/src/world/npc.js'], ['present', '/src/battle/present.js'],
+  ['battle', '/src/battle/scene.js']]) {
+  try { (await import(path)).install(ctx); } catch (e) { reportError('demo install ' + name, e); }
+}
+Scenes.push('field', { map: 'meadow' });
+
+/**
+ * Stand the hero in front of a named piece of treasure and turn him at it, so a critic never has to steer.
+ * The spot is worked out from where the chest REALLY ended up (a chest is nudged to the nearest place a boy can
+ * stand beside it), and always on the +z side where it can be, because an interior's camera does not orbit.
+ */
+function at(mapId, id) {
+  const D = window.__DQ;
+  D.teleport(mapId);
+  const t = ((D.state().treasure || {}).here || []).find((c) => c.id === id);
+  if (!t) return { ok: false, id, here: ((D.state().treasure || {}).here || []).map((c) => c.id) };
+  const m = Field.map;
+  for (const [dx, dz] of [[0.78, 0.86], [-0.78, 0.86], [0, 1.15], [0, 1.4], [-1.25, 0], [1.25, 0], [0.8, -0.8], [0, -1.25]]) {
+    const x = t.x + dx, z = t.z + dz;
+    if (m && !m.clear(x, z)) continue;
+    D.teleport(mapId, x, z);
+    D.face((Math.atan2(t.x - x, t.z - z) * 180) / Math.PI);
+    const p = D.state().player;
+    if (Math.hypot(p.x - t.x, p.z - t.z) <= 1.45) break;
+  }
+  return D.state().treasure;
+}
+
+const STOPS = {
+  1: () => at('meadow', 'meadow_lane_chest'),            // a chest on the lane, two steps from where you start
+  2: () => at('meadow', 'meadow_locked_chest'),          // the locked chest, with no key
+  3: () => { window.__DQ.treasureGive('rusty_key'); return STOPS[2](); },
+  4: () => at('meadow', 'meadow_mimic'),                 // the Chestnut, among the stumps in the north wood
+  5: () => at('meadow', 'meadow_log_seed'),              // the secret in the fallen oak
+  6: () => at('meadow', 'm_hay_b'),                      // a hay bale, one of the one-in-four that holds something
+  7: () => at('puddlewick', 'pw_chapel_chest'),          // the chest on the path to the shrine
+  8: () => at('hollybank', 'hollybank_sword'),           // the chest at the foot of Bram's bed
+  9: () => at('puddlewick_inn', 'inn_corner_chest'),     // the chest in the inn's corner
+  0: () => window.__DQ.treasureReset(),
+};
+Debug.expose('stop', (n) => { const f = STOPS[n]; return f ? f() : { ok: false, stops: Object.keys(STOPS) }; });
+Debug.expose('demo', () => ({ piece: 'P30', stops: Object.keys(STOPS) }));
+
+addEventListener('keydown', (e) => {
+  const f = STOPS[e.key];
+  if (f) { try { f(); } catch (err) { reportError('demo stop', err); } }
+});
+
+function caption() {
+  let t = null;
+  try { t = window.__DQ.state().treasure; } catch (_) {}
+  if (!t) return 'booting…';
+  const holds = t.here.filter((c) => c.holds || c.mimic).length;
+  return `<b>${t.map}</b> &mdash; ${t.chests} things to open or search here (${t.boxes} chests with a lid, `
+    + `${t.searchable} of the map's own props made searchable, ${holds} of them holding something). `
+    + `Opened <b>${t.opened}</b> &middot; found <b>${t.found}</b> &middot; <b>${t.gold}</b> gold `
+    + `&middot; keys: ${t.keys.length ? t.keys.join(', ') : 'none'}`
+    + (t.unplaced.length ? ` &middot; <b>unplaced: ${t.unplaced.join(', ')}</b>` : '');
+}
+sub.textContent = 'Every chest, pot, barrel, crate, sack, bale, well and secret in the vale, the village, '
+  + 'the cottage and the inn. About one in four holds something; the rest earn a laugh.';
+setInterval(() => { live.innerHTML = caption(); }, 250);
+</script></body></html>

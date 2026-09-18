@@ -1,0 +1,153 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>DEMO — P17 monster recruitment &amp; P18 party / wagon</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:var(--pal-sky-page)}
+#game-canvas{display:block;width:100vw;height:100vh}
+#ui-root{position:fixed;inset:0;pointer-events:none;font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif}
+.dqnote{position:absolute;background:linear-gradient(var(--pal-ui-win-top),var(--pal-ui-win-bottom));
+  border:3px solid var(--pal-ui-border);border-radius:12px;color:var(--pal-ui-text);
+  box-shadow:0 0 0 2px var(--pal-ui-border-shade),0 6px 18px var(--p17-shadow)}
+.dqnote::after{content:"";position:absolute;inset:4px;border:1px solid var(--p17-inner);border-radius:8px;pointer-events:none}
+#title{left:16px;bottom:14px;padding:8px 16px 10px;max-width:560px}
+#title h1{margin:0;font-size:18px;font-weight:800;letter-spacing:.3px;text-shadow:0 2px 0 var(--pal-ui-border-shade)}
+#title h1 b{color:var(--pal-ui-gold)}
+#title p{margin:3px 0 0;font-size:12px;color:var(--pal-ui-text-dim);font-weight:600;line-height:1.45}
+#keys{right:16px;bottom:14px;padding:8px 14px;font-size:12px;font-weight:700;line-height:1.55;color:var(--pal-ui-text-dim);text-align:right}
+#keys b{color:var(--pal-ui-cursor)}
+.hide{display:none}
+</style>
+</head><body>
+<canvas id="game-canvas"></canvas>
+<div id="ui-root">
+  <div id="title" class="dqnote"><h1>P17 <b>monster recruitment</b> &middot; P18 <b>party &amp; wagon</b></h1>
+    <p id="sub">booting&hellip;</p></div>
+  <div id="keys" class="dqnote"><b>arrows</b> walk &middot; <b>Shift</b> run &middot; <b>Z</b> talk &middot; <b>X</b> back<br/>
+    <b>R</b> a monster asks to join &middot; <b>W</b> the wagon window<br/>
+    <b>F</b> fill the wagon &middot; <b>P</b> overflow to the paddock<br/>
+    <b>1</b> the meadow &middot; <b>2</b> Puddlewick (the paddock) &middot; <b>B</b> a fight<br/>
+    <b>H</b> hide these captions</p>
+</div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// P17 + P18 — recruitment, the party, the wagon and the paddock, installed into the REAL field exactly as
+// src/main.js does it (plus src/world/party.js, which is the one install() for this whole feature). Everything
+// below the install(ctx) loop is demo scaffolding: it only stocks friends so every window has something to show.
+import { App } from '/src/engine/app.js';
+import { Loop } from '/src/engine/loop.js';
+import { Scenes } from '/src/engine/states.js';
+import { Bus } from '/src/engine/events.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { Save } from '/src/engine/save.js';
+import { applyCssVars, css, PAL } from '/src/art/palette.js';
+import { UI } from '/src/ui/window.js';
+import { Text } from '/src/ui/text.js';
+import { Audio } from '/src/audio/audio.js';
+import { Sfx } from '/src/audio/sfx.js';
+import { Maps } from '/src/world/map.js';
+import { Field } from '/src/world/field.js';
+import { preloadHero } from '/src/world/player.js';
+import { Roster } from '/src/battle/scene.js';
+import { Party } from '/src/world/party.js';
+import { Recruit } from '/src/battle/recruit.js';
+import { newCompanion } from '/src/data/growth.js';
+import DATA from '/tests/battle/data.js';
+
+applyCssVars();
+document.documentElement.style.setProperty('--p17-shadow', css(PAL.ui.shadow, 0.45));
+document.documentElement.style.setProperty('--p17-inner', css(PAL.ui.border, 0.35));
+Input.init();
+App.start({ canvas: document.getElementById('game-canvas'), version: '0.3.0-P17', beforeUpdate: Input.update });
+Audio.init();
+Audio.bindEvents(Bus);
+
+const ctx = {
+  version: '0.3.0-P17', App, Loop, Scenes, Bus, Debug, reportError, Input, UI, Text, Save, Audio, Sfx, Field, Maps,
+  Music: () => Promise.resolve(null),
+  vars: { HERO: 'Bram' },
+  boot: { scene: 'field', ctx: { map: 'meadow' }, newGame: false },
+};
+
+await Maps.loadAll();
+await preloadHero().catch(() => false);
+Field.install();
+for (const [name, path] of [
+  ['transitions', '/src/ui/transitions.js'],
+  ['dialogue', '/src/ui/dialogue.js'],
+  ['menu', '/src/ui/menu.js'],
+  ['hud', '/src/ui/hud.js'],
+  ['npc', '/src/world/npc.js'],
+  ['encounter', '/src/world/encounter.js'],
+  ['battle.present', '/src/battle/present.js'],
+  ['battle.scene', '/src/battle/scene.js'],
+  ['party', '/src/world/party.js'],                 // <- P17 + P18: followers, wagon, paddock, recruiting
+]) {
+  try { (await import(path)).install(ctx); } catch (e) { reportError('demo install ' + name, e); }
+}
+
+// ── demo scaffolding: friends to look at ─────────────────────────────────────────────────────────────────────
+const SPECIES = ['gloop', 'flapjack', 'peckish', 'cactuddle', 'chestnut', 'bloop', 'twiglet', 'crabbit',
+  'boulderdash', 'barrowmole', 'jinglebottom', 'grimalkitten'];
+let made = 0;
+function makeFriend(species, lvl = 4) {
+  const mon = DATA.monsters[species];
+  if (!mon) return null;
+  made++;
+  const n = Party.countSpecies(species) + 1;
+  const m = newCompanion(mon, { id: `${species}_d${made}`, name: Recruit.defaultName(species, n), lvl });
+  m.name = Recruit.uniqueName(m.name, Party.all().map((x) => x.name));
+  return m;
+}
+/** Give the party n friends, filling party -> wagon -> paddock exactly as play would. */
+function stock(n = 6) {
+  for (let i = 0; i < n; i++) {
+    const m = makeFriend(SPECIES[(made) % SPECIES.length]);
+    if (m) Party.add(m);
+  }
+  return Party.describe();
+}
+
+const sub = document.getElementById('sub');
+function caption(text) { if (sub) sub.textContent = text; }
+function summary() {
+  const r = Party.describe();
+  caption(`${r.party.length} walking · ${r.wagon.length} in the wagon · ${r.paddock.length} in the paddock — `
+    + `friends: ${r.friends.join(', ') || 'none yet'}`);
+}
+Bus.on('map.enter', () => setTimeout(summary, 60));
+setTimeout(summary, 400);
+
+// ── demo keys ────────────────────────────────────────────────────────────────────────────────────────────────
+addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'h') { for (const id of ['title', 'keys']) document.getElementById(id).classList.toggle('hide'); }
+  if (k === 'r') { Recruit.offer(SPECIES[Math.floor(Math.random() * 6)], { heroLvl: 6 }).then(summary); }
+  if (k === 'w') { Party.wagonMenu().then(summary); }
+  if (k === 'f') { stock(6); summary(); }
+  if (k === 'p') { stock(12); summary(); }
+  if (k === '1') { Field.teleport('meadow'); }
+  if (k === '2') { Field.teleport('puddlewick'); }
+  if (k === 'b') { if (window.__DQ && __DQ.fight) __DQ.fight(); }
+});
+
+// ── controls a critic (and the harness) drives ───────────────────────────────────────────────────────────────
+Debug.expose('stock', (n) => stock(n || 6));
+Debug.expose('demoSummary', () => Party.describe());
+Debug.expose('offer', (sp, opts) => Recruit.offer(sp || 'gloop', opts || {}));
+Debug.expose('names', (sp) => ({ default: Recruit.defaultName(sp || 'gloop'), suggest: Recruit.suggest(sp || 'gloop') }));
+Debug.expose('odds', (sp, lvl) => Recruit.chance({ species: sp || 'gloop', heroLvl: lvl || 5 }));
+/** Make the next fight against this species END IN AN OFFER (SYSTEMS 10.3: the 13th refusal is guaranteed). */
+Debug.expose('forceRecruit', (sp = 'gloop') => {
+  Roster.recruit = Object.assign({}, Roster.recruit, { enabled: true, kidMode: true,
+    misses: Object.assign({}, Roster.recruit.misses, { [sp]: 12 }) });
+  return Roster.recruit.misses;
+});
+
+Save.newGame();
+Roster.reset();
+Scenes.push('field', { map: 'meadow' });
+</script>
+</body></html>

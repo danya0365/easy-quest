@@ -1,0 +1,27 @@
+{
+  "id": "P22",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Shops do not read src/data/items.js",
+      "detail": "src/data/shops.js line 37 still says it will take the real table the day src/data/items.js lands. It has landed: 73 rows, 44 of them buyable, with buy prices copied verbatim from SYSTEMS section 4 and sellPrice(id) implementing the floor(buy/2) rule plus SYSTEMS section 5 kinder 65 percent for gear two tiers below your best (pass {outgrown:true}). Fix: import { ITEMS, sellPrice, canEquip, statPairs, describe } from ../data/items.js in shops.js and shop.js, stock each counter by item id, and use statPairs/canEquip for the green up-arrow red down-arrow compare the economy rules require. Verified in /index.html that the same table drives the Equip window: Copper Sword +11 shows Attack 12 with a green 21.",
+      "state": "claimed-fixed",
+      "opened": "2026-09-18T02:15:00.252Z",
+      "events": [
+        {
+          "at": "2026-09-18T02:47:14.310Z",
+          "by": "builder",
+          "note": "src/data/shops.js now imports ITEMS, sellPrice, isKey, canEquip, statLine, traitWords and describe from src/data/items.js and re-exports them; tests/battle/data.js is gone from the piece. Verified: sellPrice(copper_sword) 35, outgrown 45, wooden_sword 0 (keepsake), tradeInPrice(cypress_stick) 7. All 12 shop stock lists resolve to real rows with buy>0 (0 unstockable of 62 entries). The preview window now prints P21's own blurb plus statLine plus traitWords: shots/P22-r11/04-04-copper-sword-preview.png reads 'Your first real sword. It goes green if you sulk. +11 Attack - Only Bram or Rowan can hold it.' fits() calls canEquip(id, charId). Demo and /index.html both shoot exit 0 with 0 errors."
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "title": "shop.js is not in main.js PLUGINS",
+      "detail": "src/ui/shop.js is a finished plugin (install(ctx) registers the shop scene and the talk hook) but src/main.js is integrator-only and does not import it, so the counters are dead in /index.html until one line is added to the PLUGINS list: ['shop', () => import('./ui/shop.js')] placed after 'menu'. Verified working in the real game by installing it at runtime (scenarios/P22-game.json, shots/P22-game-r3): talk to Mr Hammond and the shop opens, buy works, gold 30 to 20, the field is playable after. INTEGRATOR ACTION, not a P22 code change.",
+      "state": "open",
+      "opened": "2026-09-18T02:42:53.614Z",
+      "events": []
+    }
+  ]
+}
