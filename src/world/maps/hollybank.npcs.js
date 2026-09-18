@@ -38,7 +38,7 @@ export default function hollybankPeople(base = {}) {
       },
       // ── Act II: Barty, who kept the fire in (CANON §5 B12 — do not change these two lines) ──
       {
-        id: 'hb-barty', name: 'Barty Marrow', char: 'barty', voice: 'barty',
+        id: 'hb-barty', name: 'Barty Marrow', char: 'barty', voice: 'barty', scale: 0.98, girth: 1.06,
         x: fire.x, z: fire.z, facing: fire.facing, idle: 'stand', radius: 0.6, when: 'ch2.start',
         script: [
           { first: [
@@ -56,7 +56,7 @@ export default function hollybankPeople(base = {}) {
       },
       // ── Act III: somebody else's turn in the small chair ──
       {
-        id: 'hb-linnet', name: 'Linnet', char: 'villager', variant: 'child', voice: 'high:1.4',
+        id: 'hb-linnet', name: 'Linnet', char: 'villager', variant: 'child', voice: 'high:1.4', wear: 'rust', scale: 1.0, girth: 0.97, hold: 'none',
         x: chair.x, z: chair.z + 0.9, facing: 340, idle: 'sit', radius: 0.5, when: 'ch3.sword_drawn',
         script: [{ cycle: [
           'Papa, the big chair is the best\nchair and nobody sits in it.{p}That is a waste of a chair.',

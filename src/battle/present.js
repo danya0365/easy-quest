@@ -25,7 +25,15 @@
  *
  *   const P = createPresenter({ ctx, area, terrain });
  *   P.setEnemies(snapshot.enemies); P.setParty(snapshot); P.play(event); P.update(dt); P.render(alpha);
- *   await P.levelUp(ev);  P.join(ev);  P.dispose();
+ *   await P.victory(ev);  await P.levelUp(ev);  P.join(ev);  P.dispose();
+ *
+ * THE VICTORY MOMENT (SYSTEMS §10.1) — `await P.victory(ev)`
+ *   The payoff is never a line in the combat log. On the pop of the last monster the frame is HELD (the monsters'
+ *   places empty, the party windows still up) and a window in the command window's own blue / pale-double-border
+ *   stock slides up in the middle of the screen and fills itself: Experience, then Gold, both COUNTING UP, then one
+ *   line per drop. `+N EXP` and `+N G` are thrown from the spots the monsters actually died on, clamped inside the
+ *   safe area, never over an empty corner and never under a party panel. Confirm fills it at once; Confirm again
+ *   (or 1.35 s of held frame) closes it, and only then does the ink curtain start.
  *
  * Art comes from the pieces that own it and nothing else: Monsters.build (P16), PAL (F3), the .dq-win look (F4).
  */
@@ -48,6 +56,7 @@ const guard = (where, fn) => { try { return fn(); } catch (e) { reportError('P15
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 const BATTLE_CSS = `
 .dqb{position:absolute;inset:0;z-index:20;pointer-events:none;overflow:hidden;--u:1px;
+  --dqb-pop-ink:var(--pal-ui-shadow,#0b1226);
   font-family:var(--dq-font);color:var(--dq-ink);-webkit-font-smoothing:antialiased;user-select:none}
 .dqb *{box-sizing:border-box}
 .dqb .dq-win{white-space:nowrap}
@@ -104,20 +113,48 @@ const BATTLE_CSS = `
   border-top:calc(26 * var(--u)) solid var(--dq-gold);
   filter:drop-shadow(0 calc(2 * var(--u)) 0 var(--dq-ink-shadow));animation:dqbChev .6s infinite}
 @keyframes dqbChev{50%{translate:0 calc(-11 * var(--u));opacity:.78}}
-.dqb-pop{position:absolute;transform:translate(-50%,0);font-size:calc(50 * var(--u));font-weight:900;
-  color:var(--dq-ink);font-variant-numeric:tabular-nums;white-space:nowrap;
-  text-shadow:0 calc(3 * var(--u)) 0 var(--dq-ink-shadow),0 0 calc(8 * var(--u)) var(--dq-ink-shadow);
-  animation:dqbPop 1.15s ease-out forwards}
-.dqb-pop.crit{color:var(--dq-gold);font-size:calc(80 * var(--u))}
+/* the numerals — fat, ink-outlined, readable across a room, and never off the edge of the frame.
+   The outline is a ring of hard text-shadows (works in every engine) rather than -webkit-text-stroke, which
+   needs paint-order to not eat the glyph. */
+.dqb-pop{position:absolute;transform:translate(-50%,0);font-size:calc(64 * var(--u));font-weight:900;
+  color:var(--dq-ink);font-variant-numeric:tabular-nums;white-space:nowrap;letter-spacing:.01em;
+  text-shadow:
+    calc(-4.6 * var(--u)) 0 0 var(--dqb-pop-ink), calc(4.6 * var(--u)) 0 0 var(--dqb-pop-ink),
+    0 calc(-4.6 * var(--u)) 0 var(--dqb-pop-ink), 0 calc(4.6 * var(--u)) 0 var(--dqb-pop-ink),
+    calc(-3.3 * var(--u)) calc(-3.3 * var(--u)) 0 var(--dqb-pop-ink),
+    calc(3.3 * var(--u)) calc(-3.3 * var(--u)) 0 var(--dqb-pop-ink),
+    calc(-3.3 * var(--u)) calc(3.3 * var(--u)) 0 var(--dqb-pop-ink),
+    calc(3.3 * var(--u)) calc(3.3 * var(--u)) 0 var(--dqb-pop-ink),
+    calc(-4.6 * var(--u)) calc(-2.4 * var(--u)) 0 var(--dqb-pop-ink),
+    calc(4.6 * var(--u)) calc(-2.4 * var(--u)) 0 var(--dqb-pop-ink),
+    calc(-4.6 * var(--u)) calc(2.4 * var(--u)) 0 var(--dqb-pop-ink),
+    calc(4.6 * var(--u)) calc(2.4 * var(--u)) 0 var(--dqb-pop-ink),
+    0 calc(7 * var(--u)) calc(10 * var(--u)) var(--dqb-pop-ink);
+  animation:dqbPop 1.1s cubic-bezier(.22,.9,.3,1) forwards}
+.dqb-pop.crit{color:var(--dq-gold);font-size:calc(96 * var(--u))}
 .dqb-pop.heal{color:var(--dq-green)}
 .dqb-pop.hurt{color:var(--dq-orange)}
-.dqb-pop.miss{font-size:calc(27 * var(--u));color:var(--dq-label)}
-.dqb-pop.lv{color:var(--dq-gold);font-size:calc(29 * var(--u));letter-spacing:.09em}
-@keyframes dqbPop{0%{transform:translate(-50%,calc(14 * var(--u))) scale(.4)}
-  13%{transform:translate(-50%,calc(-8 * var(--u))) scale(1.15)}
-  24%{transform:translate(-50%,calc(-12 * var(--u))) scale(1)}
-  64%{transform:translate(-50%,calc(-26 * var(--u))) scale(1);opacity:1}
-  100%{transform:translate(-50%,calc(-52 * var(--u))) scale(.96);opacity:0}}
+.dqb-pop.miss{font-size:calc(36 * var(--u));color:var(--dq-label)}
+.dqb-pop.lv{color:var(--dq-gold);font-size:calc(38 * var(--u));letter-spacing:.06em}
+.dqb-pop.spoil{color:var(--dq-gold);font-size:calc(44 * var(--u));letter-spacing:.05em;
+  animation-duration:1.5s}
+@keyframes dqbPop{0%{transform:translate(-50%,calc(10 * var(--u))) scale(.62);opacity:.9}
+  12%{transform:translate(-50%,calc(-10 * var(--u))) scale(1.22);opacity:1}
+  22%{transform:translate(-50%,calc(-14 * var(--u))) scale(1)}
+  72%{transform:translate(-50%,calc(-28 * var(--u))) scale(1);opacity:1}
+  100%{transform:translate(-50%,calc(-58 * var(--u))) scale(.94);opacity:0}}
+/* the victory window (SYSTEMS 10.1): the same stock as the command window, centre frame, on the last pop */
+.dqb-vic{font-size:calc(28 * var(--u))!important;min-width:calc(560 * var(--u))}
+.dqb-vic .vr{display:flex;align-items:baseline;gap:calc(20 * var(--u));line-height:calc(46 * var(--u));
+  opacity:0;transform:translateY(calc(9 * var(--u)))}
+.dqb-vic .vr.on{opacity:1;transform:none;transition:opacity .15s ease-out,transform .15s ease-out}
+.dqb-vic .vr .lab{flex:1;color:var(--dq-label);letter-spacing:.07em}
+.dqb-vic .vr .num{font-variant-numeric:tabular-nums;color:var(--dq-gold);font-size:calc(38 * var(--u));
+  min-width:calc(150 * var(--u));text-align:right}
+.dqb-vic .vd{white-space:normal;line-height:1.3;padding-top:calc(5 * var(--u));opacity:0;
+  font-size:calc(25 * var(--u))}
+.dqb-vic .vd.on{opacity:1;transition:opacity .2s ease-out}
+.dqb-vic .vd b{color:var(--dq-gold);font-weight:inherit}
 /* the level-up panel (SYSTEMS §10.2) */
 .dqb-lv{position:absolute!important;right:calc(16 * var(--u));bottom:calc(250 * var(--u));
   width:calc(356 * var(--u));padding:calc(26 * var(--u)) calc(22 * var(--u)) calc(14 * var(--u))!important;
@@ -194,6 +231,7 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
     shake: 0, push: 0, pushTo: 0, drift: 0, t: 0, activeId: null, targetId: null, vm: {},
     order: { party: [], wagon: [], enemies: [] }, partyKey: '', foeKey: '', built: false, buildMs: 0,
     panel: null, dropped: 0, disposed: false, layer: null, els: {}, pops: 0, instant: false,
+    deaths: [], tally: null, hidden: [],
   };
 
   // ── the overlay layer ──────────────────────────────────────────────────────────────────────────────────────
@@ -203,10 +241,12 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
     if (!host) { host = document.createElement('div'); host.id = 'ui-root'; host.style.cssText = 'position:absolute;inset:0;pointer-events:none'; document.body.appendChild(host); }
     const el = document.createElement('div');
     el.className = 'dqb';
-    el.innerHTML = '<div class="dqb-party"></div><div class="dqb-marks"></div>';
+    // marks (plates, chevrons, the target cursor) are re-laid every frame; pops live in a layer of their OWN, because
+    // re-appending a node restarts its CSS animation — every damage numeral used to be frozen on its first keyframe.
+    el.innerHTML = '<div class="dqb-party"></div><div class="dqb-marks"></div><div class="dqb-pops"></div>';
     host.appendChild(el);
     S.layer = el;
-    S.els = { party: el.querySelector('.dqb-party'), marks: el.querySelector('.dqb-marks') };
+    S.els = { party: el.querySelector('.dqb-party'), marks: el.querySelector('.dqb-marks'), pops: el.querySelector('.dqb-pops') };
     fitUnits();
   });
 
@@ -241,6 +281,7 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
       S.anchor = { x: p.x, z: p.z };
       setOrigin(5.0);
       S.terrain = guard('ground', () => S.map.groundAt(p.x, p.z)) || terrain;
+      hideBystanders();
     } else {
       buildDiorama();
     }
@@ -274,6 +315,23 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
       scene.add(back);
     });
     S.map = null;
+  }
+
+  /**
+   * A battle is a stage, not a street. The backdrop is the real map, so the village's people, hens and sheep were
+   * strolling through the fight — and a hen standing two paces from the lens is bigger than a Gloop. They step out
+   * for the length of the fight and are put back exactly as they were when it ends.
+   */
+  function hideBystanders() {
+    if (!S.scene) return;
+    for (const name of ['npcs', 'npc-blobs', 'party-tail', 'followers']) {
+      const g = guard('bystanders', () => S.scene.getObjectByName(name));
+      if (g && g.visible) { S.hidden.push(g); g.visible = false; }
+    }
+  }
+  function showBystanders() {
+    for (const g of S.hidden) guard('bystanders back', () => { g.visible = true; });
+    S.hidden = [];
   }
 
   const groundAt = (x, z) => (S.map ? (guard('walkY', () => S.map.walkY(x, z)) || 0) : 0);
@@ -405,27 +463,43 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
     node.classList.remove(cls); void node.offsetWidth; node.classList.add(cls);
     setTimeout(() => { try { node.classList.remove(cls); } catch (_) {} }, ms);
   }
+  /**
+   * The safe area for anything that floats over the stage, in design px: inside the frame with a wide margin, below
+   * the party status windows (they end at about 160) and above the command / message row (it starts at about 500).
+   * Nothing a child has to read is allowed outside it — that is how a "+3 EXP" ends up clipped by the screen edge.
+   */
+  function safeArea() {
+    const u = S.u || UI.unit || 1;
+    const W = (S.layer ? S.layer.clientWidth : 1280) / u;
+    const H = (S.layer ? S.layer.clientHeight : 720) / u;
+    return { x0: 104, x1: Math.max(200, W - 104), y0: Math.min(192, H * 0.28), y1: H * 0.64, W, H };
+  }
   function popAt(x, y, text, cls) {
-    if (!S.els.marks || S.instant) return;
+    if (!S.els.pops || S.instant) return;
+    const a = safeArea();
     const s = document.createElement('div');
     s.className = 'dqb-pop ' + (cls || '');
     s.textContent = text;
-    s.style.left = `calc(${x.toFixed(1)} * var(--u))`;
-    s.style.top = `calc(${y.toFixed(1)} * var(--u))`;
-    S.els.marks.appendChild(s);
+    // two numbers landing on the same monster in the same round must not stack into one unreadable blob
+    const live = S.els.pops.querySelectorAll('.dqb-pop').length;
+    const jx = live ? (live % 2 ? 40 : -40) : 0;
+    s.style.left = `calc(${clamp(x + jx, a.x0, a.x1).toFixed(1)} * var(--u))`;
+    s.style.top = `calc(${clamp(y + (live ? 26 : 0), a.y0, a.y1).toFixed(1)} * var(--u))`;
+    S.els.pops.appendChild(s);
     S.pops++;
-    setTimeout(() => { try { s.remove(); } catch (_) {} }, 1200);
+    setTimeout(() => { try { s.remove(); } catch (_) {} }, 1700);
   }
   function popOn(id, text, cls) {
     if (S.models.has(id)) {
       const p = screenOf(id, 'top');
-      if (p) popAt(p.x, p.y - 12, text, cls);
+      if (p) popAt(p.x, p.y - 30, text, cls);
       return;
     }
     const node = elOf(id);
     if (!node || !S.layer) return;
     const r = node.getBoundingClientRect(), b = S.layer.getBoundingClientRect(), u = S.u || 1;
-    popAt((r.left + r.width / 2 - b.left) / u, (r.bottom - b.top) / u - 6, text, cls);
+    // clear of the panel it belongs to, never behind it
+    popAt((r.left + r.width / 2 - b.left) / u, (r.bottom - b.top) / u + 16, text, cls);
   }
 
   function setParty(snap) {
@@ -522,15 +596,18 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
       if (!e || !v || v.gone || e.alive === false) continue;
       const top = screenOf(id, 'top'), base = screenOf(id, 'base'), head = screenOf(id, 'head');
       if (!top || !base || !head) continue;
+      // Who is out there is the job of ONE window (the foe list, top right). A floating label under every monster
+      // said the same name a second time, so the plate now only names the one the target cursor is sitting on —
+      // which is the one moment a child needs to know "Gloop A" from "Gloop B".
       const dots = e.bigCooldown > 0 ? '<i></i>'.repeat(Math.min(3, e.bigCooldown)) : '';
       const stagger = (S.order.enemies.indexOf(id) % 2) * 24;
-      html += `<div class="dqb-plate" style="left:calc(${base.x.toFixed(1)} * var(--u));top:calc(${(base.y + 6 + stagger).toFixed(1)} * var(--u))">${esc(e.name)}<div class="dots">${dots}</div></div>`;
+      if (S.targetId === id || dots) {
+        html += `<div class="dqb-plate" style="left:calc(${base.x.toFixed(1)} * var(--u));top:calc(${(base.y + 6 + stagger).toFixed(1)} * var(--u))">${S.targetId === id ? esc(e.name) : ''}<div class="dots">${dots}</div></div>`;
+      }
       if (e.tele) html += `<div class="dqb-chev" style="left:calc(${top.x.toFixed(1)} * var(--u));top:calc(${Math.max(172, top.y - 46).toFixed(1)} * var(--u))">▼</div>`;
       if (S.targetId === id) html += `<div class="dqb-pick" style="left:calc(${top.x.toFixed(1)} * var(--u));top:calc(${(top.y - 8).toFixed(1)} * var(--u))"></div>`;
     }
-    const keep = Array.from(ov.querySelectorAll('.dqb-pop'));
-    ov.innerHTML = html;
-    for (const p of keep) ov.appendChild(p);
+    if (ov._html !== html) { ov.innerHTML = html; ov._html = html; }
   }
 
   // ── events -> pictures and sound ───────────────────────────────────────────────────────────────────────────
@@ -604,6 +681,9 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
         if (ev.side === 'enemy') {
           t.state = 'gone';
           const v = model(ev.target);
+          // remember WHERE it fell: the +EXP and +G of the tally are thrown from the monsters' own spots
+          const spot = screenOf(ev.target, 'center');
+          if (spot) S.deaths.push(spot);
           if (v) { v.gone = true; guard('defeat', () => v.m.play('defeat', { vanish: true })); }
           setTimeout(() => sfx('monster_defeat'), 130);
           renderFoes(true);
@@ -661,20 +741,128 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
         pulse(elOf(ev.who), 'lvup', 1350);
         popOn(ev.who, 'LEVEL UP!', 'lv');
         break;
-      case 'victory': {
-        // SYSTEMS §10.1: the tally is a moment. The lines type into the window; the numbers also land on the party.
-        const first = S.order.party[0];
-        if (ev.exp) setTimeout(() => popOn(first, '+' + ev.exp + ' EXP', 'lv'), 520);
-        if (ev.gold) setTimeout(() => { sfx('gold_coins'); popOn(S.order.party[Math.min(1, S.order.party.length - 1)], '+' + ev.gold + ' G', 'crit'); }, 900);
-        if (ev.drops && ev.drops.length) setTimeout(() => sfx('item_get'), 1400);
+      case 'victory':
+        // SYSTEMS §10.1: the whole tally is a window of its own — see victory() below, which the scene awaits.
         guard('vignette', () => Transitions.vignette(0.12, { ms: 700 }));
         break;
-      }
       case 'wipe': guard('white', () => Transitions.white(true, { ms: 1200 })); break;
       case 'fx': if (ev.id === 'darken' || ev.id === 'desaturate') guard('fx', () => Transitions.vignette(0.68, { ms: 500 })); break;
       default: break;
     }
     renderParty();
+  }
+
+  // ── the victory moment (SYSTEMS §10.1) ─────────────────────────────────────────────────────────────────────
+  /**
+   * The payoff is not a line in the combat log. On the pop of the last monster the battle frame is HELD — the
+   * monsters' places left empty, the party windows still up — and a window in the command window's own stock slides
+   * up in the middle of the screen and fills itself: Experience, then Gold (both counting up, not appearing), then
+   * one line per drop. The `+N EXP` and `+N G` are thrown from the spots the monsters actually died on, clamped
+   * inside the safe area. Resolves when the window is dismissed; Confirm fills it at once, then closes it.
+   */
+  function victory(ev) {
+    if (S.disposed || !ev) return Promise.resolve(false);
+    const exp = ev.exp || 0, gold = ev.gold || 0, drops = (ev.drops || []).slice(0, 3);
+    const rows = [];
+    if (exp > 0) rows.push({ k: 'exp', lab: 'Experience', n: exp, suffix: '' });
+    if (gold > 0) rows.push({ k: 'gold', lab: 'Gold', n: gold, suffix: ' G' });
+    const head = ev.allFled ? 'The monsters have all run off.'
+      : (!rows.length && !drops.length ? 'Not a scratch on anybody.' : '');
+    const html = (head ? `<div class="vd on">${esc(head)}</div>` : '')
+      + rows.map((r) => `<div class="vr" data-k="${r.k}"><span class="lab">${esc(r.lab)}</span>`
+        + `<span class="num">0${r.suffix}</span></div>`).join('')
+      + drops.map((d) => `<div class="vd" data-d="1">Found ${/^[aeiou]/i.test(String(d.name)) ? 'an' : 'a'} <b>${esc(d.name)}</b>.</div>`).join('');
+    const body = document.createElement('div');
+    body.innerHTML = html;
+    const win = guard('victory window', () => UI.window({
+      id: 'battle-victory', centerX: true, top: 186, minWidth: 560, maxWidth: 760,
+      title: ev.allFled ? 'They ran off!' : 'Victory!', titleAlign: 'center',
+      pop: 'up', origin: '50% 100%', className: 'dqb-vic', destroyOnClose: true, content: body,
+    }));
+    if (!win) return Promise.resolve(false);
+    guard('victory open', () => win.open());
+    // The numbers land out on the field, on the spots the monsters actually died on — but clear of the tally window
+    // that has just slid into the middle of the frame, and inside the safe area (popAt clamps).
+    const spots = S.deaths.length ? S.deaths.slice(-3) : [];
+    const spot = (i) => spots[Math.min(Math.max(0, i), spots.length - 1)] || null;
+    const below = (p, dy) => Math.max(p.y + dy, 378);
+    if (exp > 0) {
+      const p = spot(0);
+      setTimeout(() => { if (!S.disposed && p) popAt(p.x, below(p, 0), '+' + exp + ' EXP', 'spoil'); }, 260);
+    }
+    if (gold > 0) {
+      const p = spot(spots.length - 1);
+      setTimeout(() => {
+        if (S.disposed) return;
+        sfx('gold_coins');
+        if (p) popAt(p.x + (spots.length > 1 ? 0 : 110), below(p, 46), '+' + gold + ' G', 'spoil');
+      }, 700);
+    }
+    if (S.instant) { guard('victory close', () => win.close()); return Promise.resolve(true); }
+    return new Promise((resolve) => {
+      S.tally = { win, rows, drops, t: 0, shown: 0, dropsShown: 0, counted: 0, done: false, resolve };
+    });
+  }
+  function tickTally(dt) {
+    const T = S.tally;
+    if (!T) return;
+    T.t += dt;
+    const node = T.win && T.win.body ? T.win.body : null;
+    if (!node) { finishTally(); return; }
+    // rows appear one per 260 ms and then count up over 380 ms, each with its own tick
+    while (T.shown < T.rows.length && T.t > 0.16 + T.shown * 0.34) {
+      const el = node.querySelector(`.vr[data-k="${T.rows[T.shown].k}"]`);
+      if (el) el.classList.add('on');
+      sfx('cursor', { vol: 0.6 });
+      T.shown++;
+    }
+    for (let i = 0; i < T.shown; i++) {
+      const r = T.rows[i];
+      const k = T.done ? 1 : clamp((T.t - (0.16 + i * 0.34)) / 0.38, 0, 1);
+      const v = Math.round(r.n * (k * (2 - k)));
+      const el = node.querySelector(`.vr[data-k="${r.k}"] .num`);
+      if (el && el.textContent !== v + r.suffix) el.textContent = v + r.suffix;
+    }
+    const after = 0.16 + Math.max(0, T.rows.length - 1) * 0.34 + 0.42;
+    while (T.dropsShown < T.drops.length && T.t > after + T.dropsShown * 0.3) {
+      const el = node.querySelectorAll('.vd[data-d]')[T.dropsShown];
+      if (el) el.classList.add('on');
+      sfx('item_get', { vol: 0.8 });
+      T.dropsShown++;
+    }
+    const full = T.shown >= T.rows.length && T.dropsShown >= T.drops.length;
+    if (full && !T.done && T.t > after + T.drops.length * 0.3 + 0.2) { T.done = true; T.holdT = T.t; }
+    // the held frame: it closes itself if nobody presses anything, so a fight never stalls on a child
+    if (T.done && T.t - T.holdT > 1.15) finishTally();
+  }
+  /** Confirm: fill everything at once; press again (or once it is full) and the window goes. */
+  function skipTally() {
+    const T = S.tally;
+    if (!T) return false;
+    // SYSTEMS §10.1: "some moments belong to the game" — the fanfare's own first beat is not skippable, and a child
+    // mashing Confirm cannot fill and dismiss the tally in the same breath.
+    if (T.t < 0.32) return true;
+    if (T.done && T.t - T.holdT < 0.26) return true;
+    if (!T.done) {
+      T.done = true;
+      const node = T.win && T.win.body;
+      if (node) {
+        for (const el of node.querySelectorAll('.vr, .vd')) el.classList.add('on');
+        T.rows.forEach((r) => { const el = node.querySelector(`.vr[data-k="${r.k}"] .num`); if (el) el.textContent = r.n + r.suffix; });
+      }
+      T.shown = T.rows.length; T.dropsShown = T.drops.length;
+      T.holdT = T.t;                                   // full, held, waiting for the press that dismisses it
+      return true;
+    }
+    finishTally();
+    return true;
+  }
+  function finishTally() {
+    const T = S.tally;
+    if (!T) return;
+    S.tally = null;
+    guard('victory close', () => T.win.close());
+    T.resolve(true);
   }
 
   // ── the join beat (MONSTER-BIBLE §7 / SYSTEMS §10.3) ───────────────────────────────────────────────────────
@@ -779,6 +967,7 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
   function update(dt) {
     if (S.disposed) return;
     S.t += dt;
+    if (S.tally) tickTally(dt);
     if (S.panel) tickPanel(dt);
     for (const v of S.models.values()) {
       if (v.dropT < 1) {
@@ -814,6 +1003,8 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
   function dispose() {
     if (S.disposed) return;
     S.disposed = true;
+    showBystanders();
+    if (S.tally) guard('dispose tally', () => { const T = S.tally; S.tally = null; T.win.close(); T.resolve(false); });
     for (const v of S.models.values()) guard('dispose', () => { if (v.m.root.parent) v.m.root.parent.remove(v.m.root); v.m.dispose(); });
     S.models.clear();
     if (S.own) guard('dispose diorama', () => {
@@ -835,10 +1026,11 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
     get built() { return S.built; },
     get dropping() { return S.dropped < S.models.size; },
     get panelOpen() { return !!S.panel; },
-    setEnemies, setParty, play, join, joinAnswer, levelUp, update, render, dispose, fitUnits,
+    get tallyOpen() { return !!S.tally; },
+    setEnemies, setParty, play, join, joinAnswer, levelUp, victory, skipTally, update, render, dispose, fitUnits,
     setActive(id) { S.activeId = id || null; renderParty(); },
     /** While a fight is being resolved with no animation (a simulation, a critic's autoplay), draw no pops. */
-    setInstant(v) { S.instant = !!v; if (S.instant && S.els.marks) for (const n of S.els.marks.querySelectorAll('.dqb-pop')) n.remove(); },
+    setInstant(v) { S.instant = !!v; if (S.instant && S.els.pops) S.els.pops.innerHTML = ''; },
     setTarget(id) { S.targetId = id || null; },
     shake(n = 1) { S.shake = Math.max(S.shake, n); },
     flash(o) { return Transitions.flash(o); },
@@ -851,6 +1043,10 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
           drift: Math.round(S.drift * 10) / 10, shake: Math.round(S.shake * 100) / 100 },
         origin: { x: Math.round(S.origin.x * 10) / 10, y: Math.round(S.origin.y * 10) / 10, z: Math.round(S.origin.z * 10) / 10 },
         dropped: S.dropped, pops: S.pops, panel: S.panel ? { who: S.panel.ev.name, level: S.panel.ev.level, phase: S.panel.phase, shown: S.panel.shown, learned: S.panel.learned.map((l) => l.name) } : null,
+        tally: S.tally ? { rows: S.tally.rows.map((r) => r.lab + ' ' + r.n), drops: S.tally.drops.length,
+          shown: S.tally.shown, full: !!S.tally.done, heldFor: Math.round((S.tally.t - (S.tally.holdT || S.tally.t)) * 100) / 100 } : null,
+        deaths: S.deaths.map((d) => ({ x: Math.round(d.x), y: Math.round(d.y) })),
+        hidden: S.hidden.map((g) => g.name),
         target: S.targetId, active: S.activeId,
         models: Array.from(S.models, ([id, v]) => ({ id, species: v.species, model: modelId(v.species), standIn: isStandIn(v.species), gone: !!v.gone, landed: !!v.landed })),
       };

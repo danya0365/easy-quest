@@ -22,10 +22,16 @@
   {"assert": "__DQ.state().battle.phase === 'command' && __DQ.state().battle.area === 'long_lane'", "msg": "the rules engine is driving"},
 
   {"note": "3. A child presses Enter. That is the whole round."},
+  {"eval": "(function(){ window.__join = setInterval(function(){ try { if (__DQ.state().battleUi && __DQ.state().battleUi.waiting === 'recruit') __DQ.answer(true); } catch (e) {} }, 300); return 'a Yes waiting for any monster that asks'; })()"},
   {"press": "Enter"}, {"wait": 500}, {"shot": "03-choose"},
   {"press": "Enter"}, {"wait": 900}, {"shot": "04-the-hit"},
+  {"assert": "(function(){ var p = document.querySelector('.dqb-pop'); if (!p) return true; var r = p.getBoundingClientRect(); return r.left > 4 && r.right < innerWidth - 4 && r.top > 4; })()", "msg": "a damage numeral is never clipped by the edge of the screen"},
   {"eval": "__DQ.log(16)"},
   {"eval": "__DQ.playOut('mash')"},
+  {"waitFor": "__DQ.state().battlePresent && __DQ.state().battlePresent.tally", "timeout": 120000},
+  {"wait": 850}, {"shot": "04b-victory-window"},
+  {"assert": "!!document.querySelector('.dqb-vic')", "msg": "victory is a window of its own, in the command window's stock"},
+  {"assert": "!/experience point|gold coin/i.test(String(__DQ.state().battleUi.line || ''))", "msg": "the tally never types into the combat log"},
   {"waitFor": "__DQ.state().scene !== 'battle'", "timeout": 120000},
   {"wait": 1000}, {"shot": "05-back-on-the-lane"},
   {"assert": "__DQ.state().map.id === 'meadow'", "msg": "straight back to the field, where you were standing"},
@@ -56,10 +62,16 @@
   {"wait": 700},
   {"eval": "JSON.stringify(__DQ.state().transitions)"},
   {"assert": "__DQ.state().transitions.ready === true && __DQ.state().transitions.wipes >= 1", "msg": "the wipes are real and they settle"},
-  {"assert": "__DQ.screenshotReady() === true", "msg": "nothing is left mid-flight"},
+  {"assert": "__DQ.state().transitions.busy === false && __DQ.state().transitions.running === 0 && __DQ.state().transitions.ink === 0 && __DQ.state().transitions.white === 0 && __DQ.state().transitions.swirl === 0", "msg": "no sheet is left covering the screen"},
+  {"assert": "__DQ.state().transitions.vignette < 0.05", "msg": "the battle vignette lifts completely when the fight ends"},
 
+  {"note": "6. Befriending really happens out on the Long Lane: 60 instant fights, counted."},
+  {"eval": "(function(){ var keep = __DQ.rosterSnapshot(); __DQ.instant(true); var offers = 0; for (var s = 1; s <= 60; s++) { __DQ.fight('long_lane', {seed: s}); __DQ.autoplay(40, 'auto'); var r = __DQ.battleResult(); if (r && r.recruit && r.recruit.offer) offers++; } __DQ.instant(false); var out = {offers: offers, wagon: __DQ.state().roster.wagon.length, friends: __DQ.state().roster.friends}; __DQ.rosterRestore(keep); return JSON.stringify(out); })()"},
+
+  {"eval": "clearInterval(window.__join)"},
   {"eval": "JSON.stringify(__DQ.state().encounter)"},
   {"eval": "JSON.stringify(__DQ.state().roster)"},
   {"wait": 600}, {"shot": "10-the-lane-again"},
+  {"assert": "__DQ.state().encounter.safeRadius <= 6 && __DQ.state().encounter.held !== 'armed: waiting to leave the doorstep'", "msg": "safe zones are door aprons and the counter is never pegged inside one"},
   {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"}
 ]}

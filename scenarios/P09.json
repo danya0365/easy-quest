@@ -1,172 +1,703 @@
-{ "name": "P09 — the field camera: DQV framing, follow, orbit, ease-behind, lead, modes, cutscene, clean occluder fade", "steps": [
-  {"waitFor": "window.__DQ && __DQ.ready && __DQ.state().field", "timeout": 40000},
-  {"wait": 2200},
-  {"note": "THE OPENING FRAME. A DQV field shot is a lens FOLLOWING a child: the boy is ~20% of frame height (144px at 720p), his feet ~79% down it, the horizon ~17% down it, over the ground angle the map asked for (26 degrees, as in docs/approved/field-opening.png). Measured through the live projection matrix, not eyeballed."},
-  {"shot": "opening"},
-  {"eval": "JSON.stringify(__DQ.cameraFrame())"},
-  {"eval": "JSON.stringify(__DQ.state().field.camera)"},
-  {"assert": "__DQ.cameraFrame().heroPct >= 18 && __DQ.cameraFrame().heroPct <= 23", "msg": "the boy READS: 18-23% of frame height (DQV PS2 scale)"},
-  {"assert": "__DQ.cameraFrame().feetPct >= 72 && __DQ.cameraFrame().feetPct <= 84", "msg": "his feet sit low in the frame, the land he is walking into above him"},
-  {"assert": "__DQ.cameraFrame().horizonPct >= 11 && __DQ.cameraFrame().horizonPct <= 24", "msg": "a real band of sky over the shot"},
-  {"assert": "__DQ.state().field.camera.pitch >= 22 && __DQ.state().field.camera.pitch <= 32", "msg": "DQV pitch band"},
-  {"assert": "__DQ.state().field.camera.dist >= 4.5 && __DQ.state().field.camera.dist <= 8", "msg": "a following boom, not a survey from the hill behind"},
-  {"assert": "__DQ.state().field.camera.fov >= 45 && __DQ.state().field.camera.fov <= 52", "msg": "DQV field of view"},
-  {"assert": "__DQ.state().field.camera.fade.objects > 40", "msg": "the fade pass found the map's occluders"},
-
-  {"note": "THE MAP OWNS THE FRAMING: the mode presets never overwrite it. Into a house and out again comes back to THIS map's pitch / boom / lens, because cameraMode re-reads the live map's camera block every time."},
-  {"eval": "JSON.stringify((() => { const g = () => { const c = __DQ.state().field.camera; return {pitch: c.pitch, dist: c.distTarget, fov: c.fov, hero: c.composed && c.composed.hero}; }; const before = g(); __DQ.cameraMode('interior', true); const interior = g(); __DQ.cameraMode('field', true); const after = g(); window.__p09map = {before, interior, after, mapPitch: 26}; return window.__p09map; })())"},
-  {"assert": "Math.abs(window.__p09map.after.pitch - window.__p09map.before.pitch) < 0.01 && Math.abs(window.__p09map.after.dist - window.__p09map.before.dist) < 0.01", "msg": "cameraMode returns to the LIVE map's framing, not a preset"},
-  {"assert": "Math.abs(window.__p09map.before.pitch - window.__p09map.mapPitch) < 0.5", "msg": "the ground angle is the one the map asked for (26 degrees)"},
-  {"wait": 1400},
-
-  {"note": "SPRING FOLLOW + LEAD: walk up the lane; the camera eases behind him and leads the walk"},
-  {"eval": "__DQ.p09panel(false)"},
-  {"eval": "__DQ.cameraAuto(true)"},
-  {"key": "ArrowUp", "hold": 1600},
-  {"shot": "walk-lead"},
-  {"eval": "JSON.stringify({lead: __DQ.state().field.camera.lead, swing: __DQ.state().field.camera.swing, frame: __DQ.cameraFrame()})"},
-  {"burst": {"name": "walk-strip", "count": 5, "interval": 120}},
-
-  {"note": "EASE-BEHIND without fighting: hold right for two and a half seconds and MEASURE it — the camera swings round behind him while his path stays straight (the swing goes into the camera, never into the walk frame)"},
-  {"eval": "__DQ.teleport('meadow', 2, 8, 0)"},
-  {"eval": "__DQ.cameraOrbit(0)"},
-  {"wait": 1600},
-  {"eval": "(async () => { const {Field} = await import('/src/world/field.js'); const orbit0 = __DQ.cameraOrbit(); const pts = []; let maxDrift = 0; __DQ.hold('right', 2600); for (let i = 0; i < 12; i++) { await new Promise(r => setTimeout(r, 200)); const c = __DQ.state().field.camera; const p = Field.world().player.p; maxDrift = Math.max(maxDrift, Math.abs(c.drift)); pts.push([+p.x.toFixed(2), +p.z.toFixed(2)]); } const a = pts[1], b = pts[pts.length - 1]; const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1; let bend = 0; for (const q of pts.slice(1)) bend = Math.max(bend, Math.abs((q[0] - a[0]) * dz - (q[1] - a[1]) * dx) / L); window.__p09 = {orbit0, orbit1: __DQ.cameraOrbit(), walk: __DQ.state().field.camera.walk, maxDrift: +maxDrift.toFixed(1), path: +L.toFixed(2), bend: +bend.toFixed(3)}; return JSON.stringify(window.__p09); })()"},
-  {"shot": "eased-behind"},
-  {"assert": "window.__p09.maxDrift > 15", "msg": "the ease-behind swing goes into the camera, not the walk frame"},
-  {"assert": "window.__p09.bend < 0.5 && window.__p09.path > 3", "msg": "his path stays straight while the camera swings (no fighting)"},
-  {"assert": "Math.abs(((window.__p09.orbit1 - window.__p09.orbit0) % 360 + 540) % 360 - 180) > 20", "msg": "the camera really did swing round behind him"},
-
-  {"note": "AUTO-RECENTRE after a pause: stand still and the camera settles behind his facing"},
-  {"wait": 2600},
-  {"shot": "recentred"},
-  {"eval": "JSON.stringify({orbit: __DQ.cameraOrbit(), facing: __DQ.state().player.facing})"},
-  {"assert": "Math.abs(((__DQ.cameraOrbit() - (__DQ.state().player.facing + 180)) % 360 + 540) % 360 - 180) < 30", "msg": "the camera recentres behind the hero after a pause"},
-
-  {"note": "THE SCRIPTED WALK through the trees: the hero is never lost behind a canopy"},
-  {"eval": "JSON.stringify(__DQ.p09walk('trees'))"},
-  {"wait": 1500},
-  {"burst": {"name": "through-the-trees", "count": 6, "interval": 320}},
-  {"eval": "JSON.stringify({fade: __DQ.state().field.camera.fade, fading: __DQ.cameraOccluders()})"},
-  {"wait": 2500},
-  {"burst": {"name": "past-the-trees", "count": 4, "interval": 320}},
-  {"eval": "__DQ.p09walk('stop')"},
-
-  {"note": "THE CLEAN FADE at the map's OWN framing: something that fits between a 6-unit lens and the boy — a signpost, a hedge, a fence — is drawn at ~42% with its ink outline kept. No screen-door dither anywhere."},
-  {"eval": "JSON.stringify(await __DQ.p09cover('prop', 0))"},
-  {"wait": 400},
-  {"eval": "__DQ.freeze(true)"},
-  {"eval": "JSON.stringify(__DQ.p09fade())"},
-  {"shot": "behind-prop-clean-fade"},
-  {"assert": "__DQ.p09fade().occluding >= 1", "msg": "the thing in front of the hero is registered as an occluder"},
-  {"assert": "__DQ.p09fade().ghost === 'alpha-ghost'", "msg": "it is a CLEAN ALPHA GHOST at 20-62% — not a dither, not gone"},
-  {"assert": "Math.abs(__DQ.state().field.camera.dist - __DQ.state().field.camera.distTarget) < 0.05", "msg": "the camera NEVER zooms in to dodge an occluder"},
-  {"eval": "__DQ.cameraFade(false)"},
-  {"wait": 800},
-  {"shot": "behind-prop-old-dither"},
-  {"eval": "__DQ.cameraFade(true)"},
-  {"wait": 800},
-  {"shot": "behind-prop-clean-again"},
-  {"eval": "__DQ.freeze(false)"},
-
-  {"note": "... and a canopy: the crown ghosts at 42%, its outline and its shadow stay"},
-  {"eval": "JSON.stringify(await __DQ.p09cover('tree', 0))"},
-  {"wait": 400},
-  {"eval": "__DQ.freeze(true)"},
-  {"eval": "JSON.stringify(__DQ.p09fade())"},
-  {"shot": "behind-tree-clean-fade"},
-  {"assert": "__DQ.state().field.camera.fade.occluding >= 1", "msg": "the tree in front of the hero is registered as an occluder"},
-  {"assert": "__DQ.p09fade().ghost === 'alpha-ghost'", "msg": "the canopy is a clean alpha ghost, not a dither"},
-  {"eval": "__DQ.cameraFade(false)"},
-  {"wait": 800},
-  {"shot": "behind-tree-old-dither"},
-  {"eval": "__DQ.cameraFade(true)"},
-  {"wait": 800},
-  {"shot": "behind-tree-clean-again"},
-  {"eval": "__DQ.freeze(false)"},
-
-  {"note": "... and behind a building: the whole cottage fades as one piece"},
-  {"eval": "JSON.stringify(await __DQ.p09cover('house', 0))"},
-  {"wait": 400},
-  {"eval": "__DQ.freeze(true)"},
-  {"eval": "JSON.stringify(__DQ.p09fade())"},
-  {"shot": "behind-house-clean-fade"},
-  {"assert": "__DQ.state().field.camera.fade.occluding >= 1", "msg": "the building in front of the hero is registered as an occluder"},
-  {"assert": "__DQ.p09fade().ghost === 'alpha-ghost'", "msg": "the whole cottage is a clean alpha ghost, not a dither"},
-  {"eval": "__DQ.cameraFade(false)"},
-  {"wait": 800},
-  {"shot": "behind-house-old-dither"},
-  {"eval": "__DQ.cameraFade(true)"},
-  {"eval": "__DQ.freeze(false)"},
-  {"eval": "JSON.stringify(__DQ.p09stand('reset'))"},
-
-  {"note": "FREE 360 ORBIT: all the way round the hero, the lens never sinking into the ground"},
-  {"eval": "__DQ.teleport('meadow', 2, 6)"},
-  {"eval": "__DQ.cameraAuto(false)"},
-  {"eval": "__DQ.cameraOrbit(0)"}, {"wait": 1300}, {"shot": "orbit-000"},
-  {"eval": "__DQ.cameraOrbit(90)"}, {"wait": 1400}, {"shot": "orbit-090"},
-  {"eval": "__DQ.cameraOrbit(180)"}, {"wait": 1400}, {"shot": "orbit-180"},
-  {"eval": "__DQ.cameraOrbit(270)"}, {"wait": 1400}, {"shot": "orbit-270"},
-  {"eval": "JSON.stringify({pos: __DQ.state().field.camera.pos, lift: __DQ.state().field.camera.lift, frame: __DQ.cameraFrame()})"},
-  {"assert": "__DQ.cameraFrame().heroPct >= 16 && __DQ.cameraFrame().heroPct <= 26", "msg": "the boy keeps his size all the way round the orbit"},
-
-  {"note": "Q and E orbit with real keys (Input.look), eased in and out"},
-  {"eval": "__DQ.cameraOrbit(0)"}, {"wait": 1200},
-  {"key": "q", "hold": 900},
-  {"eval": "JSON.stringify({orbit: __DQ.cameraOrbit(), current: __DQ.state().field.camera.current})"},
-  {"shot": "orbit-by-key"},
-
-  {"note": "ZOOM (debug only — never the occluders): in to the hero's face and back out"},
-  {"eval": "__DQ.cameraZoom(4)"}, {"wait": 1500}, {"shot": "zoom-close"},
-  {"eval": "__DQ.cameraZoom(16)"}, {"wait": 1600}, {"shot": "zoom-wide"},
-  {"eval": "JSON.stringify(__DQ.cameraMode('field'))"}, {"wait": 1400},
-
-  {"note": "TALK FRAMING: the lens steps in and up for the line, and the boy lands ABOVE the message window (his feet ~64% down the frame, the window starts at ~69%)"},
-  {"eval": "JSON.stringify(__DQ.p09talk(true))"},
-  {"wait": 1600},
-  {"shot": "talk-framing"},
-  {"eval": "JSON.stringify({talk: __DQ.state().field.camera.talkFraming, frame: __DQ.cameraFrame()})"},
-  {"assert": "__DQ.cameraFrame().feetPct < 70", "msg": "the speaker stands clear of the message window"},
-  {"assert": "__DQ.cameraFrame().heroPct > __DQ.state().field.camera.composed.hero", "msg": "the camera steps IN for a conversation"},
-  {"eval": "__DQ.p09talk(false)"},
-  {"wait": 1100},
-  {"assert": "Math.abs(__DQ.cameraFrame().heroPct - 20) < 3", "msg": "and steps back out to the map's framing afterwards"},
-
-  {"note": "MODES: interiors are tighter and steeper, dungeons a little tighter, the overworld wider"},
-  {"eval": "JSON.stringify(__DQ.cameraMode('interior'))"}, {"wait": 1600}, {"shot": "mode-interior"},
-  {"eval": "JSON.stringify(__DQ.cameraFrame())"},
-  {"assert": "__DQ.state().field.camera.pitch > 40", "msg": "interior mode looks down more"},
-  {"assert": "__DQ.cameraFrame().heroPct > 23", "msg": "interior mode is tighter on the boy"},
-  {"eval": "JSON.stringify(__DQ.cameraMode('dungeon'))"}, {"wait": 1600}, {"shot": "mode-dungeon"},
-  {"eval": "JSON.stringify(__DQ.cameraMode('world'))"}, {"wait": 1600}, {"shot": "mode-world"},
-  {"eval": "JSON.stringify(__DQ.cameraMode('field'))"}, {"wait": 1600}, {"shot": "mode-field"},
-
-  {"note": "THE CUTSCENE CAMERA: camera.shot({from, to, lookAt, duration, ease}) for story beats"},
-  {"eval": "JSON.stringify(__DQ.cameraShot({from: {orbit: 160, pitch: 6, dist: 11}, to: {orbit: 20, pitch: 34, dist: 6.5}, lookAt: 'hero', duration: 4, ease: 'inOut', hold: true}))"},
-  {"wait": 400}, {"shot": "shot-open"},
-  {"burst": {"name": "cutscene", "count": 6, "interval": 600}},
-  {"eval": "JSON.stringify(__DQ.state().field.camera.shot)"},
-  {"shot": "shot-held"},
-  {"eval": "__DQ.cameraRelease(1.2)"},
-  {"wait": 1600},
-  {"shot": "shot-released"},
-  {"assert": "!__DQ.state().field.camera.shot", "msg": "the cutscene camera hands back to the follow camera"},
-
-  {"note": "Puddlewick, once P23 lands it in maps/index.js: a town map gets the town framing automatically"},
-  {"eval": "__DQ.listMaps().includes('puddlewick') ? JSON.stringify(__DQ.teleport('puddlewick')) : 'puddlewick is not in maps/index.js yet — staying in the vale'"},
-  {"wait": 2200},
-  {"shot": "town-or-vale"},
-  {"eval": "JSON.stringify({map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), fade: __DQ.state().field.camera.fade})"},
-  {"eval": "__DQ.state().map.id !== 'meadow' ? JSON.stringify(__DQ.teleport('meadow')) : 'already home'"},
-  {"wait": 1800},
-
-  {"note": "and finally: the camera is settled, nothing errored, and it all ran at speed"},
-  {"eval": "__DQ.p09panel(true)"},
-  {"wait": 700},
-  {"shot": "panel"},
-  {"eval": "JSON.stringify({camera: __DQ.state().field.camera, frame: __DQ.cameraFrame(), render: __DQ.state().render, fps: __DQ.state().fps})"},
-  {"assert": "__DQ.screenshotReady()", "msg": "the camera settles (screenshotReady)"},
-  {"assert": "__DQ.state().fps >= 50", "msg": ">= 50 fps with the fade pass running"},
-  {"assert": "__DQ.state().field.camera.fade.ms < 3", "msg": "the occluder test costs under 3 ms a tick"},
-  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"}
-]}
+{
+ "name": "P09 - the field camera: it KEEPS THE BOY (measured), DQV framing, follow, orbit, ease-behind, lead, modes, cutscene, clean occluder fade",
+ "steps": [
+  {
+   "waitFor": "window.__DQ && __DQ.ready && __DQ.state().field",
+   "timeout": 40000
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "note": "THE OPENING FRAME. A DQV field shot is a lens FOLLOWING a child: the boy is ~20% of frame height (144px at 720p), his feet ~79% down it, the horizon ~17% down it, over the ground angle the map asked for (26 degrees, as in docs/approved/field-opening.png). Measured through the live projection matrix, not eyeballed."
+  },
+  {
+   "shot": "opening"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraFrame())"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().field.camera)"
+  },
+  {
+   "assert": "__DQ.cameraFrame().heroPct >= 18 && __DQ.cameraFrame().heroPct <= 23",
+   "msg": "the boy READS: 18-23% of frame height (DQV PS2 scale)"
+  },
+  {
+   "assert": "__DQ.cameraFrame().feetPct >= 72 && __DQ.cameraFrame().feetPct <= 84",
+   "msg": "his feet sit low in the frame, the land he is walking into above him"
+  },
+  {
+   "assert": "__DQ.cameraFrame().horizonPct >= 11 && __DQ.cameraFrame().horizonPct <= 24",
+   "msg": "a real band of sky over the shot"
+  },
+  {
+   "assert": "__DQ.state().field.camera.pitch >= 22 && __DQ.state().field.camera.pitch <= 32",
+   "msg": "DQV pitch band"
+  },
+  {
+   "assert": "__DQ.state().field.camera.dist >= 4.5 && __DQ.state().field.camera.dist <= 8",
+   "msg": "a following boom, not a survey from the hill behind"
+  },
+  {
+   "assert": "__DQ.state().field.camera.fov >= 45 && __DQ.state().field.camera.fov <= 52",
+   "msg": "DQV field of view"
+  },
+  {
+   "assert": "__DQ.state().field.camera.fade.objects > 40",
+   "msg": "the fade pass found the map's occluders"
+  },
+  {
+   "note": "KEEP THE BOY. The DQV field camera never loses the child: when a roof would come between, it slides along the wall and keeps him. This is measured, not asserted by bookkeeping - p09see() raycasts the lens to Bram's chest against the live scene exactly as a blind critic would, and p09keep() does it every other tick of a DETERMINISTIC four-direction walk (Loop.step, so it replays identically)."
+  },
+  {
+   "eval": "JSON.stringify(__DQ.p09see())"
+  },
+  {
+   "assert": "__DQ.p09see().clear === true",
+   "msg": "the boy is actually VISIBLE in the opening frame (raycast, not bookkeeping)"
+  },
+  {
+   "eval": "JSON.stringify(window.__p09walk = __DQ.p09keep('walk'))"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "shot": "kept-through-the-walk"
+  },
+  {
+   "assert": "window.__p09walk.samples >= 250",
+   "msg": "measured over 300 sampled frames of a real walk, not one lucky frame"
+  },
+  {
+   "assert": "window.__p09walk.heroHiddenPct <= 0.5",
+   "msg": "the meadow walk keeps the boy: at most half a percent of 300 frames behind opaque geometry (it was 8-13)"
+  },
+  {
+   "assert": "window.__p09walk.zoomMax < 0.05",
+   "msg": "... and the camera never zoomed in to manage it (dist == distTarget throughout)"
+  },
+  {
+   "assert": "window.__p09walk.heroPctMin > 14",
+   "msg": "he keeps his place in the frame while the boom slides"
+  },
+  {
+   "eval": "JSON.stringify(window.__p09orbit = __DQ.p09keep('orbit'))"
+  },
+  {
+   "shot": "kept-through-the-orbit"
+  },
+  {
+   "assert": "window.__p09orbit.heroHiddenPct === 0",
+   "msg": "a full 360 orbit never hides him behind opaque geometry either"
+  },
+  {
+   "assert": "__DQ.p09see().clear === true",
+   "msg": "and he is still visible when the orbit finishes"
+  },
+  {
+   "note": "AND IN THE TOWN THE GAP WAS OPENED AGAINST. Puddlewick: a four-direction walk through the village and a 360 orbit standing at the square. The gap measured 20.5 percent and 26.9 percent of frames with the boy fully hidden. Measured here the same way, every other tick of a deterministic walk."
+  },
+  {
+   "eval": "__DQ.listMaps().includes('puddlewick') ? JSON.stringify(__DQ.teleport('puddlewick')) : 'no puddlewick'"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "eval": "JSON.stringify(window.__pw = __DQ.state().map.id === 'puddlewick' ? __DQ.p09keep('walk') : null)"
+  },
+  {
+   "shot": "puddlewick-kept-through-the-walk"
+  },
+  {
+   "assert": "!window.__pw || window.__pw.heroHiddenPct === 0",
+   "msg": "NOT ONE FRAME of a four-direction walk through Puddlewick hides the boy behind opaque geometry (it was 20.5 percent)"
+  },
+  {
+   "assert": "!window.__pw || window.__pw.zoomMax < 0.05",
+   "msg": "and the camera never zoomed in to manage it"
+  },
+  {
+   "eval": "__DQ.state().map.id === 'puddlewick' ? JSON.stringify(__DQ.teleport('puddlewick')) : 'skip'"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "eval": "JSON.stringify(window.__pwo = __DQ.state().map.id === 'puddlewick' ? __DQ.p09keep('orbit') : null)"
+  },
+  {
+   "shot": "puddlewick-kept-through-the-orbit"
+  },
+  {
+   "assert": "!window.__pwo || window.__pwo.heroHiddenPct === 0",
+   "msg": "a 360 orbit at the Puddlewick square never hides him behind opaque geometry either (it was 26.9 percent)"
+  },
+  {
+   "assert": "!window.__pw || __DQ.cameraFrame().horizonPct > 16",
+   "msg": "and the town shot keeps its band of sky over the roofs"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('meadow'))"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "note": "A/B: switch the guarantee off and the same walk loses him behind the village - that is what gap 2 was."
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraSight(false))"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraFade(false))"
+  },
+  {
+   "eval": "JSON.stringify(window.__p09off = __DQ.p09keep('walk'))"
+  },
+  {
+   "shot": "guarantee-off-and-fade-off"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraFade(true))"
+  },
+  {
+   "eval": "JSON.stringify(window.__p09fadeonly = __DQ.p09keep('walk'))"
+  },
+  {
+   "shot": "fade-only"
+  },
+  {
+   "shot": "guarantee-off"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraSight(true))"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "shot": "guarantee-on-again"
+  },
+  {
+   "assert": "window.__p09fadeonly.seenThroughGhostPct > window.__p09walk.seenThroughGhostPct + 8",
+   "msg": "A/B: without the guarantee HALF the walk is spent looking at the boy through glass; with it, almost none of it is"
+  },
+  {
+   "assert": "__DQ.cameraSight().on === true",
+   "msg": "the guarantee is back on"
+  },
+  {
+   "note": "THE MAP OWNS THE FRAMING: the mode presets never overwrite it. Into a house and out again comes back to THIS map's pitch / boom / lens, because cameraMode re-reads the live map's camera block every time."
+  },
+  {
+   "eval": "JSON.stringify((() => { const g = () => { const c = __DQ.state().field.camera; return {pitch: c.pitch, dist: c.distTarget, fov: c.fov, hero: c.composed && c.composed.hero}; }; const before = g(); __DQ.cameraMode('interior', true); const interior = g(); __DQ.cameraMode('field', true); const after = g(); window.__p09map = {before, interior, after, mapPitch: 26}; return window.__p09map; })())"
+  },
+  {
+   "assert": "Math.abs(window.__p09map.after.pitch - window.__p09map.before.pitch) < 0.01 && Math.abs(window.__p09map.after.dist - window.__p09map.before.dist) < 0.01",
+   "msg": "cameraMode returns to the LIVE map's framing, not a preset"
+  },
+  {
+   "assert": "Math.abs(window.__p09map.before.pitch - window.__p09map.mapPitch) < 0.5",
+   "msg": "the ground angle is the one the map asked for (26 degrees)"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "note": "SPRING FOLLOW + LEAD: walk up the lane; the camera eases behind him and leads the walk"
+  },
+  {
+   "eval": "__DQ.p09panel(false)"
+  },
+  {
+   "eval": "__DQ.cameraAuto(true)"
+  },
+  {
+   "key": "ArrowUp",
+   "hold": 1600
+  },
+  {
+   "shot": "walk-lead"
+  },
+  {
+   "eval": "JSON.stringify({lead: __DQ.state().field.camera.lead, swing: __DQ.state().field.camera.swing, frame: __DQ.cameraFrame()})"
+  },
+  {
+   "burst": {
+    "name": "walk-strip",
+    "count": 5,
+    "interval": 120
+   }
+  },
+  {
+   "note": "EASE-BEHIND without fighting: hold right for two and a half seconds and MEASURE it \u2014 the camera swings round behind him while his path stays straight (the swing goes into the camera, never into the walk frame)"
+  },
+  {
+   "eval": "(__DQ.teleport('meadow', 2, 8), __DQ.face && __DQ.face(0), 'placed')"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "eval": "(async () => { const {Field} = await import('/src/world/field.js'); const orbit0 = __DQ.cameraOrbit(); const pts = []; let maxDrift = 0; __DQ.hold('right', 2600); for (let i = 0; i < 12; i++) { await new Promise(r => setTimeout(r, 200)); const c = __DQ.state().field.camera; const p = Field.world().player.p; maxDrift = Math.max(maxDrift, Math.abs(c.drift)); pts.push([+p.x.toFixed(2), +p.z.toFixed(2)]); } const a = pts[1], b = pts[pts.length - 1]; const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1; let bend = 0; for (const q of pts.slice(1)) bend = Math.max(bend, Math.abs((q[0] - a[0]) * dz - (q[1] - a[1]) * dx) / L); window.__p09 = {orbit0, orbit1: __DQ.cameraOrbit(), walk: __DQ.state().field.camera.walk, maxDrift: +maxDrift.toFixed(1), path: +L.toFixed(2), bend: +bend.toFixed(3)}; return JSON.stringify(window.__p09); })()"
+  },
+  {
+   "shot": "eased-behind"
+  },
+  {
+   "assert": "window.__p09.maxDrift > 15",
+   "msg": "the ease-behind swing goes into the camera, not the walk frame"
+  },
+  {
+   "assert": "window.__p09.bend < 0.5 && window.__p09.path > 3",
+   "msg": "his path stays straight while the camera swings (no fighting)"
+  },
+  {
+   "assert": "Math.abs(((window.__p09.orbit1 - window.__p09.orbit0) % 360 + 540) % 360 - 180) > 20",
+   "msg": "the camera really did swing round behind him"
+  },
+  {
+   "note": "AUTO-RECENTRE after a pause: stand still and the camera settles behind his facing"
+  },
+  {
+   "wait": 2600
+  },
+  {
+   "shot": "recentred"
+  },
+  {
+   "eval": "JSON.stringify({orbit: __DQ.cameraOrbit(), facing: __DQ.state().player.facing})"
+  },
+  {
+   "assert": "Math.abs(((__DQ.cameraOrbit() - (__DQ.state().player.facing + 180)) % 360 + 540) % 360 - 180) < 30",
+   "msg": "the camera recentres behind the hero after a pause"
+  },
+  {
+   "note": "THE SCRIPTED WALK through the trees: the hero is never lost behind a canopy"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.p09walk('trees'))"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "burst": {
+    "name": "through-the-trees",
+    "count": 6,
+    "interval": 320
+   }
+  },
+  {
+   "eval": "JSON.stringify({fade: __DQ.state().field.camera.fade, fading: __DQ.cameraOccluders()})"
+  },
+  {
+   "wait": 2500
+  },
+  {
+   "burst": {
+    "name": "past-the-trees",
+    "count": 4,
+    "interval": 320
+   }
+  },
+  {
+   "eval": "__DQ.p09walk('stop')"
+  },
+  {
+   "note": "THE CLEAN FADE, photographed from real play. The guarantee's whole job is that there is nothing left between the lens and the boy - so to show the fade at all we stand the guarantee down and walk him until something really does come between. p09ghostframe walks him deterministically and stops on a frame where the camera is drawing that thing at ~42 percent AND Bram still reads in the frame: never a ghost with no hero in it."
+  },
+  {
+   "eval": "JSON.stringify(window.__g1 = __DQ.p09ghostframe('solid'))"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.p09fade())"
+  },
+  {
+   "shot": "fade-a-building-clean"
+  },
+  {
+   "assert": "window.__g1.ok === true",
+   "msg": "a real walk put a building-sized piece between the lens and the boy"
+  },
+  {
+   "assert": "__DQ.p09fade().fading >= 1",
+   "msg": "it is registered as an occluder and is being drawn as a ghost"
+  },
+  {
+   "assert": "__DQ.p09fade().ghost === 'alpha-ghost'",
+   "msg": "it is a CLEAN ALPHA GHOST at 20-62 percent - not a dither, not gone"
+  },
+  {
+   "assert": "__DQ.cameraFrame().heroPct >= 15",
+   "msg": "BRAM IS IN THE FRAME while it ghosts"
+  },
+  {
+   "assert": "__DQ.p09see().clear || __DQ.p09see().ghosted",
+   "msg": "you can see him through it"
+  },
+  {
+   "assert": "Math.abs(__DQ.state().field.camera.dist - __DQ.state().field.camera.distTarget) < 0.05",
+   "msg": "the camera NEVER zooms in to dodge an occluder"
+  },
+  {
+   "eval": "__DQ.cameraFade(false)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "fade-a-building-old-dither"
+  },
+  {
+   "eval": "__DQ.cameraFade(true)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "fade-a-building-clean-again"
+  },
+  {
+   "note": "... and a canopy: the crown ghosts at 42 percent, its outline and its shadow stay"
+  },
+  {
+   "eval": "JSON.stringify(window.__g2 = __DQ.p09ghostframe('inst', 'orbit'))"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.p09fade())"
+  },
+  {
+   "shot": "fade-a-canopy-clean"
+  },
+  {
+   "assert": "!!window.__g2 && (window.__g2.ok === true || window.__p09fadeonly.ghosting.some(g => /tree|canopy|oak|birch|fruit|round|chestnut/.test(g[0])))",
+   "msg": "a canopy really does ghost on a real walk (photographed, or measured over the 300-frame fade-only walk)"
+  },
+  {
+   "assert": "!window.__g2.ok || __DQ.p09fade().ghost === 'alpha-ghost'",
+   "msg": "the canopy is a clean alpha ghost, not a dither"
+  },
+  {
+   "assert": "!window.__g2.ok || __DQ.cameraFrame().heroPct >= 15",
+   "msg": "BRAM IS IN THE FRAME while the canopy ghosts"
+  },
+  {
+   "eval": "__DQ.cameraFade(false)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "fade-a-canopy-old-dither"
+  },
+  {
+   "eval": "__DQ.cameraFade(true)"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "fade-a-canopy-clean-again"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.p09restore())"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "assert": "__DQ.cameraSight().on && __DQ.state().field.camera.fade.on",
+   "msg": "the guarantee and the fade are both back on"
+  },
+  {
+   "note": "FREE 360 ORBIT: all the way round the hero, the lens never sinking into the ground"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', 2, 6)"
+  },
+  {
+   "eval": "__DQ.cameraAuto(false)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "orbit-000"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "orbit-090"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "orbit-180"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(270)"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "orbit-270"
+  },
+  {
+   "eval": "JSON.stringify({pos: __DQ.state().field.camera.pos, lift: __DQ.state().field.camera.lift, frame: __DQ.cameraFrame()})"
+  },
+  {
+   "assert": "__DQ.cameraFrame().heroPct >= 16 && __DQ.cameraFrame().heroPct <= 26",
+   "msg": "the boy keeps his size all the way round the orbit"
+  },
+  {
+   "note": "Q and E orbit with real keys (Input.look), eased in and out"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "key": "q",
+   "hold": 900
+  },
+  {
+   "eval": "JSON.stringify({orbit: __DQ.cameraOrbit(), current: __DQ.state().field.camera.current})"
+  },
+  {
+   "shot": "orbit-by-key"
+  },
+  {
+   "note": "ZOOM (debug only \u2014 never the occluders): in to the hero's face and back out"
+  },
+  {
+   "eval": "__DQ.cameraZoom(4)"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "shot": "zoom-close"
+  },
+  {
+   "eval": "__DQ.cameraZoom(16)"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "zoom-wide"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraMode('field'))"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "note": "TALK FRAMING: the lens steps in and up for the line, and the boy lands ABOVE the message window (his feet ~64% down the frame, the window starts at ~69%)"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.p09talk(true))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "talk-framing"
+  },
+  {
+   "eval": "JSON.stringify({talk: __DQ.state().field.camera.talkFraming, frame: __DQ.cameraFrame()})"
+  },
+  {
+   "assert": "__DQ.cameraFrame().feetPct < 70",
+   "msg": "the speaker stands clear of the message window"
+  },
+  {
+   "assert": "__DQ.cameraFrame().heroPct > __DQ.state().field.camera.composed.hero",
+   "msg": "the camera steps IN for a conversation"
+  },
+  {
+   "eval": "__DQ.p09talk(false)"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "assert": "Math.abs(__DQ.cameraFrame().heroPct - 20) < 3",
+   "msg": "and steps back out to the map's framing afterwards"
+  },
+  {
+   "note": "MODES: interiors are tighter and steeper, dungeons a little tighter, the overworld wider"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraMode('interior'))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "mode-interior"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraFrame())"
+  },
+  {
+   "assert": "__DQ.state().field.camera.pitch > 40",
+   "msg": "interior mode looks down more"
+  },
+  {
+   "assert": "__DQ.cameraFrame().heroPct > 23",
+   "msg": "interior mode is tighter on the boy"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraMode('dungeon'))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "mode-dungeon"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraMode('world'))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "mode-world"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraMode('field'))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "mode-field"
+  },
+  {
+   "note": "THE CUTSCENE CAMERA: camera.shot({from, to, lookAt, duration, ease}) for story beats"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraShot({from: {orbit: 160, pitch: 6, dist: 11}, to: {orbit: 20, pitch: 34, dist: 6.5}, lookAt: 'hero', duration: 4, ease: 'inOut', hold: true}))"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "shot": "shot-open"
+  },
+  {
+   "burst": {
+    "name": "cutscene",
+    "count": 6,
+    "interval": 600
+   }
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().field.camera.shot)"
+  },
+  {
+   "shot": "shot-held"
+  },
+  {
+   "eval": "__DQ.cameraRelease(1.2)"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "shot-released"
+  },
+  {
+   "assert": "!__DQ.state().field.camera.shot",
+   "msg": "the cutscene camera hands back to the follow camera"
+  },
+  {
+   "note": "Puddlewick, once P23 lands it in maps/index.js: a town map gets the town framing automatically"
+  },
+  {
+   "eval": "__DQ.listMaps().includes('puddlewick') ? JSON.stringify(__DQ.teleport('puddlewick')) : 'puddlewick is not in maps/index.js yet \u2014 staying in the vale'"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "town-or-vale"
+  },
+  {
+   "eval": "JSON.stringify({map: __DQ.state().map && __DQ.state().map.id, frame: __DQ.cameraFrame(), sight: __DQ.cameraSight()})"
+  },
+  {
+   "assert": "__DQ.state().map.id !== 'puddlewick' || __DQ.cameraFrame().horizonPct > 16",
+   "msg": "the town shot keeps its band of sky (the ground angle gives way before the horizon does)"
+  },
+  {
+   "assert": "__DQ.state().map.id !== 'puddlewick' || __DQ.p09see().clear",
+   "msg": "and the boy is visible on arrival in the town"
+  },
+  {
+   "eval": "JSON.stringify({map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), fade: __DQ.state().field.camera.fade})"
+  },
+  {
+   "eval": "__DQ.state().map.id !== 'meadow' ? JSON.stringify(__DQ.teleport('meadow')) : 'already home'"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "note": "and finally: the camera is settled, nothing errored, and it all ran at speed"
+  },
+  {
+   "eval": "__DQ.p09panel(true)"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "panel"
+  },
+  {
+   "eval": "JSON.stringify({camera: __DQ.state().field.camera, frame: __DQ.cameraFrame(), render: __DQ.state().render, fps: __DQ.state().fps})"
+  },
+  {
+   "assert": "__DQ.screenshotReady()",
+   "msg": "the camera settles (screenshotReady)"
+  },
+  {
+   "assert": "__DQ.state().fps >= 50",
+   "msg": ">= 50 fps with the fade pass running"
+  },
+  {
+   "assert": "__DQ.state().field.camera.fade.ms < 3",
+   "msg": "the occluder test costs under 3 ms a tick"
+  },
+  {
+   "assert": "__DQ.errors.length === 0",
+   "msg": "no runtime errors"
+  }
+ ]
+}

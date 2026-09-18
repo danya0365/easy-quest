@@ -1,5 +1,5 @@
 {
- "name": "critic-P04 c1 — PROPS & SET DRESSING, measured",
+ "name": "critic-P04 c2 - PROPS & SET DRESSING re-checked by measurement (gaps 1-5 + new hunt)",
  "steps": [
   {
    "waitFor": "window.__DQ && __DQ.ready",
@@ -9,214 +9,73 @@
    "wait": 2500
   },
   {
-   "eval": "(async () => {\n  const T = await import('/vendor/three/three.module.js');\n  window.__T = T;\n  window.__NAN = [];\n  const cbs = T.BufferGeometry.prototype.computeBoundingSphere;\n  T.BufferGeometry.prototype.computeBoundingSphere = function () {\n    const r = cbs.apply(this, arguments);\n    if (this.boundingSphere && isNaN(this.boundingSphere.radius)) {\n      const p = this.attributes.position; let bad = 0, first = -1;\n      if (p) for (let i = 0; i < p.count; i++) { if (isNaN(p.getX(i)) || isNaN(p.getY(i)) || isNaN(p.getZ(i))) { bad++; if (first < 0) first = i; } }\n      window.__NAN.push({ type: this.type, name: this.name || '', verts: p ? p.count : 0, nanVerts: bad, first, at: Math.round(performance.now()), stack: (new Error()).stack.split('\\n').slice(1, 8).join(' | ') });\n    }\n    return r;\n  };\n  const base = T.Object3D.prototype.onBeforeRender;\n  T.Object3D.prototype.onBeforeRender = function (r, s, c) {\n    if (s && s.isScene && s.children && s.children.length > 3) { window.__S = s; window.__CAM = c; window.__R = r; }\n    return base.apply(this, arguments);\n  };\n  const SKIP = /^(sky|clouds|hill-|forestCards|landmark|water|pond|blobShadows|contactShadows|motes|butterfl|bird|smoke|ripple|sun|moon|star|haze|ui|cursor|-ghull|gdepth|gbody|-hull)/i;\n  const FLY = /(bird|butterfl|mote|smoke|cloud|laundry|washing|lantern-glow|duck)/i;\n  window.__M = {\n    scene: () => window.__S,\n    named(re) { const o = []; window.__S.traverse(x => { if (x.isMesh && re.test(x.name || '')) o.push(x); }); return o; },\n    find(name) { let f = null; window.__S.traverse(x => { if (x.isMesh && x.name === name) f = x; }); return f; },\n    setVisible(name, v) { let n = 0; window.__S.traverse(x => { if (x.isMesh && x.name === name) { x.visible = v; n++; } }); return n; },\n    census() {\n      const m = {}; let inst = 0, tris = 0;\n      window.__S.traverse(x => {\n        if (!x.isMesh || !x.geometry) return;\n        const c = x.isInstancedMesh ? x.count : 1;\n        const g = x.geometry, idx = g.index ? g.index.count : (g.attributes.position ? g.attributes.position.count : 0);\n        m[x.name || '(anon)'] = (m[x.name || '(anon)'] || 0) + c; inst += c; tris += Math.round(idx / 3) * c;\n      });\n      return { meshNames: Object.keys(m).length, instances: inst, tris, list: Object.entries(m).sort((a, b) => b[1] - a[1]) };\n    },\n    // ── grounding: world AABB base of every prop vs the ground under it ──\n    grounding(maxPer = 40) {\n      const ground = window.__M.find('ground');\n      if (!ground) return { error: 'no ground mesh' };\n      const rc = new T.Raycaster(); rc.far = 400;\n      const down = new T.Vector3(0, -1, 0);\n      const groundY = (x, z) => {\n        rc.set(new T.Vector3(x, 120, z), down);\n        const h = rc.intersectObject(ground, false);\n        return h.length ? h[0].point.y : null;\n      };\n      const rows = [], box = new T.Box3(), v = new T.Vector3(), m4 = new T.Matrix4();\n      window.__S.traverse(o => {\n        if (!o.isMesh || !o.geometry || !o.visible) return;\n        const n = o.name || '(anon)';\n        if (SKIP.test(n) || FLY.test(n) || n === 'ground') return;\n        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();\n        const gb = o.geometry.boundingBox;\n        const push = (mat, tag) => {\n          box.copy(gb).applyMatrix4(mat);\n          box.getCenter(v);\n          const gy = groundY(v.x, v.z);\n          if (gy === null) return;\n          rows.push({ n: tag, x: +v.x.toFixed(2), z: +v.z.toFixed(2), base: +box.min.y.toFixed(3), gy: +gy.toFixed(3), gap: +(box.min.y - gy).toFixed(3) });\n        };\n        if (o.isInstancedMesh) {\n          const step = Math.max(1, Math.ceil(o.count / maxPer));\n          for (let i = 0; i < o.count; i += step) { o.getMatrixAt(i, m4); m4.premultiply(o.matrixWorld); push(m4, n); }\n        } else { o.updateWorldMatrix(true, false); push(o.matrixWorld, n); }\n      });\n      rows.sort((a, b) => b.gap - a.gap);\n      const gaps = rows.map(r => r.gap);\n      const float = rows.filter(r => r.gap > 0.06);\n      const byName = {};\n      for (const r of float) byName[r.n] = (byName[r.n] || 0) + 1;\n      return {\n        sampled: rows.length,\n        floatingOver6cm: float.length,\n        floatPct: +(100 * float.length / Math.max(1, rows.length)).toFixed(1),\n        maxGap: gaps.length ? gaps[0] : null,\n        p95: gaps.length ? gaps[Math.floor(gaps.length * 0.05)] : null,\n        median: gaps.length ? gaps[Math.floor(gaps.length * 0.5)] : null,\n        worst: rows.slice(0, 12),\n        floatersByName: Object.entries(byName).sort((a, b) => b[1] - a[1]).slice(0, 14),\n      };\n    },\n    // ── how much of the ground is actually darkened by the contact pools ──\n    pools() {\n      const cs = window.__M.find('contactShadows');\n      if (!cs) return { error: 'no contactShadows mesh' };\n      return { count: cs.count, visible: cs.visible, renderOrder: cs.renderOrder, transparent: !!(cs.material && cs.material.transparent), blending: cs.material && cs.material.blending, depthWrite: cs.material && cs.material.depthWrite };\n    },\n    // ── the see-through uniforms, AS THEY ARE MID-RENDER (not after the camera pass restores them) ──\n    seeLive() {\n      const out = { probed: 0 };\n      // read the uniform block straight off a patched material\n      let mat = null;\n      window.__S.traverse(o => { if (!mat && o.isMesh && o.material && o.material.userData && o.material.userData.__see) mat = o.material; });\n      return out;\n    },\n    // material census: how many see-patched materials exist, and are any still discarding?\n    shaderProbe() {\n      const seen = new Set(); let patched = 0, total = 0;\n      window.__S.traverse(o => {\n        if (!o.isMesh) return;\n        const ms = Array.isArray(o.material) ? o.material : [o.material];\n        for (const m of ms) { if (!m || seen.has(m.uuid)) continue; seen.add(m.uuid); total++; }\n      });\n      return { materials: total, patched };\n    },\n    // z-fighting probe: pairs of meshes whose world AABBs overlap in a near-coplanar way\n    coplanar() {\n      const list = [];\n      window.__S.traverse(o => {\n        if (!o.isMesh || !o.visible || o.isInstancedMesh) return;\n        if (/sky|cloud|hill-|landmark|forestCards/i.test(o.name || '')) return;\n        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();\n        const b = new T.Box3().copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);\n        if (b.max.y - b.min.y < 0.06) list.push({ n: o.name || '(anon)', y: +((b.max.y + b.min.y) / 2).toFixed(4), h: +(b.max.y - b.min.y).toFixed(4), ro: o.renderOrder, dw: !!(o.material && o.material.depthWrite), po: (o.material && o.material.polygonOffset) ? [o.material.polygonOffsetFactor, o.material.polygonOffsetUnits] : null });\n      });\n      return { flatMeshes: list.length, list: list.slice(0, 20) };\n    },\n  };\n  return 'kit installed, three r' + T.REVISION;\n})()"
+   "eval": "(async () => {\n  const T = await import('/vendor/three/three.module.js'); window.__T = T;\n  const base = T.Object3D.prototype.onBeforeRender;\n  T.Object3D.prototype.onBeforeRender = function (r, s, c) {\n    if (s && s.isScene && s.children && s.children.length > 3) { window.__S = s; window.__CAM = c; window.__R = r; }\n    return base.apply(this, arguments);\n  };\n  window.__NAN = [];\n  const cbs = T.BufferGeometry.prototype.computeBoundingSphere;\n  T.BufferGeometry.prototype.computeBoundingSphere = function () {\n    const r = cbs.apply(this, arguments);\n    if (this.boundingSphere && isNaN(this.boundingSphere.radius)) window.__NAN.push(this.name || this.type);\n    return r;\n  };\n  window.__M = {\n    find(name) { let f = null; window.__S.traverse(x => { if (x.isMesh && x.name === name) f = x; }); return f; },\n    setVisible(name, v) { let n = 0; window.__S.traverse(x => { if (x.isMesh && x.name === name) { x.visible = v; n++; } }); return n; },\n    // project a mesh's 4 plane corners to screen px\n    box(name) {\n      const m = window.__M.find(name), cam = window.__CAM;\n      if (!m || !cam) return null;\n      const W = 1280, H = 720;\n      if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();\n      const bb = m.geometry.boundingBox, v = new T.Vector3();\n      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;\n      for (const cx of [bb.min.x, bb.max.x]) for (const cy of [bb.min.y, bb.max.y]) {\n        v.set(cx, cy, 0).applyMatrix4(m.matrixWorld).project(cam);\n        const px = (v.x * 0.5 + 0.5) * W, py = (1 - (v.y * 0.5 + 0.5)) * H;\n        x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);\n      }\n      const wp = new T.Vector3(); m.getWorldPosition(wp);\n      return { name, x0: Math.round(x0), x1: Math.round(x1), y0: Math.round(y0), y1: Math.round(y1),\n               world: [+wp.x.toFixed(1), +wp.y.toFixed(1), +wp.z.toFixed(1)],\n               aabbY: [+(new T.Box3().setFromObject(m)).min.y.toFixed(2), +(new T.Box3().setFromObject(m)).max.y.toFixed(2)],\n               camY: +cam.position.y.toFixed(2), camPos: [+cam.position.x.toFixed(1), +cam.position.z.toFixed(1)] };\n    },\n    // independent: cast a ray from the camera to a point on the card and report what it hits first\n    rayTo(name, u, v) {\n      const m = window.__M.find(name), cam = window.__CAM;\n      if (!m || !cam) return null;\n      if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();\n      const bb = m.geometry.boundingBox;\n      const p = new T.Vector3(bb.min.x + u * (bb.max.x - bb.min.x), bb.min.y + v * (bb.max.y - bb.min.y), 0).applyMatrix4(m.matrixWorld);\n      const dir = p.clone().sub(cam.position).normalize();\n      const rc = new T.Raycaster(cam.position.clone(), dir, 0.1, p.distanceTo(cam.position) - 0.5);\n      const targets = [];\n      window.__S.traverse(o => { if (o.isMesh && o.visible && /^hill-|^ground$|^tree-|forestCards/.test(o.name || '')) targets.push(o); });\n      const h = rc.intersectObjects(targets, false);\n      return { pt: [+p.x.toFixed(1), +p.y.toFixed(1), +p.z.toFixed(1)], blockedBy: h.length ? h[0].object.name : null, at: h.length ? +h[0].distance.toFixed(1) : null };\n    },\n    grounding(maxPer = 40) {\n      const ground = window.__M.find('ground');\n      if (!ground) return { error: 'no ground' };\n      const rc = new T.Raycaster(); rc.far = 400;\n      const down = new T.Vector3(0, -1, 0);\n      const SKIP = /^(sky|clouds|hill-|forestCards|landmark|water|pond|blobShadows|contactShadows|motes|butterfl|bird|smoke|ripple|sun|moon|star|haze|ui|cursor|lanternGlow)/i;\n      const FLY = /(bird|butterfl|mote|smoke|cloud|laundry|washing|glow|duck|-hull|gdepth|gbody|ghull)/i;\n      const rows = [], box = new T.Box3(), v = new T.Vector3(), m4 = new T.Matrix4();\n      window.__S.traverse(o => {\n        if (!o.isMesh || !o.geometry || !o.visible) return;\n        const n = o.name || '(anon)';\n        if (SKIP.test(n) || FLY.test(n) || n === 'ground') return;\n        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();\n        const gb = o.geometry.boundingBox;\n        const push = (mat, tag) => {\n          box.copy(gb).applyMatrix4(mat); box.getCenter(v);\n          rc.set(new T.Vector3(v.x, 120, v.z), down);\n          const h = rc.intersectObject(ground, false); if (!h.length) return;\n          rows.push({ n: tag, x: +v.x.toFixed(1), z: +v.z.toFixed(1), gap: +(box.min.y - h[0].point.y).toFixed(3) });\n        };\n        if (o.isInstancedMesh) { const step = Math.max(1, Math.ceil(o.count / maxPer));\n          for (let i = 0; i < o.count; i += step) { o.getMatrixAt(i, m4); m4.premultiply(o.matrixWorld); push(m4, n); } }\n        else { o.updateWorldMatrix(true, false); push(o.matrixWorld, n); }\n      });\n      rows.sort((a, b) => b.gap - a.gap);\n      const g = rows.map(r => r.gap);\n      const float = rows.filter(r => r.gap > 0.06);\n      return { sampled: rows.length, floating: float.length, median: g[Math.floor(g.length / 2)], max: g[0], worst: rows.slice(0, 10) };\n    },\n    coplanar() {\n      const list = [];\n      window.__S.traverse(o => {\n        if (!o.isMesh || !o.visible || o.isInstancedMesh) return;\n        if (/sky|cloud|hill-|landmark|forestCards/i.test(o.name || '')) return;\n        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();\n        const b = new T.Box3().copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);\n        if (b.max.y - b.min.y < 0.06) list.push({ n: o.name || '(anon)', y: +((b.max.y + b.min.y) / 2).toFixed(4), ro: o.renderOrder, dw: !!(o.material && o.material.depthWrite), po: (o.material && o.material.polygonOffset) ? [o.material.polygonOffsetFactor, o.material.polygonOffsetUnits] : null });\n      });\n      return { flat: list.length, list: list.slice(0, 22) };\n    },\n  };\n  return 'kit r' + T.REVISION;\n})()"
   },
   {
    "wait": 900
   },
   {
-   "eval": "(window.__C = {\n  demo: typeof __DQ.view === 'function',\n  go: function (v, x, z, deg, dist) {\n    if (this.demo) { __DQ.view(v); if (typeof __DQ.walk === 'function') __DQ.walk(x/3, z/3); }\n    else { __DQ.teleport('meadow', x, z); __DQ.cameraOrbit(deg); if (dist !== undefined) __DQ.cameraZoom(dist); }\n    return this.demo ? ('view:' + v) : (x + ',' + z + ' @' + deg + ' d' + dist);\n  }\n}, window.__C.demo ? 'DEMO' : 'GAME')"
+   "eval": "(window.__C={go:function(x,z,deg,dist){__DQ.teleport('meadow',x,z);__DQ.cameraOrbit(deg);if(dist!==undefined)__DQ.cameraZoom(dist);return x+','+z+' @'+deg+' d'+dist;}},'ok')"
   },
   {
-   "eval": "JSON.stringify({mode: __C.demo?'demo':'game', scene: __DQ.state().scene, map: (__DQ.state().map||{}).id, tod: __DQ.state().timeOfDay, fps: __DQ.state().fps, calls: __DQ.budget().calls, tris: __DQ.budget().tris})"
+   "eval": "JSON.stringify({scene:__DQ.state().scene,map:(__DQ.state().map||{}).id,tod:__DQ.state().timeOfDay,fps:__DQ.state().fps,calls:__DQ.budget().calls,tris:__DQ.budget().tris})"
   },
   {
-   "note": "A — the frame as it opens, untouched"
+   "note": "A - the frame as it opens"
   },
   {
    "shot": "01-as-it-opens"
   },
   {
-   "note": "B — census of everything the props kit actually put in the scene"
-  },
-  {
-   "eval": "JSON.stringify(__M.census().list.slice(0,34))"
-  },
-  {
-   "eval": "JSON.stringify({names: __M.census().meshNames, instances: __M.census().instances, tris: __M.census().tris})"
-  },
-  {
-   "eval": "JSON.stringify(((__DQ.state().field||__DQ.state().demo||{}).view||{}).counts||null)"
-  },
-  {
-   "eval": "JSON.stringify(((__DQ.state().field||__DQ.state().demo||{}).view||{}).grove||null)"
-  },
-  {
-   "eval": "JSON.stringify({props:(__DQ.state().map||{}).props, interactables:(__DQ.state().map||{}).interactables, colliders:(__DQ.state().map||{}).colliders, occluders:(__DQ.state().map||{}).occluders, chests:(__DQ.state().map||{}).chests, npcs:(__DQ.state().map||{}).npcs})"
-  },
-  {
-   "note": "=== GAP 1 RE-CHECK: are the props planted? Measured, not eyeballed. ==="
-  },
-  {
-   "note": "G1a — geometry: world AABB base of every prop instance vs the ground raycast under it"
+   "note": "=== GAP 1 (verified-fixed) REGRESSION CHECK: are props still planted? ==="
   },
   {
    "eval": "JSON.stringify(__M.grounding(40))"
   },
   {
-   "note": "G1b — the contact-pool mesh itself"
+   "eval": "JSON.stringify((()=>{const c=__M.find('contactShadows');return c?{count:c.count,visible:c.visible,ro:c.renderOrder,blend:c.material.blending,depthWrite:c.material.depthWrite}:null;})())"
   },
   {
-   "eval": "JSON.stringify(__M.pools())"
-  },
-  {
-   "note": "G1c — A/B: the same frame with the contact pools hidden and shown, at a low gameplay angle"
-  },
-  {
-   "eval": "__C.go('yard', -10.5, 9.5, 60, 5.5)"
+   "eval": "__C.go(6,-14,20,6)"
   },
   {
    "wait": 2200
   },
   {
-   "eval": "JSON.stringify(typeof __DQ.cameraRig==='function' ? __DQ.cameraRig({pitch: 10}) : 'n/a')"
+   "shot": "02-trees-pools-ON"
   },
   {
-   "wait": 1600
-  },
-  {
-   "shot": "02-yard-pools-ON"
-  },
-  {
-   "eval": "__M.setVisible('contactShadows', false)"
+   "eval": "__M.setVisible('contactShadows',false)"
   },
   {
    "wait": 900
   },
   {
-   "shot": "03-yard-pools-OFF"
+   "shot": "03-trees-pools-OFF"
   },
   {
-   "eval": "__M.setVisible('contactShadows', true)"
-  },
-  {
-   "wait": 900
-  },
-  {
-   "shot": "04-yard-pools-ON-again"
-  },
-  {
-   "note": "G1d — same A/B on open grass where the trees stand"
-  },
-  {
-   "eval": "__C.go('rim', 6, -14, 20, 6)"
-  },
-  {
-   "wait": 2200
-  },
-  {
-   "shot": "05-trees-pools-ON"
-  },
-  {
-   "eval": "__M.setVisible('contactShadows', false)"
+   "eval": "__M.setVisible('contactShadows',true)"
   },
   {
    "wait": 900
   },
   {
-   "shot": "06-trees-pools-OFF"
+   "shot": "04-trees-pools-ON-CONTROL"
   },
   {
-   "eval": "__M.setVisible('contactShadows', true)"
+   "note": "=== GAP 2 (verified-fixed) REGRESSION CHECK: screen-door dither back? ==="
   },
   {
-   "wait": 900
-  },
-  {
-   "shot": "06b-trees-pools-ON-again-CONTROL"
-  },
-  {
-   "eval": "JSON.stringify(typeof __DQ.pools==='function' ? __DQ.pools() : 'n/a')"
-  },
-  {
-   "note": "G1e — sun shadow off, so only the contact pools are left doing the grounding"
-  },
-  {
-   "eval": "JSON.stringify(typeof __DQ.shadows==='function' ? __DQ.shadows(false) : 'n/a')"
-  },
-  {
-   "wait": 1400
-  },
-  {
-   "shot": "07-sun-shadow-OFF-pools-only"
-  },
-  {
-   "eval": "JSON.stringify(typeof __DQ.shadows==='function' ? __DQ.shadows(true) : 'n/a')"
-  },
-  {
-   "wait": 1200
-  },
-  {
-   "note": "G1f — grazing angle at eye height: any prop base that floats shows sky/grass under it here"
-  },
-  {
-   "eval": "JSON.stringify(typeof __DQ.cameraRig==='function' ? __DQ.cameraRig({pitch: 2}) : 'n/a')"
-  },
-  {
-   "wait": 1600
-  },
-  {
-   "shot": "08-grazing-eye-height"
-  },
-  {
-   "eval": "__C.go('well', -4, 6, 150, 4)"
-  },
-  {
-   "wait": 2000
-  },
-  {
-   "shot": "09-grazing-well-and-fence"
-  },
-  {
-   "eval": "__C.go('scarecrow', 12, -8, 200, 4)"
-  },
-  {
-   "wait": 2000
-  },
-  {
-   "shot": "10-grazing-field-props"
-  },
-  {
-   "eval": "JSON.stringify(typeof __DQ.cameraRig==='function' ? __DQ.cameraRig({pitch: 26}) : 'n/a')"
-  },
-  {
-   "wait": 1200
-  },
-  {
-   "note": "=== GAP 2 RE-CHECK: is the see-through a clean ghost or still a screen door? ==="
-  },
-  {
-   "note": "G2a — walk under the trees with the lens in tight; whatever covers the boy should ghost"
-  },
-  {
-   "eval": "__C.go('rim', 6, -14, 20, 3.4)"
+   "eval": "__C.go(6,-14,20,3.2)"
   },
   {
    "wait": 2600
   },
   {
-   "eval": "typeof __DQ.cameraOrbit==='function' && __DQ.cameraOrbit(20)"
+   "shot": "05-under-the-trees-close"
   },
   {
-   "wait": 2000
-  },
-  {
-   "shot": "11-under-the-trees-close"
-  },
-  {
-   "eval": "JSON.stringify((__DQ.state().field||{}).camera ? (__DQ.state().field.camera.fade||null) : null)"
-  },
-  {
-   "eval": "JSON.stringify((__DQ.state().field||{}).camera ? (__DQ.state().field.camera.seeThrough||null) : null)"
-  },
-  {
-   "eval": "JSON.stringify(((__DQ.state().field||__DQ.state().demo||{}).view||{}).see||null)"
-  },
-  {
-   "eval": "JSON.stringify(typeof __DQ.see==='function' ? __DQ.see() : 'n/a')"
-  },
-  {
-   "note": "G2b — crawl the lens all the way in (min zoom): the old near-melt dither lived here"
+   "eval": "JSON.stringify((__DQ.state().field||{}).camera?(__DQ.state().field.camera.seeThrough||null):null)"
   },
   {
    "eval": "typeof __DQ.cameraZoom==='function' && __DQ.cameraZoom(1.6)"
@@ -225,44 +84,10 @@
    "wait": 2400
   },
   {
-   "shot": "12-lens-jammed-into-the-canopy"
+   "shot": "06-lens-in-the-canopy"
   },
   {
-   "eval": "JSON.stringify((__DQ.state().field||{}).camera ? {dist:__DQ.state().field.camera.dist, fade:__DQ.state().field.camera.fade} : null)"
-  },
-  {
-   "burst": {
-    "name": "13-ghost-hold",
-    "count": 4,
-    "interval": 700
-   }
-  },
-  {
-   "note": "G2c — hand the see-through to the props kit instead of the camera and look again"
-  },
-  {
-   "eval": "JSON.stringify(typeof __DQ.cameraFade==='function' ? __DQ.cameraFade(false) : (typeof __DQ.see==='function' ? __DQ.see('auto') : 'n/a'))"
-  },
-  {
-   "wait": 2000
-  },
-  {
-   "eval": "typeof __DQ.cameraZoom==='function' && __DQ.cameraZoom(3.2)"
-  },
-  {
-   "wait": 1800
-  },
-  {
-   "shot": "14-props-kit-owns-the-ghost"
-  },
-  {
-   "eval": "JSON.stringify(((__DQ.state().field||__DQ.state().demo||{}).view||{}).see||null)"
-  },
-  {
-   "eval": "JSON.stringify(typeof __DQ.cameraFade==='function' ? __DQ.cameraFade(true) : 'n/a')"
-  },
-  {
-   "wait": 1600
+   "eval": "JSON.stringify(typeof __DQ.see==='function'?__DQ.see():'n/a')"
   },
   {
    "eval": "typeof __DQ.cameraZoom==='function' && __DQ.cameraZoom(10.5)"
@@ -271,221 +96,686 @@
    "wait": 1600
   },
   {
-   "note": "=== NEW HUNTING ==="
+   "note": "=== GAP 3 (claimed-fixed) RE-CHECK: do the towns still float? ==="
   },
   {
-   "note": "C — every edge, looking OUT of the vale, then back IN"
+   "eval": "JSON.stringify(__DQ.landmarks())"
   },
   {
-   "eval": "__C.go('rim', 0, -37, 0, 10.5)"
+   "eval": "JSON.stringify(((__DQ.state().field||{}).view||{}).landmarks||null).slice(0,1800)"
   },
   {
-   "wait": 2600
+   "note": "G3 - puddlewick: stand at the NEAR edge on its bearing and look OUT"
   },
   {
-   "shot": "15-north-edge-OUT"
-  },
-  {
-   "eval": "typeof __DQ.cameraOrbit==='function' && __DQ.cameraOrbit(180)"
-  },
-  {
-   "wait": 1800
-  },
-  {
-   "shot": "16-north-edge-IN"
-  },
-  {
-   "eval": "__C.go('hills', 37, 0, 270, 10.5)"
+   "eval": "__C.go(14.6,-34,336.8,13)"
   },
   {
    "wait": 2600
   },
   {
-   "shot": "17-east-edge-OUT"
+   "eval": "JSON.stringify(__M.box('landmark-puddlewick'))"
   },
   {
-   "eval": "typeof __DQ.cameraOrbit==='function' && __DQ.cameraOrbit(90)"
+   "eval": "JSON.stringify(typeof __DQ.landmarkScreen==='function'?(__DQ.landmarkScreen()||[]).filter(r=>r.id==='puddlewick'):'n/a')"
   },
   {
-   "wait": 1800
+   "eval": "JSON.stringify([__M.rayTo('landmark-puddlewick',0.5,0.02),__M.rayTo('landmark-puddlewick',0.5,0.20),__M.rayTo('landmark-puddlewick',0.15,0.20),__M.rayTo('landmark-puddlewick',0.85,0.20),__M.rayTo('landmark-puddlewick',0.5,0.55)])"
   },
   {
-   "shot": "18-east-edge-IN"
+   "shot": "07-lm-puddlewick-NEAR-ON"
   },
   {
-   "eval": "__C.go('hedge', 0, 37, 180, 10.5)"
+   "eval": "__M.setVisible('landmark-puddlewick',false)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "shot": "08-lm-puddlewick-NEAR-OFF"
+  },
+  {
+   "eval": "__M.setVisible('landmark-puddlewick',true)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "note": "G3 - puddlewick: now from the FAR edge of the vale, the other worst case"
+  },
+  {
+   "eval": "__C.go(-14.6,34,336.8,13)"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "eval": "JSON.stringify(__M.box('landmark-puddlewick'))"
+  },
+  {
+   "shot": "09-lm-puddlewick-FAR-ON"
+  },
+  {
+   "eval": "__M.setVisible('landmark-puddlewick',false)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "shot": "10-lm-puddlewick-FAR-OFF"
+  },
+  {
+   "eval": "__M.setVisible('landmark-puddlewick',true)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "note": "G3 - saltmarrow: stand at the NEAR edge on its bearing and look OUT"
+  },
+  {
+   "eval": "__C.go(36.7,-4.8,277.4,13)"
   },
   {
    "wait": 2600
   },
   {
-   "shot": "19-south-edge-OUT"
+   "eval": "JSON.stringify(__M.box('landmark-saltmarrow'))"
   },
   {
-   "eval": "typeof __DQ.cameraOrbit==='function' && __DQ.cameraOrbit(0)"
+   "eval": "JSON.stringify(typeof __DQ.landmarkScreen==='function'?(__DQ.landmarkScreen()||[]).filter(r=>r.id==='saltmarrow'):'n/a')"
   },
   {
-   "wait": 1800
+   "eval": "JSON.stringify([__M.rayTo('landmark-saltmarrow',0.5,0.02),__M.rayTo('landmark-saltmarrow',0.5,0.20),__M.rayTo('landmark-saltmarrow',0.15,0.20),__M.rayTo('landmark-saltmarrow',0.85,0.20),__M.rayTo('landmark-saltmarrow',0.5,0.55)])"
   },
   {
-   "shot": "20-south-edge-IN"
+   "shot": "11-lm-saltmarrow-NEAR-ON"
   },
   {
-   "eval": "__C.go('bridge', -37, 0, 90, 10.5)"
+   "eval": "__M.setVisible('landmark-saltmarrow',false)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "shot": "12-lm-saltmarrow-NEAR-OFF"
+  },
+  {
+   "eval": "__M.setVisible('landmark-saltmarrow',true)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "note": "G3 - saltmarrow: now from the FAR edge of the vale, the other worst case"
+  },
+  {
+   "eval": "__C.go(-36.7,4.8,277.4,13)"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "eval": "JSON.stringify(__M.box('landmark-saltmarrow'))"
+  },
+  {
+   "shot": "13-lm-saltmarrow-FAR-ON"
+  },
+  {
+   "eval": "__M.setVisible('landmark-saltmarrow',false)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "shot": "14-lm-saltmarrow-FAR-OFF"
+  },
+  {
+   "eval": "__M.setVisible('landmark-saltmarrow',true)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "note": "G3 - coddleston: stand at the NEAR edge on its bearing and look OUT"
+  },
+  {
+   "eval": "__C.go(8.9,35.9,194,13)"
   },
   {
    "wait": 2600
   },
   {
-   "shot": "21-west-edge-OUT"
+   "eval": "JSON.stringify(__M.box('landmark-coddleston'))"
   },
   {
-   "eval": "typeof __DQ.cameraOrbit==='function' && __DQ.cameraOrbit(270)"
+   "eval": "JSON.stringify(typeof __DQ.landmarkScreen==='function'?(__DQ.landmarkScreen()||[]).filter(r=>r.id==='coddleston'):'n/a')"
+  },
+  {
+   "eval": "JSON.stringify([__M.rayTo('landmark-coddleston',0.5,0.02),__M.rayTo('landmark-coddleston',0.5,0.20),__M.rayTo('landmark-coddleston',0.15,0.20),__M.rayTo('landmark-coddleston',0.85,0.20),__M.rayTo('landmark-coddleston',0.5,0.55)])"
+  },
+  {
+   "shot": "15-lm-coddleston-NEAR-ON"
+  },
+  {
+   "eval": "__M.setVisible('landmark-coddleston',false)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "shot": "16-lm-coddleston-NEAR-OFF"
+  },
+  {
+   "eval": "__M.setVisible('landmark-coddleston',true)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "note": "G3 - coddleston: now from the FAR edge of the vale, the other worst case"
+  },
+  {
+   "eval": "__C.go(-8.9,-35.9,194,13)"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "eval": "JSON.stringify(__M.box('landmark-coddleston'))"
+  },
+  {
+   "shot": "17-lm-coddleston-FAR-ON"
+  },
+  {
+   "eval": "__M.setVisible('landmark-coddleston',false)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "shot": "18-lm-coddleston-FAR-OFF"
+  },
+  {
+   "eval": "__M.setVisible('landmark-coddleston',true)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "note": "G3 - whispering_wood: stand at the NEAR edge on its bearing and look OUT"
+  },
+  {
+   "eval": "__C.go(-36.3,7.1,101,13)"
+  },
+  {
+   "wait": 2600
+  },
+  {
+   "eval": "JSON.stringify(__M.box('landmark-whispering_wood'))"
+  },
+  {
+   "eval": "JSON.stringify(typeof __DQ.landmarkScreen==='function'?(__DQ.landmarkScreen()||[]).filter(r=>r.id==='whispering_wood'):'n/a')"
+  },
+  {
+   "eval": "JSON.stringify([__M.rayTo('landmark-whispering_wood',0.5,0.02),__M.rayTo('landmark-whispering_wood',0.5,0.20),__M.rayTo('landmark-whispering_wood',0.15,0.20),__M.rayTo('landmark-whispering_wood',0.85,0.20),__M.rayTo('landmark-whispering_wood',0.5,0.55)])"
+  },
+  {
+   "shot": "19-lm-whispering_wood-NEAR-ON"
+  },
+  {
+   "eval": "__M.setVisible('landmark-whispering_wood',false)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "shot": "20-lm-whispering_wood-NEAR-OFF"
+  },
+  {
+   "eval": "__M.setVisible('landmark-whispering_wood',true)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "note": "G3 - whispering_wood: now from the FAR edge of the vale, the other worst case"
+  },
+  {
+   "eval": "__C.go(36.3,-7.1,101,13)"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "eval": "JSON.stringify(__M.box('landmark-whispering_wood'))"
+  },
+  {
+   "shot": "21-lm-whispering_wood-FAR-ON"
+  },
+  {
+   "eval": "__M.setVisible('landmark-whispering_wood',false)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "shot": "22-lm-whispering_wood-FAR-OFF"
+  },
+  {
+   "eval": "__M.setVisible('landmark-whispering_wood',true)"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "note": "=== PART 2: gaps 4 and 5, then the hunt ==="
+  },
+  {
+   "eval": "(window.__C={go:function(x,z,deg,dist){__DQ.teleport('meadow',x,z);__DQ.cameraOrbit(deg);if(dist!==undefined)__DQ.cameraZoom(dist);return x+','+z+' @'+deg+' d'+dist;}},'ok')"
+  },
+  {
+   "note": "=== GAP 4 (claimed-fixed) RE-CHECK: are the lanterns still sealed grey boxes? ==="
+  },
+  {
+   "eval": "JSON.stringify(__DQ.timeOfDay(9))"
   },
   {
    "wait": 1800
   },
   {
-   "shot": "22-west-edge-IN"
+   "eval": "__DQ.teleport('meadow',-2.42,-5.73)"
   },
   {
-   "eval": "JSON.stringify({pos:[(__DQ.state().player||{}).x,(__DQ.state().player||{}).z], blocked:(__DQ.state().player||{}).blocked, ground:(__DQ.state().player||{}).ground})"
+   "wait": 900
   },
   {
-   "note": "D — the inhabited middle"
+   "eval": "JSON.stringify(__DQ.cameraShot({from:{x:-3.07,y:1.85,z:-6.38},lookAt:{x:-4.62,y:1.55,z:-7.93},duration:0,hold:true,fov:28}))"
   },
   {
-   "eval": "__C.go('yard', -10, 10, 60, 8)"
+   "wait": 1400
   },
   {
-   "wait": 2400
+   "shot": "01-lantern-A-day"
   },
   {
-   "shot": "23-cottage-yard"
+   "eval": "JSON.stringify(__DQ.cameraRelease(0))"
   },
   {
-   "eval": "__C.go('pond', -22, -4, 200, 9)"
+   "wait": 400
   },
   {
-   "wait": 2400
+   "eval": "__DQ.teleport('meadow',6.75,12.24)"
   },
   {
-   "shot": "24-pond"
+   "wait": 900
   },
   {
-   "eval": "__C.go('orchard', 18, 12, 300, 8)"
+   "eval": "JSON.stringify(__DQ.cameraShot({from:{x:6.1,y:1.95,z:11.59},lookAt:{x:4.55,y:1.65,z:10.04},duration:0,hold:true,fov:28}))"
   },
   {
-   "wait": 2400
+   "wait": 1400
   },
   {
-   "shot": "25-orchard"
+   "shot": "02-lantern-B-day"
   },
   {
-   "eval": "__C.go('bridge', -3, -11, 0, 8)"
+   "eval": "JSON.stringify(__DQ.cameraRelease(0))"
   },
   {
-   "wait": 2400
+   "wait": 400
   },
   {
-   "shot": "26-bridge"
+   "eval": "__DQ.teleport('meadow',13.42,9.59)"
   },
   {
-   "eval": "__C.go('well', 3, 11, 150, 7)"
+   "wait": 900
   },
   {
-   "wait": 2400
+   "eval": "JSON.stringify(__DQ.cameraShot({from:{x:12.77,y:2.01,z:8.94},lookAt:{x:11.22,y:1.71,z:7.39},duration:0,hold:true,fov:28}))"
   },
   {
-   "shot": "27-signpost-and-lane"
+   "wait": 1400
   },
   {
-   "note": "E — repetition: five places, identical camera. One place copied, or five places?"
+   "shot": "03-lantern-C-day"
   },
   {
-   "eval": "__C.go('wide', -26, -26, 45, 11)"
+   "eval": "JSON.stringify(__DQ.cameraRelease(0))"
   },
   {
-   "wait": 2300
+   "wait": 400
   },
   {
-   "shot": "28-rep-NW"
-  },
-  {
-   "eval": "__C.go('wide', 26, -26, 315, 11)"
-  },
-  {
-   "wait": 2300
-  },
-  {
-   "shot": "29-rep-NE"
-  },
-  {
-   "eval": "__C.go('wide', 26, 26, 225, 11)"
-  },
-  {
-   "wait": 2300
-  },
-  {
-   "shot": "30-rep-SE"
-  },
-  {
-   "eval": "__C.go('wide', -26, 26, 135, 11)"
-  },
-  {
-   "wait": 2300
-  },
-  {
-   "shot": "31-rep-SW"
-  },
-  {
-   "eval": "__C.go('wide', 0, 0, 0, 11)"
-  },
-  {
-   "wait": 2300
-  },
-  {
-   "shot": "32-rep-centre"
-  },
-  {
-   "note": "F — z-fighting / decals: steep top-down on the lane where the path meets the grass"
-  },
-  {
-   "eval": "JSON.stringify(__M.coplanar())"
-  },
-  {
-   "eval": "__C.go('wide', 2, 10, 0, 9)"
+   "eval": "JSON.stringify(__DQ.timeOfDay(18.7))"
   },
   {
    "wait": 1800
   },
   {
-   "eval": "JSON.stringify(typeof __DQ.cameraRig==='function' ? __DQ.cameraRig({pitch: 72}) : 'n/a')"
+   "eval": "__DQ.teleport('meadow',-2.42,-5.73)"
   },
   {
-   "wait": 2000
+   "wait": 900
   },
   {
-   "shot": "33-topdown-lane-decals"
+   "eval": "JSON.stringify(__DQ.cameraShot({from:{x:-3.07,y:1.85,z:-6.38},lookAt:{x:-4.62,y:1.55,z:-7.93},duration:0,hold:true,fov:28}))"
   },
   {
-   "burst": {
-    "name": "34-topdown-hold",
-    "count": 4,
-    "interval": 400
-   }
+   "wait": 1400
   },
   {
-   "eval": "typeof __DQ.cameraZoom==='function' && __DQ.cameraZoom(26)"
+   "shot": "04-lantern-A-dusk"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRelease(0))"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.teleport('meadow',6.75,12.24)"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraShot({from:{x:6.1,y:1.95,z:11.59},lookAt:{x:4.55,y:1.65,z:10.04},duration:0,hold:true,fov:28}))"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "05-lantern-B-dusk"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRelease(0))"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.teleport('meadow',13.42,9.59)"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraShot({from:{x:12.77,y:2.01,z:8.94},lookAt:{x:11.22,y:1.71,z:7.39},duration:0,hold:true,fov:28}))"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "06-lantern-C-dusk"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRelease(0))"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "JSON.stringify(__DQ.timeOfDay(22.3))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "eval": "__DQ.teleport('meadow',-2.42,-5.73)"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraShot({from:{x:-3.07,y:1.85,z:-6.38},lookAt:{x:-4.62,y:1.55,z:-7.93},duration:0,hold:true,fov:28}))"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "07-lantern-A-night"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRelease(0))"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.teleport('meadow',6.75,12.24)"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraShot({from:{x:6.1,y:1.95,z:11.59},lookAt:{x:4.55,y:1.65,z:10.04},duration:0,hold:true,fov:28}))"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "08-lantern-B-night"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRelease(0))"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.teleport('meadow',13.42,9.59)"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraShot({from:{x:12.77,y:2.01,z:8.94},lookAt:{x:11.22,y:1.71,z:7.39},duration:0,hold:true,fov:28}))"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "09-lantern-C-night"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRelease(0))"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "note": "G4 - a whole lane after dark: does the light reach the ground?"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.timeOfDay(22.3))"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "eval": "__C.go(-4,-6,20,9)"
   },
   {
    "wait": 2200
   },
   {
-   "shot": "35-topdown-whole-vale"
+   "shot": "10-night-lane-wide"
   },
   {
-   "eval": "JSON.stringify(typeof __DQ.cameraRig==='function' ? __DQ.cameraRig({pitch: 26}) : 'n/a')"
+   "eval": "__C.go(-10,10,60,10)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "11-night-yard"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.timeOfDay(18.7))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "shot": "12-dusk-yard"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.timeOfDay(9))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "shot": "13-day-yard"
+  },
+  {
+   "note": "=== GAP 5 (claimed-fixed) RE-CHECK: five identical-camera corner frames, same cameras as round 1 ==="
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "__C.go(-26,-26,45,11)"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "14-rep-NW"
+  },
+  {
+   "eval": "__C.go(26,-26,315,11)"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "15-rep-NE"
+  },
+  {
+   "eval": "__C.go(26,26,225,11)"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "16-rep-SE"
+  },
+  {
+   "eval": "__C.go(-26,26,135,11)"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "17-rep-SW"
+  },
+  {
+   "eval": "__C.go(0,0,0,11)"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "18-rep-centre"
+  },
+  {
+   "note": "=== NEW HUNT ==="
+  },
+  {
+   "note": "H1 - the village: does a tree grow through a roof?"
+  },
+  {
+   "eval": "__C.go(14.6,-34,336.8,13)"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "shot": "19-village-tree-vs-roof"
+  },
+  {
+   "eval": "JSON.stringify((()=>{const T=window.__T,out=[];const houses=[],trees=[];window.__S.traverse(o=>{if(!o.isMesh||!o.visible)return;const n=o.name||'';if(/^bucket-(thatch|tile|brick|plaster|timber)/.test(n))houses.push(o);if(/^tree-.*-(mid|near)$/.test(n)&&!/hull/.test(n))trees.push(o);});const hb=houses.map(o=>({n:o.name,b:new T.Box3().setFromObject(o)}));const res=[];for(const t of trees){if(t.isInstancedMesh){const m4=new T.Matrix4(),bb=t.geometry.boundingBox||(t.geometry.computeBoundingBox(),t.geometry.boundingBox);for(let k=0;k<t.count;k++){t.getMatrixAt(k,m4);m4.premultiply(t.matrixWorld);const b=new T.Box3().copy(bb).applyMatrix4(m4);for(const h of hb)if(b.intersectsBox(h.b)){const ib=b.clone().intersect(h.b);const v=(ib.max.x-ib.min.x)*(ib.max.y-ib.min.y)*(ib.max.z-ib.min.z);if(v>0.5)res.push({tree:t.name,i:k,house:h.n,vol:+v.toFixed(2),at:[+((b.min.x+b.max.x)/2).toFixed(1),+((b.min.z+b.max.z)/2).toFixed(1)]});}}}}return res.sort((a,b)=>b.vol-a.vol).slice(0,12);})())"
+  },
+  {
+   "note": "H2 - repetition: how many DISTINCT transforms does the rim hedgerow really have?"
+  },
+  {
+   "eval": "JSON.stringify((()=>{const T=window.__T,o=[];window.__S.traverse(x=>{if(x.isInstancedMesh&&/^tree-(hedge|hedgeb|bush|bushb)-/.test(x.name||''))o.push(x);});const out=[];for(const m of o){const m4=new T.Matrix4(),p=new T.Vector3(),q=new T.Quaternion(),s=new T.Vector3();const sc=[],yaw=[];for(let i=0;i<m.count;i++){m.getMatrixAt(i,m4);m4.decompose(p,q,s);sc.push(+s.x.toFixed(3));yaw.push(+(2*Math.atan2(q.y,q.w)).toFixed(3));}const us=new Set(sc),uy=new Set(yaw);out.push({n:m.name,count:m.count,uniqScale:us.size,scaleMin:Math.min(...sc),scaleMax:Math.max(...sc),uniqYaw:uy.size});}return out;})())"
+  },
+  {
+   "note": "H3 - z-fighting / decals: steep top-down where the path meets the grass"
+  },
+  {
+   "eval": "JSON.stringify(__M.coplanar())"
+  },
+  {
+   "eval": "__C.go(2,10,0,9)"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRig({pitch:74}))"
+  },
+  {
+   "wait": 2000
+  },
+  {
+   "shot": "20-topdown-lane-decals"
+  },
+  {
+   "burst": {
+    "name": "21-topdown-hold",
+    "count": 4,
+    "interval": 400
+   }
+  },
+  {
+   "eval": "typeof __DQ.cameraZoom==='function' && __DQ.cameraZoom(30)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "22-topdown-whole-vale"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"
   },
   {
    "wait": 1200
@@ -497,97 +787,309 @@
    "wait": 1400
   },
   {
-   "note": "G — motion: camera and hero dead still for seven seconds. Anything frozen here is a statue."
+   "note": "H4 - motion: camera and hero dead still for seven seconds"
   },
   {
-   "eval": "__C.go('life', -10, 6, 45, 9)"
+   "eval": "__C.go(-10,6,45,9)"
   },
   {
    "wait": 3000
   },
   {
    "burst": {
-    "name": "36-motion-hold",
+    "name": "23-motion-hold",
     "count": 8,
     "interval": 900
    }
   },
   {
-   "note": "H — dusk and night: do the lanterns light, does the set dressing survive?"
+   "note": "H5 - grazing eye height at the far corners: does anything float or clip?"
   },
   {
-   "eval": "__C.go('yard', -10, 10, 60, 10)"
+   "eval": "__C.go(-26,-26,45,6)"
   },
   {
-   "wait": 2000
+   "wait": 1800
   },
   {
-   "eval": "JSON.stringify(typeof __DQ.timeOfDay==='function' ? __DQ.timeOfDay(18.7) : 'n/a')"
-  },
-  {
-   "wait": 2400
-  },
-  {
-   "shot": "37-dusk-yard"
-  },
-  {
-   "eval": "JSON.stringify(typeof __DQ.timeOfDay==='function' ? __DQ.timeOfDay(22) : 'n/a')"
-  },
-  {
-   "wait": 2400
-  },
-  {
-   "shot": "38-night-yard"
-  },
-  {
-   "eval": "__C.go('wide', 0, 0, 0, 16)"
-  },
-  {
-   "wait": 2200
-  },
-  {
-   "shot": "39-night-wide"
-  },
-  {
-   "eval": "JSON.stringify(typeof __DQ.timeOfDay==='function' ? __DQ.timeOfDay(12) : 'n/a')"
+   "eval": "JSON.stringify(__DQ.cameraRig({pitch:3}))"
   },
   {
    "wait": 2000
   },
   {
-   "shot": "40-noon-wide"
+   "shot": "24-grazing-NW"
   },
   {
-   "note": "NaN / geometry health: anything the build computed as NaN while we drove it"
+   "eval": "__C.go(26,26,225,6)"
   },
   {
-   "eval": "JSON.stringify({nanEvents: window.__NAN.length, first: window.__NAN.slice(0,3)})"
+   "wait": 2000
   },
   {
-   "note": "I — what the triangles are spent on, and the closing numbers"
+   "shot": "25-grazing-SE"
   },
   {
-   "eval": "JSON.stringify(typeof __DQ.meshStats==='function' ? __DQ.meshStats(12) : 'n/a').slice(0,900)"
+   "eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "note": "closing numbers"
+  },
+  {
+   "eval": "JSON.stringify({nan:window.__NAN.length,first:window.__NAN.slice(0,4)})"
   },
   {
    "eval": "JSON.stringify(__DQ.budget())"
   },
   {
-   "eval": "JSON.stringify({fps:__DQ.state().fps, errors:__DQ.errors.length})"
+   "eval": "JSON.stringify({fps:__DQ.state().fps,errors:__DQ.errors.length})"
   },
   {
-   "eval": "JSON.stringify(__DQ.errors).slice(0,1500)"
+   "eval": "JSON.stringify(__DQ.errors).slice(0,1200)"
   },
   {
-   "shot": "41-final"
+   "shot": "26-final"
   },
   {
-   "assert": "__DQ.errors.length === 0",
+   "assert": "__DQ.errors.length===0",
    "msg": "no runtime errors"
   },
   {
-   "assert": "__DQ.screenshotReady() === true",
-   "msg": "screenshotReady"
+   "note": "=== PART 3: probes ==="
+  },
+  {
+   "note": "P1 - CAN A CHILD EVER SEE PUDDLEWICK? the on-screen quest ribbon says 'Follow the lane to Puddlewick'"
+  },
+  {
+   "eval": "JSON.stringify(((__DQ.state().map||{}).exits)||null).slice(0,600)"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().hud||null).slice(0,500)"
+  },
+  {
+   "eval": "__C.go(0,0,336.8,12)"
+  },
+  {
+   "wait": 1700
+  },
+  {
+   "eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(r=>r.id==='puddlewick').map(r=>({at:[0,0],hidden:r.hiddenPct,visPx:r.visiblePx,vis:r.visible,blk:r.blockers})))"
+  },
+  {
+   "shot": "01-pudd-at-0_0"
+  },
+  {
+   "eval": "__C.go(6,-14,336.8,12)"
+  },
+  {
+   "wait": 1700
+  },
+  {
+   "eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(r=>r.id==='puddlewick').map(r=>({at:[6,-14],hidden:r.hiddenPct,visPx:r.visiblePx,vis:r.visible,blk:r.blockers})))"
+  },
+  {
+   "shot": "02-pudd-at-6_-14"
+  },
+  {
+   "eval": "__C.go(10,-24,336.8,12)"
+  },
+  {
+   "wait": 1700
+  },
+  {
+   "eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(r=>r.id==='puddlewick').map(r=>({at:[10,-24],hidden:r.hiddenPct,visPx:r.visiblePx,vis:r.visible,blk:r.blockers})))"
+  },
+  {
+   "shot": "03-pudd-at-10_-24"
+  },
+  {
+   "eval": "__C.go(14.6,-34,336.8,12)"
+  },
+  {
+   "wait": 1700
+  },
+  {
+   "eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(r=>r.id==='puddlewick').map(r=>({at:[14.6,-34],hidden:r.hiddenPct,visPx:r.visiblePx,vis:r.visible,blk:r.blockers})))"
+  },
+  {
+   "shot": "04-pudd-at-14.6_-34"
+  },
+  {
+   "eval": "__C.go(18,-40,336.8,12)"
+  },
+  {
+   "wait": 1700
+  },
+  {
+   "eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(r=>r.id==='puddlewick').map(r=>({at:[18,-40],hidden:r.hiddenPct,visPx:r.visiblePx,vis:r.visible,blk:r.blockers})))"
+  },
+  {
+   "shot": "05-pudd-at-18_-40"
+  },
+  {
+   "eval": "__C.go(4,-30,336.8,12)"
+  },
+  {
+   "wait": 1700
+  },
+  {
+   "eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(r=>r.id==='puddlewick').map(r=>({at:[4,-30],hidden:r.hiddenPct,visPx:r.visiblePx,vis:r.visible,blk:r.blockers})))"
+  },
+  {
+   "shot": "06-pudd-at-4_-30"
+  },
+  {
+   "eval": "__C.go(20,-28,336.8,12)"
+  },
+  {
+   "wait": 1700
+  },
+  {
+   "eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(r=>r.id==='puddlewick').map(r=>({at:[20,-28],hidden:r.hiddenPct,visPx:r.visiblePx,vis:r.visible,blk:r.blockers})))"
+  },
+  {
+   "shot": "07-pudd-at-20_-28"
+  },
+  {
+   "eval": "__C.go(-6,-20,336.8,12)"
+  },
+  {
+   "wait": 1700
+  },
+  {
+   "eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(r=>r.id==='puddlewick').map(r=>({at:[-6,-20],hidden:r.hiddenPct,visPx:r.visiblePx,vis:r.visible,blk:r.blockers})))"
+  },
+  {
+   "shot": "08-pudd-at--6_-20"
+  },
+  {
+   "eval": "__C.go(14,-20,336.8,12)"
+  },
+  {
+   "wait": 1700
+  },
+  {
+   "eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(r=>r.id==='puddlewick').map(r=>({at:[14,-20],hidden:r.hiddenPct,visPx:r.visiblePx,vis:r.visible,blk:r.blockers})))"
+  },
+  {
+   "shot": "09-pudd-at-14_-20"
+  },
+  {
+   "eval": "__C.go(24,-34,336.8,12)"
+  },
+  {
+   "wait": 1700
+  },
+  {
+   "eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(r=>r.id==='puddlewick').map(r=>({at:[24,-34],hidden:r.hiddenPct,visPx:r.visiblePx,vis:r.visible,blk:r.blockers})))"
+  },
+  {
+   "shot": "10-pudd-at-24_-34"
+  },
+  {
+   "note": "P2 - the four towns, hidden percentage from the vale centre and from each edge"
+  },
+  {
+   "eval": "__C.go(0,0,336.8,12)"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "eval": "JSON.stringify((__DQ.landmarkScreen()||[]).map(r=>({id:r.id,hidden:r.hiddenPct,visPx:r.visiblePx,vis:r.visible,onScreen:r.onScreen})))"
+  },
+  {
+   "shot": "11-centre-puddlewick"
+  },
+  {
+   "eval": "__C.go(0,0,277.4,12)"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "eval": "JSON.stringify((__DQ.landmarkScreen()||[]).map(r=>({id:r.id,hidden:r.hiddenPct,visPx:r.visiblePx,vis:r.visible,onScreen:r.onScreen})))"
+  },
+  {
+   "shot": "12-centre-saltmarrow"
+  },
+  {
+   "eval": "__C.go(0,0,194,12)"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "eval": "JSON.stringify((__DQ.landmarkScreen()||[]).map(r=>({id:r.id,hidden:r.hiddenPct,visPx:r.visiblePx,vis:r.visible,onScreen:r.onScreen})))"
+  },
+  {
+   "shot": "13-centre-coddleston"
+  },
+  {
+   "eval": "__C.go(0,0,101,12)"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "eval": "JSON.stringify((__DQ.landmarkScreen()||[]).map(r=>({id:r.id,hidden:r.hiddenPct,visPx:r.visiblePx,vis:r.visible,onScreen:r.onScreen})))"
+  },
+  {
+   "shot": "14-centre-whispering_wood"
+  },
+  {
+   "note": "P3 - the tree that grows out of the village roof (north village, around x 8..22 z -30..-47)"
+  },
+  {
+   "eval": "__C.go(16,-38,340,9)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "15-village-north-close"
+  },
+  {
+   "eval": "__C.go(20,-42,20,8)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "16-village-north-close2"
+  },
+  {
+   "eval": "__C.go(8,-28,350,8)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "17-village-oak-vs-house"
+  },
+  {
+   "note": "P4 - apple scale: near hedge apples vs the hero's head"
+  },
+  {
+   "eval": "__C.go(26,26,225,6)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRig({pitch:12}))"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "18-apple-scale"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"
   }
  ]
 }

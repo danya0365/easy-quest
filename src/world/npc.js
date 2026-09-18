@@ -15,7 +15,15 @@
  *                                            //   four different people. Skin is never touched. Costs no triangles.
  *     animal: 'cat' | 'dog' | 'hen' | 'duck', tint?: 'ginger'|'grey'|'tan'|'brown'|'white'|'speckled',
  *     monster: 'cactuddle',                  // ...or a monster from src/art/monsters.js (the potted Cactuddle)
- *     x, z, y?, facing?: degrees (0 = +z / south, 90 = east, 180 = north), voice?: dialogue.js voice, scale?,
+ *     x, z, y?, facing?: degrees (0 = +z / south, 90 = east, 180 = north), voice?: dialogue.js voice,
+ *     scale?: 0.88..1.09,                    // HOW TALL this person is, and (girth) HOW BROAD. Eight cached
+ *     girth?: 0.9..1.16,                     //   bodies, twenty-one silhouettes; both reach __DQ.npcModel(id)
+ *                                            //   as numbers, and `height` there is this person's real height.
+ *     hold?: 'none'|'jug'|'pan'|'jar'|'posy'|'hammer'|'hook'|'honeypot'|'basket',
+ *                                            //   chars.js bakes ONE item into each look (the innkeeper's tankard,
+ *                                            //   the baker's loaf, the child's lollipop); `hold` folds it away and
+ *                                            //   hands this person what they actually carry. A sweeper and a
+ *                                            //   fisher lose theirs automatically.  __DQ.npcModel(id).holding
  *     idle: 'stand',                         // stand wander sweep fish chat tag chase lean sit sell perch (below)
  *     with?: 'otherId',                      // chat partner · chase target · tag partner
  *     radius?: 2.5,                          // how far they roam / work from their spot
@@ -137,6 +145,7 @@ const COL = {
   straw: PAL.thatch.mid,
   pot: PAL.tile.mid,
   soil: PAL.dirt.dark,
+  iron2: mixHex(PAL.stone.mid, PAL.char.hair, 0.4),
 };
 
 const MAT = {
@@ -411,6 +420,52 @@ function propMesh(kind) {
       g.push(part(new THREE.CylinderGeometry(0.26, 0.18, 0.34, 12), COL.pot, MX(0, 0.17, 0)));
       g.push(part(new THREE.TorusGeometry(0.26, 0.028, 4, 14), scaleHex(COL.pot, 0.86), MX(0, 0.33, 0, 1, 1, 1, Math.PI / 2)));
       g.push(part(new THREE.CylinderGeometry(0.225, 0.225, 0.04, 10), COL.soil, MX(0, 0.32, 0)));
+    } else {
+      // ── HAND ITEMS (see HOLD below). Authored in the prop bone's own frame, where -Z is UP and +Y is forward,
+      //    the same convention chars.js uses for the tankard and the loaf, so they sit in the fist correctly.
+      const U = (d) => MX(0, 0, -d);                       // d units "up" out of the fist
+      if (kind === 'jug') {                                 // Mrs Thurl's tea jug, out to the field and back
+        const clay = mixHex(PAL.tile.mid, PAL.dirt.base, 0.35);
+        g.push(part(new THREE.SphereGeometry(0.105, 10, 8), clay, MX(0, 0, -0.1, 1, 1, 1.05)));
+        g.push(part(new THREE.CylinderGeometry(0.052, 0.072, 0.1, 9), clay, MX(0, 0, -0.2, 1, 1, 1, Math.PI / 2)));
+        g.push(part(new THREE.TorusGeometry(0.056, 0.012, 4, 10), scaleHex(clay, 0.82), MX(0, 0, -0.245)));
+        g.push(part(new THREE.TorusGeometry(0.07, 0.014, 4, 8, Math.PI * 1.1), scaleHex(clay, 0.86), MX(0, 0.11, -0.11, 1, 1, 1, 0, Math.PI / 2, 1.2)));
+      } else if (kind === 'pan') {                          // the pan Mr Budge has already bought
+        g.push(part(new THREE.CylinderGeometry(0.135, 0.115, 0.055, 12), COL.iron2, MX(0, 0, -0.06, 1, 1, 1, Math.PI / 2)));
+        g.push(part(new THREE.CylinderGeometry(0.104, 0.104, 0.012, 10), scaleHex(COL.iron2, 0.78), MX(0, 0, -0.085, 1, 1, 1, Math.PI / 2)));
+        g.push(part(new THREE.CylinderGeometry(0.014, 0.014, 0.2, 6), COL.wood, MX(0, 0.2, -0.06, 1, 1, 1, Math.PI / 2, 0, 0)));
+      } else if (kind === 'jar') {                          // Nib Tolley's newt, mostly tail and knows it
+        const glass = mixHex(PAL.cloud.lit, PAL.sky.day, 0.35);
+        g.push(part(new THREE.CylinderGeometry(0.075, 0.075, 0.17, 11), glass, MX(0, 0, -0.1, 1, 1, 1, Math.PI / 2)));
+        g.push(part(new THREE.CylinderGeometry(0.078, 0.078, 0.014, 11), scaleHex(COL.wood, 0.9), MX(0, 0, -0.19, 1, 1, 1, Math.PI / 2)));
+        g.push(part(new THREE.SphereGeometry(0.03, 7, 6), PAL.foliage.mid, MX(0.01, 0, -0.07, 1.8, 0.8, 0.9)));
+        g.push(part(new THREE.SphereGeometry(0.02, 6, 5), PAL.foliage.dark, MX(-0.04, 0, -0.06, 1, 0.7, 0.8)));
+      } else if (kind === 'posy') {                         // Dimity Rowe's flowers, a penny a bunch
+        g.push(part(new THREE.CylinderGeometry(0.02, 0.026, 0.16, 7), PAL.foliage.mid, MX(0, 0, -0.09, 1, 1, 1, Math.PI / 2)));
+        const petals = [[0.045, 0, PAL.flower.yellow], [-0.04, 0.02, PAL.flower.pink], [0.01, -0.04, PAL.flower.red], [0.0, 0.04, PAL.cloud.lit]];
+        for (const [px, py, col] of petals) {
+          g.push(part(new THREE.SphereGeometry(0.034, 7, 6), col, MX(px, py, -0.185, 1, 1, 0.55)));
+          g.push(part(new THREE.SphereGeometry(0.012, 5, 4), PAL.flower.yellow, MX(px, py, -0.205, 1, 1, 0.6)));
+        }
+      } else if (kind === 'hammer') {                       // Mr Hammond the ironmonger, at last
+        g.push(part(new THREE.CylinderGeometry(0.019, 0.023, 0.34, 7), COL.wood, MX(0, 0, -0.14, 1, 1, 1, Math.PI / 2)));
+        g.push(part(new THREE.BoxGeometry(0.075, 0.075, 0.17), COL.iron2, MX(0, 0, -0.31, 1, 1, 1, 0, Math.PI / 2, 0)));
+        g.push(part(new THREE.CylinderGeometry(0.044, 0.044, 0.03, 8), scaleHex(COL.iron2, 0.82), MX(0.09, 0, -0.31, 1, 1, 1, 0, 0, Math.PI / 2)));
+      } else if (kind === 'hook') {                         // Bernard's hook. It is a good hook.
+        g.push(part(new THREE.CylinderGeometry(0.013, 0.013, 0.1, 6), COL.iron2, MX(0, 0, -0.06, 1, 1, 1, Math.PI / 2)));
+        g.push(part(new THREE.TorusGeometry(0.06, 0.014, 5, 10, Math.PI * 1.35), COL.iron2, MX(0, 0.06, -0.14, 1, 1, 1, Math.PI / 2, 0, -0.5)));
+      } else if (kind === 'honeypot') {                     // Mrs Honeysett. The bees set the price.
+        const clay = mixHex(PAL.wood.light, PAL.thatch.mid, 0.4);
+        g.push(part(new THREE.SphereGeometry(0.095, 10, 8), clay, MX(0, 0, -0.1, 1, 1, 0.95)));
+        g.push(part(new THREE.CylinderGeometry(0.062, 0.062, 0.05, 9), clay, MX(0, 0, -0.185, 1, 1, 1, Math.PI / 2)));
+        g.push(part(new THREE.CylinderGeometry(0.07, 0.07, 0.018, 9), PAL.cloth.cream, MX(0, 0, -0.21, 1, 1, 1, Math.PI / 2)));
+        g.push(part(new THREE.TorusGeometry(0.068, 0.009, 4, 10), PAL.cloth.red, MX(0, 0, -0.2)));
+      } else if (kind === 'basket') {                       // the washing, going up to the village
+        g.push(part(new THREE.CylinderGeometry(0.15, 0.115, 0.13, 11), COL.straw, MX(0, 0, -0.1, 1, 1, 1, Math.PI / 2)));
+        g.push(part(new THREE.TorusGeometry(0.15, 0.016, 4, 12), scaleHex(COL.straw, 0.82), MX(0, 0, -0.165)));
+        g.push(part(new THREE.SphereGeometry(0.11, 8, 6), PAL.cloth.cream, MX(0, 0, -0.19, 1, 1, 0.5)));
+      }
+      void U;
     }
     const merged = mergeGeometries(g);
     for (const x of g) x.dispose();
@@ -794,9 +849,17 @@ function createSystem(ctx) {
       collider: null, look: def.look ? { x: +def.look[0], z: +def.look[1] } : null,
       waveT: 0, bite: range(6, 14), act: null, yOff: Number.isFinite(+def.y) ? +def.y : 0,
       flee: 0, biting: 0, linger: 0, glance: 0, shove: 0, follow: 0, followCd: 0, sweepSide: 1,
-      scale: Number.isFinite(+def.scale) && +def.scale > 0 ? +def.scale : 1,
-      it: !!def.it, chatTurn: false, animFrame: false, goingHome: false, slot: null, run: false,
+      // STATURE. Eight bodies do not have to be eight people: `scale` is how tall this person is and `girth` how
+      // broad, and the two together give twenty-one villagers twenty-one silhouettes out of the eight looks
+      // chars.js caches. Both reach __DQ.npcModel(id) as numbers, so a layer that authors one can prove it landed.
+      scale: Number.isFinite(+def.scale) && +def.scale > 0 ? clamp(+def.scale, 0.6, 1.6) : 1,
+      girth: Number.isFinite(+def.girth) && +def.girth > 0 ? clamp(+def.girth, 0.7, 1.45) : 1,
+      it: !!def.it, chatTurn: false, animFrame: false, goingHome: false, slot: null, run: false, safe: 0, away: 0, puff: 0,
       attention: 0, baseYaw: 0, speaking: 0, lookNpc: null, lookT: range(2, 7), looking: null,
+      // NOBODY SQUARES UP PERFECTLY. A villager turning to talk to you stops a few degrees short and keeps a
+      // shoulder — it is the difference between a person and a turret. Each of them has their own few degrees,
+      // fixed for the life of the map so the same villager always stands the same way with you.
+      faceBias: range(-0.2, 0.2),
     };
     n.yawPrev = n.yaw;
     n.walked = 0; n.breath = 0; n.shuffleT = range(1.5, 5);
@@ -805,12 +868,57 @@ function createSystem(ctx) {
     if (n.model) attachModel(n);
     // the map entry the field talks to: keep it in step with where this person actually is
     def.ix = n.x; def.iz = n.z;
-    def.reach = Number.isFinite(+def.reach) ? +def.reach : (n.kind === 'person' ? 2.0 : 1.7);
+    // How close you must stand. A person is EASIER to talk to than the signpost behind them: standing 2.5 units
+    // in front of Dimity Rowe and getting the post over her shoulder instead is the sort of thing that makes a
+    // six-year-old think the button is broken. map.js prefers whatever is nearest and most in front, so a person
+    // simply needs a reach that covers the distance a child actually stops at.
+    def.reach = Number.isFinite(+def.reach) ? +def.reach : (n.kind === 'person' ? 2.75 : n.kind === 'animal' ? 2.0 : 1.9);
     def.talk = () => { beginTalk(n); return null; };
     if (def.solid !== false && !def.fixed && n.kind !== 'animal' && S.map) {
-      try { n.collider = S.map.addCollider({ type: 'circle', x: n.x, z: n.z, r: n.kind === 'monster' ? 0.32 : 0.3, tag: 'npc' }); } catch (e) { err('npc collider', e); }
+      try { n.collider = S.map.addCollider({ type: 'circle', x: n.x, z: n.z, r: (n.kind === 'monster' ? 0.32 : 0.3) * n.scale * n.girth, tag: 'npc' }); } catch (e) { err('npc collider', e); }
     }
     return n;
+  }
+
+  /**
+   * ── WHAT IS IN THEIR HAND ──────────────────────────────────────────────────────────────────────────────────
+   * chars.js bakes one item into each villager LOOK — the innkeeper's tankard, the baker's loaf, the child's
+   * lollipop — and the moment two people share a body they share an item that belongs to only one of them.
+   * Mr Hammond the ironmonger was handing over a sword while holding a tankard of ale; Mrs Thurl the washerwoman
+   * walked her jug of tea up the lane wearing a pastry toque and carrying a bun.
+   *
+   * anim.js only ever writes propR.scale for a character whose weapon is DRAWN (style.propR === null), so a
+   * people layer may fold a villager's baked item away with `hold` and be handed the thing this person actually
+   * carries: hold: 'none' | 'jug' | 'pan' | 'jar' | 'posy' | 'hammer' | 'hook' | 'honeypot' | 'basket'.
+   * A sweeper and a fisher lose theirs automatically — nobody sweeps a step with a broom in one hand and a
+   * walking cane in the other. __DQ.npcModel(id).holding says what they ended up with.
+   */
+  function holdItem(n) {
+    const m = n.model;
+    if (!m || !m.bones || !m.bones.propR) { n.held = null; return; }
+    const auto = (n.behaviour === 'sweep' || n.behaviour === 'fish') ? 'none' : null;
+    const want = n.def.hold === undefined ? auto : n.def.hold;
+    if (want == null) { n.held = null; return; }               // leave the look's own item alone
+    try {
+      const pr = m.bones.propR;
+      // anim.js rewrites every bone's scale from the pose array on every frame, so the fold has to be re-applied
+      // after each update (npc render does it): one setScalar, and the baked item collapses to a point in the fist.
+      n.foldProp = pr;
+      pr.scale.setScalar(1e-4);
+      n.held = 'none';
+      const kind = String(want);
+      if (kind === 'none' || kind === 'false') return;
+      const item = propMesh(kind);
+      if (!item || !item.geometry || !item.geometry.attributes.position || !item.geometry.attributes.position.count) return;
+      const holder = new THREE.Group();
+      holder.name = 'hold:' + kind;
+      holder.position.copy(pr.position);
+      holder.quaternion.copy(pr.quaternion);
+      holder.add(item);
+      (pr.parent || m.root).add(holder);
+      n.holder = holder;
+      n.held = kind;
+    } catch (e) { err('npc hold ' + n.id, e); }
   }
 
   function attachModel(n) {
@@ -819,7 +927,10 @@ function createSystem(ctx) {
     S.group.add(m.root);
     m.root.position.set(n.x, n.y, n.z);
     m.setFacing(n.yaw, true);
-    if (Number.isFinite(+n.def.scale) && +n.def.scale !== 1) m.root.scale.setScalar(+n.def.scale);
+    // stature: how tall, and how broad (see spawnOne). Scale is on the ROOT, so the blob shadow, the prompt
+    // height and the talk framing all read the same person the player is looking at.
+    m.root.scale.set(n.scale * n.girth, n.scale, n.scale * n.girth);
+    holdItem(n);
     if (n.def.prop === 'broom' || n.behaviour === 'sweep') {
       n.prop = propMesh('broom');
       n.prop.position.set(0.24, 0.5, 0.3);
@@ -886,6 +997,7 @@ function createSystem(ctx) {
   function despawn() {
     for (const n of S.list) {
       try {
+        if (n.holder) n.holder.removeFromParent();
         if (n.model) n.model.dispose();
         if (n.prop) n.prop.removeFromParent();
         if (n.extra && n.extra.float) n.extra.float.removeFromParent();
@@ -897,6 +1009,7 @@ function createSystem(ctx) {
     if (S.blobs) { try { S.blobs.mesh.removeFromParent(); } catch (_) {} }
     if (S.group) { try { S.group.removeFromParent(); } catch (_) {} }
     S.list = []; S.byId = new Map(); S.group = null; S.blobs = null; S.map = null; S.scene = null;
+    NEARSET = []; nearKey = null;
     S.talkingWith = null; S.speakerId = null; S.prevSpeaker = null;
     S.doors = [];
   }
@@ -911,11 +1024,11 @@ function createSystem(ctx) {
       // everyone within earshot turns to look; the one you spoke to turns to face you
       for (const o of S.list) if (o !== n && !o.hidden && Math.hypot(o.x - n.x, o.z - n.z) < 4.5) o.glance = 2.4;
       n.talking = true; n.talkT = 0;
-      if (p) n.yaw = Math.atan2(p.x - n.x, p.z - n.z);
+      if (p) n.yaw = Math.atan2(p.x - n.x, p.z - n.z) + n.faceBias;
       const partner = n.def.with ? S.byId.get(n.def.with) : null;
       if (partner && (n.behaviour === 'chat' || partner.behaviour === 'chat')) {
         partner.talking = true; partner.talkT = 0;
-        if (p) partner.yaw = Math.atan2(p.x - partner.x, p.z - partner.z);
+        if (p) partner.yaw = Math.atan2(p.x - partner.x, p.z - partner.z) + partner.faceBias;
       }
       S.talkingWith = n;
       easeCamera(n);
@@ -949,51 +1062,287 @@ function createSystem(ctx) {
     } catch (e) { err('npc endTalk', e); }
   }
 
-  /**
-   * THE TWO-SHOT. A conversation is a camera beat, and the one thing a child must never have to guess is WHO IS
-   * TALKING. So when a conversation opens the lens swings round until the speaker stands beside the hero, a
-   * little beyond him, both of them whole in the frame — the over-the-shoulder shot DQV uses for every villager.
-   *
-   * The geometry: with the lens sitting in direction `camDir` from the hero, somebody in direction `to` lands at
-   * screen-x proportional to sin(to - camDir) and at depth proportional to cos(to - camDir). phi = +/-180 deg is
-   * "directly behind the hero" (hidden by him); phi = 0 is "between the hero and the lens" (their back fills the
-   * frame). TALK_OFF = 128 deg is the sweet spot: clearly to one side, still on the far side of the hero, so we
-   * look past his shoulder at their face. Whichever way round is the SHORTER swing wins, so the camera never
-   * takes the long way round the green. Measure it with __DQ.talkShot().
-   */
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+  // THE TWO-SHOT, AND PROVING THE EYE BEFORE WE COMMIT TO IT
+  //
+  // A conversation is a camera beat, and the one thing a child must never have to guess is WHO IS TALKING. So
+  // when a conversation opens the lens swings round until the speaker stands beside the hero, a little beyond
+  // him, both of them whole in the frame — the over-the-shoulder shot DQV uses for every villager.
+  //
+  // The geometry: with the lens sitting in direction `camDir` from the hero, somebody in direction `to` lands at
+  // screen-x proportional to sin(to - camDir). phi = +/-180 deg is "directly behind the hero" (hidden by him);
+  // phi = 0 is "between the hero and the lens". TALK_OFF = 128 deg is the sweet spot: clearly to one side, still
+  // on the far side of the hero, so we look past his shoulder at their face.
+  //
+  // ...AND THEN WE PROVE IT. The old version swung the lens to that angle and pushed in without ever asking what
+  // it would be standing INSIDE, and about one conversation in five played out against the flat dark-olive inside
+  // of a bush's outline hull — the pond, the man and the sky all gone — while the probe cheerfully reported the
+  // speaker "onScreen". The occluder pass could not catch it: a far-LOD tree instance is not in its candidate set.
+  //
+  // So a pose is taken only when the EYE POINT ITSELF is proved:
+  //   1. it stands clear of the ground      (map.heightAt + EYE_FLOOR)
+  //   2. nothing solid is within arm's reach of it, and nothing is directly over it inside 0.9  (the up probe)
+  //   3. a straight line from the boy's chest to the eye crosses nothing — RAY-TESTED AGAINST THE REAL MESHES,
+  //      far-LOD trees, hedges, roofs and outline hulls included, not only the occluder pass's candidates
+  //   4. the speaker is inside the frame from there, and not hidden behind the hero
+  // If the ideal shot fails we step the orbit round 15 degrees at a time, then pull the boom out to 6.0 and
+  // further, and if NOTHING is clear we keep the ordinary walk camera and say so. __DQ.talkShot() reports the eye,
+  // what it is buried in if it is, and `clear`/`onScreen`, which can never again be true over a black frame.
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
   const TALK_OFF = 128 * DEG;
-  function frameTalk(n, first) {
+  /** Round the boy, 15 degrees at a time, nearest the ideal two-shot first. */
+  const ORBIT_STEPS = [0, 15, -15, 30, -30, 45, -45, 60, -60, 75, -75, 90, -90, 105, -105, 120, -120, 140, -140, 160, -160, 180];
+  const EYE_FLOOR = 0.55;      // the lens must stand this far above the ground
+  const EYE_SKIN = 1.25;       // a surface nearer than this, between the lens and the boy, is worth a second look
+  const EYE_BOX = 2.2;         // ...and the five-ray box test reaches this far out of the eye
+  const FRAME_HALF = 30 * DEG; // how far off the view axis the speaker may sit and still read as the subject
+  const HIDDEN_BY_HERO = 7 * DEG;
+
+  const RAY = new THREE.Raycaster();
+  const RAYO = new THREE.Vector3(), RAYD = new THREE.Vector3(), RSCL = new THREE.Vector3(), RCEN = new THREE.Vector3();
+  /** The world is not something you can be inside: ground, water, sky, hills, grass tufts, blobs and bubbles. */
+  const NOT_SOLID = /^(ground|water|river|beck|pond|sky|cloud|sun|moon|star|hill|horizon|fog|haze|tuft|flower|grass|rain|snow|blob|shadow|emote|glow|prompt|light|bird)/i;
+  let NEARSET = [], nearKey = null;
+  const under = (o, root) => { for (let a = o; a; a = a.parent) if (a === root) return true; return false; };
+  const groundAtY = (x, z) => { try { return S.map ? S.map.heightAt(x, z) : -1e9; } catch (_) { return -1e9; } };
+
+  /**
+   * Everything solid the lens could end up inside, gathered once per search: props, walls, roofs, hedges and
+   * every tree instance at every LOD. The heightfield is not in here — map.heightAt answers it exactly and for
+   * nothing, where a ray against 15k terrain triangles would cost more than the whole search.
+   */
+  function gatherNear(cx, cz, radius) {
+    const sc = S.scene;
+    if (!sc) { NEARSET = []; nearKey = null; return NEARSET; }
+    // The walk of the scene graph costs about eight milliseconds, and the conversation beat re-solves itself
+    // every half second while somebody talks. Nothing moves in that time, so gather once and keep it.
+    radius = Math.max(12, Math.ceil(radius / 4) * 4);           // quantised, so two callers share one gather
+    const key = sc.children.length + '|' + Math.round(cx * 2) + '|' + Math.round(cz * 2) + '|' + radius + '|' + S.gen;
+    if (nearKey === key && NEARSET.length) return NEARSET;
+    nearKey = key;
+    NEARSET = [];
+    const heroRoot = S.player && S.player.hero ? S.player.hero.group : null;
+    sc.traverse((o) => {
+      if (!o.visible || !o.isMesh || !o.geometry) return;
+      if (NOT_SOLID.test(o.name || '')) return;
+      if (S.group && under(o, S.group)) return;                 // people and animals are not scenery
+      if (heroRoot && under(o, heroRoot)) return;
+      const mt = o.material;
+      if (mt && !Array.isArray(mt) && (mt.depthWrite === false || (mt.transparent && (mt.opacity == null ? 1 : mt.opacity) < 0.85))) return;
+      const g = o.geometry;
+      if (!g.boundingSphere) { try { g.computeBoundingSphere(); } catch (_) { return; } }
+      const bs = g.boundingSphere;
+      if (!bs) return;
+      o.updateWorldMatrix(true, false);
+      if (o.isInstancedMesh) { NEARSET.push(o); return; }        // three tests each instance for us
+      RCEN.copy(bs.center).applyMatrix4(o.matrixWorld);
+      RSCL.setFromMatrixScale(o.matrixWorld);
+      const r = bs.radius * Math.max(RSCL.x, RSCL.y, RSCL.z);
+      if (Math.hypot(RCEN.x - cx, RCEN.z - cz) > radius + r) return;
+      NEARSET.push(o);
+    });
+    return NEARSET;
+  }
+
+  /** Does the straight line a -> b cross the hill, or anything solid? Returns what it hit, or null. */
+  function lineHit(a, b, skipEnd = 0.06) {
+    if (S.map) {
+      for (let i = 1; i <= 8; i++) {
+        const t = i / 9;
+        const x = lerp(a.x, b.x, t), z = lerp(a.z, b.z, t), y = lerp(a.y, b.y, t);
+        if (y < groundAtY(x, z) + 0.12) return { name: 'the hill', kind: 'ground' };
+      }
+    }
+    if (!NEARSET.length) return null;
+    RAYO.set(a.x, a.y, a.z);
+    RAYD.set(b.x - a.x, b.y - a.y, b.z - a.z);
+    const len = RAYD.length();
+    if (!(len > 0.05)) return null;
+    RAYD.divideScalar(len);
+    RAY.set(RAYO, RAYD);
+    RAY.near = 0.05;
+    RAY.far = Math.max(0.06, len - skipEnd);
+    try {
+      const hits = RAY.intersectObjects(NEARSET, false);
+      if (hits && hits.length) return { name: hits[0].object.name || hits[0].object.type, kind: 'mesh', at: r3(hits[0].distance) };
+    } catch (e) { err('npc sight ray', e); }
+    return null;
+  }
+
+  /** One ray, cast by hand: what the first thing in this direction is, and how far off. */
+  function castFrom(x, y, z, dx, dy, dz, far) {
+    if (!NEARSET.length) return null;
+    RAY.set(RAYO.set(x, y, z), RAYD.set(dx, dy, dz).normalize());
+    RAY.near = 0; RAY.far = far;
+    try {
+      const hits = RAY.intersectObjects(NEARSET, false);
+      if (hits && hits.length) return { name: hits[0].object.name || hits[0].object.type, at: r3(hits[0].distance) };
+    } catch (e) { err('npc eye ray', e); }
+    return null;
+  }
+  /**
+   * IS THE LENS BOXED IN? Five rays out of the eye — straight up, and four round the compass tilted a little
+   * above the horizon. If EVERY one of them meets a surface inside 2.2 units there is no way out, and that is
+   * precisely and only what a solid dark-olive frame is: a lens standing inside a bush's outline hull. One ray
+   * missing means there is world to see, and there will be world in the picture.
+   */
+  const OUTWARD = [[0, 1, 0], [1, 0.3, 0], [-1, 0.3, 0], [0, 0.3, 1], [0, 0.3, -1]];
+  function eyeEnclosed(eye) {
+    let hit = null;
+    for (const [dx, dy, dz] of OUTWARD) {
+      const h = castFrom(eye.x, eye.y, eye.z, dx, dy, dz, EYE_BOX);
+      if (!h) return null;                      // a way out: the frame will have the world in it
+      hit = hit || h;
+    }
+    return hit ? hit.name : 'something';
+  }
+  /**
+   * Is this eye point buried? Cheap first (the heightfield), then ONE ray from the lens toward the boy: if the
+   * way out is open, or the first thing in it is further off than arm's length, nothing is enclosing us and we
+   * are done. Only when it looks tight do we pay for the five-ray box test.
+   */
+  function eyeBuried(eye, chest) {
+    if (eye.y < groundAtY(eye.x, eye.z) + EYE_FLOOR) return 'the ground';
+    if (!NEARSET.length) return null;
+    const out = castFrom(eye.x, eye.y, eye.z, chest.x - eye.x, chest.y - eye.y, chest.z - eye.z,
+      Math.max(0.3, Math.hypot(chest.x - eye.x, chest.y - eye.y, chest.z - eye.z) - 0.2));
+    if (!out || out.at > EYE_SKIN) return null;
+    return eyeEnclosed(eye);
+  }
+
+  /**
+   * Where the lens WOULD be for a pose the camera has not taken yet — camera.js's lensAt, plus the ground lift
+   * it applies every tick (without it every pose on a slope reads as buried and the search gives up on a shot
+   * that would have been perfectly good).
+   */
+  function eyeFor(orbitDeg, dist) {
+    const c = S.cam && S.cam.c;
+    if (!c) return null;
+    const yaw = orbitDeg * DEG, ph = (Number.isFinite(c.pitch) ? c.pitch : 24) * DEG;
+    const cp = Math.cos(ph);
+    const x = c.tx + Math.sin(yaw) * cp * dist;
+    const z = c.tz + Math.cos(yaw) * cp * dist;
+    const y0 = c.ty + Math.sin(ph) * dist + 0.5 + (c.over || 0);
+    const lift = clamp(groundAtY(x, z) + 0.85 - y0, 0, 7);
+    return { x, y: y0 + lift, z, lift: r3(lift) };
+  }
+
+  /** Everything a critic (or the search) needs to know about one eye point. */
+  function judgeEye(eye, chest, mid, speaker, hero) {
+    const buried = eyeBuried(eye, chest);
+    if (buried) return { ok: false, why: 'buried in ' + buried, buried };
+    // is the speaker the subject of this shot, and not hidden behind the boy?
+    const look = Math.atan2(chest.x - eye.x, chest.z - eye.z);
+    const toSp = Math.atan2(speaker.x - eye.x, speaker.z - eye.z);
+    const toHe = Math.atan2(hero.x - eye.x, hero.z - eye.z);
+    const off = Math.abs(wrapPi(toSp - look));
+    const sep = Math.abs(wrapPi(toSp - toHe));
+    const framed = off < FRAME_HALF && sep > HIDDEN_BY_HERO;
+    const shot = !lineHit(eye, mid, 0.25);
+    return { ok: true, framed, shot, off: r3(off / DEG), sep: r3(sep / DEG), why: framed ? (shot ? 'clear' : 'the pair is behind something') : 'the speaker is not in the frame' };
+  }
+
+  /**
+   * Solve the conversation pose: the ideal two-shot if it is clear, else the nearest orbit round that is, else
+   * the same search from further out, else null — which means "keep the walk camera, it is honest".
+   */
+  function solveShot(n) {
     const rig = S.cam, p = S.player ? S.player.p : null;
-    if (!rig || !p || !n) return null;
+    if (!rig || !rig.c || !p || !n) return null;
     const toN = Math.atan2(n.x - p.x, n.z - p.z);
     if (!Number.isFinite(toN)) return null;
     const camDir = rig.orbit() * DEG;
     const phi = wrapPi(toN - camDir);
     const want = (phi >= 0 ? 1 : -1) * TALK_OFF;
-    const next = (((toN - want) / DEG) % 360 + 360) % 360;
-    const swing = Math.abs(wrapPi((next - rig.orbit()) * DEG)) / DEG;
-    if (first || swing > 6) rig.orbit(next);                 // a dead band, so a long speech does not judder
-    S.camFramed = { id: n.id, orbit: r3(next), swing: r3(swing), phi: r3(phi / DEG) };
+    const ideal = (((toN - want) / DEG) % 360 + 360) % 360;
+    const heroH = (S.player && S.player.hero && S.player.hero.height) || 1.2;
+    const hero = { x: p.x, y: p.y || 0, z: p.z };
+    const chest = { x: p.x, y: (p.y || 0) + heroH * 0.62, z: p.z };
+    const nh = ((n.model && n.model.height) || 1.5) * (n.scale || 1);
+    const headY = (n.y || 0) + (n.yOff || 0) + nh;
+    const speaker = { x: n.x, y: headY - nh * 0.28, z: n.z };
+    const mid = { x: (chest.x + speaker.x) / 2, y: (chest.y + speaker.y) / 2, z: (chest.z + speaker.z) / 2 };
+    // Somebody short — a boy sitting on the bank, a cat, a hen, a Cactuddle in its pot — barely gets the push in:
+    // at close range a low head lands under the message box and the child never sees who is talking.
+    const base = S.camZoom != null ? S.camZoom : rig.zoom();
+    const low = headY < (p.y || 0) + 1.15;
+    const first = low ? clamp(base * 0.99, 4.4, 12) : clamp(Math.max(5.0, base * 0.94), 4.4, 12);
+    const dists = [first];
+    for (const d of [6.0, Math.max(7.4, base + 1.8)]) if (!dists.some(x => Math.abs(x - d) < 0.3)) dists.push(d);
+    gatherNear(p.x, p.z, dists[dists.length - 1] + 5);
+    const live = rig.zoom();
+    /**
+     * The boom does not jump to the pose, it EASES there — so a screenshot half a second in is taken from
+     * somewhere on the way. Sample two points along that swing and make sure the lens is not boxed in at either,
+     * or a shot that settles beautifully still flashes a frame of bush at the child on the way to it.
+     */
+    const travelOk = (orbit, dist) => {
+      if (Math.abs(dist - live) < 0.5) return true;
+      for (const f of [0.35, 0.7]) {
+        const e = eyeFor(orbit, live + (dist - live) * f);
+        if (e && eyeBuried(e, chest)) return false;
+      }
+      return true;
+    };
+    const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
+    const tried = [];
+    let best = null;
+    for (const dist of dists) {
+      for (const step of ORBIT_STEPS) {
+        const orbit = (((ideal + step) % 360) + 360) % 360;
+        const eye = eyeFor(orbit, dist);
+        if (!eye) continue;
+        const v = judgeEye(eye, chest, mid, speaker, hero);
+        if (tried.length < 24) tried.push({ orbit: r3(orbit), dist: r3(dist), ok: v.ok, why: v.why });
+        if (!v.ok) continue;
+        const score = (v.framed ? 0 : 400) + (v.shot ? 0 : 80) + Math.abs(step) + (dist === dists[0] ? 0 : 10);
+        if (best && score >= best.score) continue;
+        if (!travelOk(orbit, dist)) { if (tried.length < 24) tried.push({ orbit: r3(orbit), dist: r3(dist), ok: false, why: 'the swing to it passes through something' }); continue; }
+        best = { orbit, dist, eye, step, score, why: v.why, framed: v.framed, shot: v.shot };
+        if (score === 0) break;
+      }
+      if (best && best.score <= 45) break;        // near enough the ideal: stop paying for the wider search
+      // ...and never spend a whole frame looking. Twenty milliseconds of sphere and triangle tests is already a
+      // very thorough search; past that, the best pose found so far is the answer.
+      if (best && ((typeof performance !== 'undefined' && performance.now) ? performance.now() : 0) - t0 > 20) break;
+    }
+    const ms = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : 0) - t0;
+    if (best) { best.tried = tried; best.ideal = ideal; best.phi = r3(phi / DEG); best.ms = r3(ms); return best; }
+    return { orbit: null, ideal, phi: r3(phi / DEG), why: 'nowhere clear: keeping the walk camera', tried, ms: r3(ms) };
+  }
+
+  /** Take the pose (or decline to). Called when a conversation opens and every half second while it runs. */
+  function frameTalk(n, first) {
+    const rig = S.cam;
+    if (!rig || !n) return null;
+    const sol = solveShot(n);
+    if (!sol) return null;
+    const prev = rig.orbit();
+    if (sol.orbit == null) {
+      if (S.camZoom != null) { try { rig.zoom(S.camZoom); if (S.camOrbit != null) rig.orbit(S.camOrbit); } catch (_) { /* the rig is mid-teardown */ } }
+      S.camFramed = { id: n.id, orbit: r3(prev), ideal: r3(sol.ideal), swing: 0, phi: sol.phi, kept: true, why: sol.why, tried: sol.tried.length, eye: null };
+      return S.camFramed;
+    }
+    const swing = Math.abs(wrapPi((sol.orbit - prev) * DEG)) / DEG;
+    if (first || swing > 6) rig.orbit(sol.orbit);                 // a dead band, so a long speech does not judder
+    if (first || Math.abs(sol.dist - rig.zoom()) > 0.3) rig.zoom(sol.dist);
+    S.camFramed = { id: n.id, orbit: r3(sol.orbit), ideal: r3(sol.ideal), swing: r3(swing), phi: sol.phi,
+      dist: r3(sol.dist), step: sol.step, why: sol.why, framed: !!sol.framed, clearShot: !!sol.shot, kept: false,
+      eye: [r3(sol.eye.x), r3(sol.eye.y), r3(sol.eye.z)], lift: sol.eye.lift, tried: sol.tried.length, ms: sol.ms };
     return S.camFramed;
   }
-  /** The camera beat itself: remember where the lens was, push in, swing to the two-shot, clear the foreground. */
+
+  /** The camera beat: remember where the lens was, solve the two-shot, and clear the foreground. */
   function easeCamera(n) {
     try {
       const rig = S.cam, p = S.player ? S.player.p : null;
       if (!rig || !p) return;
-      if (S.camZoom == null) {
-        // Somebody short — a boy sitting on the bank, a cat, a hen, a Cactuddle in its pot — barely gets the push
-        // in: at close range a low head lands under the message box and the child never sees who is talking.
-        const headY = (n.y || 0) + (n.yOff || 0) + ((n.model && n.model.height) || 1.5) * (n.scale || 1);
-        const low = headY < (p.y || 0) + 1.15;
-        S.camZoom = rig.zoom();
-        S.camOrbit = rig.orbit();
-        rig.zoom(low ? Math.min(12, S.camZoom * 0.97) : Math.max(5.0, S.camZoom * 0.94));
-      }
+      if (S.camZoom == null) { S.camZoom = rig.zoom(); S.camOrbit = rig.orbit(); }
       frameTalk(n, true);
       clearTheShot(n);
     } catch (e) { err('npc camera ease', e); }
   }
+
   /**
    * ...and nobody stands in front of the person talking. A villager between the lens and the speaker takes a step
    * out of the shot — which is exactly what a person does when two people start talking beside them.
@@ -1023,6 +1372,29 @@ function createSystem(ctx) {
       }
     } catch (e) { err('npc clear the shot', e); }
   }
+
+  /**
+   * __DQ.talkShot() reads this: where the lens actually is right now, whether it is buried, and whether the
+   * speaker's head really projects inside the frame. Gathers its own near set so it is honest on its own.
+   */
+  function eyeReport() {
+    const rig = S.cam, p = S.player ? S.player.p : null;
+    const cam = rig && rig.camera;
+    if (!cam || !p) return { clear: null, why: 'no camera' };
+    const eye = { x: cam.position.x, y: cam.position.y, z: cam.position.z };
+    gatherNear(p.x, p.z, Math.hypot(eye.x - p.x, eye.z - p.z) + 5);
+    const heroH = (S.player && S.player.hero && S.player.hero.height) || 1.2;
+    const chest = { x: p.x, y: (p.y || 0) + heroH * 0.62, z: p.z };
+    const buried = eyeBuried(eye, chest);
+    return {
+      eye: [r3(eye.x), r3(eye.y), r3(eye.z)],
+      clear: !buried,
+      buriedIn: buried || null,
+      ground: r3(groundAtY(eye.x, eye.z)), above: r3(eye.y - groundAtY(eye.x, eye.z)),
+      candidates: NEARSET.length,
+    };
+  }
+
   function restoreCamera() {
     try {
       if (S.cam && S.camZoom != null) S.cam.zoom(S.camZoom);
@@ -1130,6 +1502,10 @@ function createSystem(ctx) {
       return LOOKV.set(partner.x, partner.y + (partner.kind === 'person' ? 1.25 : 0.4), partner.z);
     }
     if (n.behaviour === 'fish' && n.extra && n.extra.float) { n.looking = 'the float'; return LOOKV.copy(n.extra.float.position); }
+    if (n.behaviour === 'sit' && n.held && n.held !== 'none') {       // what is in his own two hands
+      n.looking = 'his ' + n.held;
+      return LOOKV.set(n.x + Math.sin(n.yaw) * 0.42, n.y + 0.62, n.z + Math.cos(n.yaw) * 0.42);
+    }
     if (n.behaviour === 'sweep' || n.behaviour === 'hen' || n.behaviour === 'duck') {
       n.looking = 'the ground';
       return LOOKV.set(n.x + Math.sin(n.yaw) * 1.1, n.y + 0.1, n.z + Math.cos(n.yaw) * 1.1);
@@ -1274,36 +1650,67 @@ function createSystem(ctx) {
         }
       }
     },
+    /**
+     * TAG — with the one playground rule that makes it a game instead of a seizure: NO TAG-BACKS.
+     *
+     * The old version let the new It catch the runner on the very next frame. Dot and Bel locked at 0.78 units
+     * apart and swapped who was It sixty times a second for seventy-two seconds, each of them restarting the
+     * celebrate clip every frame, neither of them ever taking a step: two children frozen mid-cheer on the green
+     * while a critic measured walked = 0.000. Now, the moment somebody is caught, the one who did the catching
+     * is SAFE for a second and three quarters and bolts for the far side of the green, and the new It stands and
+     * counts to three. Somebody is always running. __DQ.npcs()[i].walked is how you check it.
+     */
     tag(n, dt) {
       const o = S.byId.get(n.def.with);
-      if (!o) { BEHAVE.wander(n, dt); return; }
+      if (!o || o.hidden) { BEHAVE.wander(n, dt); return; }
       // somebody has to be It, or the whole game is two children standing in a field
       if (!n.it && !o.it && n.id < o.id) n.it = true;
+      n.safe = Math.max(0, (n.safe || 0) - dt);
+      n.away = Math.max(0, (n.away || 0) - dt);
       const d = Math.hypot(o.x - n.x, o.z - n.z);
       if (n.it) {
-        if (d < 0.8) {
-          n.it = false; o.it = true; n.timer = 1.1; o.timer = 1.4;
-          if (n.model) n.model.play('celebrate');
-          if (o.model) o.model.emote('surprised', 1.2);
-          o.target = null;                                   // and OFF she goes, somewhere new
+        if (n.timer > 0) {                                   // counting to three while she gets away
+          n.timer -= dt; n.wantSpeed = 0; n.yaw = Math.atan2(o.x - n.x, o.z - n.z);
           return;
         }
-        if (n.timer > 0) { n.timer -= dt; n.wantSpeed = 0; n.yaw = Math.atan2(o.x - n.x, o.z - n.z); return; }
+        if (d < 0.85 && !(o.safe > 0)) {
+          n.it = false; o.it = true;
+          n.safe = 1.75;                                     // no tag-backs: she cannot be got again at once
+          n.away = 0; n.target = null; n.timer = 0;
+          o.timer = 1.4; o.safe = 0; o.target = null;
+          n.tags = (n.tags || 0) + 1;
+          if (n.model) n.model.play('celebrate');
+          if (o.model) o.model.emote('surprised', 1.2);
+          return;
+        }
         stepTo(n, o.x, o.z, SPEED.kid, dt);
         n.run = true;
-      } else {
-        if (n.timer > 0) { n.timer -= dt; n.wantSpeed = 0; n.yaw = Math.atan2(o.x - n.x, o.z - n.z); return; }
-        // run for the far side of the green: a fresh spot whenever we arrive, or whenever It gets close
-        if (!n.target || Math.hypot(n.target.x - n.x, n.target.z - n.z) < 0.5 || d < 1.6) {
-          const away = Math.atan2(n.x - o.x, n.z - o.z) + range(-0.8, 0.8);
-          const r = n.radius * range(0.65, 1);
-          const tx = n.anchor.x + Math.sin(away) * r, tz = n.anchor.z + Math.cos(away) * r;
-          const ok = withoutSelf(n, () => !noGo(tx, tz) && pathClear(n.x, n.z, tx, tz));
-          n.target = ok ? { x: tx, z: tz } : (pickSpot(n) || { x: n.anchor.x, z: n.anchor.z });
-        }
-        if (stepTo(n, n.target.x, n.target.z, SPEED.kid * 0.92, dt)) n.target = null;
-        n.run = true;
+        return;
       }
+      // the runner: always going somewhere, and somewhere new the moment It gets close. With a breath in it —
+      // she stops at the far fence, turns round and laughs at her sister before the next dash.
+      if (n.puff > 0) {
+        n.puff -= dt; n.wantSpeed = 0; n.yaw = Math.atan2(o.x - n.x, o.z - n.z);
+        if (n.puff <= 0) n.target = null;
+        return;
+      }
+      if (!n.target || Math.hypot(n.target.x - n.x, n.target.z - n.z) < 0.6 || (d < 2.2 && n.away <= 0)) {
+        n.away = 1.1;
+        const from = d > 0.05 ? Math.atan2(n.x - o.x, n.z - o.z) : rnd() * TAU;
+        const r = Math.max(1.2, n.radius * range(0.7, 1));
+        let spot = null;
+        for (let i = 0; i < 7 && !spot; i++) {
+          const a = from + range(-0.7, 0.7) + (i ? (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.55 : 0);
+          const tx = n.anchor.x + Math.sin(a) * r, tz = n.anchor.z + Math.cos(a) * r;
+          if (withoutSelf(n, () => !noGo(tx, tz) && pathClear(n.x, n.z, tx, tz))) spot = { x: tx, z: tz };
+        }
+        n.target = spot || pickSpot(n) || { x: n.anchor.x, z: n.anchor.z };
+      }
+      if (stepTo(n, n.target.x, n.target.z, SPEED.kid * 0.94, dt)) {
+        n.target = null;
+        if (d > 3) n.puff = range(0.5, 1.3);                  // far enough ahead to stop and be pleased about it
+      }
+      n.run = true;
     },
     chase(n, dt) {
       const o = S.byId.get(n.def.with);
@@ -1440,10 +1847,10 @@ function createSystem(ctx) {
           n.talkT += dt;
           n.wantSpeed = 0;
           n.attention = 1;
-          if (p) n.yaw = n.baseYaw = Math.atan2(p.x - n.x, p.z - n.z);
+          if (p) n.yaw = n.baseYaw = Math.atan2(p.x - n.x, p.z - n.z) + n.faceBias;
         } else if (n.linger > 0 && p) {
           n.wantSpeed = 0;
-          n.yaw = n.baseYaw = Math.atan2(p.x - n.x, p.z - n.z);
+          n.yaw = n.baseYaw = Math.atan2(p.x - n.x, p.z - n.z) + n.faceBias;
         } else {
           const fn = BEHAVE[n.behaviour] || BEHAVE.stand;
           fn(n, dt);
@@ -1539,7 +1946,12 @@ function createSystem(ctx) {
           const amp = (n.behaviour === 'sit' || n.behaviour === 'perch') ? 0.044 : 0.019;
           n.sway = (Math.sin(ph) * amp + Math.sin(ph * 2.37 + 1.1) * amp * 0.32) * still;
           const leanK = n.leanTo ? (n.leanK = (n.leanK || 0) + ((n.mode === 'walk' ? 0 : 1) - (n.leanK || 0)) * Math.min(1, dt * 3)) : 0;
-          r.rotation.x = -0.16 * leanK + Math.sin(ph * 0.71) * 0.009 * still;
+          // SOMEBODY SITTING STILL IS NOT SOMEBODY SITTING RIGID. A boy on the bank with a newt in a jar cannot
+          // walk anywhere — his spot is the point — so his life has to be in the fold of him: he leans down over
+          // the jar, holds it, and comes back up. It is worth about six centimetres at the head, and it is the
+          // difference between a person and a garden ornament. __DQ.npcs()[i].stir is the number it moves.
+          const peer = n.behaviour === 'sit' ? Math.max(0, Math.sin(t * 0.36 + n.index * 2.3)) * 0.13 * still : 0;
+          r.rotation.x = -0.16 * leanK + peer + Math.sin(ph * 0.71) * 0.009 * still;
           r.rotation.z = (n.leanRoll || 0) * leanK + n.sway;
         }
         // BREATHING, measured rather than promised: the head's rise and fall over a rolling three seconds.
@@ -1597,8 +2009,13 @@ function createSystem(ctx) {
           }
           // animate at full rate near the camera, every other frame further out
           n.animT += dt;
-          if (dc < 26 || (n.animFrame = !n.animFrame)) { m.update(n.animT); n.animT = 0; }
-          if (S.blobs && n.blob < S.blobs.capacity) { S.blobs.set(n.blob, x, y, z, n.kind === 'person' ? 0.95 : (n.def.animal === 'dog' ? 0.6 : 0.42)); blobN++; }
+          if (dc < 26 || (n.animFrame = !n.animFrame)) {
+            m.update(n.animT); n.animT = 0;
+            // ...and fold the look's baked hand item away again (see holdItem): anim.js has just written every
+            // bone's scale back to 1, and a washerwoman with a bun in her fist is somebody else's joke.
+            if (n.foldProp) n.foldProp.scale.setScalar(1e-4);
+          }
+          if (S.blobs && n.blob < S.blobs.capacity) { S.blobs.set(n.blob, x, y, z, (n.kind === 'person' ? 0.95 : (n.def.animal === 'dog' ? 0.6 : 0.42)) * n.scale * n.girth); blobN++; }
           if (n.extra && n.extra.line) fishingRig(n);
         } else if (S.blobs) S.blobs.hide(n.blob);
         // keep the map entry (the ▼ prompt and the talk test) on top of where they are standing
@@ -1671,7 +2088,11 @@ function createSystem(ctx) {
 
   const describe = () => S.list.map(n => ({
     id: n.id, name: n.def.name || null, kind: n.kind, look: n.def.animal || n.def.monster || (n.def.variant ? n.def.char + ':' + n.def.variant : n.def.char),
-    x: r3(n.x), z: r3(n.z), facing: r3(((n.yaw / DEG) % 360 + 360) % 360), behaviour: n.behaviour, mode: n.mode,
+    x: r3(n.x), z: r3(n.z),
+    // the BODY's real facing this frame (anim.js eases it round at the variant's own turn rate), and the
+    // direction it is easing towards — reporting only the target made a turning villager read as a snap
+    facing: r3((((n.model && Number.isFinite(n.model.facing) ? n.model.facing : n.yaw) / DEG) % 360 + 360) % 360),
+    facingTarget: r3(((n.yaw / DEG) % 360 + 360) % 360), behaviour: n.behaviour, mode: n.mode,
     speed: r3(n.speed), talking: !!n.talking, hidden: !!n.hidden, lod: n.lod, moved: r3(n.moved), model: n.model ? n.model.kind : null,
     talks: talks.get(talkKey(n)) || 0, hasWords: !!(n.def.script || n.def.text || n.def.pages), voice: n.def.voice || null,
     attention: r3(n.attention), looking: n.looking || null, speaking: n.speaking > 0,
@@ -1679,11 +2100,13 @@ function createSystem(ctx) {
     // and how far their head rises and falls with their breath over the last three seconds
     walked: r3(n.walked || 0), breath: r3(n.breath || 0), stir: r3(n.stir || 0), blinks: n.blinks || 0, sway: r3((n.sway || 0) / DEG),
     wear: (n.model && n.model.wear) || null, radius: r3(n.radius),
+    height: r3(((n.model && n.model.height) || 0) * n.scale), scale: r3(n.scale), girth: r3(n.girth), holding: n.held || null,
     leanGap: n.leanGap == null ? null : n.leanGap,
   }));
 
   return {
     S, spawn, despawn, update, render, cue, onSay, onTyping, onDialogueEnd, describe, beginTalk, applySchedules,
+    eyeReport,
     noGoAt: (x, z, roam) => noGo(x, z, roam !== false),
     settleAt: (x, z) => settle(x, z), place,
     byId: (id) => S.byId.get(String(id)) || null,
@@ -1756,8 +2179,16 @@ export function install(ctx = {}) {
     const m = n.model;
     let mstate = null;
     try { mstate = m.state ? m.state() : null; } catch (_) { mstate = null; }
-    const out = { id: n.id, kind: m.kind, height: m.height, visible: m.root.visible, y: +m.root.position.y.toFixed(3),
+    // `height` is the height of THIS PERSON in the world — the look's height through their own scale — not the
+    // shared height of the body their look was cut from. `bodyHeight` is that shared number, kept so the two can
+    // be told apart; a people layer that authors a scale and has it silently dropped now shows up as a mismatch.
+    const sc = n.scale || 1, gi = (n.girth || 1) * sc;
+    const out = { id: n.id, kind: m.kind, height: r3(m.height * sc), bodyHeight: r3(m.height),
+      scale: r3(sc), girth: r3(n.girth || 1), rootScale: [r3(m.root.scale.x), r3(m.root.scale.y), r3(m.root.scale.z)],
+      holding: n.held === undefined ? null : n.held, look: n.def.animal || n.def.monster || (n.def.variant ? n.def.char + ':' + n.def.variant : n.def.char),
+      visible: m.root.visible, y: +m.root.position.y.toFixed(3),
       behaviour: n.behaviour, pose: mstate, bones: {}, meshes: [] };
+    void gi;
     m.root.updateMatrixWorld(true);
     const V = new THREE.Vector3();
     for (const [name, b] of Object.entries(m.bones || {})) { b.getWorldPosition(V); out.bones[name] = [+V.x.toFixed(2), +V.y.toFixed(3), +V.z.toFixed(2)]; }
@@ -1781,8 +2212,14 @@ export function install(ctx = {}) {
   /**
    * __DQ.talkShot() — the conversation framing, as numbers. `phi` is where the speaker sat relative to the lens
    * when the beat opened (0 = in front of the hero, ±180 = hidden behind him), `orbit` where the lens was sent,
-   * `onScreen` whether the speaker's head actually projects inside the frame right now, and `headPct` how far
-   * down the frame it lands. A critic never has to take "the camera frames the speaker" on trust.
+   * `xPct`/`headPct` where the speaker's head lands in the frame — and, since a probe that said "onScreen" over
+   * a solid dark-olive void was worse than no probe at all:
+   *   eye        where the lens actually is
+   *   clear      is that point OUTSIDE everything? (the ground, every solid mesh near it, daylight overhead,
+   *              and a straight line back to the boy's chest that crosses nothing)
+   *   buriedIn   what it is inside, when it is not
+   *   inFrame    the projection alone — the number the old `onScreen` was
+   *   onScreen   inFrame AND clear. It can no longer be true over a frame with nothing in it.
    */
   Db.expose('talkShot', () => {
     const S2 = sys.S;
@@ -1790,13 +2227,22 @@ export function install(ctx = {}) {
     const w = ctx.Field.world();
     const cam = w && w.camera;
     const out = { talking: !!n, id: n ? n.id : null, framed: S2.camFramed || null, orbit: w && w.cameraRig ? w.cameraRig.orbit() : null };
+    try {
+      const probe = sys.eyeReport();
+      out.eye = probe.eye || null;
+      out.clear = probe.clear;
+      out.buriedIn = probe.buriedIn || null;
+      out.eyeAboveGround = probe.above;
+      out.candidates = probe.candidates;
+    } catch (e) { reportError('npc talkShot eye', e); out.clear = null; }
     if (n && cam) {
       try {
         cam.updateMatrixWorld();
         const h = ((n.model && n.model.height) || 1.5) * (n.scale || 1);
         const V = new THREE.Vector3(n.x, n.y + (n.yOff || 0) + h * 0.86, n.z).project(cam);
         out.ndc = [r3(V.x), r3(V.y)];
-        out.onScreen = Math.abs(V.x) < 0.95 && Math.abs(V.y) < 0.95 && V.z < 1;
+        out.inFrame = Math.abs(V.x) < 0.95 && Math.abs(V.y) < 0.95 && V.z < 1;
+        out.onScreen = out.inFrame && out.clear !== false;
         out.xPct = r3((V.x * 0.5 + 0.5) * 100);
         out.headPct = r3((1 - (V.y * 0.5 + 0.5)) * 100);
         const p = S2.player ? S2.player.p : null;

@@ -234,6 +234,16 @@ export function buildGround(scene, { heightAt, masks, ao, shade = null, inner = 
     float fine = texture2D( tDqNoise, vDqWorld.xz * 0.62 + vec2( 0.11, 0.47 ) ).b;
     float fine2 = texture2D( tDqNoise, vDqWorld.xz * 1.9 + vec2( 0.71, 0.13 ) ).r;
     float paint = ( drift - 0.5 ) * 0.30 + ( mott - 0.5 ) * 0.24 + ( fine - 0.5 ) * 0.17 + ( fine2 - 0.5 ) * 0.11;
+    // and a GRAIN, only where the camera is close enough to see it. The foreground lawn measured a micro
+    // high-pass of 0.86 against 4.25 on the approved frame — a featureless slab under the hero's feet — because
+    // every other term above is metres wide and the baked tile is magnified into mush. This one is a hand's
+    // breadth across and fades out by 22 m, so it never aliases into shimmer on the far lawn.
+    float nearG = 1.0 - smoothstep( 7.0, 24.0, length( vDqWorld - cameraPosition ) );
+    if ( nearG > 0.004 ) {
+      float g1 = texture2D( tDqNoise, vDqWorld.xz * 5.3 + vec2( 0.29, 0.61 ) ).g;
+      float g2 = texture2D( tDqNoise, mat2( 0.7, -0.71, 0.71, 0.7 ) * vDqWorld.xz * 11.7 + vec2( 0.83, 0.07 ) ).r;
+      paint += ( ( g1 - 0.5 ) * 0.42 + ( g2 - 0.5 ) * 0.30 ) * nearG;
+    }
     diffuseColor.rgb *= clamp( 1.0 + paint * uTone * 2.6, 0.55, 1.46 );
     // and the greens themselves warm where the light pools and cool where it does not
     diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * mix( vec3( 0.92, 0.97, 0.90 ), vec3( 1.10, 1.05, 0.86 ), smoothstep( 0.35, 0.72, drift * 0.6 + mott * 0.4 ) ), uTone );
@@ -484,6 +494,18 @@ export function terrainRecipes(kit) {
     // when the camera is right down on it — and so the sun path sparkles instead of being a sheet
     float spark = dqN( W * 9.5 + vec2( uEnvTime * 0.26, -uEnvTime * 0.19 ) );
     col *= 0.972 + 0.054 * spark;
+    // and a last, very fine chop for when the camera is right down on the water: without it the near half of the
+    // Beck measured a micro high-pass of 0.56 against 3.9 for the grass beside it — glass, not water. It fades
+    // out by 18 m so it can never alias into shimmer on the far surface.
+    float nearW = 1.0 - smoothstep( 5.0, 18.0, length( vDqWPos - cameraPosition ) );
+    if ( nearW > 0.004 ) {
+      // 5.5 and 12 cycles a metre, not 24 and 41: a noise tile squeezed below a few pixels is minified back to
+      // flat grey by the GPU, so pushing the frequency higher buys nothing and costs a fetch.
+      float chop = dqN( W * 5.5 + vec2( -uEnvTime * 0.16, uEnvTime * 0.12 ) ) * 0.58
+                 + dqN( mat2( 0.6, 0.8, -0.8, 0.6 ) * W * 12.0 - vec2( uEnvTime * 0.21, 0.0 ) ) * 0.42;
+      col *= 1.0 + ( chop - 0.5 ) * 0.26 * nearW;
+      col += uEnvSun * smoothstep( 0.84, 1.0, chop ) * pow( toSun, 6.0 ) * 0.35 * lit * nearW;
+    }
     col += uEnvSun * smoothstep( 0.80, 0.99, spark ) * pow( toSun, 7.0 ) * 0.55 * lit;
     col = min( col, vec3( 1.12 ) );
     // ── the waterline ─────────────────────────────────────────────────────────────────────────────────────
@@ -517,7 +539,7 @@ export function terrainRecipes(kit) {
     diffuseColor.a = smoothstep( -0.015, 0.085, vDqDepth + edgeN * 0.8 );
   }`);
     };
-    mat.customProgramCacheKey = () => 'kitwater|surface8';
+    mat.customProgramCacheKey = () => 'kitwater|surface10';
     const mesh = new THREE.Mesh(g, mat);
     mesh.name = 'water'; mesh.renderOrder = 0; scene.add(mesh);
     // Each frame: where is the hero, and is he in the water? `wade` eases in and out so stepping in and climbing

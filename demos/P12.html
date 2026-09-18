@@ -25,7 +25,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--pal-sky-page)}
   <div id="keys" class="dqwin"><b>Z</b> talk &middot; <b>arrows</b> walk &middot; <b>Q/E</b> orbit<br/>
     <b>1</b> choices &middot; <b>2</b> two speakers &middot; <b>3</b> flags &middot; <b>4</b> tokens<br/>
     <b>5</b> the Puddlewick cast &middot; <b>8</b> the village itself<br/>
-    <b>6</b> evening &middot; <b>7</b> morning &middot; <b>9</b> who has moved</div>
+    <b>6</b> evening &middot; <b>7</b> morning &middot; <b>9</b> who has moved<br/>
+    <b>0</b> who everybody is (height, build, what they carry)</div>
   <div id="live" class="dqwin">booting…</div>
 </div>
 <script type="importmap">
@@ -173,6 +174,22 @@ Debug.expose('demo', (which = 'choices') => {
   return { ok: true, which, anchor: anchor && anchor.name };
 });
 
+/**
+ * __DQ.folk() — the roster as numbers: who everybody is, how tall, how broad, and what is in their hand.
+ * Eight villager looks are cached by src/art/chars.js and shared by the whole cast, so the thing that stops
+ * twenty-one people being eight people is here: a stature per person and the right object in the right fist.
+ */
+Debug.expose('folk', () => {
+  const out = [];
+  for (const n of (window.__DQ.npcs() || [])) {
+    if (n.kind !== 'person') continue;
+    const m = window.__DQ.npcModel(n.id) || {};
+    out.push({ id: n.id, name: n.name, look: m.look || null, height: m.height, scale: m.scale, girth: m.girth, holding: m.holding, wear: n.wear });
+  }
+  const h = out.map(o => o.height);
+  return { people: out.length, distinctHeights: new Set(h).size, folk: out };
+});
+
 // ── the Puddlewick cast, out on the meadow (until P23's puddlewick.js exists to hold them) ──────────────────
 let castOn = false;
 Debug.expose('cast', async (on = true) => {
@@ -220,6 +237,11 @@ addEventListener('keydown', (e) => {
   else if (k === '6') { window.__DQ.timeOfDay(18.5); sub.textContent = vale(); }
   else if (k === '7') { window.__DQ.timeOfDay(9); sub.textContent = vale(); }
   else if (k === '8') window.__DQ.cast('village');
+  else if (k === '0') {
+    const f = window.__DQ.folk();
+    sub.textContent = f.people + ' people, ' + f.distinctHeights + ' different heights, out of eight cached bodies \u2014 '
+      + f.folk.map(o => (o.name || o.id) + ' ' + o.height.toFixed(2) + 'u' + (o.holding && o.holding !== 'none' ? ' (' + o.holding + ')' : '')).join(', ');
+  }
   else if (k === '9') {
     // NOBODY IS A STATUE, as a number: how far each person has walked since the map loaded, how far their head
     // rises and falls with their breath, and how many times they have blinked.

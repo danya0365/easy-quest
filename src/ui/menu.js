@@ -25,7 +25,9 @@
  * src/data/growth.js (P19); Attack and Defence come out of src/battle/formulas.js `derive` (P14/P19).
  * What the menu adds of its own: POCKETS (what each person carries, kept on the member so it saves with them).
  *
- * __DQ: state().menu = {open, stage, path, windows, party, gold, bag, pockets, settings, portrait};
+ * __DQ: state().menu = {open, stage, path, windows, party, gold, bag, pockets, settings, portrait,
+ *       fit: [{id, left, top, w, h, over, spill}], statusFit: {hU, top, bottom}}  — every window measured in the
+ *       1280x720 design frame, so a critic can PROVE nothing runs off the screen and no words run out of a window;
  *       extras __DQ.menuOpen(), __DQ.menuPick('items'), __DQ.menuChoose('m-bag','herb'), __DQ.menuWindows(),
  *       __DQ.menuPath(), __DQ.pocket('hero','herb',2). Party and gold themselves belong to P14's __DQ hooks.
  *
@@ -34,8 +36,7 @@
  */
 import * as THREE from 'three';
 import { UI, h } from './window.js';
-import { MessageBox } from './text.js';
-import { Text } from './text.js';
+import { MessageBox, Text } from './text.js';
 import { Scenes } from '../engine/states.js';
 import { Debug, reportError } from '../engine/debug.js';
 import { Bus } from '../engine/events.js';
@@ -223,7 +224,22 @@ function maxOf(m) {
   catch (e) { reportError('menu stats', e); return { maxHp: 1, maxMp: 0, atk: 0, def: 0, mag: 0, mdef: 0, spd: 1, luck: 0 }; }
 }
 const alive = (m) => m && m.hp > 0;
+/** The one who takes your orders: Bram, or the first family member when he is not in the roster. */
+function leaderOf() {
+  const list = frontParty();
+  const fam = list.find(m => m.kind === 'family');
+  return fam ? fam.id : (list[0] ? list[0].id : null);
+}
+/** A member's tactic, or null for a guest (guests fight their own way and cannot be told otherwise). */
+function tacticOf(m) {
+  if (!m) return 'wisely';
+  if (m.kind === 'guest') return null;
+  return m.id === leaderOf() ? 'orders' : (m.tactic || 'wisely');
+}
 const clampHp = (m) => { const mx = maxOf(m); m.hp = Math.max(0, Math.min(mx.maxHp, m.hp)); m.mp = Math.max(0, Math.min(mx.maxMp, m.mp)); };
+
+const DESIGN = { w: 1280, h: 720 };      // the design frame every window is laid out in (F4 scales it to the screen)
+let STATUS_FIT = null;                   // {hU, top, bottom} of the last Status page drawn — reported to __DQ
 
 const SETTINGS = { speed: 35, scale: 1, music: 0.75, sfx: 0.9, touch: 'auto' };
 const SETTINGS_KEY = 'dqv.settings';
@@ -292,7 +308,7 @@ function optionStep(key, dir) {
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // LITTLE 3D PORTRAIT — one small renderer, built the first time Status opens, torn down when it closes.
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
-const PORTRAIT = { renderer: null, scene: null, camera: null, subject: null, t: 0, off: null, err: null, frames: 0 };
+const PORTRAIT = { renderer: null, scene: null, camera: null, canvas: null, subject: null, t: 0, off: null, err: null, frames: 0 };
 
 /**
  * Which body stands in the portrait frame. Monster friends have their own models (Bobble and Pip are named
@@ -306,6 +322,23 @@ const STANDIN = {
   bertie: { id: 'villager', variant: 'guard' }, pru: { id: 'villager', variant: 'child' },
   quiddle: { id: 'villager', variant: 'merchant' },
 };
+/**
+ * Which Bram stands in the frame — the boy of Act I, the young man of Act II or the father of Act III.
+ * A member that knows its own age says so; otherwise the company he keeps tells you, exactly as CANON §1 has it:
+ * Papa walking beside you is Act I, and Rowan and Linnet mean Act III.
+ * NEEDS (P26 / P14): a story `act` (1|2|3) on the Roster or in Save's `chapter` key would make this exact.
+ */
+function heroAge(m) {
+  if (m && m.age != null) return m.age;
+  if (m && m.act != null) return { 1: 6, 2: 16, 3: 26 }[m.act] || 16;
+  try {
+    const ids = (Roster.party || []).concat(Roster.wagon || []).map(x => x && (x.charId || x.id));
+    if (ids.includes('rowan') || ids.includes('linnet')) return 26;
+    if (ids.includes('halvard')) return 6;
+  } catch (_) {}
+  return 16;
+}
+
 function portraitLook(m) {
   if (!m) return null;
   const id = m.charId || m.id;
@@ -313,7 +346,7 @@ function portraitLook(m) {
     const key = Monsters.has(id) ? id : (Monsters.has(m.species) ? m.species : null);
     return key ? { kind: 'monster', species: key } : { kind: 'none', initial: (m.name || '?')[0] };
   }
-  if (id === 'hero') return { kind: 'char', id: 'hero', age: 6 };
+  if (id === 'hero') return { kind: 'char', id: 'hero', age: heroAge(m) };
   if (Chars.list().includes(id)) return { kind: 'char', id };
   if (STANDIN[id]) return { kind: 'char', ...STANDIN[id] };
   return { kind: 'char', id: 'villager', variant: 'farmer' };
@@ -321,8 +354,15 @@ function portraitLook(m) {
 
 function portraitEl() {
   const box = h('div.dq-portrait');
-  const canvas = document.createElement('canvas');
-  canvas.className = 'dq-portrait-canvas';
+  // ONE canvas for the life of the renderer. A fresh <canvas> on the second visit would leave the WebGL context
+  // painting into a detached element and the portrait would come up EMPTY from the second look onwards — which
+  // is exactly what it did before this line existed. appendChild moves the same canvas into the new frame.
+  let canvas = PORTRAIT.canvas;
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.className = 'dq-portrait-canvas';
+    PORTRAIT.canvas = canvas;
+  }
   box.appendChild(canvas);
   return { box, canvas };
 }
@@ -373,16 +413,20 @@ function portraitShow(m) {
     }
     PORTRAIT.scene.add(subj.root);
     PORTRAIT.subject = subj;
-    // frame from what is really there: a person from the waist up, a creature whole
-    const box = new THREE.Box3().setFromObject(subj.root);
-    const size = box.getSize(new THREE.Vector3());
-    const H = Math.max(0.2, size.y || subj.height || 1.6);
-    const W = Math.max(0.2, Math.max(size.x, size.z));
-    const y0 = Number.isFinite(box.min.y) ? box.min.y : 0;
-    const aimY = monster ? y0 + H * 0.52 : y0 + H * 0.74;
-    const span = monster ? Math.max(H, W) * 1.25 : H * 0.62;      // how much of it the frame should hold
+    // Frame it from the model's own authored size (a Box3 catches shadow proxies and auras and reads far too
+    // big): a person from the chest up, a creature whole, with a little air round it.
+    let H = Number(subj.height) || 0, W = 0;
+    if (!(H > 0.2)) {
+      const box = new THREE.Box3().setFromObject(subj.root);
+      const size = box.getSize(new THREE.Vector3());
+      H = Math.max(0.2, size.y || 1.6);
+      W = Math.max(size.x, size.z);
+    }
+    if (!(W > 0.05)) W = monster ? Math.max(0.25, (Number(subj.radius) || 0.35) * 2) : H * 0.55;
+    const aimY = monster ? H * 0.52 : H * 0.74;
+    const span = monster ? Math.max(H, W * 0.86) * 1.08 : H * 0.62;   // how much of it the frame should hold
     const dist = (span / 2) / Math.tan((PORTRAIT.camera.fov * Math.PI / 180) / 2) * 1.12;
-    PORTRAIT.camera.position.set(dist * 0.22, aimY + H * 0.06, dist);
+    PORTRAIT.camera.position.set(dist * 0.22, aimY + H * (monster ? 0.1 : 0.06), dist);
     PORTRAIT.camera.lookAt(0, aimY, 0);
     PORTRAIT.aimY = aimY;
     PORTRAIT.t = 0;
@@ -415,6 +459,7 @@ function portraitDestroy() {
   if (PORTRAIT.off) { try { PORTRAIT.off(); } catch (_) {} PORTRAIT.off = null; }
   const r = PORTRAIT.renderer;
   PORTRAIT.renderer = null; PORTRAIT.scene = null; PORTRAIT.camera = null;
+  PORTRAIT.canvas = null;          // the context is going with it, so the next renderer wants a fresh canvas
   if (!r) return;
   try { r.dispose(); r.forceContextLoss(); } catch (_) {}
 }
@@ -482,7 +527,7 @@ const CMD = [
 ];
 
 function menuScene() {
-  let gen = 0, ctx = {}, stage = 'closed', path = [], after = null, box = null;
+  let gen = 0, ctx = {}, stage = 'closed', path = [], after = null, box = null, subflow = false;
   const owned = new Set();
   const live = (g) => g === gen && stage !== 'leaving';
 
@@ -500,9 +545,11 @@ function menuScene() {
   const at = (...p) => { path = p; stage = p[p.length - 1] || 'command'; };
 
   function msg() {
-    if (!box || box.destroyed) box = new MessageBox({ id: 'm-say' });
+    if (!box || box.destroyed) box = new MessageBox({ id: 'm-say', zIndex: 60 });
     return box;
   }
+  /** F5 writes its in-voice lines with " / " where a line should break. */
+  const words = (t) => String(t == null ? '' : t).split(' / ').join('{n}');
   async function say(g, markup, o = {}) {
     try {
       await msg().say(markup, { voice: 'narrator', ...o });
@@ -526,6 +573,9 @@ function menuScene() {
       id: 'm-cmd', left: 34, top: 30, columns: 2, colGap: 34, origin: '0% 0%', minWidth: 330,
       items: CMD, initial, destroyOnClose: false,
     });
+    // While a sub-window is open the command window is furniture, not a control: a stray button in the gap
+    // between one window closing and the next opening must never drop a child out of the menu altogether.
+    cmd.handle = (btn) => (subflow ? true : UI.Menu.prototype.handle.call(cmd, btn));
     party = mkWin({ id: 'm-party', right: 26, top: 30, slim: true, origin: '100% 0%', className: 'dq-party',
       content: partyCols(), destroyOnClose: false });
     gold = mkWin({ id: 'm-gold', left: 34, top: 258, width: 250, slim: true, origin: '0% 0%',
@@ -598,9 +648,11 @@ function menuScene() {
       className: 'dq-blurb', content: ' ' });
     blurb.open();
     const setBlurb = (it) => { try { blurb.setContent(itemWords(it) || ' '); } catch (_) {} };
+    const rows0 = bagRows(c);
     const list = mkMenu({
-      id: 'm-bag', title: c.key === 'bag' ? 'The bag' : c.member.name, left: 348, top: 360, width: 470, maxRows: 5,
-      origin: '0% 0%', items: bagRows(c), onChange: (i) => setBlurb(item(i.id)),
+      id: 'm-bag', title: c.key === 'bag' ? 'The bag' : c.member.name, left: 348, top: 360, width: 470,
+      maxRows: rows0.length > 5 ? 5 : 0,
+      origin: '0% 0%', items: rows0, onChange: (i) => setBlurb(item(i.id)),
     });
     setBlurb(item((c.items()[0] || {}).id));
     try {
@@ -823,7 +875,8 @@ function menuScene() {
             right: it.slot === 'weapon' ? `+${it.power || 0}` : (it.def ? `+${it.def}` : ''),
           })));
         const list = mkMenu({
-          id: 'm-kit', title: SLOT_LIST.find(x => x[0] === slot)[1], left: 576, top: 360, width: 400, maxRows: 5, fontSize: 26, origin: '0% 0%',
+          id: 'm-kit', title: SLOT_LIST.find(x => x[0] === slot)[1], left: 576, top: 360, width: 400, fontSize: 26,
+          maxRows: rows.length > 5 ? 5 : 0, origin: '0% 0%',
           items: rows,
           onChange: (i) => { try { panel.setContent(statPanel(m, i.id === '__off' ? null : i.id, slot)); } catch (_) {} },
         });
@@ -886,7 +939,8 @@ function menuScene() {
       className: 'dq-blurb', content: ' ' });
     blurb.open();
     const list = mkMenu({
-      id: 'm-spells', title: m.name, left: 348, top: 360, width: 430, maxRows: 5, origin: '0% 0%', items: rows,
+      id: 'm-spells', title: m.name, left: 348, top: 360, width: 430, maxRows: rows.length > 5 ? 5 : 0,
+      origin: '0% 0%', items: rows,
       onChange: (i) => { const sp = spell(i.id); try { blurb.setContent(sp ? `${sp.name} — ${sp.blurb || 'a spell.'}` : ' '); } catch (_) {} },
       onDisabled: (i) => { const sp = spell(i.id); try { blurb.setContent(sp ? `${m.name} hasn’t the magic left for ${sp.name}.` : ' '); } catch (_) {} },
     });
@@ -998,29 +1052,33 @@ function menuScene() {
       UI.divider(),
       statRow('Attack', mx.atk),
       statRow('Defence', mx.def),
+      UI.divider(),
+      // how he grows and how he fights live under his numbers, which keeps the kit column short enough to fit
+      statRow('Next level', guest ? h('span.dq-num.dq-c-grey', '—') : N(toNext ? `${toNext} EXP` : 'the very top')),
+      statRow('In a fight', h('span.dq-num.dq-c-gold',
+        tacticOf(m) ? (TACTICS.find(t => t[0] === tacticOf(m)) || TACTICS[1])[1] : 'His own way')),
     ]);
     const family = m.kind === 'family';
     const kitRowsOut = family
       ? SLOT_LIST.map(([slot, label]) =>
         statRow(label, h('span.dq-num' + (m.equip && m.equip[slot] ? '' : '.dq-c-grey'),
           m.equip && m.equip[slot] ? itemName(m.equip[slot]) : '\u2014')))
-      : [h('div.dq-note', m.kind === 'monster'
-        ? 'Fights with teeth, shell and strong opinions.'
-        : 'Walked in with his own kit, and will not be talked out of it.'),
-      statRow('Attack from it', gearOf(m).power || 0),
-      statRow('Guard from it', gearOf(m).def || 0)];
+      : m.kind === 'monster'
+        ? [h('div.dq-note.dq-wrap', 'Fights with teeth, shell and strong opinions. Nothing to put on, and no hands to put it on with.')]
+        : [h('div.dq-note.dq-wrap', 'Walked in with his own kit, and will not be talked out of it.'),
+          statRow('Attack from it', gearOf(m).power || 0),
+          statRow('Guard from it', gearOf(m).def || 0)];
     const right = h('div.dq-col', [
       h('div.dq-header', family ? 'Wearing' : 'Kit'),
       ...kitRowsOut,
       UI.divider(),
       h('div.dq-header', 'Magic'),
       known.length
-        ? h('div.dq-spelllist', known.map(sp => h('div.dq-row', [h('span.dq-grow', sp.name), h('span.dq-num.dq-c-blue', `${sp.mp}`)])))
+        // a grown-up mage knows a dozen spells: past four they go in two columns, so the page still fits the screen
+        ? h('div.dq-spelllist' + (known.length > 4 ? '.dq-two' : ''),
+          known.map(sp => h('div.dq-row', [h('span.dq-grow', sp.name), h('span.dq-num.dq-c-blue', `${sp.mp}`)])))
         : h('div.dq-note', guest ? 'Keeps his own counsel.' : 'None yet.'),
       nextSpell ? h('div.dq-note', `${(spell(nextSpell[0]) || { name: nextSpell[0] }).name} at level ${nextSpell[1]}.`) : null,
-      UI.divider(),
-      statRow('Next level', guest ? h('span.dq-num.dq-c-grey', '—') : N(toNext ? `${toNext} EXP` : 'the very top')),
-      statRow('In a fight', h('span.dq-num.dq-c-gold', (TACTICS.find(t => t[0] === (m.tactic || 'wisely')) || TACTICS[1])[1])),
     ]);
     const foot = h('div.dq-statfoot', allMembers().length > 1
       ? '\u25c0 \u25b6 somebody else   \u00b7   Cancel to go back'
@@ -1035,14 +1093,30 @@ function menuScene() {
     const { box: pbox, canvas } = portraitEl();
     const ok = portraitBuild(canvas);
     if (ok && !PORTRAIT.off) PORTRAIT.off = UI.onUpdate((dt) => portraitTick(dt));
+    const tops = [cmd, party, gold].filter(w => w && !w.destroyed && w.state !== 'closed');
+    await Promise.all(tops.map(w => w.close()));
+    if (!live(g)) return false;
     const win = mkWin({
-      id: 'm-status', title: 'Status', left: 70, top: 120, width: 1140, origin: '50% 0%', className: 'dq-status',
+      id: 'm-status', title: 'Status', left: 70, top: 96, width: 1140, origin: '50% 0%', className: 'dq-status',
       content: statusContent(who[i], pbox),
     });
+    // Whatever a page ends up holding — a boy with one spell or a grown mage with a dozen — the whole page,
+    // footer and all, has to be on the screen. Measure the real height in design units and slide it up to suit.
+    const fit = () => {
+      try {
+        const u = win.u || 1;
+        const hU = (win.el.offsetHeight || 0) / u;       // offsetHeight ignores the open tween's scale
+        if (!(hU > 0)) return null;
+        const top = Math.max(30, Math.min(96, DESIGN.h - 14 - hU));
+        win.place({ top });
+        return { hU: Math.round(hU), top: Math.round(top), bottom: Math.round(top + hU) };
+      } catch (e) { reportError('menu status fit', e); return null; }
+    };
     const show = () => {
       const m = who[i];
       if (ok) portraitShow(m);
       try { win.setContent(statusContent(m, pbox)); } catch (e) { reportError('menu status', e); }
+      STATUS_FIT = fit();
       refreshTop(m.id);
     };
     show();
@@ -1057,6 +1131,7 @@ function menuScene() {
     } finally {
       await closeWin(win);
       portraitClear();
+      for (const w of tops) { if (w && !w.destroyed) w.open(); }
       refreshTop(null);
     }
     at('command');
@@ -1065,25 +1140,27 @@ function menuScene() {
 
   // ── TACTICS ───────────────────────────────────────────────────────────────────────────────────────────────
   const tacticLabel = (t) => (TACTICS.find(x => x[0] === t) || TACTICS[1])[1];
+  const leaderId = leaderOf;
   function tacticRows() {
-    return allMembers().map(m => ({
-      id: m.id, label: m.name, right: m.id === leaderId() ? 'gives the orders' : tacticLabel(m.tactic || 'wisely'),
-      disabled: m.id === leaderId(), color: m.id === leaderId() ? 'grey' : undefined,
-    }));
+    return allMembers().map(m => {
+      const guest = m.kind === 'guest';
+      const boss = m.id === leaderId();
+      return { id: m.id, label: m.name,
+        right: boss ? 'gives the orders' : guest ? 'his own way' : tacticLabel(tacticOf(m)),
+        disabled: boss || guest, color: boss || guest ? 'grey' : undefined };
+    });
   }
-  const leaderId = () => {
-    const fam = frontParty().find(m => m.kind === 'family');
-    return fam ? fam.id : (frontParty()[0] ? frontParty()[0].id : null);
-  };
 
   async function flowTactics(g) {
     at('command', 'tactics');
     const blurb = mkWin({ id: 'm-blurb', left: 348, bottom: 24, width: 890, slim: true, origin: '0% 100%',
       className: 'dq-blurb', content: 'Bram always takes your orders. The others can think for themselves.' });
     blurb.open();
-    const who = mkMenu({ id: 'm-tacwho', title: 'How we fight', left: 34, top: 360, width: 460, origin: '0% 0%',
+    const who = mkMenu({ id: 'm-tacwho', title: 'How we fight', left: 34, top: 360, width: 460, maxRows: 5, origin: '0% 0%',
       items: tacticRows(),
-      onDisabled: () => { try { blurb.setContent('Bram does exactly what you say. That is what being the hero is.'); } catch (_) {} } });
+      onDisabled: (i) => { const who2 = findMember(i.id); try { blurb.setContent(who2 && who2.kind === 'guest'
+        ? `${who2.name} fights his own way, and will not be talked out of it.`
+        : `${(findMember(leaderId()) || { name: 'Bram' }).name} does exactly what you say. That is what being the hero is.`); } catch (_) {} } });
     try {
       for (;;) {
         const m0 = await who.choose();
@@ -1094,7 +1171,7 @@ function menuScene() {
         refreshTop(m.id);
         const list = mkMenu({ id: 'm-tac', title: m.name, left: 520, top: 360, width: 430, origin: '0% 0%',
           items: TACTICS.filter(([t]) => t !== 'orders' || m.id === leaderId()).map(([t, label]) => ({ id: t, label })),
-          initial: m.tactic || 'wisely',
+          initial: tacticOf(m) || 'wisely',
           onChange: (i) => { const row = TACTICS.find(x => x[0] === i.id); try { blurb.setContent(row ? row[2] : ' '); } catch (_) {} } });
         const row0 = TACTICS.find(x => x[0] === (m.tactic || 'wisely'));
         try { blurb.setContent(row0 ? row0[2] : ' '); } catch (_) {}
@@ -1130,7 +1207,9 @@ function menuScene() {
       className: 'dq-blurb', content: 'Left and right change a setting. Confirm tries the next one.' });
     blurb.open();
     const list = mkMenu({
-      id: 'm-misc', title: 'Misc', left: 348, top: 360, width: 600, origin: '0% 0%', items: miscRows(),
+      // six rows is the tallest list in the menu: it sits higher than the others so it never covers the line
+      // underneath that explains what the highlighted setting does
+      id: 'm-misc', title: 'Misc', left: 322, top: 286, width: 668, origin: '0% 0%', items: miscRows(),
       onChange: (i) => { try { blurb.setContent(MISC_WORDS[i.id] || ' '); } catch (_) {} },
     });
     // left / right nudge the highlighted setting without leaving the row: one press, one change
@@ -1180,7 +1259,7 @@ function menuScene() {
         let res = null;
         try { res = await Save.copyCode(slot); } catch (e) { reportError('menu copyCode', e); }
         if (!live(g)) return;
-        if (res && res.ok && res.method !== 'manual') { await say(g, (Save.words && Save.words.exported) || 'The code is copied.'); return; }
+        if (res && res.ok && res.method !== 'manual') { await say(g, words((Save.words && Save.words.exported) || 'The code is copied.')); return; }
         const code = (res && res.code) || (Save.exportCode(slot) || {}).code || '';
         await showCode(g, code);
         return;
@@ -1192,13 +1271,13 @@ function menuScene() {
       if (!text) return;
       let r = null;
       try { r = Save.importCode(slot, text); } catch (e) { reportError('menu importCode', e); }
-      await say(g, r && r.ok ? ((Save.words && Save.words.imported) || 'The code worked.')
-        : ((Save.words && Save.words.badCode) || 'That code is muddled. Nothing was changed.'));
+      await say(g, words(r && r.ok ? ((Save.words && Save.words.imported) || 'The code worked.')
+        : ((Save.words && Save.words.badCode) || 'That code is muddled. Nothing was changed.')));
     } finally { await closeWin(pick); }
   }
 
   async function showCode(g, code) {
-    const w = mkWin({ id: 'm-codebox', centerX: true, top: 200, width: 1000, origin: '50% 0%', className: 'dq-code',
+    const w = mkWin({ id: 'm-codebox', centerX: true, top: 200, width: 1000, origin: '50% 0%', className: 'dq-code', zIndex: 60,
       title: 'Your tale, in letters', content: h('div.dq-codetext', code || '(nothing written down yet)') });
     await w.untilButton(['confirm', 'cancel']);
     await closeWin(w);
@@ -1213,7 +1292,7 @@ function menuScene() {
       input.type = 'text';
       input.className = 'dq-codeinput';
       input.placeholder = 'paste the code here and press Enter';
-      const w = mkWin({ id: 'm-paste', centerX: true, top: 240, width: 980, origin: '50% 0%', className: 'dq-code',
+      const w = mkWin({ id: 'm-paste', centerX: true, top: 240, width: 980, origin: '50% 0%', className: 'dq-code', zIndex: 60,
         title: 'Paste the code', interactive: true, content: input });
       const finish = (value) => {
         if (done) return;
@@ -1265,6 +1344,7 @@ function menuScene() {
     if (!(await openTop(g, initial))) return;
     for (;;) {
       at('command');
+      subflow = false;
       refreshTop(null);
       const it = await cmd.choose({ initial });
       if (!live(g)) return;
@@ -1272,6 +1352,7 @@ function menuScene() {
       initial = it.id;
       if (it.id === 'talk') { leave(ctx.talk); return; }
       if (it.id === 'search') { leave(ctx.search); return; }
+      subflow = true;
       try {
         if (it.id === 'items') { if (!(await flowItems(g))) return; }
         else if (it.id === 'equip') { if (!(await flowEquip(g))) return; }
@@ -1289,13 +1370,50 @@ function menuScene() {
     stage,
     path: path.slice(),
     windows: Array.from(owned).filter(w => w && !w.destroyed && w.state !== 'closed').map(w => w.id),
-    party: allMembers().map(m => ({ id: m.id, name: m.name, lvl: m.lvl, hp: m.hp, maxHp: maxOf(m).maxHp, mp: m.mp, tactic: m.tactic })),
+    party: allMembers().map(m => ({ id: m.id, name: m.name, kind: m.kind, lvl: m.lvl, hp: m.hp, maxHp: maxOf(m).maxHp, mp: m.mp, tactic: tacticOf(m) })),
+    leader: leaderOf(),
     gold: Roster.gold,
     bag: bagItems().map(e => `${itemName(e.id)}${e.n > 1 ? ' x' + e.n : ''}`),
     pockets: Object.fromEntries(allMembers().map(m => [m.id, pocketsOf(m).map(e => itemName(e.id))])),
     settings: { ...SETTINGS },
     portrait: PORTRAIT.renderer ? { live: !!PORTRAIT.subject, frames: PORTRAIT.frames, error: PORTRAIT.err } : null,
+    // every window, measured in the 1280x720 design frame, so a critic can prove nothing runs off the screen
+    fit: fitReport(),
+    statusFit: STATUS_FIT,
   });
+
+  /** Every open window's box in design units, and how far (if at all) it falls outside the screen. */
+  function fitReport() {
+    const out = [];
+    try {
+      for (const w of owned) {
+        if (!w || w.destroyed || w.state === 'closed') continue;
+        const u = w.u || 1;
+        const box = {                                   // offset* ignores the open tween's scale; rects do not
+          id: w.id,
+          left: Math.round((w.el.offsetLeft || 0) / u), top: Math.round((w.el.offsetTop || 0) / u),
+          w: Math.round((w.el.offsetWidth || 0) / u), h: Math.round((w.el.offsetHeight || 0) / u),
+        };
+        box.right = box.left + box.w; box.bottom = box.top + box.h;
+        box.over = Math.round(Math.max(0, box.bottom - DESIGN.h, box.right - DESIGN.w, -box.top, -box.left));
+        // Words running out through the side of a window are a spill, and just as bad as a window off-screen.
+        // Measured on the words themselves, not on scrollWidth: the divider rules bleed 8 px past each edge on
+        // purpose, and a scrolling list is allowed to be wider than its viewport.
+        let spill = 0;
+        const wr = w.el.getBoundingClientRect();
+        for (const el of w.el.querySelectorAll('*')) {
+          if (el.children.length) continue;                            // leaves only
+          if (!(el.textContent || '').trim()) continue;                // words only
+          const r = el.getBoundingClientRect();
+          if (!r.width) continue;
+          spill = Math.max(spill, (r.right - wr.right) / u, (wr.left - r.left) / u);
+        }
+        box.spill = Math.max(0, Math.round(spill));
+        out.push(box);
+      }
+    } catch (e) { reportError('menu fit', e); }
+    return out;
+  }
 
   return {
     opaque: false,
@@ -1338,7 +1456,8 @@ function menuScene() {
 
 const closedState = () => ({
   open: false, stage: 'closed', path: [], windows: [],
-  party: allMembers().map(m => ({ id: m.id, name: m.name, lvl: m.lvl, hp: m.hp, maxHp: maxOf(m).maxHp, mp: m.mp, tactic: m.tactic })),
+  party: allMembers().map(m => ({ id: m.id, name: m.name, kind: m.kind, lvl: m.lvl, hp: m.hp, maxHp: maxOf(m).maxHp, mp: m.mp, tactic: tacticOf(m) })),
+  leader: leaderOf(),
   gold: Roster.gold,
   bag: bagItems().map(e => `${itemName(e.id)}${e.n > 1 ? ' x' + e.n : ''}`),
   pockets: Object.fromEntries(allMembers().map(m => [m.id, pocketsOf(m).map(e => itemName(e.id))])),
@@ -1365,16 +1484,32 @@ const CSS = `
 .dq-arrow{margin-left: calc(12 * var(--u)); font-size: .82em; font-variant-numeric: tabular-nums}
 .dq-win.dq-numbers{font-size: calc(24 * var(--u))}
 .dq-numbers .dq-row{min-height: calc(34 * var(--u)); line-height: calc(34 * var(--u))}
+/* Status holds three dense columns, so it reads a size down from the command windows — and that is what keeps
+   a grown mage's page (fourteen spells and a full kit) inside the 720-tall frame, footer and all. */
+.dq-win.dq-status{font-size: calc(26 * var(--u)); line-height:1.3}
 .dq-status .dq-col{padding: 0 calc(22 * var(--u))}
-.dq-status .dq-row{min-height: calc(36 * var(--u))}
-.dq-statleft{text-align:center; min-width: calc(262 * var(--u))}
+.dq-status .dq-row{min-height: calc(32 * var(--u))}
+.dq-status .dq-cols > .dq-col:last-child{max-width: calc(430 * var(--u))}
+.dq-status .dq-header{line-height:1.15}
+/* "The Sock of Considerable Power" is a real trinket: a long name wraps inside its column instead of running
+   out through the side of the window. The label always reads in full — it is the word a child is looking for —
+   and only the value gives way, onto a second line. */
+.dq-status .dq-row{min-width:0}
+.dq-status .dq-row > .dq-grow{flex: 0 1 auto; white-space:nowrap}
+.dq-status .dq-row > .dq-num{flex: 1 1 auto; white-space:normal; min-width:0; overflow-wrap:anywhere}
+.dq-status .dq-note.dq-wrap{white-space: normal; line-height:1.3; padding: calc(4 * var(--u)) 0}
+.dq-statleft{text-align:center; min-width: calc(236 * var(--u))}
 .dq-party .dq-col.dq-wagon{min-width: calc(112 * var(--u))}
 .dq-party .dq-col.dq-wagon .dq-note{display:block; font-size: calc(19 * var(--u)); line-height:1.35}
 .dq-statleft .dq-pname{font-size: calc(36 * var(--u)); color: var(--dq-title-ink)}
 .dq-center{text-align:center}
 .dq-spelllist{max-height: calc(176 * var(--u)); overflow:hidden}
+/* Two columns of spells, each only as wide as its own longest name, pushed apart — so a long name like
+   "Whistle Down" never ends up touching the next column's name. */
+.dq-spelllist.dq-two{display:grid; grid-template-columns: repeat(2, minmax(0, max-content));
+  justify-content: space-between; column-gap: calc(28 * var(--u)); max-height: calc(240 * var(--u))}
 .dq-portrait{
-  position:relative; width: calc(230 * var(--u)); height: calc(276 * var(--u)); margin: 0 auto calc(6 * var(--u));
+  position:relative; width: calc(212 * var(--u)); height: calc(258 * var(--u)); margin: 0 auto calc(6 * var(--u));
   border-radius: calc(12 * var(--u));
   background: radial-gradient(120% 90% at 50% 18%, var(--dq-win-sheen), transparent 70%),
               linear-gradient(180deg, color-mix(in srgb, var(--pal-sky-horizon) 55%, transparent), transparent 78%);
@@ -1477,7 +1612,7 @@ export function registerFieldMenu() {
       if (w && w.id === 'm-cmd') break;
       if (!w) break;
       UI.input('cancel');
-      await new Promise((r) => setTimeout(r, 190));
+      await new Promise((r) => setTimeout(r, 300));
     }
     if (!UI.focused || UI.focused.id !== 'm-cmd') {
       if (Scenes.top() !== 'menu') Scenes.push('menu', {});

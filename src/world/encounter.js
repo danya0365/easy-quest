@@ -12,10 +12,12 @@
  *   Triangular (not uniform) means fights cluster around a comfortable average and true back-to-back is vanishing.
  *
  * EVERY MERCY RULE, ALL NON-NEGOTIABLE
- *   grace       60 free paces after a battle, 80 on arriving somewhere new, 120 after a party wipe
- *   the gate    no fight within 12 tiles of a town gate, a church, a save point or where you came in
+ *   grace       60 free paces after a battle, 26 on arriving somewhere new, 120 after a party wipe
+ *   the gate    a DOOR APRON (5 tiles) round an exit, a church or a save point, 4 round where you came in — small
+ *               enough that the walkable map is never covered. Finish the counter inside one and the fight is
+ *               ARMED (state().armed / state().held), not cancelled: it goes off on the first pace outside.
  *   look-around standing still, or ambling under 0.8 u/s, does not advance the counter at all
- *   escalation  every consecutive fight without leaving the map adds +6 to min and mode (capped +30)
+ *   escalation  every consecutive fight without leaving the map adds +6 to min and mode (capped +18)
  *   towns       zero, always, everywhere inside one
  *
  * BOSSES (tests/battle/areas.js)
@@ -41,7 +43,14 @@ import { AREA_BY_ID } from '../../tests/battle/areas.js';
 
 const guard = (where, fn) => { try { return fn(); } catch (e) { reportError('encounter ' + where, e); return undefined; } };
 const STRIDE = 0.55;                    // world units in one pace
-const SAFE_RADIUS = 12;                 // SYSTEMS §9: the gate rule, in tiles (1 tile = 1 unit)
+/**
+ * The gate rule, in tiles. SYSTEMS §9 says twelve; twelve measured out to be a disaster in a real map — the meadow's
+ * three edge exits plus its spawn point covered the ground a child actually wanders, and 182 s of unbroken walking
+ * produced ONE fight with the counter finished and pegged at zero the whole time. A safe patch is a doorstep, not a
+ * field: these are door aprons now, and the counter ARMS inside one and fires on the first pace outside it.
+ */
+const SAFE_RADIUS = 5;                  // an exit / a town gate / a church door
+const SPAWN_RADIUS = 4;                 // where the map put you down
 const MOVING = 0.8;                     // the look-around rule
 
 /** SYSTEMS §9: triangular(min, mode, max) paces between fights, by terrain. */
@@ -100,9 +109,12 @@ function triangular(min, mode, max) {
 }
 function drawThreshold() {
   const t = RATES[E.terrain] || RATES.field;
-  const bump = Math.min(30, 6 * E.battles);
-  E.threshold = Math.max(6, Math.round(triangular(t[0] + bump, t[1] + bump, t[2]) * E.rateScale));
-  E.lastRoll = { terrain: E.terrain, min: t[0] + bump, mode: t[1] + bump, max: t[2], got: E.threshold };
+  // SYSTEMS §9's escalation, capped so the mode can never climb past the max (it did, and the draw went strange)
+  const bump = Math.min(18, 6 * E.battles);
+  const min = t[0] + bump, mode = t[1] + bump, max = Math.max(t[2], mode + 10);
+  E.threshold = Math.max(6, Math.round(triangular(min, mode, max) * E.rateScale));
+  E.lastRoll = { terrain: E.terrain, min, mode, max, got: E.threshold };
+  E.armed = false;
   return E.threshold;
 }
 
@@ -117,13 +129,15 @@ function onLoad(map) {
   E.rateScale = def && def.encounters && def.encounters.rate ? (1 / Math.max(0.1, def.encounters.rate)) : 1;
   E.paces = 0;
   E.battles = 0;
-  E.grace = 80;                                            // SYSTEMS §9: 80 free paces on a new map
+  E.armed = false;
+  // Arriving somewhere: a breath, not a walk. 80 paces put the first fight of a session 25 s away.
+  E.grace = 26;
   E.px = E.pz = null;
   // the gate rule: every exit, plus where the map puts you down, is a place a hurt child always reaches
   E.safe = [];
   guard('safe spots', () => {
     for (const x of (map && map.exits) || []) E.safe.push({ x: x.x, z: x.z, r: SAFE_RADIUS });
-    if (def && def.spawn) E.safe.push({ x: def.spawn.x, z: def.spawn.z, r: SAFE_RADIUS });
+    if (def && def.spawn) E.safe.push({ x: def.spawn.x, z: def.spawn.z, r: SPAWN_RADIUS });
     const ch = CHURCHES[E.mapId];
     if (ch && ch.map === E.mapId) E.safe.push({ x: ch.x, z: ch.z, r: SAFE_RADIUS });
   });
@@ -134,6 +148,26 @@ function onLoad(map) {
   });
   E.doorIn = null;
   if (E.terrain) drawThreshold();
+  reviveOnArrival(def);
+}
+
+/**
+ * SYSTEMS §8: "a knocked-out character revives automatically to 1 HP on a map transition to any town, plus a free
+ * full heal at any church. Nobody stays broken." Without this a fight won with the leader worn out put Bram back on
+ * the road at 0 HP with nothing in the game to tell him or mend him.
+ */
+function reviveOnArrival(def) {
+  if (!def || (def.kind !== 'town' && def.kind !== 'interior')) return;
+  guard('revive on arrival', () => {
+    const woke = [];
+    for (const m of Roster.ensure().concat(Roster.wagon || [])) {
+      if (m && m.hp !== undefined && m.hp <= 0) { m.hp = 1; m.status = undefined; woke.push(m.name); }
+    }
+    if (woke.length && E.ctx && E.ctx.Field && typeof E.ctx.Field.talk === 'function') {
+      const who = woke.length === 1 ? woke[0] : woke.slice(0, -1).join(', ') + ' and ' + woke[woke.length - 1];
+      E.ctx.Field.talk({ pages: [`${who} ${woke.length === 1 ? 'comes' : 'come'} round on the way into town.{n}A sit down and a cup of something, then.`], voice: 'narrator' });
+    }
+  });
 }
 
 const EXTRA_DOORS = {};
@@ -165,7 +199,9 @@ function onUpdate(dt, info) {
   if (E.grace > 0) { E.grace -= paces; return; }
   E.paces += paces;
   if (E.paces < E.threshold) return;
-  if (inSafeZone(p.x, p.z)) return;                         // the gate rule: the counter waits, it does not reset
+  // the gate rule: inside a doorstep the fight is ARMED, not cancelled — it goes off on the first pace outside
+  if (inSafeZone(p.x, p.z)) { E.armed = true; return; }
+  E.armed = false;
   E.paces = 0;
   trigger();
 }
@@ -191,7 +227,11 @@ async function finish(out) {
   E.paces = 0;
   drawThreshold();
   if (!out) return;
-  if (out.outcome === 'defeat') await wakeAtChurch(out);
+  if (out.outcome === 'defeat') { await wakeAtChurch(out); return; }
+  // a scripted end (the Sunmane stopping mid-roar) can hand back a "victory" with everybody worn out: the family
+  // still needs carrying home, and the game must never leave a child standing on the road at 0 HP
+  const up = guard('standing', () => Roster.ensure().filter((m) => (m.hp ?? 1) > 0).length);
+  if (up === 0) await wakeAtChurch(out);
 }
 
 /** SYSTEMS §6.2 — the gentle defeat. No walls, no "Game Over", one sentence a child can act on. */
@@ -290,12 +330,18 @@ export const Encounter = {
   soon(paces = 1) { E.grace = 0; E.paces = Math.max(0, E.threshold - Math.max(0, paces)); return { paces: E.paces, threshold: E.threshold }; },
   now() { if (E.busy || !E.area) return { ok: false, reason: E.busy ? 'busy' : 'no encounters here' }; E.paces = 0; trigger(); return { ok: true, area: E.area.id }; },
   state() {
+    const inSafe = E.px == null ? null : inSafeZone(E.px, E.pz);
+    const ready = E.paces >= E.threshold;
+    // why nothing is happening, in one word — so a critic can measure it instead of guessing
+    const held = E.busy ? 'busy' : !E.terrain || !E.table ? 'no encounters here'
+      : E.grace > 0 ? 'grace' : ready && inSafe ? 'armed: waiting to leave the doorstep' : ready ? 'firing' : null;
     return { map: E.mapId, terrain: E.terrain, area: E.area ? E.area.id : null,
       table: E.table ? E.table.map(([id, w]) => `${id}x${w}`) : null,
       paces: Math.round(E.paces * 10) / 10, threshold: E.threshold, stepsToNext: Math.max(0, Math.round(E.threshold - E.paces)),
       grace: Math.max(0, Math.round(E.grace)), battlesOnMap: E.battles, fights: E.fights, wipes: E.wipes,
-      roll: E.lastRoll, safeZones: E.safe.length, doors: E.doors.map((d) => ({ area: d.area, x: d.x, z: d.z })),
-      inSafeZone: E.px == null ? null : inSafeZone(E.px, E.pz), busy: E.busy, rates: RATES };
+      roll: E.lastRoll, safeZones: E.safe.length, safeRadius: SAFE_RADIUS, armed: !!E.armed, held,
+      doors: E.doors.map((d) => ({ area: d.area, x: d.x, z: d.z })),
+      inSafeZone: inSafe, busy: E.busy, rates: RATES };
   },
 };
 

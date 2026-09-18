@@ -1,0 +1,43 @@
+{ "name": "P04 census — the five round-1 cameras, the village approach, the Puddlewick sightline",
+  "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 45000},
+  {"wait": 2500},
+  {"eval": "(window.__C={go:function(x,z,deg,dist){__DQ.teleport('meadow',x,z);__DQ.cameraOrbit(deg);if(dist!==undefined)__DQ.cameraZoom(dist);return x+','+z+' @'+deg+' d'+dist;}},'ok')"},
+  {"eval": "__DQ.freeze(true)"},
+
+  {"note": "the five identical-camera census frames (hue 0.19-0.45, sat>0.15, 230400 samples)"},
+  {"eval": "__C.go(-26,-26,45,11)"}, {"wait": 2200}, {"eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"}, {"wait": 900}, {"shot": "rep-NW"},
+  {"eval": "__C.go(26,-26,315,11)"}, {"wait": 2200}, {"eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"}, {"wait": 900}, {"shot": "rep-NE"},
+  {"eval": "__C.go(26,26,225,11)"}, {"wait": 2200}, {"eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"}, {"wait": 900}, {"shot": "rep-SE"},
+  {"eval": "__C.go(-26,26,135,11)"}, {"wait": 2200}, {"eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"}, {"wait": 900}, {"shot": "rep-SW"},
+  {"eval": "__C.go(0,0,0,11)"}, {"wait": 2200}, {"eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"}, {"wait": 900}, {"shot": "rep-centre"},
+
+  {"note": "the village approach: does a tree grow through a roof?"},
+  {"eval": "__C.go(14.6,-34,336.8,13)"}, {"wait": 2200}, {"shot": "village-approach-13"},
+  {"eval": "__C.go(14.6,-34,336.8,9)"}, {"wait": 1600}, {"shot": "village-approach-9"},
+  {"eval": "__C.go(18,-44,340,14)"}, {"wait": 1800}, {"shot": "village-north-close"},
+  {"eval": "JSON.stringify((async()=>{})&&(function(){try{return 'ok'}catch(e){return ''+e}})())"},
+
+  {"note": "TREE-vs-HOUSE overlap, measured from the layout itself"},
+  {"eval": "(async()=>{const m=await import('/src/world/maps/meadow.js');const L=m.meadowLayout?m.meadowLayout():null;return JSON.stringify({hasLayout:!!L});})()"},
+
+  {"note": "the Puddlewick sightline: ten points up the lane on its own bearing"},
+  {"eval": "(function(){const pts=[[0,0],[6,-14],[10,-24],[14.6,-34],[20,-28],[18,-40],[4,-6],[8,-20],[12,-30],[16,-38]];window.__SWEEP=pts;return 'ok'})()"},
+  {"eval": "__C.go(0,0,336.8,11)"}, {"wait": 1800}, {"eval": "JSON.stringify((__DQ.landmarkScreen()||[]).map(o=>({id:o.id,hid:o.hiddenPct,vpx:o.visiblePx,vis:o.visible,b:Object.keys(o.blockers||{})[0]})))"},
+  {"eval": "__C.go(6,-14,336.8,11)"}, {"wait": 1500}, {"eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(o=>o.id==='puddlewick').map(o=>({id:o.id,hid:o.hiddenPct,vpx:o.visiblePx,vis:o.visible,b:Object.keys(o.blockers||{})[0]})))"},
+  {"eval": "__C.go(10,-24,336.8,11)"}, {"wait": 1500}, {"eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(o=>o.id==='puddlewick').map(o=>({id:o.id,hid:o.hiddenPct,vpx:o.visiblePx,vis:o.visible,b:Object.keys(o.blockers||{})[0]})))"},
+  {"eval": "__C.go(14.6,-34,336.8,11)"}, {"wait": 1500}, {"eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(o=>o.id==='puddlewick').map(o=>({id:o.id,hid:o.hiddenPct,vpx:o.visiblePx,vis:o.visible,b:Object.keys(o.blockers||{})[0]})))"},
+  {"eval": "__C.go(20,-28,336.8,11)"}, {"wait": 1500}, {"eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(o=>o.id==='puddlewick').map(o=>({id:o.id,hid:o.hiddenPct,vpx:o.visiblePx,vis:o.visible,b:Object.keys(o.blockers||{})[0]})))"},
+  {"eval": "__C.go(18,-40,336.8,11)"}, {"wait": 1500}, {"eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(o=>o.id==='puddlewick').map(o=>({id:o.id,hid:o.hiddenPct,vpx:o.visiblePx,vis:o.visible,b:Object.keys(o.blockers||{})[0]})))"},
+  {"eval": "__C.go(4,-6,336.8,11)"}, {"wait": 1500}, {"eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(o=>o.id==='puddlewick').map(o=>({id:o.id,hid:o.hiddenPct,vpx:o.visiblePx,vis:o.visible,b:Object.keys(o.blockers||{})[0]})))"},
+  {"eval": "__C.go(8,-20,336.8,11)"}, {"wait": 1500}, {"eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(o=>o.id==='puddlewick').map(o=>({id:o.id,hid:o.hiddenPct,vpx:o.visiblePx,vis:o.visible,b:Object.keys(o.blockers||{})[0]})))"},
+  {"eval": "__C.go(12,-30,336.8,11)"}, {"wait": 1500}, {"eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(o=>o.id==='puddlewick').map(o=>({id:o.id,hid:o.hiddenPct,vpx:o.visiblePx,vis:o.visible,b:Object.keys(o.blockers||{})[0]})))"},
+  {"eval": "__C.go(16,-38,336.8,11)"}, {"wait": 1500}, {"eval": "JSON.stringify((__DQ.landmarkScreen()||[]).filter(o=>o.id==='puddlewick').map(o=>({id:o.id,hid:o.hiddenPct,vpx:o.visiblePx,vis:o.visible,b:Object.keys(o.blockers||{})[0]})))"},
+
+  {"note": "budget + state"},
+  {"eval": "__C.go(0,0,0,11)"}, {"wait": 1200},
+  {"eval": "JSON.stringify({calls:__DQ.state().render&&__DQ.state().render.calls,fps:__DQ.state().fps,errors:__DQ.errors.length})"},
+  {"eval": "JSON.stringify(__DQ.state().field&&__DQ.state().field.view?__DQ.state().field.view.counts:'no counts')"},
+  {"eval": "__DQ.freeze(false)"},
+  {"assert": "__DQ.errors.length===0", "msg": "no runtime errors"}
+]}

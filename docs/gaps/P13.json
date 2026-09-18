@@ -1,0 +1,80 @@
+{
+  "id": "P13",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Status page runs off the bottom of the screen",
+      "detail": "A grown character's Status page was taller than the 720-tall frame: measured 729 design px tall at top=96, bottom=825, with the footer line (arrows somebody else - Cancel to go back) at y=800, entirely off screen. A child could not see how to leave the page or how to look at the next character. Fix: lay the page out so it always fits (smaller status type, spells in two columns, Next level and In a fight moved under the numbers), and measure the real height after every content change and slide the window up if it would ever overflow.",
+      "state": "claimed-fixed",
+      "opened": "2026-09-18T01:35:11.524Z",
+      "events": [
+        {
+          "at": "2026-09-18T01:35:43.068Z",
+          "by": "builder",
+          "note": "Measured in the running build both in demos/P13.html and /index.html. Before: window height 729 design px at top 96, bottom 825, footer bottom 800 (80 px below the screen). After: Act II Bram 565 tall, bottom 661; Act III Bram 565/661; the Act III mage (11 spells, 5 kit slots) 576 tall, bottom 672 - and the fit guard would slide any taller page up to keep it inside 706. __DQ.state().menu.statusFit now reports {hU, top, bottom} and both scenarios assert bottom <= 720 for four different characters. Footer visible in every Status screenshot."
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "title": "The little 3D portrait is empty on the second visit to Status",
+      "detail": "Open Status once and the portrait renders. Leave it, do anything else in the menu and open Status again and the portrait frame is EMPTY - just the blue panel and a shadow blob. Cause: portraitEl() built a NEW canvas element every visit while the WebGLRenderer stayed bound to the first one, so the context painted into a detached node. Fix: keep one canvas for the life of the renderer and move it into the new frame.",
+      "state": "claimed-fixed",
+      "opened": "2026-09-18T01:35:11.560Z",
+      "events": [
+        {
+          "at": "2026-09-18T01:35:43.108Z",
+          "by": "builder",
+          "note": "One canvas is now kept on PORTRAIT.canvas for the life of the renderer and moved into each new frame; portraitDestroy clears it with the context. Verified by shooting Status a SECOND time in the same menu session (scenarios/P13.json step 13b, after Items, Equip and Spells have each opened and closed): __DQ.state().menu.portrait.live is true and the screenshot shots/P13-r8/16-13b-status-act-three.png shows the model. The same shot in shots/P13-r4 (before) is an empty blue panel."
+        }
+      ]
+    },
+    {
+      "n": 3,
+      "title": "Bram is drawn as a six-year-old in Acts II and III",
+      "detail": "portraitLook() hardcoded age 6 for the hero, so the Status portrait showed the boy even at Level 24 with a wife and twins. Fix: pick the age from the member (age/act) or, failing that, from the company he keeps - Rowan and Linnet mean Act III, Papa walking as a guest means Act I.",
+      "state": "claimed-fixed",
+      "opened": "2026-09-18T01:35:11.594Z",
+      "events": [
+        {
+          "at": "2026-09-18T01:35:43.147Z",
+          "by": "builder",
+          "note": "portraitLook now calls heroAge(m): the member's own age or act if it has one, else Rowan or Linnet in the company means 26 and Halvard walking as a guest means 6, else 16. Verified by eye: shots/P13-r8/16-13b-status-act-three.png is a grown, broad-shouldered Bram at Level 24, while shots/P13-idx2/04-04-status.png (Act I, Halvard a guest, Level 1) is still the round-headed boy."
+        }
+      ]
+    },
+    {
+      "n": 4,
+      "title": "A long item name runs out through the side of the window",
+      "detail": "In Status > Wearing, the trinket The Sock of Considerable Power ran straight out through the right-hand border of the window and off the screen edge, because every row was white-space: nowrap. Fix: the label always reads in full and the value wraps inside its column; and the menu now reports a spill number per window so this is measurable.",
+      "state": "claimed-fixed",
+      "opened": "2026-09-18T01:35:11.628Z",
+      "events": [
+        {
+          "at": "2026-09-18T01:35:43.184Z",
+          "by": "builder",
+          "note": "The status label is now flex 0 1 auto and nowrap while the value is flex 1 1 auto and wraps. Verified: in shots/P13-r7 and r8 the trinket The Sock of Considerable Power wraps onto two lines inside the Wearing column with the window border intact, and the new __DQ.state().menu.fit report gives spill 0 for every open window in both the demo and /index.html (the real-game run reports over 0 and spill 0 for m-cmd, m-party, m-gold, m-slots, m-kit and m-stats together)."
+        }
+      ]
+    },
+    {
+      "n": 5,
+      "title": "The Misc window covers the line that explains the setting",
+      "detail": "Misc is the tallest list in the menu (six rows plus a title). At top 360 it reached y=692 and sat straight on top of the blurb window at bottom 24, so the one line that tells a child what How fast the words come actually means was 90 per cent hidden, with only the last two words (xt one.) peeking out from behind. Fix: sit the Misc list higher, and assert in the scenario that the Misc window bottom is above the blurb top.",
+      "state": "claimed-fixed",
+      "opened": "2026-09-18T01:41:10.546Z",
+      "events": [
+        {
+          "at": "2026-09-18T01:41:10.584Z",
+          "by": "builder",
+          "note": "Misc now opens at top 286 instead of 360. Measured from __DQ.state().menu.fit in the real game: m-misc top 286 bottom 620, m-blurb top 648 - so 28 design px of clear air between them, and scenarios/P13-index.json now asserts m-misc.bottom <= m-blurb.top. Both shots/P13-final/20-16-misc.png and shots/P13-idx-final/08-07-misc.png show the whole explanation line, where shots/P13-r0/17-16-misc.png showed only the tail of it."
+        },
+        {
+          "at": "2026-09-18T01:42:58.843Z",
+          "by": "builder",
+          "note": "Exact numbers from the real game after the fix: m-misc top 286 bottom 620, m-blurb top 635 bottom 696 - 15 design px of clear air, and both windows report over 0 and spill 0. (An earlier note said 648/28; 635/15 is what the build actually measures.)"
+        }
+      ]
+    }
+  ]
+}

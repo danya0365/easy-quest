@@ -147,9 +147,19 @@ function caption(words) {
   sub.textContent = `${captionWords}  —  ${p}, ${Roster.gold} gold coins.`;
 }
 
+// a real tale in the book, so Misc > the secret code has something to copy
+try { Save.init(); Save.newGame(); } catch (e) { reportError('demo save init', e); }
 stock(2);
+try { Save.write(1, { reason: 'demo' }); } catch (e) { reportError('demo save write', e); }
 Scenes.push('field', { map: 'meadow' });
 caption();
+
+// The demo's own captions belong to the demo, not to the game: the moment the menu opens they get out of the
+// way, so a window is never judged with a scaffolding note sitting under it. H still hides or shows them by hand.
+let notesOff = false;
+const showNotes = (on) => { for (const el of document.querySelectorAll('.dqnote')) el.classList.toggle('hide', !on); };
+Bus.on('menu.open', () => showNotes(false));
+Bus.on('menu.close', () => { if (!notesOff) showNotes(true); });
 
 // demo-only keys (the game's own buttons all go through F2 as usual)
 addEventListener('keydown', (e) => {
@@ -157,7 +167,7 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'Digit2') stock(2);
   else if (e.code === 'Digit3') stock(3);
   else if (e.code === 'Digit0') { fillBag(); caption(); }
-  else if (e.code === 'KeyH') for (const el of document.querySelectorAll('.dqnote')) el.classList.toggle('hide');
+  else if (e.code === 'KeyH') { notesOff = !notesOff; showNotes(!notesOff); }
   else return;
   e.preventDefault();
 });
@@ -172,8 +182,5 @@ Debug.expose('demoHurt', (frac = 0.35) => {
   return (Roster.party || []).map(m => `${m.name} ${m.hp}`);
 });
 Debug.expose('demoFillBag', () => fillBag());
-Debug.expose('demoCaptions', (on) => {
-  for (const el of document.querySelectorAll('.dqnote')) el.classList.toggle('hide', on === false);
-  return on !== false;
-});
+Debug.expose('demoCaptions', (on) => { notesOff = on === false; showNotes(!notesOff); return !notesOff; });
 </script></body></html>

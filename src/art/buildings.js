@@ -37,7 +37,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PAL, C3, css, smooth, lerp, mixHex } from './palette.js';
 import { Tex, mulberry, vnoise, mkCanvas, ctx2 } from './tex.js';
-import { makeToon, TOON_PRESETS, See } from './toon.js';
+import { makeToon, TOON_PRESETS, See, hullGeometry } from './toon.js';
 import { M4, boxUV, scaleUV, wrapUV, prep, hashJ } from './props.js';
 import { Font } from '../ui/font.js';
 import { reportError } from '../engine/debug.js';
@@ -60,7 +60,66 @@ const toWorld = (o, lx, lz) => {
 // kit recipes (installed by src/world/scenery.js createKit)
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 export function buildingRecipes(kit) {
-  const { scene, heightAt, ao, animators, addTo } = kit;
+  const { scene, heightAt, ao, animators } = kit;
+
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+  // A BUILDING IS ONE THING — the fade unit                                                      (P05 gap #2)
+  //
+  // The camera's see-through used to run on the kit's MERGED MATERIAL BUCKETS: every wall in the village in one
+  // mesh, every roof in another. It then had to guess where one house ended and the next began by chopping those
+  // buckets into runs and clustering the runs by proximity — which is why one cottage came out as eight pieces at
+  // five different alphas, why a run box with nothing in it swallowed the lens and dropped a whole wall to alpha
+  // 0, and why a "ghost" was a milky film cut by a dead-straight horizontal line that followed no silhouette.
+  //
+  // Here a building owns its geometry. Every addTo() between beginBuilding() and endBuilding() goes into THAT
+  // building's own meshes (one per material, plus its door leaves, its swinging sign, its awning, its mill
+  // wheel), the meshes carry userData.camIgnore so P09's pass leaves them alone, and this file fades them:
+  //   * ONE alpha for the whole house, eased over 150 ms out / 220 ms in;
+  //   * its own depth pre-pass, so a ghost is one clean surface and not four stacked translucent walls;
+  //   * an ink outline drawn over it, so the silhouette still reads;
+  //   * and the alpha is CLAMPED to 0.38-0.42 — never 0, not even with the lens inside the shell. A house you
+  //     walk behind goes to glass, never to nothing.
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+  const BUILT = [];                   // every building: its meshes, its box, its alpha
+  let CUR = null;                     // the building being built right now (addTo routes into it)
+  const GH = {
+    alpha: 0.40,                      // the DQ see-through level (the brief says 35-45%)
+    min: 0.38, max: 0.42,             // ... and it may never leave this band while it is ghosting
+    ink: 0.85,                        // the ink line stays stronger than the fill
+    outMs: 150, inMs: 220, hold: 0.12,
+    pad: 0.30,                        // the sight line is fattened by this (a box says "blocked" a little early)
+    lens: 0.55,                       // ... and a surface this close to the lens ghosts whether or not it covers him
+    most: 5,                          // at most this many houses ghost at once
+  };
+
+  const beginBuilding = (o, kind) => {
+    if (CUR) return null;             // shop/barn/mill wrap kit.cottage: the OUTER call owns the building
+    CUR = { id: o.id || `bld-${BUILT.length}`, kind, x: +o.x || 0, z: +o.z || 0, rot: +o.rot || 0,
+      geos: new Map(), cloth: new Map(), interior: [], glow: [], meshes: [], extra: [], parts: [],
+      alpha: 1, hit: 0, dist: 0, ghosting: false, why: '', depth: null, ink: null,
+      lo: null, hi: null };
+    BUILT.push(CUR);
+    return CUR;
+  };
+  const endBuilding = (b) => { if (b && CUR === b) CUR = null; };
+  /** Anything with a mesh of its own (a door leaf, a sign, the mill wheel) fades with the house it belongs to. */
+  const ownMesh = (mesh) => { if (CUR && mesh) CUR.extra.push(mesh); return mesh; };
+  const currentBuilding = () => CUR;
+
+  /**
+   * The kit's addTo, but while a building is being built the geometry is kept for that building instead of
+   * going into the village-wide bucket. Same signature, same return value (the recipes tint the geometry they
+   * get back), so every recipe below is untouched.
+   */
+  const addTo = (bucket, geo, matrix, color) => {
+    if (!CUR) return kit.addTo(bucket, geo, matrix, color);
+    const g = prep(geo, color);
+    if (matrix) g.applyMatrix4(matrix);
+    let l = CUR.geos.get(bucket);
+    if (!l) CUR.geos.set(bucket, l = []);
+    l.push(g);
+    return g;
+  };
 
   // ── this kit's own merged meshes (flushed with the buckets) ────────────────────────────────────────────────
   const CLOTH = new Map();            // texture key -> {tex, geos: []}    awnings, bunting, stall roofs
@@ -74,6 +133,22 @@ export function buildingRecipes(kit) {
   const beam = PAL.wood.beam;
   const woodMat = () => kit.seeSurface('wood', { vertexColors: true });
   const paintMat = () => (kit._bldPaint || (kit._bldPaint = makeToon({ vertexColors: true }, {}, [See.patch])));
+
+  /**
+   * A FRESH copy of a bucket's surface, for one building only. The kit caches one material per texture, which is
+   * right for a village-wide bucket and wrong here: two houses ghosting at different moments must not share an
+   * opacity. Same options, same shader patches, so the program cache still compiles one program per surface.
+   */
+  const BLD_PRESET = { plaster: 'plaster', thatch: 'thatch', dirt: 'ground' };
+  const BLD_TEX = { stone: 'stone', plaster: 'plaster', wood: 'wood', thatch: 'thatch', tile: 'tile',
+    brick: 'brick', bark: 'bark', dirtbed: 'dirt' };
+  function bldSurface(bucket) {
+    // deliberately WITHOUT See.patch: a building's see-through is this file's, so the old screen-door uniforms
+    // (and P09's near-melt) can never reach it and dither half a wall away behind our back.
+    if (bucket === 'paint' || bucket === 'glow' || !BLD_TEX[bucket]) return makeToon({ vertexColors: true }, {});
+    const tex = BLD_TEX[bucket];
+    return makeToon({ map: Tex.get(tex), vertexColors: true }, TOON_PRESETS[BLD_PRESET[tex] || 'default'] || {});
+  }
 
   /** Lowest terrain under a (rotated) footprint, minus a whisker: nothing floats, nothing shows daylight beneath. */
   const padY = (o, W, D) => {
@@ -102,6 +177,12 @@ export function buildingRecipes(kit) {
   const clothGeos = (base, stripe, scallop, S = 128) => {
     const key = `${base}|${stripe || '-'}|${scallop ? 1 : 0}|${S}`;
     if (!CLOTH.has(key)) CLOTH.set(key, { tex: Tex.cloth(base, { stripe, scallop, S }), geos: [] });
+    // an awning belongs to the shop it is nailed to: it ghosts with it instead of hanging in mid-air
+    if (CUR) {
+      let c = CUR.cloth.get(key);
+      if (!c) CUR.cloth.set(key, c = { tex: CLOTH.get(key).tex, geos: [] });
+      return c.geos;
+    }
     return CLOTH.get(key).geos;
   };
 
@@ -221,6 +302,7 @@ export function buildingRecipes(kit) {
       id: id || `door-${DOORS.length}`, style, color, leaves, x: c.x, z: c.z, nx: n.x, nz: n.z,
       front: { x: c.x + n.x * 1.7, z: c.z + n.z * 1.7 }, yaw: Math.atan2(n.x, n.z),
       amount: 0, vel: 0, target: 0, force: null, reach, max: max ?? (double ? 1.2 : 1.32), opens: 0,
+      bld: CUR,                        // the house this door belongs to, so the leaf ghosts with it
     };
     DOORS.push(door);
     return door;
@@ -232,7 +314,7 @@ export function buildingRecipes(kit) {
    * white pebble. This bucket is unshaded and always at full strength, because a hearth does not know it is
    * three o'clock. Merged by kit.flush() into one mesh named 'roomglow'.
    */
-  kit.addGlow = (geo, matrix, hex) => { const g = prep(geo, hex); if (matrix) g.applyMatrix4(matrix); GLOW.push(g); return g; };
+  kit.addGlow = (geo, matrix, hex) => { const g = prep(geo, hex); if (matrix) g.applyMatrix4(matrix); (CUR ? CUR.glow : GLOW).push(g); return g; };
 
   kit.doors = DOORS;
   kit.doorAt = (id) => DOORS.find(d => d.id === id) || null;
@@ -255,11 +337,13 @@ export function buildingRecipes(kit) {
       const key = `${d.style}|${d.color}`;
       if (!geos.has(key)) geos.set(key, leafGeometry(d.style, d.color));
       for (const lf of d.leaves) {
-        const mesh = new THREE.Mesh(geos.get(key), woodMat());
+        // its own material instance, so the leaf can go to glass with its house and not with every other door
+        const mesh = new THREE.Mesh(geos.get(key), d.bld ? bldSurface('wood') : woodMat());
         mesh.name = 'door-' + d.id; mesh.castShadow = true; mesh.receiveShadow = true;
         mesh.matrixAutoUpdate = false; mesh.frustumCulled = false;
         lf.mesh = mesh; lf.index = -1;
         scene.add(mesh);
+        if (d.bld) { d.bld.extra.push(mesh); mesh.userData.camIgnore = true; }
         made.push(mesh);
       }
     }
@@ -313,46 +397,112 @@ export function buildingRecipes(kit) {
   };
 
   /**
-   * What you see through an open door. Not a painted card: the whole inside of the shell, drawn from within
-   * (BackSide) — floorboards, side walls, a ceiling and a real back wall with one lit window and the ember glow
-   * of a hearth on it. Three rules earn their keep:
-   *   1. `floorY` is the floorboard level, and the callers pass the HIGHEST ground under the footprint, so the
-   *      hillside the house stands on can never grow up through the room (P05 gap #4).
-   *   2. it fills the shell (roomW x depth), so a wide-open church door shows a nave receding, not a 1.6 m box.
-   *   3. the top is the wall plate, so nothing pokes out through the roof.
+   * WHAT YOU SEE THROUGH AN OPEN DOOR.                                                          (P05 gap #4)
+   *
+   * The old one was a hollow box with a single top-to-bottom gradient painted on it, which is why a horizontal
+   * line sampled across a church doorway came back as the SAME byte triple all the way across: a flat card
+   * facing the lens, with no floor, no perspective and no depth falloff. This is a room instead. It is built
+   * out of separate inward-facing surfaces, each with its own colour, so the eye gets the three things that
+   * make a room a room:
+   *   1. A FLOOR — a horizontal plane running away from you, bright warm boards at the threshold falling off
+   *      into the dark at the back. A horizontal plane in perspective is the whole trick; nothing else reads.
+   *   2. SIDE WALLS that recede, darker than the floor, darker still with depth.
+   *   3. SOMETHING ONE METRE IN, lit: the daylight pool the open door itself throws on the boards, a rug edge,
+   *      a stool or a pew, and — for a house — the hearth's ember glow on the back wall with its own warm pool
+   *      on the floor in front of it.
+   * Plus the two rules that were already right: the floor clears the HIGHEST ground under the footprint so the
+   * hillside can never grow into the room, and the room fills the shell so a church door shows a nave.
    * The rooms a child can actually WALK into are their own maps (src/world/maps/hollybank.js, puddlewick_inn.js).
    */
-  const interiorRoom = (base, { x = 0, zFace, T = WALL_T, y0 = 0, w, h, depth = 1.1, roomW = null, floorY = null, top = null, hearth = false }) => {
-    const W = roomW != null ? roomW : w + 0.55;
-    const fy = floorY != null ? floorY : y0 + 0.09;
-    const ceil = Math.max(fy + Math.max(h, 1.6) + 0.35, top != null ? top : fy + h + 0.5);
-    const H = ceil - fy;
-    const zc = zFace - T - depth / 2 + 0.02;
-    const g = prep(new THREE.BoxGeometry(W, H, depth, 1, 4, 1), PAL.interior.dark);
-    g.applyMatrix4(base.clone().multiply(M4(x, fy + H / 2, zc)));
+  const ROOM = (g) => { (CUR ? CUR.interior : INTERIOR).push(g); return g; };
+  /** An inward-facing panel with a colour ramp along its own local +y (or +x when `acrossX`). */
+  const panel = (base, wq, hq, m, a, b, acrossX = false) => {
+    const g = prep(new THREE.PlaneGeometry(wq, hq, 1, 3), PAL.mask.on);
     const p = g.attributes.position, c = g.attributes.color, t = new THREE.Color();
-    const boards = C3(mixHex(PAL.wood.dark, PAL.interior.dark, 0.6)), glow = C3(mixHex(PAL.interior.dark, PAL.interior.lamp, 0.46));
-    let lo = Infinity, hi = -Infinity;
-    for (let i = 0; i < p.count; i++) { lo = Math.min(lo, p.getY(i)); hi = Math.max(hi, p.getY(i)); }
-    for (let i = 0; i < p.count; i++) { t.copy(boards).lerp(glow, smooth(lo, hi + 0.5, p.getY(i))); c.setXYZ(i, t.r, t.g, t.b); }
-    INTERIOR.push(g);
-    // a shuttered window high on the back wall: the one bright thing in the room, so the dark has depth
-    const bz = zFace - T - depth + 0.14;
-    const win = prep(new THREE.BoxGeometry(Math.min(1.1, W * 0.42), Math.min(1.15, H * 0.45), 0.1), mixHex(PAL.interior.lamp, PAL.plaster.light, 0.6));
-    win.applyMatrix4(base.clone().multiply(M4(x - W * 0.17, fy + Math.min(H - 0.7, 1.62), bz)));
-    INTERIOR.push(win);
-    // a lamp on the back wall: one small warm point so the dark has a scale to it
-    const lamp = prep(new THREE.BoxGeometry(0.26, 0.26, 0.1), PAL.interior.lamp);
-    lamp.applyMatrix4(base.clone().multiply(M4(x + W * 0.22, fy + Math.min(H - 0.55, 1.85), bz)));
-    INTERIOR.push(lamp);
-    // the hearth: embers low on the back wall, the warm floor pool in front of them
+    const ca = C3(a), cb = C3(b), half = (acrossX ? wq : hq) / 2 || 1;
+    for (let i = 0; i < p.count; i++) {
+      const u = ((acrossX ? p.getX(i) : p.getY(i)) + half) / (2 * half);
+      t.copy(ca).lerp(cb, Math.max(0, Math.min(1, u)));
+      c.setXYZ(i, t.r, t.g, t.b);
+    }
+    g.applyMatrix4(base.clone().multiply(m));
+    return ROOM(g);
+  };
+  const roomSlab = (base, g, m, hex) => { const q = prep(g, hex); q.applyMatrix4(base.clone().multiply(m)); return ROOM(q); };
+
+  const interiorRoom = (base, { x = 0, zFace, T = WALL_T, y0 = 0, w, h, depth = 1.1, roomW = null, floorY = null,
+    top = null, hearth = false, kind = 'house' } = {}) => {
+    const W = roomW != null ? roomW : w + 0.55;
+    // A room whose boards sit level with (or above) the door head is a wall with a door painted on it — which is
+    // exactly what Hollybank's open door was showing. The floor clears the high ground under the house, but never
+    // by more than a third of the doorway, so there is always a floor to see through the opening.
+    const want = floorY != null ? floorY : y0 + 0.09;
+    const fy = Math.min(want, y0 + Math.max(0.08, h * 0.32));
+    const ceil = Math.max(fy + Math.max(h, 1.6) + 0.3, top != null ? top : fy + h + 0.5);
+    const H = ceil - fy;
+    const D = Math.max(1.2, depth);
+    const zF = zFace - T + 0.01;                  // the inner face of the front wall: where the room starts
+    const zB = zF - D;                            // the back wall
+    const zc = (zF + zB) / 2;
+
+    const near = mixHex(PAL.wood.light, PAL.interior.lamp, 0.34);          // boards in the daylight at the door
+    const far = mixHex(PAL.wood.dark, PAL.interior.dark, 0.72);            // boards at the back of the room
+    const wallNear = mixHex(PAL.plaster.grime, PAL.interior.dark, 0.5);
+    const wallFar = mixHex(PAL.interior.dark, PAL.interior.haze, 0.35);
+    const stone = kind === 'church';
+
+    // 1. the floor: local +y after the -90 deg X spin runs INTO the room, so the ramp is bright at the door
+    panel(base, W, D, M4(x, fy, zc, 0, -Math.PI / 2), stone ? mixHex(PAL.stone.light, PAL.interior.lamp, 0.25) : near,
+      stone ? mixHex(PAL.stone.dark, PAL.interior.dark, 0.6) : far);
+    // 2. the ceiling, dark, so the top of the opening does not read as sky
+    panel(base, W, D, M4(x, fy + H, zc, 0, Math.PI / 2), mixHex(PAL.interior.dark, PAL.wood.dark, 0.35), PAL.interior.dark);
+    // 3. the two side walls, receding
+    for (const s of [-1, 1]) panel(base, D, H, M4(x + s * W / 2, fy + H / 2, zc, -s * Math.PI / 2), wallFar, wallNear, true);
+    // 4. the back wall
+    panel(base, W, H, M4(x, fy + H / 2, zB), mixHex(wallNear, PAL.interior.dark, 0.45), wallFar);
+
+    // ── the lit things, one metre in ──────────────────────────────────────────────────────────────────────────
+    // board joints running away from you: three thin dark lines are all it takes for the floor to read as boards
+    // in perspective rather than as a painted gradient
+    for (let k = -1; k <= 1; k++) {
+      roomSlab(base, new THREE.PlaneGeometry(0.045, D * 0.94), M4(x + k * Math.max(0.42, W * 0.22), fy + 0.008, zc, 0, -Math.PI / 2),
+        mixHex(PAL.wood.dark, PAL.interior.dark, 0.5));
+    }
+    // the daylight the open door itself lays on the boards: a warm wedge just inside the threshold
+    roomSlab(base, new THREE.PlaneGeometry(Math.min(w + 0.3, W * 0.8), Math.min(0.85, D * 0.4)),
+      M4(x, fy + 0.014, zF - Math.min(0.5, D * 0.24), 0, -Math.PI / 2), mixHex(PAL.wood.light, PAL.interior.lamp, 0.55));
+    if (stone) {
+      // a nave: two rows of pew ends and an altar cloth catching the window light
+      for (let k = 0; k < 3; k++) for (const s of [-1, 1]) {
+        roomSlab(base, boxUV(0.16, 0.92, Math.min(1.0, W * 0.3), 1), M4(x + s * (W * 0.28), fy + 0.46, zF - 0.9 - k * Math.min(1.1, D * 0.22)), PAL.wood.dark);
+      }
+      roomSlab(base, boxUV(Math.min(1.5, W * 0.5), 0.75, 0.5, 1), M4(x, fy + 0.38, zB + 0.45), PAL.cloth.cream);
+      roomSlab(base, new THREE.PlaneGeometry(Math.min(1.2, W * 0.4), Math.min(2.0, H * 0.6)), M4(x, fy + H * 0.52, zB + 0.03),
+        mixHex(PAL.sky.horizon, PAL.plaster.light, 0.35));
+    } else {
+      // a rug you can see the edge of, a stool, and the corner of a table
+      roomSlab(base, new THREE.PlaneGeometry(Math.min(1.7, W * 0.62), Math.min(1.3, D * 0.42)),
+        M4(x, fy + 0.02, zF - Math.min(1.35, D * 0.52), 0, -Math.PI / 2), mixHex(PAL.cloth.red, PAL.interior.dark, 0.32));
+      const sx = x + (W > 2.4 ? -W * 0.26 : 0);
+      roomSlab(base, new THREE.CylinderGeometry(0.19, 0.21, 0.09, 10), M4(sx, fy + 0.45, zF - Math.min(1.5, D * 0.55)), PAL.wood.mid);
+      for (const s of [-1, 1]) roomSlab(base, boxUV(0.06, 0.45, 0.06, 1), M4(sx + s * 0.13, fy + 0.22, zF - Math.min(1.5, D * 0.55)), PAL.wood.dark);
+      roomSlab(base, boxUV(Math.min(1.3, W * 0.42), 0.09, 0.62, 1), M4(x + W * 0.24, fy + 0.74, zB + 0.55), PAL.wood.mid);
+      for (const s of [-1, 1]) roomSlab(base, boxUV(0.08, 0.72, 0.08, 1), M4(x + W * 0.24 + s * Math.min(0.5, W * 0.15), fy + 0.36, zB + 0.55), PAL.wood.dark);
+      // a shuttered window high on the back wall: the one bright thing, so the dark has depth
+      roomSlab(base, new THREE.PlaneGeometry(Math.min(0.78, W * 0.3), Math.min(0.78, H * 0.32)),
+        M4(x - W * 0.2, fy + Math.min(H - 0.6, 1.45), zB + 0.03), mixHex(PAL.sky.horizon, PAL.plaster.light, 0.35));
+      for (const s2 of [-1, 1]) roomSlab(base, new THREE.PlaneGeometry(0.05, Math.min(0.78, H * 0.32)),
+        M4(x - W * 0.2 + s2 * Math.min(0.2, W * 0.075), fy + Math.min(H - 0.6, 1.45), zB + 0.04), PAL.wood.dark);
+      roomSlab(base, new THREE.PlaneGeometry(0.22, 0.26), M4(x + W * 0.26, fy + Math.min(H - 0.45, 1.78), zB + 0.03), PAL.interior.lamp);
+    }
+    // the hearth: embers low on the back wall and the warm pool they throw on the boards in front of them
     if (hearth) {
-      const e = prep(new THREE.BoxGeometry(Math.min(1.15, W * 0.45), 0.44, 0.12), mixHex(PAL.interior.lamp, PAL.flower.red, 0.3));
-      e.applyMatrix4(base.clone().multiply(M4(x + W * 0.17, fy + 0.32, bz)));
-      INTERIOR.push(e);
-      const pool = prep(new THREE.BoxGeometry(Math.min(1.6, W * 0.6), 0.04, Math.min(1.4, depth * 0.5)), mixHex(PAL.interior.dark, PAL.interior.lamp, 0.42));
-      pool.applyMatrix4(base.clone().multiply(M4(x + W * 0.17, fy + 0.03, bz + Math.min(0.9, depth * 0.3))));
-      INTERIOR.push(pool);
+      const hx = x + W * 0.2;
+      roomSlab(base, boxUV(Math.min(1.15, W * 0.42), 0.82, 0.22, 1), M4(hx, fy + 0.41, zB + 0.12), mixHex(PAL.stone.dark, PAL.interior.dark, 0.35));
+      roomSlab(base, new THREE.PlaneGeometry(Math.min(0.85, W * 0.3), 0.36), M4(hx, fy + 0.22, zB + 0.24),
+        mixHex(PAL.interior.lamp, PAL.flower.red, 0.32));
+      roomSlab(base, new THREE.PlaneGeometry(Math.min(1.5, W * 0.55), Math.min(1.2, D * 0.45)),
+        M4(hx, fy + 0.016, zB + 0.24 + Math.min(0.62, D * 0.24), 0, -Math.PI / 2), mixHex(PAL.interior.dark, PAL.interior.lamp, 0.5));
     }
   };
 
@@ -476,13 +626,16 @@ export function buildingRecipes(kit) {
       ch.applyMatrix4(M4(s * (w / 2 - 0.04), -drop / 2, 0));
       parts.push(ch);
     }
-    const mesh = new THREE.Mesh(mergeGeometries(parts), A.mat || (A.mat = makeToon({ map: A.tex, vertexColors: true }, {}, [See.patch])));
+    const mesh = new THREE.Mesh(mergeGeometries(parts),
+      CUR ? makeToon({ map: A.tex, vertexColors: true }, {}) : (A.mat || (A.mat = makeToon({ map: A.tex, vertexColors: true }, {}, [See.patch]))));
     mesh.name = 'sign-' + (o.text || o.icon || 'board'); mesh.castShadow = true; mesh.receiveShadow = true;
+    if (CUR) mesh.userData.camIgnore = true;
     local.add(mesh);
     scene.add(pivot);
     const ph = hashJ(SIGNS.length, 7) * TAU;
     SIGNS.push({ pivot: local, ph });
     BOARDS.push(mesh);
+    ownMesh(mesh);                     // a shop sign ghosts with its shop (it used to stay 100% opaque in front of it)
     return mesh;
   };
 
@@ -572,6 +725,7 @@ export function buildingRecipes(kit) {
    * new is opt-in. See the file header for the full option list.
    */
   kit.cottage = (o) => {
+    const B = beginBuilding(o, o.kind || 'cottage');
     const { W, D, H } = o, P = o.plinth ?? 0.5;
     const rot = o.rot || 0;
     const y = o.y ?? padY(o, W, D);
@@ -761,6 +915,7 @@ export function buildingRecipes(kit) {
       door: { x: doorOut.x, z: doorOut.z }, doorway, front: door ? door.front : { x: doorOut.x, z: doorOut.z },
       doorId: door ? door.id : null, doorYaw: door ? door.yaw : rot };
     (kit.buildings || (kit.buildings = [])).push(rec);
+    endBuilding(B);
     return rec;
   };
 
@@ -775,12 +930,14 @@ export function buildingRecipes(kit) {
 
   /** The item and weapon shop: striped awnings over the windows, a counter of goods, a coin-bag sign. */
   kit.shop = (o) => {
-    const rec = kit.cottage(Object.assign({
+    const opts = Object.assign({
       kind: 'shop', W: 6.4, D: 4.5, H: 2.45, roof: 'tile', pitch: 0.6, barge: true,
       doorX: -1.7, doorW: 1.05, opens: true, frontWindows: [1.3], sideWindows: [0], shutter: PAL.paint.shutterBlue,
       chimney: 'brick', chimneyX: -2.0, awning: { over: [1.3], color: PAL.cloth.red, stripe: PAL.cloth.cream, w: 2.5, depth: 1.0, drop: 0.46 },
       sign: { icon: 'bag', text: 'SHOP', panel: PAL.paint.doorRed, side: 1 },
-    }, o));
+    }, o);
+    const B = beginBuilding(opts, 'shop');
+    const rec = kit.cottage(opts);
     // a counter under the awning with goods on it, and a sword and shield on the wall
     const base = M4(rec.x, rec.y, rec.z, rec.rot);
     const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
@@ -799,6 +956,7 @@ export function buildingRecipes(kit) {
     add('paint', new THREE.CylinderGeometry(0.34, 0.34, 0.08, 14), M4(-2.45, P + 1.4, D / 2 + 0.1, 0, Math.PI / 2), PAL.wood.mid);
     add('paint', new THREE.SphereGeometry(0.09, 9, 7), M4(-2.45, P + 1.4, D / 2 + 0.16), PAL.paint.iron);
     void W;
+    endBuilding(B);
     return rec;
   };
 
@@ -812,12 +970,14 @@ export function buildingRecipes(kit) {
 
   /** A timber barn: plank walls, big braced double doors, a hay-loft door, hay and a cart wheel outside. */
   kit.barn = (o) => {
-    const rec = kit.cottage(Object.assign({
+    const opts = Object.assign({
       kind: 'barn', W: 6.6, D: 5.2, H: 2.9, roof: 'thatch', pitch: 0.8, walls: 'planks', wallTint: PAL.wood.light,
       doorX: 0, doorW: 2.3, doorH: 2.5, doorStyle: 'barn', doubleDoor: true, doorColor: PAL.wood.mid, opens: true,
       frontWindows: [], sideWindows: [], backWindow: false, braces: false, chimney: null, steps: false,
       gable: 'wood', gableColor: PAL.wood.weathered, plinth: 0.34,
-    }, o));
+    }, o);
+    const B = beginBuilding(opts, 'barn');
+    const rec = kit.cottage(opts);
     const base = M4(rec.x, rec.y, rec.z, rec.rot);
     const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
     const D = rec.D, W = rec.W, P = 0.34, H = (o && o.H) || 2.9;
@@ -829,6 +989,7 @@ export function buildingRecipes(kit) {
     add('wood', boxUV(0.16, 0.16, 1.1, 1.2), M4(0, P + H + 1.25, D / 2 + 0.5), beam);                  // the hoist beam
     add('paint', new THREE.TorusGeometry(0.1, 0.025, 5, 12), M4(0, P + H + 1.05, D / 2 + 0.95, 0, Math.PI / 2), PAL.paint.iron);
     void W;
+    endBuilding(B);
     return rec;
   };
 
@@ -838,11 +999,13 @@ export function buildingRecipes(kit) {
    */
   kit.mill = (o) => {
     const wheelSide = o.wheelSide ?? 1;
-    const rec = kit.cottage(Object.assign({
+    const opts = Object.assign({
       kind: 'mill', W: 4.8, D: 4.8, H: 2.7, H2: 2.0, storeys: 2, jetty: 0.16, roof: 'tile', pitch: 0.72, barge: true,
       walls: 'stone', doorX: 0, doorW: 1.05, opens: true, frontWindows: [], sideWindows: [], backWindow: false,
       upperWindows: [-1.2, 1.2], shutter: PAL.paint.shutterGreen, chimney: null, braces: false, steps: 2,
-    }, o));
+    }, o);
+    const B = beginBuilding(opts, 'mill');
+    const rec = kit.cottage(opts);
     const base = M4(rec.x, rec.y, rec.z, rec.rot);
     const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
     const W = 4.8, R = o.wheelR ?? 1.9, waterY = o.waterY ?? (rec.y - 0.4);
@@ -865,8 +1028,9 @@ export function buildingRecipes(kit) {
       put(boxUV(width, 0.52, 0.09, 1), M4(0, Math.cos(a) * (R - 0.22), Math.sin(a) * (R - 0.22), 0, a), PAL.wood.mid);
       put(boxUV(width, 0.1, 0.42, 1), M4(0, Math.cos(a) * (R - 0.5), Math.sin(a) * (R - 0.5), 0, a), PAL.wood.weathered);
     }
-    const wheel = new THREE.Mesh(mergeGeometries(parts), woodMat());
+    const wheel = new THREE.Mesh(mergeGeometries(parts), B ? bldSurface('wood') : woodMat());
     wheel.name = 'mill-wheel'; wheel.castShadow = true; wheel.receiveShadow = true;
+    if (B) { wheel.userData.camIgnore = true; ownMesh(wheel); }
     const holder = new THREE.Group();
     const wp = toWorld(rec, axleX, 0);
     holder.position.set(wp.x, rec.y + axleLocalY, wp.z);
@@ -877,6 +1041,7 @@ export function buildingRecipes(kit) {
     try { if (kit.ripples) kit.ripples([{ x: wp.x, z: wp.z, r: 1.5 }], { y: waterY, count: 8, seed: 5 }); } catch (e) { reportError('mill splash', e); }
     rec.wheel = wheel;
     rec.wheelAt = { x: wp.x, z: wp.z, y: rec.y + axleLocalY, r: R };
+    endBuilding(B);
     return rec;
   };
 
@@ -888,6 +1053,7 @@ export function buildingRecipes(kit) {
    * Returns the cottage-shaped record plus {towerTop, bellAt}.
    */
   kit.church = (o) => {
+    const B = beginBuilding(o, 'church');
     const W = o.W ?? 6.0, D = o.D ?? 9.2, H = o.H ?? 3.5, P = 0.5, rot = o.rot || 0;
     const y = o.y ?? padY({ x: o.x, z: o.z, rot }, W + 3.4, D);
     const base = M4(o.x, y, o.z, rot);
@@ -914,7 +1080,7 @@ export function buildingRecipes(kit) {
     {
       const floorY = Math.max(P + 0.09, padTop({ x: o.x, z: o.z, rot }, W, D) - y + 0.1);
       interiorRoom(base, { x: 0, zFace: D / 2, T, y0: P, w: holeW, h: holeH, roomW: W - 2 * T - 0.06,
-        depth: D - 2 * T - 0.06, floorY, top: P + H - 0.1, hearth: true });
+        depth: D - 2 * T - 0.06, floorY, top: P + H - 0.1, hearth: false, kind: 'church' });
       // the doorway's reveal: stone lining up both jambs and across the head, and a worn stone threshold
       for (const s of [-1, 1]) add('stone', boxUV(0.09, holeH, T + 0.02, Tex.worldSize('stone')), M4(s * (holeW / 2 - 0.045), P + holeH / 2, D / 2 - T / 2), PAL.stone.mid);
       add('stone', boxUV(holeW, 0.09, T + 0.02, Tex.worldSize('stone')), M4(0, P + holeH - 0.045, D / 2 - T / 2), PAL.stone.mid);
@@ -1004,8 +1170,9 @@ export function buildingRecipes(kit) {
       const parts2 = [bellGeo];
       const clap = prep(new THREE.SphereGeometry(0.09, 9, 7), PAL.wood.dark); clap.applyMatrix4(M4(0, 0.1, 0));
       parts2.push(clap);
-      const bell = new THREE.Mesh(mergeGeometries(parts2), paintMat());
+      const bell = new THREE.Mesh(mergeGeometries(parts2), B ? bldSurface('paint') : paintMat());
       bell.name = 'bell'; bell.castShadow = true;
+      if (B) { bell.userData.camIgnore = true; ownMesh(bell); }
       const pivot = new THREE.Group();
       const bp = toWorld({ x: o.x, z: o.z, rot }, tx, tz);
       pivot.position.set(bp.x, y + belfryY + 1.72, bp.z);
@@ -1024,8 +1191,9 @@ export function buildingRecipes(kit) {
       const lark = prep(new THREE.ExtrudeGeometry(shape, { depth: 0.03, bevelEnabled: false }), PAL.paint.gold);
       const rod = prep(new THREE.CylinderGeometry(0.025, 0.025, 0.8, 6), PAL.paint.iron); rod.applyMatrix4(M4(0, -0.4, 0));
       lark.applyMatrix4(M4(0, 0.08, 0));
-      const vane = new THREE.Mesh(mergeGeometries([lark, rod]), paintMat());
+      const vane = new THREE.Mesh(mergeGeometries([lark, rod]), B ? bldSurface('paint') : paintMat());
       vane.name = 'weathervane';
+      if (B) { vane.userData.camIgnore = true; ownMesh(vane); }
       const vp = toWorld({ x: o.x, z: o.z, rot }, tx, tz);
       vane.position.set(vp.x, y + belfryY + 2.13 + spireH + 0.6, vp.z);
       scene.add(vane);
@@ -1041,6 +1209,7 @@ export function buildingRecipes(kit) {
       door: { x: door.front.x, z: door.front.z }, doorway: { x: door.x, z: door.z }, front: door.front, doorId: door.id, doorYaw: door.yaw,
       tower: { x: tp.x, z: tp.z, w: tw, top: y + belfryY + 2.13 + spireH }, bell: bellAt, chimneyTop: null, chimneyTops: [] };
     (kit.buildings || (kit.buildings = [])).push(rec);
+    endBuilding(B);
     return rec;
   };
 
@@ -1118,6 +1287,9 @@ export function buildingRecipes(kit) {
   /** A market stall: four posts, a counter, a striped awning and a heap of goods. */
   kit.stall = (o) => {
     const x = o.x, z = o.z, rot = o.rot || 0;
+    // a market stall is as big as a shed and stands ON the lane: it is a fade unit of its own, or its bare
+    // timber frame ends up as an opaque plank across a third of the frame while the boy walks behind it
+    const B = beginBuilding({ id: o.id || `stall-${BUILT.length}`, x, z, rot }, 'stall');
     const y = heightAt(x, z), base = M4(x, y, z, rot);
     const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
     const W = o.W ?? 2.7, D = o.D ?? 1.5;
@@ -1146,6 +1318,7 @@ export function buildingRecipes(kit) {
     }
     ao.box(x, z, W + 0.6, D + 0.8, rot, 0.9, 0.6);
     kit.footBox(x, z, W + 0.6, D + 0.9, rot);
+    endBuilding(B);
     return { x, z, rot, W, D };
   };
 
@@ -1703,8 +1876,211 @@ export function buildingRecipes(kit) {
   // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
   // merge: the kit's own meshes go in with the buckets; doors and signs animate from kit.update
   // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+  // the see-through, per BUILDING                                                                (P05 gap #2)
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+  const GT = { lens: new THREE.Vector3(), lo: new THREE.Vector3(), hi: new THREE.Vector3() };
+
+  /** Merge each building's geometry into its own meshes, and measure its box in its OWN frame (not an AABB). */
+  const buildBuildingMeshes = () => {
+    const out = [];
+    for (const b of BUILT) {
+      if (b.done) continue;
+      b.done = true;
+      const c = Math.cos(b.rot), s = Math.sin(b.rot);
+      let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+      for (const [bucket, list] of b.geos) {
+        if (!list.length) continue;
+        const geo = mergeGeometries(list);
+        if (!geo) continue;
+        // the OBB: every vertex back through the building's own rotation, so a house turned 38 degrees to the
+        // green is measured as the 9 x 6 box it IS and not as the 12-wide axis-aligned box it sits in. That box
+        // is what the "is the lens inside the shell" test uses, and the old one had corners full of fresh air.
+        const p = geo.attributes.position.array;
+        for (let i = 0; i < p.length; i += 3) {
+          const dx = p[i] - b.x, dz = p[i + 2] - b.z;
+          const lx = dx * c - dz * s, lz = dx * s + dz * c, ly = p[i + 1];
+          if (lx < x0) x0 = lx; if (lx > x1) x1 = lx;
+          if (ly < y0) y0 = ly; if (ly > y1) y1 = ly;
+          if (lz < z0) z0 = lz; if (lz > z1) z1 = lz;
+        }
+        const mesh = new THREE.Mesh(geo, bldSurface(bucket));
+        mesh.name = `bld:${b.id}:${bucket}`;
+        mesh.castShadow = bucket !== 'paint' && bucket !== 'glow';
+        mesh.receiveShadow = bucket !== 'glow';
+        mesh.userData.camIgnore = true;                   // P09's pass leaves buildings to this file
+        scene.add(mesh);
+        b.meshes.push(mesh); b.parts.push(geo); out.push(mesh);
+      }
+      b.geos.clear();
+      for (const [, cl] of b.cloth) {                      // the shop's awning ghosts with the shop
+        if (!cl.geos.length) continue;
+        const mat = makeToon({ map: cl.tex, alphaTest: 0.5, side: THREE.DoubleSide, vertexColors: false },
+          Object.assign({}, TOON_PRESETS.cloth));
+        const mesh = new THREE.Mesh(mergeGeometries(cl.geos.map(g => (g.index ? g.toNonIndexed() : g))), mat);
+        mesh.name = `bld:${b.id}:cloth`; mesh.castShadow = true; mesh.receiveShadow = true;
+        mesh.userData.camIgnore = true;
+        scene.add(mesh); b.meshes.push(mesh); out.push(mesh);
+      }
+      b.cloth.clear();
+      // the room you see through its own open door, and the firelight in it: inside the shell, so they belong to
+      // the shell — they used to be one village-wide mesh that P09's pass could (and did) drop to alpha 0 alone
+      if (b.interior.length) {
+        const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, fog: true });
+        const mesh = new THREE.Mesh(mergeGeometries(b.interior), mat);
+        mesh.name = `bld:${b.id}:room`; mesh.castShadow = false; mesh.receiveShadow = false;
+        mesh.userData.camIgnore = true;
+        scene.add(mesh); b.meshes.push(mesh); out.push(mesh);
+        b.interior.length = 0;
+      }
+      if (b.glow.length) {
+        const mat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true });
+        const mesh = new THREE.Mesh(mergeGeometries(b.glow), mat);
+        mesh.name = `bld:${b.id}:glow`; mesh.castShadow = false; mesh.receiveShadow = false;
+        mesh.userData.camIgnore = true;
+        scene.add(mesh); b.meshes.push(mesh); out.push(mesh);
+        b.glow.length = 0;
+      }
+      if (!Number.isFinite(x0)) { b.lo = null; continue; }
+      b.lo = { x: x0, y: y0, z: z0 };
+      b.hi = { x: x1, y: y1, z: z1 };
+      b.span = Math.max(x1 - x0, z1 - z0);
+    }
+    return out;
+  };
+
+  /** The depth pre-pass and the ink line — built the first time a house actually goes to glass, never before. */
+  const ghostAids = (b) => {
+    if (b.depth || !b.parts.length) return;
+    try {
+      const merged = b.parts.length === 1 ? b.parts[0] : mergeGeometries(b.parts);
+      if (!merged) return;
+      // 1. depth only: one clean surface instead of four stacked translucent walls
+      const dm = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true, transparent: true, fog: false });
+      dm.depthFunc = THREE.LessEqualDepth;
+      const depth = new THREE.Mesh(merged, dm);
+      depth.name = `bld:${b.id}:ghost-depth`;
+      depth.castShadow = false; depth.receiveShadow = false; depth.frustumCulled = false;
+      depth.visible = false; depth.userData.camIgnore = true;
+      scene.add(depth); b.depth = depth;
+      // 2. the ink line, kept: a faded house still reads as a house and not as a smear
+      const im = new THREE.MeshBasicMaterial({ color: C3(PAL.outline.prop), side: THREE.BackSide,
+        transparent: true, opacity: GH.ink, depthWrite: false, fog: false });
+      im.depthFunc = THREE.LessEqualDepth;
+      const ink = new THREE.Mesh(hullGeometry(merged, 0.045), im);
+      ink.name = `bld:${b.id}:ghost-ink`;
+      ink.castShadow = false; ink.receiveShadow = false; ink.frustumCulled = false;
+      ink.visible = false; ink.userData.camIgnore = true;
+      scene.add(ink); b.ink = ink;
+    } catch (e) { reportError('building ghost aids', e); }
+  };
+
+  const boxDist = (px, py, pz, lo, hi) => {
+    const dx = Math.max(lo.x - px, 0, px - hi.x), dy = Math.max(lo.y - py, 0, py - hi.y), dz = Math.max(lo.z - pz, 0, pz - hi.z);
+    return Math.hypot(dx, dy, dz);
+  };
+  /** Slab test: does the segment a->b cross this box, grown by `pad`? */
+  const segBox = (ax, ay, az, bx, by, bz, lo, hi, pad) => {
+    let t0 = 0, t1 = 1;
+    const d = [bx - ax, by - ay, bz - az], o = [ax, ay, az];
+    const mn = [lo.x - pad, lo.y - pad, lo.z - pad], mx = [hi.x + pad, hi.y + pad, hi.z + pad];
+    for (let k = 0; k < 3; k++) {
+      if (Math.abs(d[k]) < 1e-7) { if (o[k] < mn[k] || o[k] > mx[k]) return false; continue; }
+      let ta = (mn[k] - o[k]) / d[k], tb = (mx[k] - o[k]) / d[k];
+      if (ta > tb) { const t = ta; ta = tb; tb = t; }
+      if (ta > t0) t0 = ta;
+      if (tb < t1) t1 = tb;
+      if (t0 > t1) return false;
+    }
+    return true;
+  };
+
+  const setMat = (mesh, ghost, a, order) => {
+    const m = mesh && mesh.material;
+    if (!m || Array.isArray(m)) return;
+    if (m.transparent !== ghost) m.transparent = ghost;
+    m.opacity = a;
+    m.depthWrite = !ghost;
+    m.depthFunc = THREE.LessEqualDepth;
+    mesh.renderOrder = ghost ? order : 0;
+  };
+
+  /**
+   * One alpha for the whole house, every frame: its meshes, its door leaves, its sign, its awning, its wheel.
+   * Drawn last, depth first, ink over the top — and NEVER below GH.min, so a house you walk behind turns to
+   * glass and never to nothing.
+   */
+  const ghostUpdate = (dt, camera, focus) => {
+    if (!BUILT.length) return;
+    const step = Math.max(0, Math.min(0.06, dt || 0));
+    const live = !!(camera && focus && Number.isFinite(focus.x));
+    if (live) { camera.updateMatrixWorld(); GT.lens.setFromMatrixPosition(camera.matrixWorld); }
+    const hx = live ? focus.x : 0, hy = (live ? (focus.y || 0) : 0) + 0.85, hz = live ? focus.z : 0;
+    const fading = [];
+    for (const b of BUILT) {
+      if (!b.lo) continue;
+      let want = false;
+      b.why = '';
+      if (live) {
+        const c = Math.cos(b.rot), s = Math.sin(b.rot);
+        const dxl = GT.lens.x - b.x, dzl = GT.lens.z - b.z;
+        const lx = dxl * c - dzl * s, lz = dxl * s + dzl * c, ly = GT.lens.y;
+        const dxh = hx - b.x, dzh = hz - b.z;
+        const tx = dxh * c - dzh * s, tz = dxh * s + dzh * c;
+        b.dist = Math.hypot(dxl, dzl);
+        const heroIn = tx > b.lo.x - 0.4 && tx < b.hi.x + 0.4 && tz > b.lo.z - 0.4 && tz < b.hi.z + 0.4;
+        if (!heroIn && lx > b.lo.x - 0.15 && lx < b.hi.x + 0.15 && ly > b.lo.y - 0.2 && ly < b.hi.y + 0.5 &&
+            lz > b.lo.z - 0.15 && lz < b.hi.z + 0.15) { want = true; b.why = 'lens inside it'; }
+        else if (segBox(lx, ly, lz, tx, hy, tz, b.lo, b.hi, GH.pad)) { want = true; b.why = 'covering him'; }
+        else if (boxDist(lx, ly, lz, b.lo, b.hi) < GH.lens) { want = true; b.why = 'pressed against the lens'; }
+      }
+      if (want) b.hit = GH.hold; else b.hit = Math.max(0, b.hit - step);
+      const target = b.hit > 0 ? GH.alpha : 1;
+      if (b.alpha !== target) {
+        const sp = step / ((target < b.alpha ? GH.outMs : GH.inMs) / 1000);
+        b.alpha += Math.max(-sp, Math.min(sp, target - b.alpha));
+        if (Math.abs(target - b.alpha) < 0.01) b.alpha = target;
+      }
+      if (b.alpha < 0.999) fading.push(b);
+    }
+    fading.sort((p, q) => q.dist - p.dist);                 // far to near: ghosts layer correctly
+    let rank = 0;
+    for (const b of BUILT) {
+      const i = fading.indexOf(b);
+      const ghost = i >= 0 && i < GH.most + 8;
+      const a = ghost ? Math.max(GH.min, Math.min(1, b.alpha)) : 1;
+      const order = 220 + (ghost ? rank++ : 0) * 3;
+      if (ghost !== b.ghosting || ghost) {
+        for (const m of b.meshes) setMat(m, ghost, a, order + 1);
+        for (const m of b.extra) setMat(m, ghost, a, order + 1);
+        if (ghost) {
+          ghostAids(b);
+          if (b.depth) { b.depth.visible = true; b.depth.renderOrder = order; }
+          if (b.ink) { b.ink.visible = true; b.ink.renderOrder = order + 2; b.ink.material.opacity = Math.min(1, a * (GH.ink / GH.alpha)); }
+        } else {
+          if (b.depth) b.depth.visible = false;
+          if (b.ink) b.ink.visible = false;
+        }
+        b.ghosting = ghost;
+      }
+    }
+  };
+
+  /** __DQ.state().buildings.ghosts — what is glass right now, and why. A critic must be able to read this. */
+  kit.buildingGhosts = () => BUILT.filter(b => b.lo).map(b => ({
+    id: b.id, kind: b.kind, alpha: +b.alpha.toFixed(3), ghost: b.alpha < 0.999,
+    why: b.why || (b.alpha < 0.999 ? 'easing back' : ''), dist: +b.dist.toFixed(2),
+    meshes: b.meshes.length + b.extra.length, span: b.span ? +b.span.toFixed(1) : 0,
+  }));
+  /** Tune the building see-through live (a demo control): {alpha, min, outMs, inMs, hold, pad, lens}. */
+  kit.ghostTune = (o = {}) => {
+    for (const k of ['alpha', 'min', 'max', 'ink', 'outMs', 'inMs', 'hold', 'pad', 'lens', 'most']) if (Number.isFinite(+o[k])) GH[k] = +o[k];
+    return Object.assign({}, GH);
+  };
+
   const flushBuildings = () => {
     const out = [];
+    try { out.push(...buildBuildingMeshes()); } catch (e) { reportError('building meshes', e); }
     for (const [key, c] of CLOTH) {
       if (!c.geos.length) continue;
       const mat = makeToon({ map: c.tex, alphaTest: 0.5, side: THREE.DoubleSide, vertexColors: false },
@@ -1734,7 +2110,7 @@ export function buildingRecipes(kit) {
       GLOW.length = 0;
     }
     if (INTERIOR.length) {
-      const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: true });
+      const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, fog: true });
       mat.onBeforeCompile = (sh) => See.patch(sh);
       mat.customProgramCacheKey = () => 'bldinterior|see';        // P09's fade pass looks for |see| in the key
       const mesh = new THREE.Mesh(mergeGeometries(INTERIOR), mat);
@@ -1760,6 +2136,7 @@ export function buildingRecipes(kit) {
   kit.update = (t, dt, camera, focus) => {
     try { baseUpdate(t, dt, camera, focus); } catch (e) { reportError('kit.update', e); }
     try { kit.doorsUpdate(dt, focus); } catch (e) { reportError('buildings doors', e); }
+    try { ghostUpdate(dt, camera, focus); } catch (e) { reportError('buildings see-through', e); }
     for (const s of SIGNS) s.pivot.rotation.x = Math.sin(t * 0.9 + s.ph) * 0.045 + Math.sin(t * 2.3 + s.ph) * 0.012;
   };
 
@@ -1768,6 +2145,10 @@ export function buildingRecipes(kit) {
     buildings: (kit.buildings || []).map(b => ({ id: b.id, kind: b.kind, x: +b.x.toFixed(2), z: +b.z.toFixed(2) })),
     doors: DOORS.map(d => ({ id: d.id, open: +d.amount.toFixed(2), opens: d.opens })),
     signs: BOARDS.length,
+    // the see-through, per building: one alpha each, never 0 (P05 gap #2)
+    fade: { alpha: GH.alpha, min: GH.min, grouped: 'per building' },
+    ghosts: kit.buildingGhosts().filter(g => g.ghost),
+    ghostable: BUILT.filter(b => b.lo).length,
   });
 
   return kit;

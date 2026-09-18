@@ -47,13 +47,36 @@ export const MAP_AREA = {
 };
 export const areaFor = (mapId) => AREA_BY_ID[MAP_AREA[mapId] || ''] || AREA_BY_ID.long_lane;
 
+/**
+ * BEFRIENDING — CANON B12 gates wild monsters behind `ch2.wagon` ("they have nowhere to ride"), which is why the
+ * areas carry `act`. But there is no story module in the build yet and the Long Lane IS the whole playable game, so
+ * that gate made the single signature beat of Dragon Quest V unreachable: 264 fights, nought monsters asking.
+ * So: on from Act II, on once `ch2.wagon` is set, and on in a build that has no story at all (this one).
+ * `__DQ.befriending(true|false|'auto')` forces it either way.   NEEDS P26: set `ch2.wagon` and this falls into line.
+ */
+let BEFRIEND = 'auto';
+function storyPresent() { return !!(L.ctx && (L.ctx.Story || L.ctx.Quests || L.ctx.Chapters)); }
+function befriendOn(area) {
+  if (BEFRIEND !== 'auto') return !!BEFRIEND;
+  if (!area || area.act >= 2) return true;
+  if (guard('flag', () => L.ctx && L.ctx.Debug && typeof window !== 'undefined' && window.__DQ
+    && typeof window.__DQ.flag === 'function' && window.__DQ.flag('ch2.wagon'))) return true;
+  return !storyPresent();
+}
+
 /** How long each kind of event holds on screen before the next one (ms, SYSTEMS §7). */
 const HOLD = {
-  appear: 420, ambush: 420, round: 220, act: 170, damage: 300, heal: 280, defeat: 420, telegraph: 1000,
-  victory: 700, levelup: 520, recruit_offer: 400, wipe: 1500, transform: 1000, phase: 900, spared: 900,
-  message: 280, status: 260, swap: 400, summon: 700, flee: 420, end: 0, scripted_end: 700,
+  appear: 360, ambush: 360, round: 140, act: 100, damage: 170, heal: 190, defeat: 270, telegraph: 1000,
+  victory: 700, levelup: 460, recruit_offer: 400, wipe: 1500, transform: 1000, phase: 900, spared: 900,
+  message: 220, status: 180, swap: 360, summon: 700, flee: 360, end: 0, scripted_end: 700,
 };
-const LINE_GAP = 170;
+const LINE_GAP = 110;
+/**
+ * Glyphs a second in the COMBAT LOG. Dialogue types at SYSTEMS §7's 38 (reading pace, a person talking); a blow-by-
+ * blow round is not a person talking, and at 38 one gloop cost eight seconds of watching letters arrive. DQ's own
+ * battle text is brisk — this is that, still with a tick per glyph, and Confirm still finishes the line at once.
+ */
+const LOG_SPEED = 72;
 /** Events that change who the party IS: the status windows have to catch up before the beat is shown. */
 const SYNC_AFTER = { levelup: 1, swap: 1, transform: 1, summon: 1, revive: 1, reorder: 1 };
 /**
@@ -243,9 +266,9 @@ function say(raw, { voice = 'narrator' } = {}) {
   const line = polish(raw);
   L.lastLine = line;
   if (L.instant) { guard('say', () => box.show(line, { voice })); return Promise.resolve(true); }
-  const p = guard('say', () => box.say(line, { voice, wait: false, caret: true, speed: 38 / rate() }));
+  const p = guard('say', () => box.say(line, { voice, wait: false, caret: true, speed: LOG_SPEED / rate() }));
   if (!p || typeof p.then !== 'function') return Promise.resolve(true);
-  const turn = 0.85 * rate();
+  const turn = 0.72 * rate();
   const off = UI.onUpdate(() => {
     try {
       if (box.destroyed || box.finished) { off(); return; }
@@ -255,6 +278,8 @@ function say(raw, { voice = 'narrator' } = {}) {
   return p.then((v) => { off(); return v; }, (e) => { off(); reportError('battle say', e); return false; });
 }
 function clearLines() { guard('clear', () => { if (L.box && !L.box.destroyed) L.box.clearText(); }); }
+/** Take the combat log off the screen entirely, so the victory window is the only thing in the frame. */
+function hideBox() { guard('hide box', () => { if (L.box && !L.box.destroyed) { L.box.clearText(); L.box.close(); } }); }
 
 /** One F4 menu, awaited. Returns the chosen item (or null on cancel). */
 function ask({ items, title, columns = 1, left = CMD.left, bottom = CMD.bottom, width, minWidth = 300, hint = null, onChange = null, initial = 0 }) {
@@ -307,7 +332,24 @@ async function playEvents(events) {
       if (SYNC_AFTER[ev.t] && L.present) guard('sync', () => L.present.setParty(S.battle.snapshot()));
       // the join question and the tally each get the window to themselves
       if (ev.t === 'recruit_offer' || ev.t === 'victory' || ev.t === 'wipe') clearLines();
-      if (ev.t === 'victory') { musicStop(0.05); await beat(200); sting('victory'); }
+      /**
+       * SYSTEMS §10.1 — victory is a MOMENT, not a line in the log. The music stops dead, the fanfare stings, the
+       * combat log window goes away entirely and the frame is held while a window of its own counts the spoils up.
+       * Nothing about the tally goes through the message box any more.
+       */
+      if (ev.t === 'victory') {
+        musicStop(0.05);
+        await beat(170);
+        sting('victory');
+        hideBox();
+        L.waiting = 'victory';
+        if (L.present) await L.present.victory(ev);
+        else await beat(900);
+        L.waiting = null;
+        await beat(240);                                   // §10.3: the tally closes, and 0.4 s of nothing
+        S.beats++;
+        continue;
+      }
       if (ev.t === 'levelup') sting('level_up');
       if (ev.t === 'recruit_offer') sting('join');
       const lines = ev.lines || (ev.text ? [ev.text] : []);
@@ -514,7 +556,9 @@ async function askRecruit(ev) {
   S.offer = ev.monster;
   if (L.present) L.present.join(ev);
   await beat(500);
+  if (!S.alive) return;
   const yes = await UI.yesNo({ id: 'battle-join', right: 'calc(50% - 515 * var(--u))', bottom: 234 });
+  if (!S.alive) return;
   if (L.present) L.present.joinAnswer(yes);
   const name = resolveRecruit(ev, yes);
   if (yes) {
@@ -585,7 +629,7 @@ async function endBattle() {
   const outcome = (r && r.outcome) || 'fled';
   const wiped = outcome === 'defeat';
   if (wiped) { Roster.heal(); if (!L.instant) { await Transitions.white(true, { ms: 500 }); await beat(500); } }
-  else if (!L.instant) await Transitions.fadeOut({ ms: 320, colour: 'ink' });
+  else if (!L.instant) await Transitions.fadeOut({ ms: 260, colour: 'ink' });
   guard('bus end', () => L.ctx.Bus && L.ctx.Bus.emit('battle.end', { outcome, result: r, area: S.area.id, boss: S.boss, advice: r && r.advice ? r.advice : null }));
   const done = S.onEnd;
   S.alive = false;
@@ -596,7 +640,7 @@ async function endBattle() {
     if (m && m.music) music(m.music, { fade: 1.2 });
   });
   Transitions.vignette(0, { ms: 300 });
-  await Transitions.clear({ ms: wiped ? 700 : 440 });
+  await Transitions.clear({ ms: wiped ? 700 : 360 });
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -652,7 +696,7 @@ function createBattleScene() {
             wagonReachable: bossSpec ? false : (area.wagonReachable ?? true),
             ambush: bossSpec ? 'none' : sctx.ambush,
             protectedMap: !!sctx.protectedMap,
-            recruit: !bossSpec && area.act >= 2 ? Object.assign({}, Roster.recruit) : null,
+            recruit: !bossSpec && befriendOn(area) ? Object.assign({}, Roster.recruit) : null,
             bossWipes: sctx.bossWipes ?? (bossKey ? (Roster.bossWipes[bossKey] || 0) : 0),
           },
         });
@@ -674,6 +718,15 @@ function createBattleScene() {
       const S = L.session;
       if (S) S.alive = false;
       guard('exit menus', () => { if (L.menu) { L.menu.destroy(); L.menu = null; } });
+      // Every window this scene can have open, by id. The join Yes/No is NOT L.menu (UI.yesNo makes its own), so
+      // leaving the scene with the question up — a story jump, a debug fight, a scene replaced under it — used to
+      // strand a live Yes/No on the field with nothing behind it.
+      guard('exit windows', () => {
+        for (const id of ['battle-cmd', 'battle-join', 'battle-victory']) {
+          const w = UI.get(id);
+          if (w) w.destroy();
+        }
+      });
       guard('exit box', () => { if (L.box) { L.box.destroy(); L.box = null; } });
       guard('exit present', () => { if (L.present) L.present.dispose(); });
       setLivePresenter(null);
@@ -684,6 +737,8 @@ function createBattleScene() {
     onInput(btn) {
       if (btn === 'confirm') {
         L.confirmAt = nowMs();
+        // ONE press is the whole ceremony: it fills the tally, then dismisses it; then the level-up card.
+        if (L.present && L.present.tallyOpen) { L.present.skipTally(); return true; }
         if (L.present && L.present.panelOpen) { L.present.skipPanel(); return true; }
       }
       if (UI.input(btn)) return true;
@@ -754,6 +809,7 @@ export function install(ctx = {}) {
     if (!S || !S.battle) return null;
     const s = S.battle.snapshot();
     return { turn: s.round, phase: s.phase, area: S.area.id, boss: !!S.boss, ambush: s.ambush,
+      scripted: s.scripted || null,        // a story fight that ends on a beat, not on HP (B11b's Sunmane)
       enemies: s.enemies.map((e) => ({ id: e.id, name: e.name, hp: e.hp, maxHp: e.maxHp, alive: e.alive,
         telegraphing: !!e.telegraphing, bigCooldown: e.bigCooldown })),
       needs: s.needs, over: !!S.battle.over, result: s.result ? { outcome: s.result.outcome, exp: s.result.exp, gold: s.result.gold } : null };
@@ -768,6 +824,8 @@ export function install(ctx = {}) {
   D.provide('gold', () => Roster.gold);
   D.provide('battleUi', () => ({ menu: L.ui, typing: L.busy, waiting: L.waiting, instant: L.instant,
     music: L.theme, offer: L.session && L.session.offer ? L.session.offer : null,
+    befriending: { mode: BEFRIEND, onHere: befriendOn(L.lastArea ? AREA_BY_ID[L.lastArea] : AREA_BY_ID.long_lane),
+      joined: Object.assign({}, Roster.recruit.joined), misses: Object.assign({}, Roster.recruit.misses) },
     answered: L.session ? L.session.recruitAnswer : null,
     beats: L.session ? L.session.beats : 0, sound: L.sound.slice(-10),
     line: L.lastLine || null }));
@@ -841,6 +899,11 @@ export function install(ctx = {}) {
     return true;
   });
   D.expose('instant', (v = true) => { L.instant = !!v; if (L.present) L.present.setInstant(L.instant); return L.instant; });
+  /** Wild befriending on / off / 'auto' (CANON B12's `ch2.wagon` gate, with no story module yet). */
+  D.expose('befriending', (v) => {
+    if (v !== undefined) BEFRIEND = v === 'auto' ? 'auto' : !!v;
+    return { mode: BEFRIEND, onHere: befriendOn(L.lastArea ? AREA_BY_ID[L.lastArea] : AREA_BY_ID.long_lane), story: storyPresent() };
+  });
   /** SYSTEMS §7 battle speed: 1.25 gentle, 1 normal, 0.7 brisk. */
   D.expose('battleSpeed', (n) => { if (n !== undefined) L.speed = clamp(Number(n) || 1, 0.4, 2); return L.speed; });
   /** What a join offer is answered with while `instant` is on (a seed search, a simulation). */

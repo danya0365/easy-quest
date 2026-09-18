@@ -1,0 +1,47 @@
+{
+  "id": "P32",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "On the little map you cannot find yourself",
+      "detail": "Every mark on the plan was authored in canvas pixels while the canvas is drawn at 2x the design size, so everything came out half the size intended: the you arrow was 15 canvas px = 7.5 design px tall (smaller than a full stop), people were 2.2 canvas px = 1.1 design px specks, treasure the same. Zoomed in on the screenshot, the white arrow is a scratch and the people are invisible. Fix: draw every mark in DESIGN px times one scale factor K, make the arrow about 15 design px with a halo and an ink outline, make people and treasure about 3.5-4 design px with an ink ring, and give the ways out a gold gate of at least 9 design px with an edge.",
+      "state": "claimed-fixed",
+      "opened": "2026-09-18T01:35:25.543Z",
+      "events": [
+        {
+          "at": "2026-09-18T01:35:58.187Z",
+          "by": "builder",
+          "note": "Every mark is now authored in design px and multiplied once by K = canvas width / MAP_PX. The you arrow is 15 design px tall (2x what it was) with a white radial halo of 18.75 design px and a 2.6 px ink outline; people are 3.6 design px with a 1.7 px ring and are painted in ui.textDim so they never read as you; treasure is 4.2 design px gold with a bright centre; the ways out are gold gates of at least 9 design px with an ink edge. __DQ.state().hud.map.marks now reports {you:15, folk, treasure, ways} and both scenarios assert marks.you >= 12 and folk > 0 and ways > 0 (the meadow reports folk 15, ways 3). Checked by cropping the plan out of the frame at 3x: before, the arrow was a scratch; after, it reads at a glance."
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "title": "The place card and the quest ribbon land on top of each other",
+      "detail": "Arriving somewhere puts a centred place card at the top of the screen and a quest ribbon at the top left. With a long place name the two overlap: in the shot the ribbon Follow the lane to Puddlewick covers the P of Puddlewick Vale. Fix: one thing at a time along the top - showing a card dismisses the ribbon and showing a ribbon dismisses the card, and on map.enter the ribbon waits until the card has had its moment and gone.",
+      "state": "claimed-fixed",
+      "opened": "2026-09-18T01:35:25.578Z",
+      "events": [
+        {
+          "at": "2026-09-18T01:35:58.226Z",
+          "by": "builder",
+          "note": "showCard closes any live ribbon and showRibbon closes any live card, and on map.enter the ribbon is scheduled for CARD_HOLD + 0.45 s and only shows if the card has already gone. Verified with assertions in both scenarios: after __DQ.hudCard() the state has a card and hud.ribbon is null; after __DQ.hudRibbon() the state has a ribbon and hud.card is null. Screenshots 01-place-card and 01b-what-to-do-next show each alone, against shots/P13-r0/01 where the ribbon covered the P of Puddlewick Vale."
+        }
+      ]
+    },
+    {
+      "n": 3,
+      "title": "The plan reads as a flat grey-green thumbnail, not a painted map",
+      "detail": "The minimap ground was baked at one sample per world tile (64 for the meadow) and drawn with smoothing off, painted in unlifted palette colours with a flat stone tint over everything solid, and had no compass and no legend. It read as a programmer thumbnail next to the approved look. Fix: 1.6 samples per tile, smooth upscale, ground colours lifted towards the window light, solid ground painted as the same ground in shade, an N in the corner, and a small legend under the plan saying what the four marks mean.",
+      "state": "claimed-fixed",
+      "opened": "2026-09-18T01:35:25.612Z",
+      "events": [
+        {
+          "at": "2026-09-18T01:35:58.268Z",
+          "by": "builder",
+          "note": "The bake is now 1.6 samples per world tile (the meadow went from 64 to 128 a side, reported as hud.map.tiles), upscaled with smoothing on; ground colours are lifted 16 per cent towards the window light; solid ground is the same colour mixed 38 per cent to shadow, so trees and walls read as shade rather than a flat grey slab; an N sits in the top right of the plan; and a two-line legend under it says you, people, treasure, a way out with the matching glyph colours. The plan is 248 design px (was 232). Verified by eye at 2.6x and 3x crops of shots/P13-r4 and shots/P13-idx2 against the before crop of shots/P13-r0."
+        }
+      ]
+    }
+  ]
+}

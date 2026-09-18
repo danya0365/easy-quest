@@ -140,3 +140,23 @@ nobody re-checked the last one. That is whack-a-mole, not progress. From now on:
 2. Fix the newest biggest gap first, then close as many older open gaps as you can in the same pass.
 3. For each one you close: `node tools/gaps.mjs fixed <PIECE> <n> "how you verified it, with numbers"`.
 4. Never regress a `verified-fixed` gap. Re-measure the old ones before you finish.
+
+**File a gap against the piece that OWNS the file.** If the fix lives in another piece's file (per docs/PIECES.md),
+open it under THAT piece id and say so in the description. A gap a piece is not allowed to fix will sit open
+forever and drag its score down for someone else's work. If you find one already misfiled, say so in
+`biggestGap` and the orchestrator will move it.
+
+## ★ OWNER DIRECTION CHANGE — 2026-09-18 08:50: breadth before depth
+The owner has changed the target: **stop polishing toward 85 for now. Get every piece to a solid 65-75 and move
+on to the missing features, so the whole game exists end to end.** Polishing to 85 comes later, once the game
+is complete.
+
+What this changes:
+- **A piece is DONE FOR NOW at 70** (65 is acceptable if it is stable and nothing is broken). Do not keep
+  iterating past that; say so and stop.
+- **Critics:** score as harshly as ever, and keep filing gaps to the ledger — the ledger is the to-do list for
+  the later polish wave. But when a piece is at 70+ with nothing BROKEN, say "good enough for now" plainly.
+  The score cap rule (no more than 80 with gaps open) still applies; it just no longer matters at this stage.
+- **BROKEN still blocks**: a black frame, a crash, a console error, an unreachable place, a dead end, a
+  soft-lock, or anything a child could hit that stops play is never "good enough" at any score.
+- **Builders:** prefer breadth. A whole feature that works simply beats half a feature polished.

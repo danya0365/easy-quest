@@ -192,7 +192,7 @@ const hollybank = {
       rig.apply('interior'); rig.dir.set(0.22, 0.96, 0.26).normalize();
       if (rig.sun) rig.sun.intensity *= 1.3;                 // a fire and four windows: a cottage is not a cave
       if (rig.hemi) rig.hemi.intensity *= 1.12;
-      if (rig.setExtent) rig.setExtent(9);                   // a room is 12 m across: a tight shadow map keeps edges clean
+      if (rig.setExtent) rig.setExtent(16);                  // the whole room inside the shadow camera, or its edge cuts a hard diagonal across a wall
     });
     // the dark surround a DQV dollhouse interior sits in: the room must read far brighter than it
     scene.background = C3(mixHex(PAL.shadow.contact, PAL.interior.dark, 0.55));

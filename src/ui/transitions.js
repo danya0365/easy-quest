@@ -65,7 +65,7 @@ const ease = {
 
 const R = {
   layer: null, sheets: {}, styled: false, off: null,
-  anims: new Set(), token: 0, busy: 0, blocked: false,
+  anims: new Set(), chan: {}, token: 0, busy: 0, blocked: false,
   swirl: 0, cover: null, last: null, count: 0,
   ctx: null, snapshot: { swirl: 0, ink: 0, sky: 0, white: 0, iris: 0, flash: 0, vignette: 0 },
 };
@@ -110,13 +110,20 @@ function setBusy(on) {
   }
 }
 
-/** One animation: t seconds long, step(k) each frame with k = 0..1 eased, then resolve. */
-function animate(seconds, step, easing = ease.inout) {
+/**
+ * One animation: t seconds long, step(k) each frame with k = 0..1 eased, then resolve.
+ * `channel` names the sheet it drives: starting a new animation on a channel stops the one already running there,
+ * so two overlapping calls can never fight over the same opacity and leave the loser's value on screen (a battle
+ * ending while the victory vignette was still easing used to leave the whole field dimmed).
+ */
+function animate(seconds, step, easing = ease.inout, channel = null) {
   ensure();
   const ms = Math.max(0, Number(seconds) || 0);
+  if (channel && R.chan[channel]) { const prev = R.chan[channel]; R.chan[channel] = null; cancel(prev); }
   return new Promise((resolve) => {
     if (!R.layer) { try { step(1); } catch (_) {} resolve(false); return; }
-    const a = { t: 0, dur: ms, step, easing, resolve, done: false };
+    const a = { t: 0, dur: ms, step, easing, resolve, done: false, channel };
+    if (channel) R.chan[channel] = a;
     R.anims.add(a);
     setBusy(true);
     try { step(easing(0)); } catch (e) { reportError('transitions: step', e); }
@@ -128,9 +135,18 @@ function finish(a, ok) {
   if (a.done) return;
   a.done = true;
   R.anims.delete(a);
+  if (a.channel && R.chan[a.channel] === a) R.chan[a.channel] = null;
   try { a.step(1); } catch (e) { reportError('transitions: step', e); }
   setBusy(false);
   a.resolve(ok !== false);
+}
+/** Stop an animation where it stands: no jump to its end value, because something else now owns that sheet. */
+function cancel(a) {
+  if (!a || a.done) return;
+  a.done = true;
+  R.anims.delete(a);
+  setBusy(false);
+  a.resolve(false);
 }
 
 function tick(dt) {
@@ -271,12 +287,13 @@ export const Transitions = {
   /** A soft dark vignette for a tense moment (a boss door, a telegraph). */
   vignette(v = 0.5, { ms = 400 } = {}) {
     const from = Number(R.snapshot.vignette) || 0;
-    return animate(ms / 1000, (k) => opacity('vig', from + (clamp01(v) - from) * k), ease.inout);
+    return animate(ms / 1000, (k) => opacity('vig', from + (clamp01(v) - from) * k), ease.inout, 'vig');
   },
 
   /** Everything off, at once (a scene tearing down mid-wipe). */
   reset() {
     for (const a of Array.from(R.anims)) finish(a, false);
+    R.chan = {};
     for (const name of ['sky', 'ink', 'white', 'flash', 'vig']) opacity(name, 0);
     if (R.sheets.swirl) { R.sheets.swirl.style.opacity = '0'; R.sheets.swirl.style.transform = 'none'; }
     if (R.sheets.swirlB) { R.sheets.swirlB.style.opacity = '0'; R.sheets.swirlB.style.transform = 'none'; }

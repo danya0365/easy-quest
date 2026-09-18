@@ -22,7 +22,7 @@
 </head><body>
 <canvas id="game-canvas"></canvas><div id="ui-root"></div>
 <div id="cam">booting…</div>
-<div id="keys">arrows walk · shift run · <b>Q/E</b> orbit · <b>1-5</b> mode · <b>F</b> fade · <b>T</b> talk · <b>C</b> cutscene · <b>W</b> walk · <b>R</b> reset boom</div>
+<div id="keys">arrows walk · shift run · <b>Q/E</b> orbit · <b>1-5</b> mode · <b>G</b> keep-the-boy · <b>F</b> fade · <b>T</b> talk · <b>C</b> cutscene · <b>W</b> walk · <b>R</b> reset</div>
 <div id="talk">Bram looks up the lane. Puddlewick is over the bridge, round the bend.</div>
 <script type="importmap">
 { "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
@@ -40,6 +40,7 @@
 // cameraFrame cameraOccluders — plus this page's p09cover (stand behind something and WAIT for the camera to
 // report a clean 42% ghost), p09fade (what is ghosting, in numbers), p09stand, p09walk, p09objects, p09talk,
 // p09panel. The panel's top line is the whole point of the piece: the boy as a percentage of frame height.
+import * as THREE from 'three';
 import { App } from '/src/engine/app.js';
 import { Scenes } from '/src/engine/states.js';
 import { Bus } from '/src/engine/events.js';
@@ -172,7 +173,15 @@ let standAt = 0, standKind = null, standExtra = 0, standName = null;
  * a critic sees is a measured 42% ghost, not a guess.
  */
 Debug.expose('p09stand', (kind = 'tree', orbit = 0, index) => {
-  if (kind === 'reset') { window.__DQ.cameraMode(window.__DQ.state().field.camera.mode); window.__DQ.cameraAuto(true); return { ok: true, reset: true }; }
+  // THE FADE IS THE SECOND LINE OF DEFENCE, so showing it means standing the camera's own guarantee down: with
+  // it on, the rig simply slides round the cottage and there is no ghost to photograph. p09stand therefore turns
+  // it off for the A/B and p09stand('reset') gives it back — the demo never leaves it off by accident.
+  if (kind === 'reset') {
+    window.__DQ.cameraSight(true);
+    window.__DQ.cameraMode(window.__DQ.state().field.camera.mode); window.__DQ.cameraAuto(true);
+    return { ok: true, reset: true, guarantee: window.__DQ.cameraSight().on };
+  }
+  window.__DQ.cameraSight(false);
   const cand = stancesFor(kind, orbit);
   if (!cand.length) return { ok: false, reason: 'nothing to stand behind yet' };
   const covering = ((window.__DQ.state().field.camera.fade || {}).occluding) || 0;
@@ -215,7 +224,11 @@ Debug.expose('p09stand', (kind = 'tree', orbit = 0, index) => {
   // the map's own framing first — then pull the boom back ONLY if the thing cannot fit inside it
   window.__DQ.cameraMode(window.__DQ.state().field.camera.mode);
   const boom = window.__DQ.cameraZoom();
-  if (st.need > boom * 1.02) window.__DQ.cameraZoom(st.need + standExtra);
+  // NEVER PULL THE BOOM OUT OF THE SHOT. A stance that needs a 13-unit boom to fit a cottage between the lens
+  // and the boy is not a picture of this camera: it is a picture of a diorama with a dot in it (the old
+  // 'behind-house-clean-fade' frame had no hero in it at all). The map's own framing wins; if the thing does not
+  // fit inside it, we photograph what the camera REALLY does with it instead.
+  if (st.need > boom * 1.02) window.__DQ.cameraZoom(Math.min(st.need + standExtra, boom * 1.22));
   return { ok: !!(r && r.ok), behind: o, candidate: standAt, of: cand.length, back: +back.toFixed(2),
     boom: window.__DQ.cameraZoom(), fits: !!st.fits, stepped: standExtra, player: r && r.player };
 });
@@ -261,8 +274,17 @@ Debug.expose('p09cover', async (kind = 'tree', orbit = 0, tries = 7) => {
       window.__DQ.p09stand(kind, orbit);
       f = await settle(name);
     }
-    log.push({ candidate: i, behind: name, ghost: f.ghost, alpha: f.top ? f.top.alpha : null, occluding: f.occluding });
-    if (f.ghosting.some((o) => o.name === name)) return { ok: true, behind: name, candidate: i, of: cand.length, fade: f, tried: log };
+    // ... and the stance only counts if BRAM IS STILL READABLE in it: a frame where something else has covered
+    // him while the chosen thing ghosts is not a picture of the fade working (P09 gap 2's note: the old
+    // 'behind-house-clean-fade' shot had no hero in it at all, and every assertion passed over it)
+    const see = window.__DQ.p09see();
+    const fr = window.__DQ.cameraFrame() || {};
+    const reads = (fr.heroPct || 0) >= 15 && Math.abs(fr.heroNdcX || 0) < 0.6;
+    log.push({ candidate: i, behind: name, ghost: f.ghost, alpha: f.top ? f.top.alpha : null, occluding: f.occluding,
+      visible: !!(see.clear || see.ghosted), heroPct: fr.heroPct, coveredBy: see.clear ? null : see.blocker });
+    if (f.ghosting.some((o) => o.name === name) && (see.clear || see.ghosted) && reads) {
+      return { ok: true, behind: name, candidate: i, of: cand.length, fade: f, see, tried: log };
+    }
   }
   return { ok: false, reason: 'no stance in this map ghosted', of: cand.length, tried: log };
 });
@@ -282,6 +304,150 @@ Debug.expose('p09walk', (name = 'trees') => {
   return { ok: true, name, path };
 });
 Debug.expose('p09objects', (n) => objects(n === undefined ? 12 : n));
+
+// ── CAN YOU SEE THE BOY? The demo's own instrument, independent of the camera's bookkeeping ──────────────────
+// A real raycast from the lens to Bram's chest, against the live scene, exactly as a blind critic would run it:
+// every visible mesh counts except his own model and anything already see-through. This is the number the piece
+// lives or dies by — "31 of 31 assertions pass over a frame with no hero in it" must never be possible again.
+const RC = new THREE.Raycaster();
+const V_O = new THREE.Vector3(), V_T = new THREE.Vector3(), V_D = new THREE.Vector3();
+function seeTheBoy() {
+  const w = Field.world();
+  if (!w || !w.player || !w.player.hero) return { ok: false, reason: 'no hero yet' };
+  const cam = w.camera, hg = w.player.hero.group, h = w.player.hero.height || 1.11, p = hg.position;
+  V_O.copy(cam.position);
+  V_T.set(p.x, p.y + h * 0.62, p.z);
+  V_D.copy(V_T).sub(V_O);
+  const far = V_D.length() - 0.08;
+  if (far <= 0.05) return { ok: false, reason: 'lens is on top of him' };
+  V_D.normalize();
+  RC.camera = cam; RC.set(V_O, V_D); RC.far = far; RC.near = 0.01;
+  let hits = [];
+  try { hits = RC.intersectObject(w.scene, true); } catch (e) { return { ok: false, reason: String(e.message) }; }
+  for (const it of hits) {
+    const o = it.object;
+    if (!o.visible) continue;
+    let mine = false;
+    for (let a = o; a; a = a.parent) if (a === hg) { mine = true; break; }
+    if (mine) continue;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    const op = mats.reduce((x, m) => Math.max(x, (m && m.transparent) ? (m.opacity != null ? m.opacity : 1) : 1), 0);
+    if (op < 0.6) continue;
+    const m0 = Array.isArray(o.material) ? o.material[0] : o.material;
+    // A raycast cannot tell that the camera is already drawing this thing at 42% — so ask the rig, which can.
+    // "Hidden" only means hidden: geometry the fade is ghosting is geometry you can see him through.
+    const k = (window.__DQ.cameraSight && window.__DQ.cameraSight()) || {};
+    return { ok: true, clear: false, solid: !k.clear, ghosted: !!k.clear, at: +it.distance.toFixed(2),
+      blocker: (o.name || 'mesh') + (o.isInstancedMesh ? '[inst]' : ''), hiddenBy: k.hiddenBy || null,
+      ui: !!(m0 && (m0.depthTest === false || m0.blending !== THREE.NormalBlending)) };
+  }
+  return { ok: true, clear: true, solid: false, ghosted: false, blocker: null, hiddenBy: null };
+}
+/** __DQ.p09see() — is the boy actually visible from here, and what is the rig doing about it? */
+Debug.expose('p09see', () => {
+  const s = seeTheBoy();
+  const k = (window.__DQ.state().field.camera || {}).keep || {};
+  return Object.assign(s, { slide: k.slide, climb: k.climb, blocked: k.blocked, guarantee: k.on, solved: k.solved });
+});
+/**
+ * THE MEASUREMENT: __DQ.p09keep(plan) drives the hero with real input through a DETERMINISTIC walk
+ * (Loop.step, so it replays identically) and raycasts lens -> chest every other tick. It returns the number the
+ * gap ledger asks for: what fraction of the frames of a normal walk hide the boy behind opaque geometry.
+ *   plan: [['up', ticks], ['right', ticks], ...] | 'walk' | 'orbit'
+ */
+Debug.expose('p09keep', (plan = 'walk', every = 2) => {
+  const PLANS = { walk: [['up', 150], ['right', 150], ['down', 150], ['left', 150]], orbit: [['orbit', 240]] };
+  const steps = Array.isArray(plan) ? plan : (PLANS[plan] || PLANS.walk);
+  const S = { n: 0, hidden: 0, ghost: 0, ui: 0, who: {}, gwho: {}, hero: [], slide: [], zoom: [] };
+  const wasFrozen = Loop.frozen;
+  window.__DQ.freeze(true);
+  try {
+    for (const [btn, ticks] of steps) {
+      if (btn && btn !== 'wait' && btn !== 'orbit') window.__DQ.hold(btn, ticks * 16.6667);
+      for (let i = 0; i < ticks; i++) {
+        const w = Field.world();
+        if (btn === 'orbit' && w) w.cameraRig.orbit((i / ticks) * 360, false);
+        window.__DQ.advance(16.6667);
+        if (i % every) continue;
+        const s = seeTheBoy();
+        if (!s.ok) continue;
+        S.n++;
+        const cam = window.__DQ.state().field.camera;
+        S.hero.push((window.__DQ.cameraFrame() || {}).heroPct || 0);
+        S.slide.push(Math.abs((cam.keep || {}).slide || 0));
+        S.zoom.push(Math.abs(cam.dist - cam.distTarget));
+        if (!s.clear) {
+          if (s.ui) S.ui++;
+          else if (s.ghosted) { S.ghost++; S.gwho[s.blocker] = (S.gwho[s.blocker] || 0) + 1; }
+          else { S.hidden++; S.who[s.blocker] = (S.who[s.blocker] || 0) + 1; }
+        }
+      }
+    }
+  } catch (e) { reportError('P09 keep probe', e); }
+  window.__DQ.freeze(wasFrozen);
+  const r3 = (v) => +Number(v).toFixed(3);
+  const mx = (a) => (a.length ? Math.max.apply(null, a) : 0);
+  return { samples: S.n, hiddenFrames: S.hidden, heroHiddenPct: S.n ? r3(100 * S.hidden / S.n) : 0,
+    seenThroughGhostFrames: S.ghost, seenThroughGhostPct: S.n ? r3(100 * S.ghost / S.n) : 0,
+    ghosting: Object.entries(S.gwho).sort((a, b) => b[1] - a[1]).slice(0, 4),
+    uiOverlayFrames: S.ui, hiddenBy: Object.entries(S.who).sort((a, b) => b[1] - a[1]).slice(0, 5),
+    heroPctMin: r3(Math.min.apply(null, S.hero.length ? S.hero : [0])), heroPctMax: r3(mx(S.hero)),
+    slideMaxDeg: r3(mx(S.slide)), zoomMax: r3(mx(S.zoom)) };
+});
+/**
+ * THE FADE, PHOTOGRAPHED FROM REAL PLAY — __DQ.p09ghostframe('solid'|'inst'|'any')
+ * Stand the guarantee down (the whole point of the guarantee is that there is nothing left to ghost), then walk
+ * Bram deterministically until the camera is really drawing something between the lens and him at ~42%, with the
+ * boy still reading in the frame. It leaves the sim FROZEN on that frame, so the screenshot is the frame that
+ * was measured. No teleport gymnastics, no pulled-out boom: this is what a player sees on a walk.
+ */
+Debug.expose('p09ghostframe', (want = 'any', plan = 'walk') => {
+  const PLANS = { walk: [['up', 150], ['right', 150], ['down', 150], ['left', 150]], orbit: [['orbit', 240]] };
+  const tries = Array.isArray(plan) ? [plan] : (plan === 'orbit' ? [PLANS.orbit, PLANS.walk] : [PLANS.walk, PLANS.orbit]);
+  window.__DQ.cameraSight(false);
+  window.__DQ.cameraFade(true);
+  let found = null;
+  for (const steps of tries) {
+    if (found) break;
+    // start from the map's own spawn every time, so the frame a critic photographs is the frame that was measured
+    try { window.__DQ.teleport(Field.map ? Field.map.id : 'meadow'); } catch (e) { void e; }
+    window.__DQ.freeze(true);
+    found = ghostWalk(steps, want);
+  }
+  return found || { ok: false, want, reason: 'no ghost frame on this walk' };
+});
+function ghostWalk(steps, want) {
+  let found = null;
+  try {
+    for (const [btn, ticks] of steps) {
+      if (found) break;
+      if (btn && btn !== 'orbit') window.__DQ.hold(btn, ticks * 16.6667);
+      for (let i = 0; i < ticks && !found; i++) {
+        const w = Field.world();
+        if (btn === 'orbit' && w) w.cameraRig.orbit((i / ticks) * 360, false);
+        window.__DQ.advance(16.6667);
+        const list = (window.__DQ.cameraOccluders() || []).filter((o) => o.alpha > 0.2 && o.alpha < 0.62 &&
+          (want === 'any' || o.kind === want));
+        if (!list.length) continue;
+        const fr = window.__DQ.cameraFrame() || {};
+        const see = seeTheBoy();
+        if ((fr.heroPct || 0) < 15 || Math.abs(fr.heroNdcX || 0) > 0.5) continue;
+        if (!(see.clear || see.ghosted)) continue;
+        found = { ok: true, want, tick: i, ghosting: list.slice(0, 3), heroPct: fr.heroPct, see };
+      }
+    }
+  } catch (e) { reportError('P09 ghost frame', e); }
+  return found;
+}
+/** Give the guarantee back and let the sim run (the demo never leaves either switch off by accident). */
+Debug.expose('p09restore', () => {
+  window.__DQ.freeze(false);
+  window.__DQ.cameraSight(true);
+  window.__DQ.cameraFade(true);
+  window.__DQ.cameraAuto(true);
+  return { guarantee: window.__DQ.cameraSight().on, fade: window.__DQ.state().field.camera.fade.on };
+});
+
 /** Open / close the stand-in dialogue, to show the talk framing. */
 Debug.expose('p09talk', (on) => {
   const open = Scenes.top() === 'dialogue';
@@ -301,6 +467,7 @@ addEventListener('keydown', (ev) => {
   try {
     if (k >= '1' && k <= '5') rig.mode(MODES[+k - 1]);
     else if (k === 'f' || k === 'F') rig.fade.enabled = !rig.fade.enabled;
+    else if (k === 'g' || k === 'G') window.__DQ.cameraSight(!window.__DQ.cameraSight().on);
     else if (k === 't' || k === 'T') window.__DQ.p09talk();
     else if (k === 'w' || k === 'W') window.__DQ.p09walk(WALK.done ? 'trees' : 'stop');
     else if (k === 'r' || k === 'R') window.__DQ.p09stand('reset');
@@ -323,9 +490,13 @@ Field.on('render', () => {
     if (!cam) return;
     const f = cam.fade || {};
     const fr = window.__DQ.cameraFrame() || {};
+    const k = cam.keep || {};
+    const see = seeTheBoy();
     const list = (window.__DQ.cameraOccluders() || []).slice(0, 4);
     panel.innerHTML =
       `<div class="row"><b>P09 camera</b><span class="dim">${cam.mode}</span></div>` +
+      `<div class="row"><b>can you see him</b><span>${see && see.ok ? (see.clear ? 'YES' : 'no — ' + String(see.blocker).slice(0, 16)) : '…'}</span></div>` +
+      `<div class="row"><span>keep-the-boy</span><span>${k.on ? 'on' : 'OFF'} · slide ${(k.slide || 0).toFixed(0)}° climb ${(k.climb || 0).toFixed(2)}${k.solved === false ? ' <span class="dim">(no way round)</span>' : ''}</span></div>` +
       `<div class="row"><b>the boy</b><span>${(fr.heroPct || 0).toFixed(0)}% of frame <span class="dim">(${fr.heroPx || 0}px)</span></span></div>` +
       `<div class="row"><span>his feet / horizon</span><span>${(fr.feetPct || 0).toFixed(0)}% / ${(fr.horizonPct || 0).toFixed(0)}% down</span></div>` +
       `<div class="row"><span>orbit</span><span>${cam.orbit.toFixed(0)}° <span class="dim">walk ${cam.walk.toFixed(0)}° drift ${cam.drift.toFixed(0)}°</span></span></div>` +

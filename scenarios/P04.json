@@ -24,6 +24,17 @@
   {"eval": "__DQ.view('rim')"}, {"wait": 600}, {"shot": "rim-rows-and-hills"},
   {"eval": "__DQ.view('hills')"}, {"wait": 600}, {"shot": "out-over-the-hills"},
 
+  {"note": "THE OUTFIELD KIT (gap 5): a green world needs stone grey, ochre stubble, bare earth, bramble purple and toadstool red"},
+  {"eval": "__DQ.view('fallen')"}, {"wait": 700}, {"shot": "fallen-oak-stump-log-fungi"},
+  {"eval": "__DQ.view('fold')"}, {"wait": 700}, {"shot": "drystone-wall-and-gate"},
+  {"eval": "__DQ.view('hayfield')"}, {"wait": 700}, {"shot": "stooks-and-handcart"},
+  {"assert": "__DQ.state().demo.counts.molehills >= 2 && __DQ.state().demo.counts.bracken >= 2 && __DQ.state().demo.counts.scrapes >= 1", "msg": "bare earth, bracken and a scrape are in the kit"},
+  {"assert": "__DQ.state().demo.counts.stooks >= 4 && __DQ.state().demo.counts.wallRuns >= 2 && __DQ.state().demo.counts.mushrooms >= 8", "msg": "stooks, drystone wall runs and toadstools are in the kit"},
+  {"assert": "__DQ.state().demo.counts.dryTufts >= 120", "msg": "straw tufts run through the green ones"},
+
+  {"note": "LANTERNS (gap 4): the glass must be visible from every angle by day and blaze at night"},
+  {"eval": "__DQ.view('yard')"}, {"wait": 500}, {"shot": "lantern-day"},
+
   {"note": "SEE-THROUGH (gap 2): stand the hero behind an oak, lens on the near side. Clean alpha, ink kept, no dither."},
   {"eval": "__DQ.see('off')"}, {"eval": "__DQ.underTree(0)"}, {"wait": 900}, {"shot": "seethrough-OFF-solid-tree"},
   {"eval": "__DQ.see('auto')"},

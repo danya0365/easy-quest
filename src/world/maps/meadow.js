@@ -105,6 +105,10 @@ const LANE = [[14.5, 58], [9.8, 50.5], [6.5, 44], [3.2, 35], [4.4, 27.5], [2.6, 
 const EAST = [[0.5, 9.2], [4.5, 8.0], [10.5, 8.4], [17.5, 6.4], [25, 3.0], [33, 1.0], [44, 0.2], [51.5, -2.6], [58, -7.5]];
 const SPUR = [[-1.6, 1.8], [-4.6, 1.4], [-7.6, 0.6], [-9.6, 0.3]];
 const BECK = [[-24.5, -8.8], [-19.5, -10.6], [-13, -12.0], [-7.5, -11.6], [-3.2, -11.0], [2.0, -12.2], [7.5, -14.2], [13, -15.6], [18.5, -16.2], [22.5, -18.2]];
+// the field tracks: to the drystone fold, past the fallen oak in the north wood, along the cut hayfield
+const TRACK_A = [[2.0, 13.4], [-3.4, 17.0], [-8.4, 20.6], [-13.4, 22.6], [-17.4, 24.6], [-21.0, 26.8]];
+const TRACK_B = [[-2.0, -13.5], [-8.0, -16.5], [-13.6, -18.4], [-19.5, -20.6], [-23.5, -23.5]];
+const TRACK_C = [[6.0, 29.5], [11.5, 30.6], [17.0, 29.4], [22.0, 27.0]];
 const VILLAGE_CLEARING = { x: 19.5, z: -45.5, rx: 17.5, rz: 14.5 };
 const PONDS = [{ x: -28.4, z: -7.6, r: 3.6, sx: 1.3, sz: 1.0 }, { x: 26.2, z: -20.8, r: 3.8, sx: 1.15, sz: 1.0 }];
 
@@ -146,6 +150,10 @@ function layout() {
   if (LAYOUT) return LAYOUT;
   const L = {};
   L.lane = curvePoints(LANE, 0.35); L.east = curvePoints(EAST, 0.35); L.spur = curvePoints(SPUR, 0.3); L.beck = curvePoints(BECK, 0.35);
+  // Three FIELD TRACKS: not lanes, just the worn lines feet and hooves make between the places people go. They
+  // are the ochre in the corner frames — the vale away from the cottage was one green with no path in it at all —
+  // and they curve, so from any of them you cannot see where they end.
+  L.trackA = curvePoints(TRACK_A, 0.3); L.trackB = curvePoints(TRACK_B, 0.3); L.trackC = curvePoints(TRACK_C, 0.3);
   L.laneOut = L.lane.filter(([x, z]) => superR(x, z) > 28); L.eastOut = L.east.filter(([x, z]) => superR(x, z) > 28);
   L.masks = paintMasks({
     N: 1024, span: MASK_SPAN,
@@ -153,6 +161,9 @@ function layout() {
       { pts: L.lane, w: 2.15, falloff: 1.0, channel: 0 },
       { pts: L.east, w: 1.9, falloff: 1.0, channel: 0, widthAt: (t) => lerp(1.95, 1.6, t) },
       { pts: L.spur, w: 1.3, falloff: 0.85, channel: 0, widthAt: (t) => lerp(1.5, 1.1, t) },
+      { pts: L.trackA, w: 1.15, falloff: 0.7, channel: 0, widthAt: (t) => lerp(1.3, 0.85, t) },
+      { pts: L.trackB, w: 1.05, falloff: 0.7, channel: 0, widthAt: (t) => lerp(1.2, 0.8, t) },
+      { pts: L.trackC, w: 1.0, falloff: 0.7, channel: 0, widthAt: (t) => lerp(1.15, 0.8, t) },
       { pts: L.beck, w: 2 * (HW + BANK), falloff: 1.8, channel: 1 },
     ],
     discs: PONDS.map(p => ({ x: p.x, z: p.z, r: p.r + BANK, sx: p.sx, sz: p.sz, falloff: 1.8, channel: 1 })),
@@ -277,6 +288,49 @@ function layout() {
       shrooms: [{ x: 22.4, z: -12.8, n: 4, seed: 29, spread: 0.5 }] },
   ].map(p => Object.assign({ stumps: [], logs: [], brambles: [], shrooms: [], rocks: [], walls: [], gates: [], stooks: [], carts: [] }, p));
 
+  // ── THE SCATTER ─────────────────────────────────────────────────────────────────────────────────────────
+  // Four places fixed four corners; the sixty metres BETWEEN them was still a single green with about five tufts
+  // in it. This is the small ground furniture a real field has everywhere: molehills of bare earth, bracken going
+  // rust at the tips, half-buried stones, bramble patches, toadstool rings, the odd stump and fallen branch.
+  // Seeded, so it is the same every run, and cleared of every path, bank, building and place.
+  const SCATTER = [['scrape', 11], ['mole', 24], ['bracken', 26], ['rock', 18], ['shrooms', 12], ['bramble', 12], ['stump', 6], ['log', 5]];
+  const buildScatter = () => {
+    const sr = mulberry(20260918), out = [];
+    const bag = [];
+    for (const [kind, n] of SCATTER) for (let i = 0; i < n; i++) bag.push(kind);
+    for (let i = bag.length - 1; i > 0; i--) { const j = (sr() * (i + 1)) | 0; const t = bag[i]; bag[i] = bag[j]; bag[j] = t; }
+    const clash = (x, z, rad, kind) => {
+      if (superR(x, z) > BOUND - 1.6 || superR(x, z) < 6) return true;
+      // never ON a lane — though a bare scrape beside one is exactly where the ground wears through
+      if (L.masks.sample(0, x, z) > (kind === 'scrape' ? 0.32 : 0.10)) return true;
+      if (L.water.sample(x, z) < 3.0 + rad) return true;                    // nor in the Beck or a pond
+      if (nearBuilding(x, z, rad + 2.6)) return true;
+      if (L.bridge.corridor(x, z, 3)) return true;
+      if (Math.hypot(x - L.paddockCentre.x, z - L.paddockCentre.z) < 5.5) return true;
+      // the opening frame is the first thing the kids ever see: the lane up from the spawn stays clear
+      if (x > -9 && x < 10 && z > 9 && z < 30 && (kind === 'scrape' || kind === 'log')) return true;
+      for (const k of L.keepOut) if (Math.hypot(x - k.x, z - k.z) < k.r + rad) return true;
+      for (const p of L.places) if (Math.hypot(x - p.x, z - p.z) < p.r + rad) return true;
+      for (const run of [L.paddock, L.picket, ...L.drove, ...L.outfield.fences]) if (nearPolyline(x, z, run) < 1.4 + rad) return true;
+      for (const k of L.rocks) if (Math.hypot(x - k.x, z - k.z) < 1.2 + rad) return true;
+      for (const o of out) if (Math.hypot(x - o.x, z - o.z) < o.r + rad + 0.6) return true;
+      return false;
+    };
+    let tries = 0;
+    for (const kind of bag) {
+      const rad = kind === 'scrape' ? 1.9 : kind === 'log' ? 2.0 : kind === 'stump' || kind === 'bramble' ? 1.1 : 0.8;
+      for (let k = 0; k < 140; k++) {
+        tries++;
+        const x = (sr() - 0.5) * 2 * BOUND, z = (sr() - 0.5) * 2 * BOUND;
+        if (clash(x, z, rad, kind)) continue;
+        out.push({ kind, x: +x.toFixed(2), z: +z.toFixed(2), r: rad, rot: sr() * TAU, s: 0.7 + sr() * 0.7, seed: (sr() * 9000) | 0 });
+        break;
+      }
+    }
+    void tries;
+    return out;
+  };
+
   L.keepOut = [{ x: L.well.x, z: L.well.z, r: 2.2 }, { x: L.scarecrow.x, z: L.scarecrow.z, r: 2.2 },
     { x: L.veg.x, z: L.veg.z, r: 3.0 }, { x: L.signLane.x, z: L.signLane.z, r: 3.0 },
     ...L.hay.map(h => ({ x: h.x, z: h.z, r: 1.8 })), ...L.orchard.crates.map(c => ({ x: c.x, z: c.z, r: 1.4 })),
@@ -292,6 +346,9 @@ function layout() {
     ...L.outfield.stiles.map(s => ({ x: s.x, z: s.z, r: 2.0 })),
     // the four places keep the seeded tree fill out of themselves, so a stook never grows an oak through it
     ...L.places.map(p => ({ x: p.x, z: p.z, r: p.r }))];
+  // the scatter is laid against everything above, then joins the keep-out list so no tree lands on a molehill
+  L.scatter = buildScatter();
+  for (const o of L.scatter) L.keepOut.push({ x: o.x, z: o.z, r: o.r + 0.6 });
 
   // ── trees: the hand-placed ones that compose the view, then a seeded MIXED fill ──
   //    Species (src/art/props.js SPECIES): oak · birch (white stems by the Beck) · pine (the north-west shoulder) ·
@@ -421,6 +478,15 @@ function layout() {
     }
     for (const s of p.stooks) C.push({ type: 'circle', x: s.x, z: s.z, r: 0.44 * (s.s ?? 1), tag: 'stook' });
     for (const k of p.carts) C.push({ type: 'box', x: k.x, z: k.z, w: 1.9, d: 2.4, rot: k.rot, tag: 'cart' });
+  }
+  for (const o of L.scatter) {
+    if (o.kind === 'rock') C.push({ type: 'circle', x: o.x, z: o.z, r: 0.5 * o.s, tag: 'rock' });
+    else if (o.kind === 'stump') C.push({ type: 'circle', x: o.x, z: o.z, r: 0.4 * o.s, tag: 'stump' });
+    else if (o.kind === 'bramble') C.push({ type: 'circle', x: o.x, z: o.z, r: 0.62 * o.s, tag: 'bramble' });
+    else if (o.kind === 'log') {
+      const c = Math.cos(o.rot), si = Math.sin(o.rot), h = 1.3;
+      C.push({ type: 'capsule', pts: [[o.x - si * h, o.z - c * h], [o.x + si * h, o.z + c * h]], r: 0.3, tag: 'log' });
+    }
   }
   L.colliders = C;
   // what the follow camera must not hide behind: canopies (trees scale their blob layout) and the cottage roofs
@@ -627,24 +693,34 @@ const meadow = {
     // (spec `crest`) sits SINK_DEG under that crest. The hill then cuts across the card's lower edge, which is
     // what makes a painted place stand on the land instead of over it.
     const R2D = 180 / Math.PI, D2R = Math.PI / 180;
-    const TOWN_DEG = 2.15;        // how tall the place itself stands above its painted horizon, in degrees
-    const SINK_DEG = 0.62;        // how far that painted horizon is pushed UNDER the real hill crest
+    const TOWN_DEG = 2.55;        // how tall the place stands above the point the hill crest cuts across it
+    const SINK_DEG = 0.55;        // how far that point is pushed UNDER the real hill crest
     const CAP_DEG = 6.1;          // the highest spire stays well under the top of the frame
     const MAX_W = 124;            // world units: a flat card wider than this starts to read as a wall
     const CANON_AZ = new Map(LANDMARK_SETS.vale.map(m => [m.id, m.az]));
-    /** The highest elevation (radians, from `eyeY` at the vale centre) that a hill ring reaches on this bearing. */
+    /**
+     * The hill silhouette across a card's own width, in radians of elevation from `eyeY` at the vale centre —
+     * and the number returned is the LOWEST point of it, not the highest. A card grounded on the highest point
+     * of the crest still shows open sky under itself wherever the ridge dips, which is the whole complaint.
+     */
     const crestRad = (mesh, az, half, minR, eyeY) => {
       const p = mesh && mesh.geometry && mesh.geometry.attributes.position;
       if (!p) return 0;
-      let best = -9;
-      for (let i = 0; i < p.count; i++) {
-        const x = p.getX(i), y = p.getY(i), z = p.getZ(i), rr = Math.hypot(x, z);
-        if (rr < minR) continue;
-        if (Math.abs(angDiff(Math.atan2(z, x), az)) > half) continue;
-        const e = Math.atan2(y - eyeY, rr);
-        if (e > best) best = e;
+      const N = 9, band = half / N + 0.02;
+      let lowest = 9;
+      for (let k = 0; k < N; k++) {
+        const a = az + (k / (N - 1) - 0.5) * 2 * half;
+        let best = -9;
+        for (let i = 0; i < p.count; i++) {
+          const x = p.getX(i), y = p.getY(i), z = p.getZ(i), rr = Math.hypot(x, z);
+          if (rr < minR) continue;
+          if (Math.abs(angDiff(Math.atan2(z, x), a)) > band) continue;
+          const e = Math.atan2(y - eyeY, rr);
+          if (e > best) best = e;
+        }
+        if (best > -9 && best < lowest) lowest = best;
       }
-      return best > -9 ? best : 0;
+      return lowest < 9 ? lowest : 0;
     };
     const lmState = [];
     let lastFit;
@@ -657,8 +733,13 @@ const meadow = {
         const az = CANON_AZ.has(m.id) ? CANON_AZ.get(m.id) : m.az;
         m.az = az;
         const D = m.dist;
-        const crest = crestRad(hillMid, az, 0.21, 140, eyeY);
-        const cf = m.crest ?? 0.24, pt = m.paintTop ?? 0.25;
+        const crest = crestRad(hillMid, az, 0.15, 140, eyeY);
+        // WHERE ON THE CARD the hill crest must cut across it. The spec's own `crest` is the painted ridge line,
+        // but the bottom 36 percent of every card is alpha-ramped away to nothing (buildSky), so aligning the
+        // ramped part with the hill leaves the painted ground transparent right where it meets the land — and a
+        // mill standing on that ridge hangs in the air with its foot dissolved. Align at 0.44 instead: the hill
+        // then cuts across paint that is fully opaque, and everything below it is behind real ground.
+        const cf = Math.max(m.crest ?? 0.24, 0.54), pt = m.paintTop ?? 0.25;
         const townFrac = Math.max(0.14, 1 - pt - cf);
         let hW = Math.max(6, (D * Math.tan(TOWN_DEG * D2R)) / townFrac);
         hW = Math.min(hW, MAX_W / Math.max(1e-3, m.aspect));
@@ -761,6 +842,18 @@ const meadow = {
       for (const k of p.carts) kit.handcart(k.x, k.z, k.rot);
       for (const m of p.shrooms) kit.mushrooms(m.x, m.z, m.n ?? 4, m.seed ?? 9, m.spread ?? 0.6);
     }
+    // ── THE SCATTER: the small ground furniture, everywhere. This is what stops a corner frame being 93 percent
+    //    one green: bare earth (molehills), rust (bracken), stone (half-buried rocks), red (toadstools). ──
+    for (const o of L.scatter) {
+      if (o.kind === 'scrape') kit.scrape(o.x, o.z, 1.9 + o.s * 1.7, 1.6 + o.s * 1.5, o.rot, o.seed);
+      else if (o.kind === 'mole') kit.molehill(o.x, o.z, { s: 0.85 + o.s * 0.4, seed: o.seed });
+      else if (o.kind === 'bracken') kit.bracken(o.x, o.z, { s: 0.85 + o.s * 0.45, seed: o.seed });
+      else if (o.kind === 'rock') kit.rock(o.x, o.z, 0.55 + o.s * 0.7, o.seed, { sink: 0.4 });
+      else if (o.kind === 'shrooms') kit.mushrooms(o.x, o.z, 3 + (o.seed % 4), o.seed, 0.55 + o.s * 0.4);
+      else if (o.kind === 'bramble') kit.brambles(o.x, o.z, { s: 0.8 + o.s * 0.5, seed: o.seed });
+      else if (o.kind === 'stump') kit.stump(o.x, o.z, o.rot, { s: 0.7 + o.s * 0.4, seed: o.seed });
+      else if (o.kind === 'log') kit.fallenLog(o.x, o.z, o.rot, { len: 2.0 + o.s * 1.4, rad: 0.2 + o.s * 0.12, seed: o.seed });
+    }
     // ── the signposts: the fork by the lane, and the one that points down the Long Lane ──
     const atlas = kit.useSignAtlas(kit.signAtlas(['Puddlewick', 'Saltmarrow', 'The Long Lane']));
     kit.signpost(atlas, L.sign.x, L.sign.z, [
@@ -808,7 +901,15 @@ const meadow = {
     // ── tufts + flowers (footprints and AO are complete now) ──
     const pathAt = (x, z) => L.masks.sample(0, x, z);
     const onMeadow = (x, z) => superR(x, z) < 40 && pathAt(x, z) < 0.3 && L.water.sample(x, z) > 2.3 && !L.bridge.corridor(x, z, 1);
-    kit.tufts({ count: low ? 700 : 1150, boost: (x, z) => 0.08 * (1 - smooth(6, 16, Math.hypot(x - 1.5, z - 16))), radius: 40, seed: 999, accept: onMeadow, rimOf: (x, z) => { const p = pathAt(x, z); return smooth(0.08, 0.3, p) * (1 - smooth(0.3, 0.42, p)) + smooth(3.2, 2.4, L.water.sample(x, z)) * 0.6; } });
+    // Tufts, and STRAW ones through them: broad patches of summer-dry grass (a smooth noise field, strongest on
+    // the high dry ground and nothing at all near the water) so the meadow is two greens and an ochre, not one
+    // green. Count up by half again — the corner frames had about five tufts in the whole lower half.
+    const dryAt = (x, z) => {
+      const wet = smooth(3.0, 9.0, L.water.sample(x, z));
+      const n = vnoise(x * 0.055 + 31.7, z * 0.055 + 12.3, 77);
+      return smooth(0.40, 0.78, n) * wet * (0.45 + 0.55 * smooth(-0.4, 1.6, heightRaw(x, z)));
+    };
+    kit.tufts({ count: low ? 900 : 1700, boost: (x, z) => 0.08 * (1 - smooth(6, 16, Math.hypot(x - 1.5, z - 16))), radius: 40, seed: 999, accept: onMeadow, dry: dryAt, rimOf: (x, z) => { const p = pathAt(x, z); return smooth(0.08, 0.3, p) * (1 - smooth(0.3, 0.42, p)) + smooth(3.2, 2.4, L.water.sample(x, z)) * 0.6; } });
     const hues = [PAL.flower.white, PAL.flower.yellow, PAL.flower.pink, PAL.flower.white, PAL.flower.blue, PAL.flower.yellow];
     const fr = mulberry(5150), clusters = [
       { x: 4.8, z: 12.6, hue: PAL.flower.yellow, n: 16 }, { x: -2.6, z: 13.5, hue: PAL.flower.white, n: 18 }, { x: 3.8, z: 20.5, hue: PAL.flower.pink, n: 14 },
@@ -828,7 +929,7 @@ const meadow = {
     kit.birds(4, { centre: [4, -2], height: 11, radius: 16, seed: 91 });
     // Highfeather, up among the clouds where a castle in the sky belongs. At elevation 0.12 it stood a couple of
     // degrees over the horizon and read as a solid white tower parked on the far hills — one more thing floating.
-    kit.skyCastle({ azimuth: -1.12, elevation: 0.205, distance: 720, size: 112, opacity: 0.72, tintFrom: sky.clouds.material });
+    kit.skyCastle({ azimuth: -1.12, elevation: 0.33, distance: 720, size: 112, opacity: 0.5, tintFrom: sky.clouds.material });
 
     // ── life: smoke, butterflies, sheep, ducks ──
     kit.smoke(chimneys.filter(Boolean));

@@ -24,7 +24,7 @@ export default {
   npcs: [
     // ── the cottage: Mrs Pell, her hens, and the kettle singing indoors ─────────────────────────────────────
     {
-      id: 'pell', name: 'Mrs Pell', char: 'villager', variant: 'granny', voice: 'high:0.92', wear: 'sky', scale: 0.97,
+      id: 'pell', name: 'Mrs Pell', char: 'villager', variant: 'granny', voice: 'high:0.92', wear: 'sky', scale: 0.96, girth: 1.06,
       x: -9.7, z: 0.95, facing: 100, idle: 'sweep', radius: 1.0, when: '!ch2.start',
       schedule: [
         { from: 6, to: 11, at: [-9.7, 0.95], idle: 'sweep', facing: 100 },
@@ -58,7 +58,7 @@ export default {
 
     // ── the lane: a child, and a cat who is going somewhere fast ───────────────────────────────────────────
     {
-      id: 'tansy', name: 'Tansy', char: 'villager', variant: 'child', voice: 'high:1.42', wear: 'teal', scale: 0.98,
+      id: 'tansy', name: 'Tansy', char: 'villager', variant: 'child', voice: 'high:1.42', wear: 'teal', scale: 1.02, girth: 0.95,
       x: 4.2, z: 14.2, facing: 240, idle: 'chase', with: 'sausage', radius: 5.5, when: '!ch2.start',
       schedule: [{ from: 7, to: 19, at: [4.2, 14.2], idle: 'chase' }],
       home: [-2.0, -15.5],                                  // up the lane towards the village, at bedtime
@@ -85,7 +85,7 @@ export default {
 
     // ── the pond: Mr Gudgeon and the same boot, four times ─────────────────────────────────────────────────
     {
-      id: 'gudgeon', name: 'Mr Gudgeon', char: 'villager', variant: 'farmer', voice: 'low:0.92', wear: 'slate', scale: 0.98,
+      id: 'gudgeon', name: 'Mr Gudgeon', char: 'villager', variant: 'farmer', voice: 'low:0.92', wear: 'slate', scale: 1.01, girth: 0.9,
       x: -20.4, z: -7.4, facing: 270, idle: 'fish', water: -0.4, radius: 0.6,
       script: [
         { if: 'ch2.start', then: [
@@ -107,7 +107,7 @@ export default {
 
     // ── the spur lane: a pan, a man who will not buy it, and a man who already has ─────────────────────────
     {
-      id: 'quiddle', name: 'Fennick Quiddle', char: 'villager', variant: 'merchant', voice: 'low:1.3', scale: 1.03,
+      id: 'quiddle', name: 'Fennick Quiddle', char: 'villager', variant: 'merchant', voice: 'low:1.3', scale: 1.05, girth: 0.92,
       x: -5.2, z: 2.3, facing: 250, idle: 'chat', with: 'budge', radius: 0.8, when: '!ch2.start',
       schedule: [
         { from: 6, to: 13, at: [-5.2, 2.3], idle: 'chat' },
@@ -134,7 +134,8 @@ export default {
       ],
     },
     {
-      id: 'budge', name: 'Mr Budge', char: 'villager', variant: 'innkeeper', voice: 'low:1.02', wear: 'moss', scale: 1.02,
+      // he is holding the pan. He has been holding the pan since Tuesday. That is the joke, and now you can see it.
+      id: 'budge', name: 'Mr Budge', char: 'villager', variant: 'innkeeper', voice: 'low:1.02', wear: 'moss', scale: 0.99, girth: 1.13, hold: 'pan',
       x: -6.7, z: 1.8, facing: 70, idle: 'chat', with: 'quiddle', radius: 0.8, when: '!ch2.start',
       schedule: [
         { from: 6, to: 14, at: [-6.7, 1.8], idle: 'chat' },
@@ -169,7 +170,8 @@ export default {
     // things, close enough to read a face: a boy on the bank, a hen who has left home, the washing going up to
     // the village, a drover leaning on his fence, and a girl selling flowers she did not entirely buy.
     {
-      id: 'nib', name: 'Nib Tolley', char: 'villager', variant: 'child', voice: 'high:1.38', wear: 'clay', scale: 1.02,
+      id: 'nib', name: 'Nib Tolley', char: 'villager', variant: 'child', voice: 'high:1.38', wear: 'clay', scale: 0.93, girth: 0.96, hold: 'jar',
+      emotes: ['love', 'question'],
       x: -2.6, z: 15.4, facing: 74, idle: 'sit', radius: 0.5, when: '!ch2.start',
       schedule: [{ from: 7, to: 19, at: [-2.6, 15.4], idle: 'sit', facing: 74 }],
       home: [-1.2, -14.0],
@@ -195,7 +197,9 @@ export default {
         '*Marigold looks at your boots.*\n(She has decided they are not\nfood. It took her a while.)',
       ] }] },
     {
-      id: 'thurl', name: 'Mrs Thurl', char: 'villager', variant: 'baker', voice: 'high:0.94', wear: 'sky', scale: 0.99,
+      // THE WASHERWOMAN, not the baker: she walks the men's tea out to the field in a jug and brings the jug back.
+      // A pastry toque and a bun in her fist made her a second Nan Puddifoot who talked about collars.
+      id: 'thurl', name: 'Mrs Thurl', char: 'villager', variant: 'farmer', voice: 'high:0.94', wear: 'sky', scale: 1.0, girth: 1.05, hold: 'jug',
       x: 5.4, z: 12.4, facing: 200, idle: 'wander', radius: 3.4,      // east of the lane: never in front of the signpost
       schedule: [
         { from: 6, to: 12, at: [5.4, 12.4], idle: 'wander' },
@@ -228,7 +232,7 @@ export default {
       ],
     },
     {
-      id: 'wat', name: 'Wat Tolley', char: 'villager', variant: 'farmer', voice: 'low:0.88', wear: 'moss', scale: 1.03,
+      id: 'wat', name: 'Wat Tolley', char: 'villager', variant: 'farmer', voice: 'low:0.88', wear: 'moss', scale: 1.07, girth: 1.02,
       x: 5.6, z: 8.0, facing: 290, idle: 'lean', radius: 0.6, look: [1.6, 9.0],
       schedule: [
         { from: 6, to: 16, at: [5.6, 8.0], idle: 'lean', facing: 290 },
@@ -260,7 +264,7 @@ export default {
       ],
     },
     {
-      id: 'dimity', name: 'Dimity Rowe', char: 'villager', variant: 'child', voice: 'high:1.12', wear: 'plum',
+      id: 'dimity', name: 'Dimity Rowe', char: 'villager', variant: 'child', voice: 'high:1.12', wear: 'plum', scale: 0.99, girth: 0.94, hold: 'posy',
       x: -0.9, z: 7.4, facing: 20, idle: 'stand', radius: 0.8, when: '!ch2.start',
       look: [2.9, 10.8],                                  // watching the signpost for somebody with a penny
       schedule: [

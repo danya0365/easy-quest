@@ -966,12 +966,12 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
       const red = r() < 0.62;
       const cap = red ? PAL.flower.red : mixHex(PAL.plaster.light, PAL.thatch.pale, 0.4);
       const base = M4(px, y, pz, r() * 6.283, 0, 0, s), add = (g, m, c) => addTo('paint', g, base.clone().multiply(m), c);
-      add(new THREE.CylinderGeometry(0.034, 0.05, 0.19, 6), M4(0, 0.095, 0), mixHex(PAL.plaster.light, PAL.thatch.light, 0.25));
-      const cg = new THREE.SphereGeometry(0.135, 9, 6, 0, 6.283, 0, Math.PI / 2); cg.scale(1, 0.78, 1);
+      add(new THREE.CylinderGeometry(0.034, 0.05, 0.19, 5), M4(0, 0.095, 0), mixHex(PAL.plaster.light, PAL.thatch.light, 0.25));
+      const cg = new THREE.SphereGeometry(0.135, 7, 4, 0, 6.283, 0, Math.PI / 2); cg.scale(1, 0.78, 1);
       add(cg, M4(0, 0.185, 0), cap);
       if (red) for (let k = 0; k < 4; k++) {
         const ka = k * 1.57 + r(), kd = 0.055 + r() * 0.06;
-        const sp = new THREE.SphereGeometry(0.024, 5, 4); sp.scale(1, 0.5, 1);
+        const sp = new THREE.SphereGeometry(0.024, 4, 3); sp.scale(1, 0.5, 1);
         add(sp, M4(Math.cos(ka) * kd, 0.185 + 0.09 * (1 - kd / 0.14), Math.sin(ka) * kd), PAL.flower.white);
       }
       ao.disc(px, pz, 0.24 * s, 0.35); kit.contact(px, pz, 0.14 * s, 0.6);
@@ -986,9 +986,22 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
   kit.molehill = (x, z, { s = 1, seed = 2 } = {}) => {
     const r = mulberry(seed * 2087 + 5), y = kit.lowestAt(x, z, 0.5 * s, 4) - 0.05 * s;
     const base = M4(x, y, z, r() * 6.283, 0, 0, s);
-    const heap = new THREE.SphereGeometry(0.34, 9, 6, 0, 6.283, 0, Math.PI / 2);
-    heap.scale(1 + r() * 0.3, 0.46 + r() * 0.2, 1 + r() * 0.3);
-    addTo('dirtbed', heap, base, PAL.dirt.base);
+    // a HEAP, not a disc: at 0.46 of its radius it read as a flat brown plate lying on the lawn from the gameplay
+    // camera, which is the same mistake the contact pools used to make
+    const heap = new THREE.SphereGeometry(0.34, 10, 7, 0, 6.283, 0, Math.PI / 2);
+    heap.scale(1 + r() * 0.25, 0.86 + r() * 0.3, 1 + r() * 0.25);
+    const hg = prep(heap, PAL.dirt.base);
+    {                                                               // fresh crumbly earth on top, damp at the foot
+      const col = hg.attributes.color, pp = hg.attributes.position, tmp = new THREE.Color();
+      const top = C3(PAL.dirt.light), foot = C3(PAL.dirt.dark);
+      for (let i = 0; i < pp.count; i++) {
+        tmp.copy(foot).lerp(top, smooth(0.02, 0.26, pp.getY(i)) * 0.85 + 0.1 * vnoise(pp.getX(i) * 9, pp.getZ(i) * 9, seed));
+        col.setXYZ(i, tmp.r, tmp.g, tmp.b);
+      }
+    }
+    hg.applyMatrix4(base);
+    if (!buckets.has('dirtbed')) buckets.set('dirtbed', []);
+    buckets.get('dirtbed').push(hg);
     for (let i = 0; i < 3; i++) {                                   // clods of turned earth round the foot
       const a = r() * 6.283, d = 0.3 + r() * 0.3;
       const g = new THREE.IcosahedronGeometry(0.06 + r() * 0.05, 0);
@@ -1003,15 +1016,25 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
   kit.bracken = (x, z, { s = 1, seed = 4 } = {}) => {
     const r = mulberry(seed * 4409 + 19), y = kit.lowestAt(x, z, 0.5 * s, 4) - 0.05 * s;
     const base = M4(x, y, z, r() * 6.283, 0, 0, s);
-    const N = 6 + ((r() * 4) | 0);
+    // a fan of narrow arching fronds out of one crown: green at the foot, going to rust at the tips
+    const N = 9 + ((r() * 4) | 0);
     for (let i = 0; i < N; i++) {
-      const a = (i / N) * 6.283 + r() * 0.4, L = 0.6 + r() * 0.42, lean = 0.55 + r() * 0.4;
+      const a = (i / N) * 6.283 + r() * 0.5, L = 0.55 + r() * 0.45;
+      const lean = 0.28 + r() * 0.3;                                 // mostly upright, arching out a little
       const rust = r();
-      const col = rust < 0.34 ? mixHex(PAL.grass.dry, PAL.bark.light, 0.35)
-        : rust < 0.66 ? mixHex(PAL.foliage.mid, PAL.grass.dry, 0.42) : PAL.foliage.mid;
-      const g = new THREE.ConeGeometry(0.09 + r() * 0.05, L, 4);
-      g.scale(1, 1, 0.42);
-      addTo('paint', g, base.clone().multiply(M4(Math.cos(a) * 0.1, L * 0.42, Math.sin(a) * 0.1, -a, 0, lean)), col);
+      const tip = rust < 0.3 ? mixHex(PAL.foliage.mid, PAL.grass.dry, 0.7)
+        : rust < 0.62 ? mixHex(PAL.foliage.mid, PAL.grass.dry, 0.3) : PAL.foliage.mid;
+      const g = new THREE.ConeGeometry(0.085 + r() * 0.035, L, 4);
+      g.scale(1, 1, 0.34);
+      const prep2 = prep(g, tip);
+      {                                                              // green crown, rust tip, along the frond
+        const col = prep2.attributes.color, pp = prep2.attributes.position, tmp = new THREE.Color();
+        const root = C3(mixHex(PAL.foliage.mid, PAL.foliage.dark, 0.45)), end = C3(tip);
+        for (let q = 0; q < pp.count; q++) { tmp.copy(root).lerp(end, smooth(-L * 0.4, L * 0.5, pp.getY(q))); col.setXYZ(q, tmp.r, tmp.g, tmp.b); }
+      }
+      prep2.applyMatrix4(base.clone().multiply(M4(Math.cos(a) * 0.09, L * 0.45, Math.sin(a) * 0.09, -a, 0, lean)));
+      if (!buckets.has('paint')) buckets.set('paint', []);
+      buckets.get('paint').push(prep2);
     }
     ao.disc(x, z, 0.7 * s, 0.5); kit.contact(x, z, 0.4 * s, 0.6); kit.footDisc(x, z, 0.45 * s);
     counts.bracken = (counts.bracken || 0) + 1;
@@ -2088,6 +2111,57 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
     ao.box(x, z, w, d, rot, 0.45, 0.4); kit.contact(x, z, 0, 0.42, { rx: w * 0.55, rz: d * 0.55, rot, spread: 1.2 }); kit.footBox(x, z, w, d, rot);
   };
 
+  /**
+   * A SCRAPE: a patch of bare, stony ground draped over the terrain, with a few pebbles and a rim of dry grass.
+   * Where a field is grazed thin, or a rabbit warren, or the dust bath the hens use — the cheapest way to put
+   * real brown into a frame that is otherwise ninety per cent one green. Draped, so it can never z-fight.
+   */
+  kit.scrape = (x, z, w, d, rot = 0, seed = 6) => {
+    const y = kit.lowestAt(x, z, Math.max(w, d) * 0.5, 8), base = M4(x, y, z, rot), r = mulberry(seed * 313 + 7);
+    const c0 = Math.cos(rot), s0 = Math.sin(rot);
+    const localY = (lx, lz) => heightAt(x + lx * c0 + lz * s0, z - lx * s0 + lz * c0) - y;
+    const NX = Math.max(3, Math.round(w / 0.55)), NZ = Math.max(3, Math.round(d / 0.55));
+    const bed = new THREE.PlaneGeometry(w, d, NX, NZ).rotateX(-Math.PI / 2);
+    const p = bed.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      // a soft-edged blob, not a rectangle: the rim is pulled in by a little noise so it has no straight sides
+      const lx = p.getX(i), lz = p.getZ(i);
+      const u = lx / (w * 0.5), v = lz / (d * 0.5), rr = Math.hypot(u, v);
+      const k = 0.62 + 0.38 * vnoise(u * 2.4 + seed, v * 2.4, seed + 3);
+      const shrink = rr > 1e-4 ? Math.min(1, k / Math.max(1e-4, rr)) : 1;
+      p.setX(i, lx * shrink); p.setZ(i, lz * shrink);
+      p.setY(i, localY(p.getX(i), p.getZ(i)) + 0.035);
+    }
+    bed.computeVertexNormals();
+    const g = prep(bed, PAL.dirt.base);
+    {
+      // Dusty in the middle, and going back INTO the grass at the rim. A scrape painted flat dirt.base read as a
+      // mud crater dropped on the lawn — worn ground is thin grass over pale soil, not a hole.
+      const col = g.attributes.color, pp = g.attributes.position, tmp = new THREE.Color();
+      const mid = C3(mixHex(PAL.dirt.light, PAL.grass.dry, 0.2));
+      const edge = C3(mixHex(PAL.dirt.base, PAL.grass.dry, 0.62));
+      for (let i = 0; i < pp.count; i++) {
+        const rr = Math.hypot(pp.getX(i) / (w * 0.5), pp.getZ(i) / (d * 0.5));
+        tmp.copy(mid).lerp(edge, smooth(0.12, 0.95, rr));
+        col.setXYZ(i, tmp.r, tmp.g, tmp.b);
+      }
+    }
+    g.applyMatrix4(base);
+    if (!buckets.has('dirtbed')) buckets.set('dirtbed', []);
+    buckets.get('dirtbed').push(g);
+    for (let i = 0; i < 4 + ((r() * 4) | 0); i++) {                   // pebbles turned up in it
+      const a = r() * 6.283, dd = Math.sqrt(r()) * 0.42;
+      const lx = Math.cos(a) * dd * w * 0.5, lz = Math.sin(a) * dd * d * 0.5;
+      const pg = new THREE.IcosahedronGeometry(0.055 + r() * 0.055, 0);
+      pg.scale(1.2, 0.6, 1);
+      addTo('stone', pg, base.clone().multiply(M4(lx, localY(lx, lz) + 0.04, lz, r() * 6.283)), r() < 0.5 ? PAL.stone.mid : PAL.stone.light);
+    }
+    ao.box(x, z, w, d, rot, 0.5, 0.34);
+    kit.footBox(x, z, w * 0.8, d * 0.8, rot);
+    counts.scrapes = (counts.scrapes || 0) + 1;
+    return { x, z, r: Math.max(w, d) * 0.5 };
+  };
+
   /** A ladder leaning against something (the orchard's, at picking height). */
   kit.ladder = (x, z, rot = 0, { h = 2.6, lean = 0.28 } = {}) => {
     const y = kit.lowestAt(x, z, 0.3, 4), base = M4(x, y, z, rot, 0, 0, 1), add = (g, m, c) => addTo('wood', g, base.clone().multiply(m), c);
@@ -2486,14 +2560,14 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
       // eased, and a tree the lens is standing inside goes all the way out instead of stopping at 40%
       const k = smooth(0, 1, f.p);
       // ...and so does a canopy big enough on screen that a 40% ghost of it would be a grey-green pane of glass
-      const big = smooth(0.50, 1.4, f.screen ?? 0);
+      const big = smooth(0.95, 2.2, f.screen ?? 0);
       const target = inside ? 0.06 : lerp(SEE.alpha, 0.10, big);
       const alpha = inside && f.p > 0.98 ? 0 : lerp(1, target, k);
       f.keep = alpha;
       // NEGATIVE alpha = draw the ghost but NOT its ink line. A canopy more than about half the frame across is
       // mostly off screen, so its hull reduces to one long black arc with a dirty translucent wash inside it.
       // The tree still fades; it just stops drawing a ring round the frame while it does.
-      if (f.item) f.item.ghost = (f.screen > 0.46 || alpha <= INK_MIN) ? -alpha : alpha;
+      if (f.item) f.item.ghost = (f.screen > 1.05 || alpha <= INK_MIN) ? -alpha : alpha;
       if (alpha < 0.995) { fading++; if (alpha <= 0.02) gone++; if (f.screen > big0) big0 = f.screen; }
     }
     kit.seeState.widest = +big0.toFixed(2);

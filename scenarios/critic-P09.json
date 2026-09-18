@@ -1,27 +1,49 @@
 {
- "name": "critic-P09 c1 — the camera, measured in the real game and in Puddlewick",
+ "name": "critic-P09 c2 - the camera, measured with an independent raycast in the running build",
  "steps": [
   {
    "waitFor": "window.__DQ && __DQ.ready && __DQ.state().field",
    "timeout": 45000
   },
   {
-   "wait": 2000
+   "wait": 2400
   },
   {
-   "eval": "(async () => {\n  const { Field } = await import('/src/world/field.js');\n  const R2D = 180 / Math.PI;\n  window.__CS = {\n    on: false, s: [], label: '',\n    start(l) { this.label = l || ''; this.s = []; this.on = true; return 'sampling ' + this.label; },\n    stop() { this.on = false; return this.report(); },\n    report() {\n      const s = this.s;\n      if (s.length < 8) return { label: this.label, n: s.length, err: 'too few samples' };\n      const dp = [], da = [], dtv = [];\n      for (let i = 1; i < s.length; i++) {\n        const a = s[i-1], b = s[i];\n        dp.push(Math.hypot(b.px-a.px, b.py-a.py, b.pz-a.pz));\n        let dot = Math.abs(a.qx*b.qx + a.qy*b.qy + a.qz*b.qz + a.qw*b.qw);\n        dot = Math.min(1, dot);\n        da.push(2 * Math.acos(dot) * R2D);\n        dtv.push(b.t - a.t);\n      }\n      const med = (arr) => { const c = arr.slice().sort((x,y)=>x-y); return c[Math.floor(c.length/2)]; };\n      const mx = (arr) => arr.reduce((m,v)=>Math.max(m,v), 0);\n      const jerkP = [], jerkA = [];\n      for (let i = 1; i < dp.length; i++) { jerkP.push(Math.abs(dp[i]-dp[i-1])); jerkA.push(Math.abs(da[i]-da[i-1])); }\n      const heros = s.map(v=>v.hero).filter(v=>typeof v === 'number');\n      const fxs = s.map(v=>Math.abs(v.fx)).filter(v=>typeof v === 'number');\n      const clr = s.map(v=>v.clr).filter(v=>typeof v === 'number');\n      const zoom = s.map(v=>Math.abs(v.dist - v.distT));\n      const r3 = (v) => +Number(v).toFixed(3);\n      return {\n        label: this.label, n: s.length, secs: r3((s[s.length-1].t - s[0].t)/1000),\n        medFrameMs: r3(med(dtv)), maxFrameMs: r3(mx(dtv)),\n        stepMed: r3(med(dp)), stepMax: r3(mx(dp)), stepRatio: r3(mx(dp)/Math.max(1e-6, med(dp))),\n        turnMedDeg: r3(med(da)), turnMaxDeg: r3(mx(da)), turnRatio: r3(mx(da)/Math.max(1e-6, med(da))),\n        jerkPosMax: r3(mx(jerkP)), jerkAngMax: r3(mx(jerkA)),\n        heroMin: r3(Math.min(...heros)), heroMax: r3(Math.max(...heros)), heroSpread: r3(Math.max(...heros)-Math.min(...heros)),\n        heroOffCentreMax: r3(Math.max(...fxs)),\n        zoomMax: r3(mx(zoom)),\n        lensClearanceMin: clr.length ? r3(Math.min(...clr)) : null,\n        occludedFrames: s.filter(v=>v.occ > 0).length, ghostMax: r3(mx(s.map(v=>v.ghost||0))),\n        fadeMsMax: r3(mx(s.map(v=>v.fms||0))),\n      };\n    },\n  };\n  const tick = () => {\n    requestAnimationFrame(tick);\n    if (!window.__CS.on) return;\n    try {\n      const w = Field.world(); if (!w) return;\n      const cam = w.camera, m = w.map;\n      const st = __DQ.state().field.camera;\n      const f = __DQ.cameraFrame();\n      const oc = __DQ.cameraOccluders ? __DQ.cameraOccluders() : null;\n      let clr = null;\n      if (m && typeof m.heightAt === 'function') clr = cam.position.y - m.heightAt(cam.position.x, cam.position.z);\n      window.__CS.s.push({ t: performance.now(),\n        px: cam.position.x, py: cam.position.y, pz: cam.position.z,\n        qx: cam.quaternion.x, qy: cam.quaternion.y, qz: cam.quaternion.z, qw: cam.quaternion.w,\n        dist: st.dist, distT: st.distTarget, hero: f && f.heroPct, fx: f && f.heroNdcX, feet: f && f.feetPct,\n        clr, occ: (st.fade && st.fade.occluding) || 0,\n        ghost: oc && oc.length ? Math.max.apply(null, oc.map(o => o.alpha != null ? o.alpha : 0)) : 0,\n        fms: (st.fade && st.fade.ms) || 0 });\n    } catch (e) {}\n  };\n  requestAnimationFrame(tick);\n  return 'sampler installed';\n})()"
+   "note": "C2 INDEPENDENT PROBE. Five rays a sample from the lens to the boy head/chest/hips/both shoulders against the LIVE scene graph; a hit is a wall only if the material is >= 0.6 opaque and normally blended (additive glows and multiply shadows are light, not walls). Nine more rays through the frame corners/centre report how close opaque non-ground geometry is to the lens. No p09* helper of the builders is used anywhere in this file."
   },
   {
-   "note": "A. OPENING FRAME in the real game, meadow — the frame gap #1 was opened against."
+   "eval": "(async () => {\n  const THREE = await import('three');\n  const { Field } = await import('/src/world/field.js');\n  const R2D = 180 / Math.PI;\n  const ray = new THREE.Raycaster();\n  const box = new THREE.Box3();\n  const C2 = window.__C2 = {\n    on: false, label: '', s: [], rayEvery: 2, tick: 0, cache: null, cacheMap: null,\n    W() { try { return Field.world(); } catch (e) { return null; } },\n    /* candidate meshes: everything in the live scene except the hero's own model. cached per map. */\n    meshes() {\n      const w = this.W(); if (!w) return [];\n      const mid = (w.map && w.map.id) + ':' + w.scene.children.length;\n      if (this.cache && this.cacheMap === mid) return this.cache;\n      const hero = w.player && w.player.hero && w.player.hero.group;\n      const out = [];\n      w.scene.traverse((o) => {\n        if (!o.isMesh && !o.isInstancedMesh) return;\n        let a = o, mine = false;\n        while (a) { if (a === hero) { mine = true; break; } a = a.parent; }\n        if (mine) return;\n        out.push(o);\n      });\n      this.cache = out; this.cacheMap = mid;\n      return out;\n    },\n    vis(o) { let a = o; while (a) { if (!a.visible) return false; a = a.parent; } return true; },\n    alphaOf(o) {\n      const ms = Array.isArray(o.material) ? o.material : [o.material];\n      let a = 1, blend = 1;\n      for (const m of ms) { if (!m) continue; blend = m.blending; if (m.transparent) a = Math.min(a, m.opacity === undefined ? 1 : m.opacity); }\n      return { a, blend };\n    },\n    /* five points on the boy: head, chest, hips, and both shoulders, in world space */\n    points() {\n      const w = this.W(); if (!w || !w.player || !w.player.hero) return [];\n      const g = w.player.hero.group;\n      const h = w.player.hero.height || 1.1;\n      const p = g.position;\n      const yaw = g.rotation.y;\n      const sx = Math.cos(yaw) * h * 0.16, sz = -Math.sin(yaw) * h * 0.16;\n      return [\n        new THREE.Vector3(p.x, p.y + h * 0.86, p.z),\n        new THREE.Vector3(p.x, p.y + h * 0.58, p.z),\n        new THREE.Vector3(p.x, p.y + h * 0.32, p.z),\n        new THREE.Vector3(p.x + sx, p.y + h * 0.66, p.z + sz),\n        new THREE.Vector3(p.x - sx, p.y + h * 0.66, p.z - sz),\n      ];\n    },\n    /* an independent raycast: is the boy actually behind something opaque? */\n    see() {\n      const w = this.W(); if (!w) return null;\n      const cam = w.camera, list = this.meshes(), pts = this.points();\n      if (!pts.length) return null;\n      let blockedPts = 0, ghostPts = 0;\n      const solid = {}, ghost = {};\n      for (const t of pts) {\n        const o = cam.position.clone();\n        const d = t.clone().sub(o); const L = d.length(); d.normalize();\n        ray.set(o, d); ray.near = 0.001; ray.far = Math.max(0.01, L - 0.18);\n        let hits = [];\n        try { hits = ray.intersectObjects(list, false); } catch (e) { }\n        let solidHit = false, ghostHit = false;\n        for (const hit of hits) {\n          const ob = hit.object;\n          if (!this.vis(ob)) continue;\n          const { a, blend } = this.alphaOf(ob);\n          if (blend === THREE.AdditiveBlending || blend === THREE.MultiplyBlending || blend === THREE.SubtractiveBlending) continue;\n          const nm = (ob.name || ob.type) + (ob.isInstancedMesh ? '[inst]' : '');\n          if (a >= 0.6) { solidHit = true; solid[nm] = (solid[nm] || 0) + 1; }\n          else if (a > 0.02) { ghostHit = true; ghost[nm] = (ghost[nm] || 0) + 1; }\n        }\n        if (solidHit) blockedPts++; else if (ghostHit) ghostPts++;\n      }\n      const arch = Object.keys(solid).some(k => /^(bucket-|interiors|stone |sign-|wall|roof)/.test(k));\n      const tree = Object.keys(solid).some(k => /tree-|canopy|crown|bush|hedge/.test(k));\n      return { pts: pts.length, blocked: blockedPts, ghosted: ghostPts,\n        hidden: blockedPts === pts.length, partly: blockedPts > 0, arch, tree,\n        clear: blockedPts === 0 && ghostPts === 0, solid, ghost };\n    },\n    /* is there a wall in the lens' face? nine rays through the frame, nearest opaque hit */\n    wall() {\n      const w = this.W(); if (!w) return null;\n      const cam = w.camera, list = this.meshes();\n      const grid = [[0, 0], [-.85, .85], [.85, .85], [-.85, -.85], [.85, -.85], [0, .85], [0, -.85], [-.85, 0], [.85, 0]];\n      let min = 1e9, close = 0, who = '';\n      for (const g of grid) {\n        ray.setFromCamera({ x: g[0], y: g[1] }, cam);\n        ray.near = 0.001; ray.far = 4;\n        let hits = [];\n        try { hits = ray.intersectObjects(list, false); } catch (e) { }\n        for (const hit of hits) {\n          const ob = hit.object;\n          if (!this.vis(ob)) continue;\n          const { a, blend } = this.alphaOf(ob);\n          if (a < 0.6) continue;\n          if (blend === THREE.AdditiveBlending || blend === THREE.MultiplyBlending || blend === THREE.SubtractiveBlending) continue;\n          const nm = (ob.name || ob.type) + (ob.isInstancedMesh ? '[inst]' : '');\n          if (/^(ground|terrain|water|sky|hills|far)/i.test(nm)) continue;\n          if (hit.distance < min) { min = hit.distance; who = nm; }\n          if (hit.distance < 0.7) close++;\n          break;\n        }\n      }\n      return { minDist: min === 1e9 ? null : +min.toFixed(3), rays: grid.length, closeRays: close, nearest: who };\n    },\n    start(l) { this.label = l || ''; this.s = []; this.tick = 0; this.on = true; return 'sampling ' + this.label; },\n    stop() { this.on = false; return this.report(); },\n    report() {\n      const s = this.s; if (s.length < 6) return { label: this.label, n: s.length, err: 'too few samples' };\n      const dp = [], da = [], dt = [];\n      for (let i = 1; i < s.length; i++) {\n        const a = s[i - 1], b = s[i];\n        dp.push(Math.hypot(b.px - a.px, b.py - a.py, b.pz - a.pz));\n        let d = Math.abs(a.qx * b.qx + a.qy * b.qy + a.qz * b.qz + a.qw * b.qw); d = Math.min(1, d);\n        da.push(2 * Math.acos(d) * R2D);\n        dt.push(b.t - a.t);\n      }\n      const med = (A) => { const c = A.slice().sort((x, y) => x - y); return c[Math.floor(c.length / 2)] || 0; };\n      const mx = (A) => A.reduce((m, v) => Math.max(m, v), 0);\n      const r3 = (v) => +Number(v).toFixed(3);\n      const jp = [], ja = [];\n      for (let i = 1; i < dp.length; i++) { jp.push(Math.abs(dp[i] - dp[i - 1])); ja.push(Math.abs(da[i] - da[i - 1])); }\n      const rs = s.filter(v => v.see);\n      const hero = s.map(v => v.hero).filter(v => typeof v === 'number');\n      const solid = {}, ghost = {}, wallw = {};\n      for (const v of rs) {\n        for (const k in v.see.solid) solid[k] = (solid[k] || 0) + 1;\n        for (const k in v.see.ghost) ghost[k] = (ghost[k] || 0) + 1;\n        if (v.wall && v.wall.minDist != null && v.wall.minDist < 0.7) wallw[v.wall.nearest] = (wallw[v.wall.nearest] || 0) + 1;\n      }\n      const top = (o) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, 5);\n      const wmins = rs.map(v => v.wall && v.wall.minDist).filter(v => typeof v === 'number');\n      return {\n        label: this.label, n: s.length, rayN: rs.length, secs: r3((s[s.length - 1].t - s[0].t) / 1000),\n        medFrameMs: r3(med(dt)), maxFrameMs: r3(mx(dt)),\n        camStepMed: r3(med(dp)), camStepMax: r3(mx(dp)), stepRatio: r3(mx(dp) / Math.max(1e-6, med(dp))),\n        turnMedDeg: r3(med(da)), turnMaxDeg: r3(mx(da)), turnRatio: r3(mx(da) / Math.max(1e-6, med(da))),\n        jerkPosMax: r3(mx(jp)), jerkAngMax: r3(mx(ja)),\n        heroMin: r3(Math.min.apply(null, hero)), heroMax: r3(Math.max.apply(null, hero)),\n        heroOffCentreMax: r3(mx(s.map(v => Math.abs(v.fx || 0)))),\n        zoomMax: r3(mx(s.map(v => Math.abs(v.dist - v.distT)))),\n        yawTotalDeg: r3(s.slice(1).reduce((a, v, i) => a + Math.abs(((v.cur - s[i].cur + 540) % 360) - 180), 0)),\n        yawStepMaxDeg: r3(mx(s.slice(1).map((v, i) => Math.abs(((v.cur - s[i].cur + 540) % 360) - 180)))),\n        slideMaxDeg: r3(mx(s.map(v => Math.abs(v.slide || 0)))),\n        climbMax: r3(mx(s.map(v => Math.abs(v.climb || 0)))),\n        rigSaysHiddenPct: s.length ? s[s.length - 1].kHid : null,\n        hiddenPct: rs.length ? r3(100 * rs.filter(v => v.see.hidden).length / rs.length) : null,\n        hiddenByBuildingPct: rs.length ? r3(100 * rs.filter(v => v.see.hidden && v.see.arch).length / rs.length) : null,\n        hiddenByTreePct: rs.length ? r3(100 * rs.filter(v => v.see.hidden && v.see.tree && !v.see.arch).length / rs.length) : null,\n        partlyPct: rs.length ? r3(100 * rs.filter(v => v.see.partly).length / rs.length) : null,\n        ghostPct: rs.length ? r3(100 * rs.filter(v => !v.see.partly && v.see.ghosted).length / rs.length) : null,\n        wallMin: wmins.length ? r3(Math.min.apply(null, wmins)) : null,\n        wallInFacePct: wmins.length ? r3(100 * wmins.filter(v => v < 0.7).length / wmins.length) : null,\n        solidBlockers: top(solid), ghosting: top(ghost), wallNear: top(wallw),\n      };\n    },\n  };\n  const loop = () => {\n    requestAnimationFrame(loop);\n    if (!C2.on) return;\n    try {\n      const w = C2.W(); if (!w) return;\n      const cam = w.camera;\n      const st = __DQ.state().field.camera;\n      const f = __DQ.cameraFrame();\n      C2.tick++;\n      const doRay = (C2.tick % C2.rayEvery) === 0;\n      C2.s.push({\n        t: performance.now(),\n        px: cam.position.x, py: cam.position.y, pz: cam.position.z,\n        qx: cam.quaternion.x, qy: cam.quaternion.y, qz: cam.quaternion.z, qw: cam.quaternion.w,\n        dist: st.dist, distT: st.distTarget, cur: st.current, drift: st.drift,\n        slide: st.keep && st.keep.slide, climb: st.keep && st.keep.climb,\n        kHid: st.keep && st.keep.hiddenPct, kBlk: st.keep && st.keep.blocked,\n        hero: f && f.heroPct, fx: f && f.heroNdcX, feet: f && f.feetPct,\n        see: doRay ? C2.see() : null, wall: doRay ? C2.wall() : null,\n      });\n    } catch (e) { }\n  };\n  requestAnimationFrame(loop);\n  return 'C2 probe installed (independent raycast, five points on the boy)';\n})()"
   },
   {
-   "shot": "A-index-opening"
+   "note": "A. MEADOW OPENING — the frame gap #1 was closed against; a regression check."
   },
   {
-   "eval": "JSON.stringify({ where: 'meadow-opening', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
+   "shot": "A-meadow-opening"
   },
   {
-   "note": "B. PUDDLEWICK. The town the assignment names. Arrive and measure what the camera does with a town map."
+   "eval": "JSON.stringify({where:\"meadow-opening\", map:__DQ.state().map&&__DQ.state().map.id, mode:__DQ.state().field.camera.mode, frame:__DQ.cameraFrame(), pitch:__DQ.state().field.camera.pitch, dist:__DQ.state().field.camera.dist, distT:__DQ.state().field.camera.distTarget, fov:__DQ.state().field.camera.fov, keep:__DQ.state().field.camera.keep, see:__C2.see(), wall:__C2.wall()})"
+  },
+  {
+   "eval": "__C2.start('meadow-walk')"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.hold(\"up\", 2600))"
+  },
+  {
+   "burst": {
+    "name": "A-meadow-walk",
+    "count": 8,
+    "interval": 170
+   }
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "JSON.stringify(__C2.stop())"
+  },
+  {
+   "note": "B. PUDDLEWICK — arrival at the south-east gate."
   },
   {
    "eval": "JSON.stringify(__DQ.teleport('puddlewick'))"
@@ -30,245 +52,444 @@
    "wait": 2600
   },
   {
-   "shot": "B-puddlewick-arrival"
+   "shot": "B-pw-arrival"
   },
   {
-   "eval": "JSON.stringify({ where: 'puddlewick-arrival', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
+   "eval": "JSON.stringify({where:\"pw-arrival\", map:__DQ.state().map&&__DQ.state().map.id, mode:__DQ.state().field.camera.mode, frame:__DQ.cameraFrame(), pitch:__DQ.state().field.camera.pitch, dist:__DQ.state().field.camera.dist, distT:__DQ.state().field.camera.distTarget, fov:__DQ.state().field.camera.fov, keep:__DQ.state().field.camera.keep, see:__C2.see(), wall:__C2.wall()})"
   },
   {
-   "note": "C. WALK up the gate lane, 10 frames of real motion, sampled every rendered frame."
+   "note": "C. FREE ROAM, as a player plays it: up the gate lane, then left, down and right round the green. Every frame sampled, rays every other frame."
   },
   {
-   "eval": "window.__CS.start('walk-lane')"
+   "eval": "__C2.start('pw-roam')"
   },
   {
-   "eval": "__DQ.hold('up', 2800)"
-  },
-  {
-   "burst": {
-    "name": "C-walk-lane",
-    "count": 10,
-    "interval": 150
-   }
-  },
-  {
-   "wait": 900
-  },
-  {
-   "eval": "JSON.stringify(window.__CS.stop())"
-  },
-  {
-   "eval": "JSON.stringify({ where: 'after-walk', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
-  },
-  {
-   "note": "D. RUN (shift) up the same lane — a run is faster, so any camera lag or fight shows here."
-  },
-  {
-   "eval": "window.__CS.start('run-lane')"
-  },
-  {
-   "eval": "__DQ.hold('run', 3000); __DQ.hold('up', 3000)"
+   "eval": "JSON.stringify(__DQ.hold(\"up\", 2600))"
   },
   {
    "burst": {
-    "name": "D-run-lane",
-    "count": 10,
-    "interval": 150
+    "name": "C-roam-up",
+    "count": 8,
+    "interval": 170
    }
   },
   {
-   "wait": 900
+   "wait": 800
   },
   {
-   "eval": "JSON.stringify(window.__CS.stop())"
+   "eval": "JSON.stringify(__DQ.hold(\"left\", 2400))"
+  },
+  {
+   "burst": {
+    "name": "C-roam-left",
+    "count": 8,
+    "interval": 170
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "JSON.stringify(__DQ.hold(\"down\", 2400))"
+  },
+  {
+   "burst": {
+    "name": "C-roam-down",
+    "count": 8,
+    "interval": 170
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "JSON.stringify(__DQ.hold(\"right\", 2400))"
+  },
+  {
+   "burst": {
+    "name": "C-roam-right",
+    "count": 8,
+    "interval": 170
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "JSON.stringify(__C2.stop())"
+  },
+  {
+   "shot": "C-roam-end"
+  },
+  {
+   "note": "D. RUN. Shift held with up: a different speed for the springs to keep up with."
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', 14.8, 23.4))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "eval": "__C2.start('pw-run')"
+  },
+  {
+   "eval": "JSON.stringify([__DQ.hold('run', 3400), __DQ.hold('up', 3400)])"
+  },
+  {
+   "burst": {
+    "name": "D-run",
+    "count": 10,
+    "interval": 170
+   }
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "eval": "JSON.stringify(__C2.stop())"
   },
   {
    "shot": "D-run-end"
   },
   {
-   "note": "E. STOP AND WAIT — 3.5s of nothing. A settled camera must be perfectly still; any residual creep is a fight."
+   "eval": "JSON.stringify({where:\"run-end\", map:__DQ.state().map&&__DQ.state().map.id, mode:__DQ.state().field.camera.mode, frame:__DQ.cameraFrame(), pitch:__DQ.state().field.camera.pitch, dist:__DQ.state().field.camera.dist, distT:__DQ.state().field.camera.distTarget, fov:__DQ.state().field.camera.fov, keep:__DQ.state().field.camera.keep, see:__C2.see(), wall:__C2.wall()})"
   },
   {
-   "eval": "window.__CS.start('idle')"
+   "note": "E. THE GREEN, at the well. A full 360 orbit in eight steps, sampled the whole way."
   },
   {
-   "wait": 3600
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', 4.6, 7.6))"
   },
   {
-   "eval": "JSON.stringify(window.__CS.stop())"
+   "wait": 2000
   },
   {
-   "shot": "E-idle"
-  },
-  {
-   "eval": "JSON.stringify({ settled: __DQ.state().field.camera.settled, shotReady: __DQ.screenshotReady && __DQ.screenshotReady(), orbit: __DQ.cameraOrbit(), facing: __DQ.state().player.facing })"
-  },
-  {
-   "note": "F. WALK INTO THE VILLAGE proper — houses and trees between lens and boy. 10 frames."
-  },
-  {
-   "eval": "window.__CS.start('into-village')"
-  },
-  {
-   "eval": "__DQ.hold('left', 1600)"
-  },
-  {
-   "wait": 1700
-  },
-  {
-   "eval": "__DQ.hold('up', 3200)"
-  },
-  {
-   "burst": {
-    "name": "F-into-village",
-    "count": 10,
-    "interval": 220
-   }
-  },
-  {
-   "wait": 800
-  },
-  {
-   "eval": "JSON.stringify(window.__CS.stop())"
-  },
-  {
-   "shot": "F-village"
-  },
-  {
-   "eval": "JSON.stringify({ fade: __DQ.state().field.camera.fade, occluders: __DQ.cameraOccluders && __DQ.cameraOccluders() })"
-  },
-  {
-   "note": "G. ORBIT 360 around the boy in the town — does he keep his size, does the lens sink into the ground or a wall?"
-  },
-  {
-   "eval": "window.__CS.start('orbit')"
+   "eval": "__DQ.cameraAuto(false)"
   },
   {
    "eval": "__DQ.cameraOrbit(0)"
   },
   {
-   "wait": 1300
+   "wait": 1600
   },
   {
-   "shot": "G-orbit-000"
+   "eval": "__C2.start('pw-orbit')"
   },
   {
-   "eval": "JSON.stringify({ where: 'orbit-000', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "E-orbit-000"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(45)"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "E-orbit-045"
   },
   {
    "eval": "__DQ.cameraOrbit(90)"
   },
   {
-   "wait": 1400
+   "wait": 1100
   },
   {
-   "shot": "G-orbit-090"
+   "shot": "E-orbit-090"
   },
   {
-   "eval": "JSON.stringify({ where: 'orbit-090', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
+   "eval": "__DQ.cameraOrbit(135)"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "E-orbit-135"
   },
   {
    "eval": "__DQ.cameraOrbit(180)"
   },
   {
-   "wait": 1400
+   "wait": 1100
   },
   {
-   "shot": "G-orbit-180"
+   "shot": "E-orbit-180"
   },
   {
-   "eval": "JSON.stringify({ where: 'orbit-180', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
+   "eval": "__DQ.cameraOrbit(225)"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "E-orbit-225"
   },
   {
    "eval": "__DQ.cameraOrbit(270)"
   },
   {
+   "wait": 1100
+  },
+  {
+   "shot": "E-orbit-270"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(315)"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "E-orbit-315"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "shot": "E-orbit-360"
+  },
+  {
+   "eval": "JSON.stringify(__C2.stop())"
+  },
+  {
+   "eval": "JSON.stringify({where:\"orbit-end\", map:__DQ.state().map&&__DQ.state().map.id, mode:__DQ.state().field.camera.mode, frame:__DQ.cameraFrame(), pitch:__DQ.state().field.camera.pitch, dist:__DQ.state().field.camera.dist, distT:__DQ.state().field.camera.distTarget, fov:__DQ.state().field.camera.fov, keep:__DQ.state().field.camera.keep, see:__C2.see(), wall:__C2.wall()})"
+  },
+  {
+   "note": "F. Q/E ORBIT with the real key, the way a player turns the camera in a town."
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
    "wait": 1400
   },
   {
-   "shot": "G-orbit-270"
+   "eval": "__C2.start('pw-key-orbit')"
   },
   {
-   "eval": "JSON.stringify({ where: 'orbit-270', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
-  },
-  {
-   "eval": "JSON.stringify(window.__CS.stop())"
-  },
-  {
-   "note": "H. WALK AROUND A BUILDING: hug the wall and turn the corner, 10 frames — clipping and pop-through show here."
-  },
-  {
-   "eval": "window.__CS.start('around-building')"
-  },
-  {
-   "eval": "__DQ.hold('right', 2600)"
+   "key": "e",
+   "hold": 1500
   },
   {
    "burst": {
-    "name": "H-around-building",
+    "name": "F-key-orbit",
+    "count": 8,
+    "interval": 140
+   }
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "JSON.stringify(__C2.stop())"
+  },
+  {
+   "note": "G. THE ALLEY between Hollybank cottage and the barn on the west edge."
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', -16.8, -1.0))"
+  },
+  {
+   "wait": 2000
+  },
+  {
+   "eval": "__DQ.cameraAuto(true)"
+  },
+  {
+   "shot": "G-alley-arrival"
+  },
+  {
+   "eval": "JSON.stringify({where:\"alley-arrival\", map:__DQ.state().map&&__DQ.state().map.id, mode:__DQ.state().field.camera.mode, frame:__DQ.cameraFrame(), pitch:__DQ.state().field.camera.pitch, dist:__DQ.state().field.camera.dist, distT:__DQ.state().field.camera.distTarget, fov:__DQ.state().field.camera.fov, keep:__DQ.state().field.camera.keep, see:__C2.see(), wall:__C2.wall()})"
+  },
+  {
+   "eval": "__C2.start('pw-alley')"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.hold(\"up\", 2200))"
+  },
+  {
+   "burst": {
+    "name": "G-alley",
+    "count": 8,
+    "interval": 170
+   }
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "JSON.stringify(__DQ.hold(\"right\", 2200))"
+  },
+  {
+   "burst": {
+    "name": "G-alley-turn",
+    "count": 8,
+    "interval": 170
+   }
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "JSON.stringify(__C2.stop())"
+  },
+  {
+   "shot": "G-alley-end"
+  },
+  {
+   "note": "H. PRESS INTO A WALL: walk straight at the inn and keep pressing for 2.6s."
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', 8.4, 0.2))"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "eval": "__C2.start('pw-into-wall')"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.hold(\"up\", 2600))"
+  },
+  {
+   "burst": {
+    "name": "H-into-wall",
+    "count": 10,
+    "interval": 170
+   }
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "JSON.stringify(__C2.stop())"
+  },
+  {
+   "shot": "H-into-wall-end"
+  },
+  {
+   "note": "I. DOES IT FIGHT THE PLAYER? Hold one direction on the open green for 3s and never touch the orbit; measure how far the lens swings by itself."
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', 4.6, 7.6))"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "eval": "__C2.start('pw-straightline')"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.hold(\"up\", 3000))"
+  },
+  {
+   "burst": {
+    "name": "I-straightline",
     "count": 10,
     "interval": 200
    }
   },
   {
-   "wait": 800
+   "wait": 900
   },
   {
-   "eval": "JSON.stringify(window.__CS.stop())"
+   "eval": "JSON.stringify(__C2.stop())"
   },
   {
-   "shot": "H-corner"
+   "shot": "I-straightline-end"
   },
   {
-   "note": "I. THE FADE: is what covers the boy a clean alpha ghost or a screen-door dither?"
+   "eval": "JSON.stringify({where:\"straightline-end\", map:__DQ.state().map&&__DQ.state().map.id, mode:__DQ.state().field.camera.mode, frame:__DQ.cameraFrame(), pitch:__DQ.state().field.camera.pitch, dist:__DQ.state().field.camera.dist, distT:__DQ.state().field.camera.distTarget, fov:__DQ.state().field.camera.fov, keep:__DQ.state().field.camera.keep, see:__C2.see(), wall:__C2.wall()})"
   },
   {
-   "eval": "JSON.stringify({ fadeState: __DQ.state().field.camera.fade, list: (__DQ.cameraOccluders && __DQ.cameraOccluders()) || null })"
+   "note": "J. STOP AND WAIT: 4.5s of nothing at all."
   },
   {
-   "shot": "I-fade-on"
+   "eval": "__C2.start('pw-idle')"
+  },
+  {
+   "wait": 4600
+  },
+  {
+   "eval": "JSON.stringify(__C2.stop())"
+  },
+  {
+   "shot": "J-idle"
+  },
+  {
+   "eval": "JSON.stringify({settled:__DQ.state().field.camera.settled, shotReady:__DQ.screenshotReady&&__DQ.screenshotReady(), orbit:__DQ.cameraOrbit(), facing:__DQ.state().player.facing, keep:__DQ.state().field.camera.keep})"
+  },
+  {
+   "note": "K. THE FADE, in real play: what is being ghosted, and at what alpha."
+  },
+  {
+   "eval": "JSON.stringify({fade:__DQ.state().field.camera.fade, occluders:__DQ.cameraOccluders&&__DQ.cameraOccluders(true)})"
+  },
+  {
+   "shot": "K-fade-on"
   },
   {
    "eval": "__DQ.cameraFade(false)"
   },
   {
-   "wait": 900
+   "wait": 1000
   },
   {
-   "shot": "I-fade-off"
+   "shot": "K-fade-off"
   },
   {
    "eval": "__DQ.cameraFade(true)"
   },
   {
-   "wait": 900
+   "wait": 1000
   },
   {
-   "shot": "I-fade-on-again"
+   "shot": "K-fade-on-again"
   },
   {
-   "note": "J. BACK TO THE VALE and the mode round-trip gap #1 named: interior -> field must return to the LIVE map framing."
+   "note": "L. GAP #1 round trip: interior and back must return the LIVE map framing."
   },
   {
    "eval": "JSON.stringify(__DQ.teleport('meadow'))"
   },
   {
-   "wait": 2200
+   "wait": 2400
   },
   {
-   "eval": "JSON.stringify({ where: 'meadow-return', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
+   "eval": "JSON.stringify({where:\"meadow-return\", map:__DQ.state().map&&__DQ.state().map.id, mode:__DQ.state().field.camera.mode, frame:__DQ.cameraFrame(), pitch:__DQ.state().field.camera.pitch, dist:__DQ.state().field.camera.dist, distT:__DQ.state().field.camera.distTarget, fov:__DQ.state().field.camera.fov, keep:__DQ.state().field.camera.keep, see:__C2.see(), wall:__C2.wall()})"
   },
   {
-   "eval": "JSON.stringify((() => { const g = () => { const c = __DQ.state().field.camera; return { pitch: c.pitch, dist: c.distTarget, fov: c.fov, hero: __DQ.cameraFrame().heroPct }; }; const before = g(); __DQ.cameraMode('interior', true); const interior = g(); __DQ.cameraMode('field', true); const after = g(); window.__rt = { before, interior, after }; return window.__rt; })())"
+   "eval": "JSON.stringify((()=>{const g=()=>{const c=__DQ.state().field.camera;return {pitch:c.pitch,dist:c.distTarget,fov:c.fov,hero:__DQ.cameraFrame().heroPct};};const before=g();__DQ.cameraMode('interior',true);const interior=g();__DQ.cameraMode('field',true);const after=g();return {before,interior,after};})())"
   },
   {
-   "shot": "J-mode-roundtrip"
+   "shot": "L-mode-roundtrip"
   },
   {
-   "note": "K. verdict numbers"
+   "note": "M. CLEAN PERFORMANCE: the probe is off, nothing is casting rays, read the game own fps meter."
   },
   {
-   "eval": "JSON.stringify({ fps: __DQ.state().fps, errors: __DQ.errors.length, render: __DQ.state().render })"
+   "eval": "(window.__C2.on=false, \"probe off\")"
+  },
+  {
+   "wait": 4000
+  },
+  {
+   "eval": "JSON.stringify({fps:__DQ.state().fps, render:__DQ.state().render, errors:__DQ.errors.slice(0,6), n:__DQ.errors.length})"
   },
   {
    "assert": "__DQ.errors.length === 0",

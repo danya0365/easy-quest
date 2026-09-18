@@ -1,45 +1,427 @@
-{ "name": "P04 props & set dressing — live in /index.html (meadow)", "steps": [
-  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 40000},
-  {"wait": 2500},
-  {"assert": "__DQ.state().scene === 'field' && __DQ.state().map.id === 'meadow'", "msg": "boots into the meadow"},
-  {"shot": "opening"},
-  {"eval": "__DQ.budget()"},
-  {"eval": "(__DQ.state().field.view || {}).counts"},
-  {"assert": "(__DQ.state().field.view.counts.contactShadows || 0) > 400", "msg": "every standing prop in the vale is planted with a contact pool"},
-  {"assert": "__DQ.state().field.camera.seeThrough.heroWindow === false && __DQ.state().field.camera.seeThrough.fading === 0", "msg": "the screen-door dither is retired: no hero window, no dithered instances"},
-  {"eval": "__DQ.cameraZoom(24)"}, {"wait": 2200}, {"shot": "opening-dist24"},
-  {"eval": "__DQ.budget()"},
-  {"eval": "__DQ.cameraZoom(10.5)"},
-  {"eval": "__DQ.teleport('meadow', 0, -30)"}, {"eval": "__DQ.cameraOrbit(0)"}, {"wait": 2200}, {"shot": "north-edge-outward"},
-  {"eval": "__DQ.budget()"},
-  {"eval": "__DQ.teleport('meadow', -30, 0)"}, {"eval": "__DQ.cameraOrbit(90)"}, {"wait": 2200}, {"shot": "west-edge-outward"},
-  {"eval": "__DQ.budget()"},
-  {"eval": "__DQ.teleport('meadow', 0, 30)"}, {"eval": "__DQ.cameraOrbit(180)"}, {"wait": 2200}, {"shot": "south-edge-outward"},
-  {"eval": "__DQ.budget()"},
-  {"eval": "__DQ.teleport('meadow', 30, 0)"}, {"eval": "__DQ.cameraOrbit(270)"}, {"wait": 2200}, {"shot": "east-edge-outward"},
-  {"eval": "__DQ.budget()"},
-  {"eval": "__DQ.teleport('meadow', -10, 10)"}, {"eval": "__DQ.cameraOrbit(60)"}, {"wait": 2200}, {"shot": "cottage-yard"},
-  {"eval": "__DQ.teleport('meadow', -22, -4)"}, {"eval": "__DQ.cameraOrbit(200)"}, {"wait": 2200}, {"shot": "pond-west"},
-  {"eval": "__DQ.budget()"},
-
-  {"note": "SEE-THROUGH: walk under the trees by the Beck with the lens in close. Whatever covers the boy fades cleanly; nothing dithers."},
-  {"eval": "__DQ.teleport('meadow', 6, -14)"}, {"eval": "__DQ.cameraZoom(4.2)"}, {"wait": 1200},
-  {"eval": "__DQ.cameraOrbit(20)"}, {"wait": 1600}, {"shot": "seethrough-under-the-trees"},
-  {"eval": "__DQ.state().field.camera.fade"},
-  {"eval": "__DQ.state().field.view.see"},
-  {"assert": "__DQ.state().field.view.see.owner === 'camera'", "msg": "the props kit hands the see-through to the field camera (no double ghosting)"},
-  {"note": "and with the camera's own pass switched off the props kit takes over — still a clean ghost, still no dither"},
-  {"eval": "__DQ.cameraFade(false)"}, {"wait": 1600},
-  {"eval": "__DQ.teleport('meadow', 15.6, 17)"}, {"eval": "__DQ.cameraZoom(4.6)"}, {"wait": 900},
-  {"eval": "__DQ.cameraOrbit(210)"}, {"wait": 1800}, {"shot": "seethrough-props-kit-ghosts-the-orchard-tree"},
-  {"eval": "__DQ.state().field.view.see"},
-  {"assert": "__DQ.state().field.view.see.owner === null", "msg": "the props kit picks the see-through up when the camera drops it"},
-  {"assert": "__DQ.state().field.view.see.ghosts >= 1", "msg": "the tree over the boy is ghosted, not dithered and not deleted"},
-  {"assert": "__DQ.state().field.camera.seeThrough.heroWindow === false", "msg": "the screen-door hero window is parked: no dither in the frame"},
-  {"eval": "__DQ.cameraFade(true)"}, {"wait": 900},
-
-  {"eval": "__DQ.cameraZoom(10.5)"},
-  {"eval": "__DQ.teleport('meadow', 1.4, 19.2)"}, {"eval": "__DQ.cameraOrbit(0)"}, {"wait": 2200},
-  {"burst": {"name": "life", "count": 4, "interval": 400}},
-  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"}
-]}
+{
+ "name": "P04 props & set dressing \u2014 live in /index.html (meadow)",
+ "steps": [
+  {
+   "waitFor": "window.__DQ && __DQ.ready",
+   "timeout": 40000
+  },
+  {
+   "wait": 2500
+  },
+  {
+   "assert": "__DQ.state().scene === 'field' && __DQ.state().map.id === 'meadow'",
+   "msg": "boots into the meadow"
+  },
+  {
+   "shot": "opening"
+  },
+  {
+   "eval": "__DQ.budget()"
+  },
+  {
+   "eval": "(__DQ.state().field.view || {}).counts"
+  },
+  {
+   "assert": "(__DQ.state().field.view.counts.contactShadows || 0) > 400",
+   "msg": "every standing prop in the vale is planted with a contact pool"
+  },
+  {
+   "assert": "__DQ.state().field.camera.seeThrough.heroWindow === false && __DQ.state().field.camera.seeThrough.fading === 0",
+   "msg": "the screen-door dither is retired: no hero window, no dithered instances"
+  },
+  {
+   "eval": "__DQ.cameraZoom(24)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "opening-dist24"
+  },
+  {
+   "eval": "__DQ.budget()"
+  },
+  {
+   "eval": "__DQ.cameraZoom(10.5)"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', 0, -30)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "north-edge-outward"
+  },
+  {
+   "eval": "__DQ.budget()"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', -30, 0)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "west-edge-outward"
+  },
+  {
+   "eval": "__DQ.budget()"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', 0, 30)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "south-edge-outward"
+  },
+  {
+   "eval": "__DQ.budget()"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', 30, 0)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(270)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "east-edge-outward"
+  },
+  {
+   "eval": "__DQ.budget()"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', -10, 10)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(60)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "cottage-yard"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', -22, -4)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(200)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "pond-west"
+  },
+  {
+   "eval": "__DQ.budget()"
+  },
+  {
+   "note": "SEE-THROUGH: walk under the trees by the Beck with the lens in close. Whatever covers the boy fades cleanly; nothing dithers."
+  },
+  {
+   "eval": "__DQ.teleport('meadow', 6, -14)"
+  },
+  {
+   "eval": "__DQ.cameraZoom(4.2)"
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "eval": "__DQ.cameraOrbit(20)"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "seethrough-under-the-trees"
+  },
+  {
+   "eval": "__DQ.state().field.camera.fade"
+  },
+  {
+   "eval": "__DQ.state().field.view.see"
+  },
+  {
+   "assert": "__DQ.state().field.view.see.owner === 'camera'",
+   "msg": "the props kit hands the see-through to the field camera (no double ghosting)"
+  },
+  {
+   "note": "and with the camera's own pass switched off the props kit takes over \u2014 still a clean ghost, still no dither"
+  },
+  {
+   "eval": "__DQ.cameraFade(false)"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "eval": "__DQ.teleport('meadow', 18.4, 20.6)"
+  },
+  {
+   "eval": "__DQ.cameraZoom(6.5)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "shot": "seethrough-props-kit-ghosts-the-orchard-tree"
+  },
+  {
+   "eval": "__DQ.state().field.view.see"
+  },
+  {
+   "assert": "__DQ.state().field.view.see.owner === null",
+   "msg": "the props kit picks the see-through up when the camera drops it"
+  },
+  {
+   "assert": "__DQ.state().field.view.see.ghosts >= 1",
+   "msg": "the tree over the boy is ghosted, not dithered and not deleted"
+  },
+  {
+   "assert": "__DQ.state().field.camera.seeThrough.heroWindow === false",
+   "msg": "the screen-door hero window is parked: no dither in the frame"
+  },
+  {
+   "eval": "__DQ.cameraFade(true)"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "__DQ.cameraZoom(10.5)"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', 1.4, 19.2)"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "burst": {
+    "name": "life",
+    "count": 4,
+    "interval": 400
+   }
+  },
+  {
+   "note": "GAP 3 \u2014 THE SKYLINE. Every painted place must stand ON the ring hills, not over them. sunkBelowCrest is how far its own painted horizon sits UNDER the hill crest on its bearing: positive = grounded."
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().field.view.landmarks)"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.landmarks())"
+  },
+  {
+   "assert": "__DQ.state().field.view.landmarks.length === 4",
+   "msg": "four painted places on the skyline"
+  },
+  {
+   "assert": "__DQ.state().field.view.landmarks.every(m => m.sunkBelowCrest > 0.8)",
+   "msg": "every card's painted horizon is sunk below the ring-hill crest on its own bearing"
+  },
+  {
+   "assert": "__DQ.state().field.view.landmarks.every(m => m.footY < 9)",
+   "msg": "no card's foot is left hanging 18 units above the vale floor"
+  },
+  {
+   "assert": "__DQ.state().field.view.landmarks.every(m => m.hillCrestDeg > 1.2)",
+   "msg": "the pass in the hills is a dip, not a hole: there is a crest to stand on at every landmark bearing"
+  },
+  {
+   "assert": "Math.abs(__DQ.landmarks().find(m=>m.id==='coddleston').bearing - 76) < 0.6",
+   "msg": "the places sit on the bearings their signposts point down (no fit nudge)"
+  },
+  {
+   "eval": "__DQ.cameraRig({pitch: 7, dist: 13, lookUp: 3.0})"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', 6.0, 29.0)"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "eval": "__DQ.cameraOrbit(204)"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "skyline-coddleston-on-the-land"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', 27.0, 2.0)"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "eval": "__DQ.cameraOrbit(281.9)"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "skyline-saltmarrow-on-the-land"
+  },
+  {
+   "note": "GAP 4 \u2014 the lanterns. Warm glass visible from every angle by day, blazing at night."
+  },
+  {
+   "eval": "__DQ.cameraRig({pitch: 12, dist: 5, lookUp: 1.6})"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', 4.6, 24.0)"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "lantern-day"
+  },
+  {
+   "eval": "__DQ.timeOfDay(22.5)"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "shot": "lantern-night"
+  },
+  {
+   "eval": "__DQ.timeOfDay(9)"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "note": "GAP 5 \u2014 the four places and the scatter: bare earth, bracken, stone, stubble and toadstools away from the cottage."
+  },
+  {
+   "assert": "__DQ.state().field.view.places.length === 4",
+   "msg": "four dressed places away from the cottage"
+  },
+  {
+   "assert": "(__DQ.state().field.view.counts.molehills||0) >= 18 && (__DQ.state().field.view.counts.bracken||0) >= 18",
+   "msg": "bare earth and bracken scattered over the whole vale"
+  },
+  {
+   "assert": "(__DQ.state().field.view.counts.mushrooms||0) >= 50 && (__DQ.state().field.view.counts.dryTufts||0) >= 300",
+   "msg": "toadstools and straw grass everywhere, not just at the cottage"
+  },
+  {
+   "assert": "(__DQ.state().field.view.counts.stooks||0) >= 4 && (__DQ.state().field.view.counts.wallRuns||0) >= 2",
+   "msg": "the cut hayfield and the drystone fold are built"
+  },
+  {
+   "eval": "__DQ.cameraRig({pitch: 20, dist: 9, lookUp: 1.6})"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', -20.2, -19.0)"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "place-fallen-oak"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', 12.6, 23.2)"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "place-cut-hayfield"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', -17.8, 20.0)"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "place-drystone-fold"
+  },
+  {
+   "eval": "__DQ.teleport('meadow', 25.0, -6.6)"
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "place-boulder-field"
+  },
+  {
+   "eval": "__DQ.cameraRig({pitch: 26, dist: 10.5, lookUp: 2.7})"
+  },
+  {
+   "eval": "__DQ.budget()"
+  },
+  {
+   "assert": "__DQ.budget().calls < 150",
+   "msg": "under 150 draw calls in the real game"
+  },
+  {
+   "assert": "__DQ.errors.length === 0",
+   "msg": "no runtime errors"
+  }
+ ]
+}

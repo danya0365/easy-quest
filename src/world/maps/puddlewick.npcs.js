@@ -78,7 +78,8 @@ export default function puddlewickPeople(base = {}) {
   const npcs = [
     // ── the four constant villagers (VOICE-BIBLE §5b) ──────────────────────────────────────────────────────
     {
-      id: 'hob', name: 'Old Hob', char: 'villager', variant: 'farmer', voice: 'low:0.74', wear: 'clay',
+      // both hands on the well he has leaned on since before the well: no pitchfork to get in the way of it
+      id: 'hob', name: 'Old Hob', char: 'villager', variant: 'farmer', voice: 'low:0.74', wear: 'clay', scale: 0.94, girth: 1.08, hold: 'none',
       x: hobSpot.x, z: hobSpot.z, facing: hobSpot.facing, idle: 'lean', look: [well.x, well.z], radius: 0.8,
       schedule: [{ from: 6, to: 21, at: [hobSpot.x, hobSpot.z], idle: 'lean' }],
       home: [homeHob.x, homeHob.z],
@@ -110,7 +111,7 @@ export default function puddlewickPeople(base = {}) {
       ],
     },
     {
-      id: 'nan', name: 'Nan Puddifoot', char: 'villager', variant: 'baker', voice: 'high:0.9',
+      id: 'nan', name: 'Nan Puddifoot', char: 'villager', variant: 'baker', voice: 'high:0.9', scale: 1.0, girth: 1.1,
       x: nanSpot.x, z: nanSpot.z, facing: nanSpot.facing, idle: 'sell', radius: 1.0, when: '!ch2.start',
       schedule: [
         { from: 5, to: 12, at: [nanSpot.x, nanSpot.z], idle: 'sell', facing: nanSpot.facing },
@@ -132,7 +133,7 @@ export default function puddlewickPeople(base = {}) {
       ],
     },
     {
-      id: 'nan3', name: 'Nan Puddifoot', char: 'villager', variant: 'baker', voice: 'high:0.9',
+      id: 'nan3', name: 'Nan Puddifoot', char: 'villager', variant: 'baker', voice: 'high:0.9', scale: 1.0, girth: 1.12,
       x: nanSpot.x, z: nanSpot.z, facing: nanSpot.facing, idle: 'sell', radius: 1.0, when: 'ch3.elowen',
       script: [
         { first: ['Warm one, love.', 'Sit down. You are a king and\nyou are covered in road.'] },
@@ -143,7 +144,7 @@ export default function puddlewickPeople(base = {}) {
       ],
     },
     {
-      id: 'barty', name: 'Barty Marrow', char: 'barty', voice: 'barty',
+      id: 'barty', name: 'Barty Marrow', char: 'barty', voice: 'barty', scale: 0.98, girth: 1.06,
       x: bartySpot.x, z: bartySpot.z, facing: bartySpot.facing, idle: 'stand', radius: 0.8, when: '!ch2.start',
       script: [
         { first: [
@@ -159,7 +160,7 @@ export default function puddlewickPeople(base = {}) {
       ],
     },
     {
-      id: 'dot', name: 'Dot', char: 'villager', variant: 'child', voice: 'high:1.45', wear: 'berry',
+      id: 'dot', name: 'Dot', char: 'villager', variant: 'child', voice: 'high:1.45', wear: 'berry', scale: 1.04, girth: 1.0, hold: 'none',
       x: dotSpot.x, z: dotSpot.z, facing: dotSpot.facing, idle: 'tag', with: 'bel', it: true, radius: 3.4, when: '!ch2.start',
       schedule: [{ from: 7, to: 19.5, at: [dotSpot.x, dotSpot.z], idle: 'tag' }],
       home: [homeTwins.x, homeTwins.z],
@@ -174,7 +175,7 @@ export default function puddlewickPeople(base = {}) {
       ],
     },
     {
-      id: 'bel', name: 'Bel', char: 'villager', variant: 'child', voice: 'high:1.32', wear: 'mustard', scale: 0.96,
+      id: 'bel', name: 'Bel', char: 'villager', variant: 'child', voice: 'high:1.32', wear: 'mustard', scale: 0.95, girth: 1.05, hold: 'none',
       x: belSpot.x, z: belSpot.z, facing: belSpot.facing, idle: 'tag', with: 'dot', radius: 3.4, when: '!ch2.start',
       schedule: [{ from: 7, to: 19.5, at: [belSpot.x, belSpot.z], idle: 'tag' }],
       home: [homeTwins.x, homeTwins.z],
@@ -190,16 +191,18 @@ export default function puddlewickPeople(base = {}) {
 
     // ── the other villagers, all with something to sell and nothing you can afford (STORY-BIBLE §5.2) ──────
     {
-      id: 'hammond', name: 'Mr Hammond', char: 'villager', variant: 'innkeeper', voice: 'low:0.86', wear: 'ink', scale: 1.04,
+      // THE IRONMONGER. A big bald ruddy man in a leather apron is exactly the right body for him — but he was
+      // holding the innkeeper's tankard of ale while the narration had him taking a sword down off the wall.
+      id: 'hammond', name: 'Mr Hammond', char: 'villager', variant: 'innkeeper', voice: 'low:0.86', wear: 'ink', scale: 1.06, girth: 1.14, hold: 'hammer',
       x: shopSpot.x, z: shopSpot.z, facing: shopSpot.facing, idle: 'sell', radius: 0.8, when: '!ch2.start',
       schedule: [{ from: 7, to: 19, at: [shopSpot.x, shopSpot.z], idle: 'sell', facing: shopSpot.facing }],
       home: [homeShop.x, homeShop.z],
       script: [
         { first: [
           { anim: 'wave' },
-          { narrate: 'Mr Hammond takes down a sword\nand holds it out.' },
+          { narrate: 'Mr Hammond puts the hammer down\nand takes a sword off the wall.' },
           { anim: 'nod' },
-          { narrate: 'He looks at %HERO%\'s face.{wait:700}{p}He puts the sword back,\nslowly, without a word.' },
+          { narrate: 'He looks at %HERO%\'s face.{wait:700}{p}He puts the sword back,\nslowly, and picks the hammer\nup again.' },
           'Mind you. Your father was never\ntall enough for his, either.',
         ], again: [
           { cycle: [
@@ -210,7 +213,8 @@ export default function puddlewickPeople(base = {}) {
       ],
     },
     {
-      id: 'bernard', name: 'Bernard', char: 'villager', variant: 'child', voice: 'high:1.2', wear: 'rust', scale: 1.06,
+      // 'Today I made a hook. It is a good hook.' He is holding the hook.
+      id: 'bernard', name: 'Bernard', char: 'villager', variant: 'child', voice: 'high:1.2', wear: 'rust', scale: 1.07, girth: 1.03, hold: 'hook',
       x: smithBoy.x, z: smithBoy.z, facing: smithBoy.facing, idle: 'wander', radius: 1.4, when: '!ch2.start',
       script: [
         { first: [
@@ -224,7 +228,7 @@ export default function puddlewickPeople(base = {}) {
       ],
     },
     {
-      id: 'bernard3', name: 'Bernard', char: 'villager', variant: 'innkeeper', voice: 'low:0.98', wear: 'rust', scale: 1.05,
+      id: 'bernard3', name: 'Bernard', char: 'villager', variant: 'innkeeper', voice: 'low:0.98', wear: 'rust', scale: 1.09, girth: 1.16, hold: 'hammer',
       x: smithBoy.x, z: smithBoy.z, facing: smithBoy.facing, idle: 'stand', radius: 0.8, when: 'ch3.sword_drawn',
       script: [
         { first: ['My lad does the hammering now.{p}I do the standing about and\nthe sighing.'],
@@ -232,7 +236,7 @@ export default function puddlewickPeople(base = {}) {
       ],
     },
     {
-      id: 'nodd', name: 'Watchman Nodd', char: 'villager', variant: 'guard', voice: 'low:1.06',
+      id: 'nodd', name: 'Watchman Nodd', char: 'villager', variant: 'guard', voice: 'low:1.06', scale: 1.02, girth: 0.97,
       x: gateSpot.x, z: gateSpot.z, facing: gateSpot.facing, idle: 'stand', radius: 0.6, when: notAct2,
       script: [
         { act: {
@@ -249,7 +253,7 @@ export default function puddlewickPeople(base = {}) {
       ],
     },
     {
-      id: 'pottle', name: 'Mrs Pottle', char: 'villager', variant: 'granny', voice: 'high:0.98', wear: 'teal', scale: 1.05,
+      id: 'pottle', name: 'Mrs Pottle', char: 'villager', variant: 'granny', voice: 'high:0.98', wear: 'teal', scale: 1.03, girth: 1.12,
       x: innSpot.x, z: innSpot.z, facing: innSpot.facing, idle: 'sell', radius: 0.9, when: '!ch2.start',
       schedule: [
         { from: 6, to: 20, at: [innSpot.x, innSpot.z], idle: 'sell', facing: innSpot.facing },
@@ -268,7 +272,7 @@ export default function puddlewickPeople(base = {}) {
       ],
     },
     {
-      id: 'candlewick', name: 'Sister Candlewick', char: 'villager', variant: 'nun', voice: 'high:1.0',
+      id: 'candlewick', name: 'Sister Candlewick', char: 'villager', variant: 'nun', voice: 'high:1.0', scale: 1.0, girth: 0.95,
       x: deaconSpot.x, z: deaconSpot.z, facing: deaconSpot.facing, idle: 'sweep', radius: 1.1, when: '!ch2.start',
       script: [
         { first: [
@@ -284,7 +288,7 @@ export default function puddlewickPeople(base = {}) {
       ],
     },
     {
-      id: 'brim', name: 'Mr Brim', char: 'villager', variant: 'merchant', voice: 'low:1.22', wear: 'berry',
+      id: 'brim', name: 'Mr Brim', char: 'villager', variant: 'merchant', voice: 'low:1.22', wear: 'berry', scale: 0.97, girth: 1.08,
       x: green.x + 3.4, z: green.z - 3.2, facing: 200, idle: 'sell', radius: 0.8, when: '!ch2.start',
       script: [
         { first: [
@@ -300,7 +304,8 @@ export default function puddlewickPeople(base = {}) {
       ],
     },
     {
-      id: 'honeysett', name: 'Mrs Honeysett', char: 'villager', variant: 'granny', voice: 'high:0.86', wear: 'mustard', scale: 0.95,
+      // 'Honey is two gold a pot. The bees set the price. I only carry it.' She is carrying it.
+      id: 'honeysett', name: 'Mrs Honeysett', char: 'villager', variant: 'granny', voice: 'high:0.86', wear: 'mustard', scale: 0.92, girth: 0.98, hold: 'honeypot',
       x: green.x - 3.2, z: green.z + 2.6, facing: 300, idle: 'wander', radius: 1.8, when: '!ch2.start',
       script: [
         { first: [
@@ -317,7 +322,7 @@ export default function puddlewickPeople(base = {}) {
 
     // ── Act II: the village is half burnt and the Pooles are living in it (WORLD-BIBLE §3 Visit 2) ─────────
     {
-      id: 'kit', name: 'Kit Poole', char: 'villager', variant: 'baker', voice: 'high:0.96', wear: 'ink',
+      id: 'kit', name: 'Kit Poole', char: 'villager', variant: 'baker', voice: 'high:0.96', wear: 'ink', scale: 0.98, girth: 0.97, hold: 'basket',
       x: green.x - 2.0, z: green.z - 1.2, facing: 150, idle: 'stand', radius: 0.9, when: ['ch2.start', '!ch3.start'],
       // frightened of you until you have spoken to her twice (WORLD-BIBLE §3 Visit 2)
       script: [
@@ -337,7 +342,7 @@ export default function puddlewickPeople(base = {}) {
       ],
     },
     {
-      id: 'rill', name: 'Rill', char: 'villager', variant: 'child', voice: 'high:1.5', wear: 'slate', scale: 0.9,
+      id: 'rill', name: 'Rill', char: 'villager', variant: 'child', voice: 'high:1.5', wear: 'slate', scale: 0.88, girth: 0.92, hold: 'none',
       x: green.x - 1.0, z: green.z - 0.4, facing: 150, idle: 'wander', radius: 1.6, when: ['ch2.start', '!ch3.start'],
       script: [
         { first: ['*He gets behind his mother\nvery quickly.*'], again: [
@@ -351,7 +356,7 @@ export default function puddlewickPeople(base = {}) {
 
     // ── Act III: Dot and Bel, grown, watching your children play their game ───────────────────────────────
     {
-      id: 'dot3', name: 'Dot', char: 'villager', variant: 'baker', voice: 'high:1.04', wear: 'berry',
+      id: 'dot3', name: 'Dot', char: 'villager', variant: 'baker', voice: 'high:1.04', wear: 'berry', scale: 1.0, girth: 1.06,
       x: dotSpot.x, z: dotSpot.z, facing: dotSpot.facing, idle: 'chat', with: 'bel3', radius: 0.8, when: 'ch3.sword_drawn',
       script: [
         { first: [
@@ -362,7 +367,7 @@ export default function puddlewickPeople(base = {}) {
       ],
     },
     {
-      id: 'bel3', name: 'Bel', char: 'villager', variant: 'innkeeper', voice: 'low:1.16', wear: 'teal',
+      id: 'bel3', name: 'Bel', char: 'villager', variant: 'innkeeper', voice: 'low:1.16', wear: 'teal', scale: 1.02, girth: 1.09,
       x: belSpot.x, z: belSpot.z, facing: belSpot.facing, idle: 'chat', with: 'dot3', radius: 0.8, when: 'ch3.sword_drawn',
       script: [
         { first: ['I can still hold my breath\nlonger than Dot.'],

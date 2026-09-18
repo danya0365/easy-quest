@@ -21,6 +21,12 @@
  *        and tide-mill, Coddleston Castle's four copper spires, the Whispering Wood with Cobwell Manor's gable.
  *        Registered with `buildSky` by default, so any map that builds a sky gets a horizon worth walking to.
  *   buildBackdrop(scene, rig, {hills, clouds, ranges}) -> sky   one call for a new outdoor map: sky + mid and far rings.
+ *   lookTick(dt) / attachLook(adapter)
+ *        THE LOOK AXIS. Right-stick Y and PageUp/PageDown (or R/F) tip the field camera from the map's own ground
+ *        angle up to -18 degrees and down to +50, on a spring, easing back to the framing default after a couple of
+ *        idle seconds the way DQV PS2 does — with the look point rising under a closed loop on the rig's own
+ *        projection probe so the boy is never lost off the bottom of the frame. `Home` snaps back. Wired to the
+ *        real game's rig by buildSky through Field.on('update') + rig.tune(); __DQ.look() reports and drives it.
  *   skyRecipes(kit)    adds kit.birds(n, {centre, height, radius, seed}) and kit.skyCastle({azimuth, elevation, ...})
  *
  * Kit contract used here (src/art/props.js createPropsKit): kit.scene, kit.animators.push(fn(t, dt, cam)).
@@ -32,6 +38,7 @@ import { makeToon } from './toon.js';
 import { App } from '../engine/app.js';
 import { Assets } from '../engine/assets.js';
 import { Debug, reportError } from '../engine/debug.js';
+import { Input } from '../engine/input.js';
 import { ENV, installEnvDebug, createPrecipitation } from './weather.js';
 
 /** The live sky: the clouds a critic can speed up, the one precipitation slot, and the horizon's landmarks. */
@@ -202,6 +209,7 @@ const DOME_FRAG = /* glsl */`
 
 export function buildSky(scene, rig, { clouds: withClouds = true, ranges = true, landmarks = 'vale' } = {}) {
   installEnvDebug();
+  installLook();                 // a child can look up at whatever this sky is about to paint (P02 gap #3)
   // the skyline first: the hill rings built after this one open a pass at every landmark's bearing
   const marks = landmarks === false || landmarks === null ? null : buildLandmarks(scene, landmarks);
   const E = ENV.u;
@@ -1044,7 +1052,7 @@ export function buildLandmarks(scene, list = 'vale') {
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
 /** Never a blocker: the backdrop itself, the weather, the shadows under things, the UI. */
-const NOT_A_BLOCKER = /^(sky|clouds|highfeather|birds|weather-|landmark|blobShadow|contactShadow|talk-prompt|rig:|outline|smoke|motes|pollen|butterfl|dust|spark|glow|prompt|ghost)/;
+const NOT_A_BLOCKER = /^(sky|clouds|highfeather|bird|weather-|landmark|blobShadow|contactShadow|talk-prompt|rig:|outline|smoke|motes|pollen|butterfl|dust|spark|glow|prompt|ghost)/;
 const _v = new THREE.Vector3(), _m4 = new THREE.Matrix4(), _box = new THREE.Box3();
 
 /**
@@ -1089,7 +1097,9 @@ function occluders(scene) {
     const push = (m, cap) => {
       _box.copy(bb).applyMatrix4(m);
       const w = _box.max.x - _box.min.x, d = _box.max.z - _box.min.z;
-      const r = Math.min(cap, Math.max(0.05, Math.sqrt(Math.max(0.01, w * d)) * 0.42));
+      // 0.34 of the footprint, not half: a canopy is a cluster of blobs, and a cylinder of its full bounding
+      // width reported a chestnut as hiding 80 of 160 samples where an exact geometry raycast found 40.
+      const r = Math.min(cap, Math.max(0.05, Math.sqrt(Math.max(0.01, w * d)) * 0.34));
       cyl.push({ x: (_box.min.x + _box.max.x) * 0.5, z: (_box.min.z + _box.max.z) * 0.5, r,
         y0: _box.min.y, y1: _box.max.y, name: n });
     };
@@ -1123,7 +1133,7 @@ function skylineProfile(O, eye) {
     for (let b = Math.floor(a0 - hb); b <= Math.ceil(a0 + hb); b++) {
       // the silhouette of a cylinder sags at its edges; near the middle it is the full height
       const t = Math.min(1, Math.abs(b - a0) / hb);
-      put(b, top - (top + 2) * t * t * 0.18, d, c.name);
+      put(b, top - (top + 2) * t * t * 0.34, d, c.name);
     }
   }
   // the wide meshes (ground, hill rings, water): their own vertices straight into the bins
@@ -1419,6 +1429,207 @@ function installLandmarkDebug() {
   } catch (e) { reportError('landmark debug', e); }
 }
 
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// LOOKING UP — the child's own way to raise the lens (P02 gap #3)
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+/**
+ * Everything P02 paints — the cumulus, the sun, the dusk rose, the Milky Way, Highfeather, the four places on the
+ * skyline — lives ABOVE the field camera's 26° ground angle, and nothing bound a look axis to it: a child could
+ * spin the yaw all the way round and only ever see the ground. This is the missing axis, and it is DQV PS2's:
+ *
+ *   - the RIGHT STICK's Y axis (Input.look().y) and a keyboard pair (PageUp / PageDown, R / F) tip the lens
+ *   - the ground angle travels from the map's own framing (26° in the vale) up to -18° and down to +50°
+ *   - it is a SPRING, not a jump, and after ~2.2 s with nothing held it eases back to the framing default the
+ *     way DQV does, so a child who let go is never left staring at the sky
+ *   - THE BOY STAYS IN FRAME: the look point rises with the lens under a closed loop on the rig's OWN projection
+ *     probe (`rig.frame()`), so his feet are held at a measured share of frame height at every angle instead of
+ *     sliding off the bottom edge — 79% at rest, 90% at full tilt, and he is never lost
+ *   - `Home` snaps back at once; `__DQ.look()` reports the whole thing as numbers and `__DQ.look(v)` drives it
+ *
+ * It reaches the camera only through P09's published interface (`rig.tune`) from the field's own per-tick hook
+ * (`Field.on('update')`), and while the look is at rest it does not touch the rig at all.
+ */
+const LOOK = {
+  PITCH_UP: -16, PITCH_DOWN: 50,       // the ground angle at full up / full down (range -18..+50 with the spring's overshoot)
+  RATE: 1.15,                          // stick units per second: about 0.9 s from rest to full tilt
+  SPRING: 8,                           // how fast the shown angle chases the asked-for one
+  RETURN_AFTER: 2.2, RETURN_RATE: 2.6, // DQV eases the framing back after a couple of idle seconds
+  FEET_UP: 90, FEET_DOWN: 62,          // where his feet sit in the frame at full up / full down (% of frame height)
+  FOV_UP: 5,                           // the lens opens a little as it tips up, so more sky lands in the frame
+  v: 0, vT: 0, idle: 99, hold: false, src: 'none',
+  base: null, lookUp: 0, feet: 79, ticks: 0, driving: false, on: true,
+  keys: new Set(), listening: false, adapter: null, installed: false,
+};
+const LOOK_UP_KEYS = ['PageUp', 'KeyR'];
+const LOOK_DOWN_KEYS = ['PageDown', 'KeyF'];
+const LOOK_HOME_KEYS = ['Home'];
+
+function lookTyping(t) {
+  return !!t && (t.isContentEditable || /^(input|textarea|select)$/i.test(t.tagName || ''));
+}
+
+function listenForLook() {
+  if (LOOK.listening || typeof window === 'undefined') return;
+  LOOK.listening = true;
+  const all = [...LOOK_UP_KEYS, ...LOOK_DOWN_KEYS, ...LOOK_HOME_KEYS];
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.altKey || e.metaKey || lookTyping(e.target) || !all.includes(e.code)) return;
+    e.preventDefault();
+    if (LOOK_HOME_KEYS.includes(e.code)) { LOOK.vT = 0; LOOK.hold = false; LOOK.idle = 99; LOOK.keys.clear(); return; }
+    LOOK.keys.add(e.code);
+  }, { passive: false });
+  window.addEventListener('keyup', (e) => { LOOK.keys.delete(e.code); }, { passive: true });
+  window.addEventListener('blur', () => LOOK.keys.clear());
+}
+
+/** The look axis a child is asking for this tick: -1 (down at the ground) .. +1 (up at the sky). */
+function lookDemand() {
+  let v = 0, src = 'none';
+  try {
+    const l = Input.look();
+    if (l && Math.abs(l.y) > 0.06) { v = Math.max(-1, Math.min(1, l.y)); src = 'stick'; }
+  } catch (_) { /* input not initialised (a demo page) */ }
+  let k = 0;
+  for (const c of LOOK.keys) { if (LOOK_UP_KEYS.includes(c)) k += 1; else if (LOOK_DOWN_KEYS.includes(c)) k -= 1; }
+  if (k) { v = Math.max(-1, Math.min(1, v + k)); src = src === 'stick' ? 'stick+keys' : 'keys'; }
+  return { v, src };
+}
+
+/**
+ * One tick of the look axis. `dt` is simulated seconds. Returns the state (also what __DQ.look() reports).
+ * The adapter is how this reaches a camera: {rig(), base(rig), apply(rig, o), frame(rig)}.
+ */
+export function lookTick(dt = 1 / 60, { active = true } = {}) {
+  const A = LOOK.adapter;
+  if (!A) return lookState();
+  let rig = null;
+  try { rig = A.rig(); } catch (_) { rig = null; }
+  if (!rig) { LOOK.v = LOOK.vT = 0; LOOK.driving = false; LOOK.base = null; return lookState(); }
+  const step = Math.max(0, Math.min(0.1, dt || 1 / 60));
+  const d = active && LOOK.on ? lookDemand() : { v: 0, src: 'none' };
+  LOOK.src = d.src;
+  if (Math.abs(d.v) > 0.02) {
+    LOOK.vT = Math.max(-1, Math.min(1, LOOK.vT + d.v * LOOK.RATE * step));
+    LOOK.idle = 0;
+  } else {
+    LOOK.idle += step;
+    // DQV hands the framing back after a beat, unless a critic or a script is holding the angle on purpose
+    if (!LOOK.hold && LOOK.idle > LOOK.RETURN_AFTER) {
+      LOOK.vT += (0 - LOOK.vT) * (1 - Math.exp(-step * LOOK.RETURN_RATE));
+      if (Math.abs(LOOK.vT) < 0.004) LOOK.vT = 0;
+    }
+  }
+  LOOK.v += (LOOK.vT - LOOK.v) * (1 - Math.exp(-step * LOOK.SPRING));
+  if (Math.abs(LOOK.v) < 0.004 && LOOK.vT === 0) LOOK.v = 0;
+
+  // the framing default this map composed for itself (P09 solves it; we only ever offset it)
+  let base = null;
+  try { base = A.base(rig); } catch (_) { base = null; }
+  if (base) LOOK.base = base;
+  base = LOOK.base;
+  if (!base) return lookState();
+
+  if (LOOK.v === 0) {
+    // at rest the look axis does not touch the camera at all: P09's rig is left exactly as it composed itself
+    if (LOOK.driving) { try { A.apply(rig, { pitch: base.pitch, lookUp: base.lookUp, fov: base.fov }); } catch (e) { reportError('look release', e); } }
+    LOOK.driving = false; LOOK.lookUp = base.lookUp; LOOK.feet = base.feet; LOOK.ticks = 0;
+    return lookState();
+  }
+
+  const up = Math.max(0, LOOK.v), down = Math.max(0, -LOOK.v);
+  const pitch = base.pitch + (LOOK.PITCH_UP - base.pitch) * up + (LOOK.PITCH_DOWN - base.pitch) * down;
+  const fov = base.fov + LOOK.FOV_UP * up;
+  // where his feet should sit in the frame at this angle — the guarantee that a raised lens never loses the boy
+  const wantFeet = base.feet + (LOOK.FEET_UP - base.feet) * up + (LOOK.FEET_DOWN - base.feet) * down;
+  if (!LOOK.driving) { LOOK.lookUp = base.lookUp; LOOK.driving = true; LOOK.ticks = 0; }
+  // seed the look point from the tilt (so the first frame is already close), then close the loop on the real
+  // projection: raising the look point slides him DOWN the frame, so this is a simple monotone controller
+  if (LOOK.ticks === 0) LOOK.lookUp = base.lookUp + up * 2.2 - down * 0.5;
+  let feet = wantFeet;
+  try {
+    const f = A.frame(rig);
+    if (f && Number.isFinite(f.feetPct)) {
+      feet = f.feetPct;
+      const err = wantFeet - f.feetPct;
+      LOOK.lookUp = Math.max(-1.5, Math.min(16, LOOK.lookUp + Math.max(-0.35, Math.min(0.35, err * 0.055))));
+    }
+  } catch (_) { /* the probe is optional */ }
+  LOOK.feet = feet;
+  LOOK.ticks++;
+  try { A.apply(rig, { pitch, lookUp: LOOK.lookUp, fov }); } catch (e) { reportError('look apply', e); }
+  return lookState();
+}
+
+function lookState() {
+  const b = LOOK.base;
+  return {
+    on: LOOK.on, axis: +LOOK.v.toFixed(3), axisTarget: +LOOK.vT.toFixed(3), source: LOOK.src,
+    keys: [...LOOK.keys], holding: LOOK.hold, driving: LOOK.driving, idleSec: +LOOK.idle.toFixed(2),
+    pitch: b ? +(b.pitch + (LOOK.PITCH_UP - b.pitch) * Math.max(0, LOOK.v) + (LOOK.PITCH_DOWN - b.pitch) * Math.max(0, -LOOK.v)).toFixed(2) : null,
+    basePitch: b ? +b.pitch.toFixed(2) : null, lookUp: +LOOK.lookUp.toFixed(3), feetPct: +LOOK.feet.toFixed(2),
+    range: [LOOK.PITCH_UP, LOOK.PITCH_DOWN], bind: { up: LOOK_UP_KEYS, down: LOOK_DOWN_KEYS, home: LOOK_HOME_KEYS, pad: 'right stick Y' },
+  };
+}
+
+/** Give the look axis a camera to drive. adapter = {rig(), base(rig), apply(rig, o), frame(rig)}. */
+export function attachLook(adapter) {
+  LOOK.adapter = adapter || null;
+  listenForLook();
+  installLookDebug();
+  return lookState();
+}
+
+let lookDebug = false;
+function installLookDebug() {
+  if (lookDebug) return;
+  lookDebug = true;
+  try {
+    /**
+     * __DQ.look()            what the look axis is doing, as numbers
+     * __DQ.look(v)           hold the look stick at v (-1 down .. +1 up); it stops easing back while held
+     * __DQ.look(0)           let go — the framing eases back to the map's own composition
+     * __DQ.look({v, hold})   the same, explicitly; {home: true} snaps straight back
+     */
+    Debug.expose('look', (o) => {
+      if (o === undefined) return lookState();
+      const arg = (typeof o === 'object' && o) ? o : { v: +o };
+      if (arg.on !== undefined) LOOK.on = !!arg.on;
+      if (arg.home) { LOOK.vT = 0; LOOK.v = 0; LOOK.hold = false; LOOK.idle = 99; LOOK.keys.clear(); return lookState(); }
+      if (Number.isFinite(+arg.v)) {
+        LOOK.vT = Math.max(-1, Math.min(1, +arg.v));
+        LOOK.hold = arg.hold === undefined ? LOOK.vT !== 0 : !!arg.hold;
+        LOOK.idle = 0;
+        if (arg.snap) LOOK.v = LOOK.vT;
+      }
+      return lookState();
+    });
+    Debug.provide('look', lookState);
+  } catch (e) { reportError('look debug', e); }
+}
+
+/**
+ * Wire the look axis to the real game's field camera. Called once by buildSky, so every outdoor map that raises
+ * a sky can be looked up into. It reaches src/world/field.js lazily (an import at module scope would be a cycle)
+ * and drives the rig from the field's own per-tick hook, after P09's own update, through rig.tune().
+ */
+function installLook() {
+  if (LOOK.installed || typeof window === 'undefined') return;
+  LOOK.installed = true;
+  import('../world/field.js').then(({ Field }) => {
+    attachLook({
+      rig: () => { const w = Field.world(); return w ? w.cameraRig : null; },
+      base: (rig) => {
+        const p = rig && rig.c && rig.c.pose;
+        if (!p) return null;
+        return { pitch: p.pitch, lookUp: p.lookUp, fov: p.fov, feet: (p.measured && p.measured.feet) || 79 };
+      },
+      apply: (rig, o) => rig.tune(o),
+      frame: (rig) => (typeof rig.frame === 'function' ? rig.frame() : null),
+    });
+    Field.on('update', (dt, info) => { lookTick(dt, { active: !info || info.top !== false }); });
+  }).catch((e) => { reportError('look install', e); });
+}
+
 /** 0..1 — how much a hill ring should sag at this bearing, so a lane can run out through a pass. */
 function gateAt(a, strength = 1) {
   const M = CURRENT.landmarks;
@@ -1532,6 +1743,8 @@ export function skyRecipes(kit) {
     const group = new THREE.Group(); group.name = 'birds'; scene.add(group);
     for (let i = 0; i < n; i++) {
       const b = new THREE.Group(), L = new THREE.Mesh(wing, mat), R = new THREE.Mesh(wing, mat);
+      // named, because an unnamed mesh gliding at 16 m reads to the skyline profile as a 36-degree wall
+      b.name = 'bird'; L.name = R.name = 'bird-wing';
       R.scale.x = -1; b.add(L, R); b.scale.setScalar(2.3); group.add(b);
       flock.push({ b, L, R, ph: r() * 6.283, sp: 0.09 + r() * 0.05, rad: radius * (0.6 + r() * 0.5), h: height + r() * 6, cx: centre[0] + (r() - 0.5) * 12, cz: centre[1] + (r() - 0.5) * 12, flapPh: r() * 6.283 });
     }

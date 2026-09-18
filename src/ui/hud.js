@@ -10,14 +10,19 @@
  *      (CANON §4) and the map you are standing on. It comes in behind the place card and fades out; the Map
  *      button brings it back whenever you have forgotten.
  *   3. THE MAP.  Press Map (M / the touch ⛶) and a little painted plan of the place unrolls top right: the
- *      ground as it really is, the doors and lanes in gold, people as pale dots, treasure as gold dots, and you
- *      as a white arrow that turns with you. Press it again and it rolls up.
+ *      ground as it really is with the trees and walls in shade, the ways out as gold gates, people as pale
+ *      blue dots, treasure as gold ones, an N in the corner, and YOU as a big white arrow on a soft halo that
+ *      turns as you turn. Two small lines underneath say which mark is which. Press it again and it rolls up.
+ *      Every mark is authored in DESIGN px and multiplied once by K (the canvas is drawn at 2x): get that wrong
+ *      and the arrow comes out smaller than a full stop, which is exactly what it used to do.
  *   4. THE PROMPT.  Stand in front of something you can use and a small pill says what it is and which button:
  *      "Z — Talk to Old Hob", "Z — Read the sign", "Z — Open it".
  *
  * All four hide themselves the moment a conversation, a menu, a shop or a battle is on top, and come back after.
+ * ONE THING AT A TIME along the top of the screen: showing a card dismisses the ribbon and showing a ribbon
+ * dismisses the card, so the two can never land on top of each other.
  *
- * __DQ: state().hud = {shown, card, ribbon, map:{open, map, tiles}, prompt, hidden};
+ * __DQ: state().hud = {shown, card, ribbon, map:{open, of, tiles, px, marks:{you, folk, treasure, ways}}, prompt, hidden};
  *       __DQ.hudCard('Puddlewick'), __DQ.hudRibbon(), __DQ.minimap(true|false), __DQ.hudShow(false).
  *
  * PLUGIN: main.js imports this file once and calls install(ctx) — so it is live in /index.html with no
@@ -25,7 +30,6 @@
  */
 import { PAL, css } from '../art/palette.js';
 
-const DESIGN = { w: 1280, h: 720 };
 const CARD_HOLD = 3.4;          // seconds the place card stays up
 const RIBBON_HOLD = 5.0;
 const CARD_COOLDOWN = 45;       // seconds before the same place announces itself again
@@ -80,11 +84,28 @@ const QUESTS = [
 const DEFAULT_RIBBON = { meadow: 'Follow the lane to Puddlewick.', puddlewick: 'Have a look round. Everybody has something to say.' };
 
 // ── ground colours for the little map ───────────────────────────────────────────────────────────────────────
+/** Mix two palette colours. Nothing here invents a hex: it only blends ones palette.js already published. */
+function mix(a, b, t) {
+  const rd = (s) => [1, 3, 5].map(i => parseInt(String(s).slice(i, i + 2), 16));
+  const A = rd(a), B = rd(b);
+  return '#' + A.map((v, i) => Math.max(0, Math.min(255, Math.round(v + (B[i] - v) * t))).toString(16).padStart(2, '0')).join('');
+}
+// The plan is painted, not photographed: every ground colour is lifted a little towards the window's own light
+// so the valley reads bright and friendly against the deep blue window, the way a picture map in a book does.
+const LIFT = 0.16;
 const GROUND = {
-  grass: PAL.grass.mid, dirt: PAL.dirt.base, stone: PAL.stone.cobbleA, wood: PAL.wood.mid,
-  sand: PAL.sand.mid, snow: PAL.snow.mid, water: PAL.water.mid,
+  grass: mix(PAL.grass.mid, PAL.ui.text, LIFT), dirt: mix(PAL.dirt.base, PAL.ui.text, LIFT),
+  stone: mix(PAL.stone.cobbleA, PAL.ui.text, LIFT), wood: mix(PAL.wood.mid, PAL.ui.text, LIFT),
+  sand: mix(PAL.sand.mid, PAL.ui.text, LIFT), snow: PAL.snow.mid, water: mix(PAL.water.mid, PAL.ui.text, LIFT * 0.6),
 };
-const SOLID_TINT = PAL.stone.dark;
+// Where you cannot walk is not a different colour — it is the same ground in shade, the way a tree or a wall
+// falls on a painted map. Mixed once per ground colour and kept.
+const SHADED = new Map();
+const shade = (col) => {
+  let c = SHADED.get(col);
+  if (!c) { c = mix(col, PAL.ui.shadow, 0.38); SHADED.set(col, c); }
+  return c;
+};
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 export function install(ctx = {}) {
@@ -98,7 +119,7 @@ export function install(ctx = {}) {
     card: null, cardT: 0, cardName: null, seen: new Map(),
     ribbon: null, ribbonT: 0, ribbonText: null,
     map: null, mapCanvas: null, mapBaked: null, mapBakedFor: null, mapOpen: false, mapT: 0,
-    prompt: null, promptName: null, promptK: 0,
+    prompt: null, promptName: null,
     hidden: false, forced: false, off: null, mapId: null, mapName: null,
   };
 
@@ -116,6 +137,8 @@ export function install(ctx = {}) {
     try {
       if (!name) return false;
       if (S.card && !S.card.destroyed) { S.card.destroy(); S.card = null; }
+      // one thing at a time along the top of the screen: a card never lands on top of a ribbon
+      if (S.ribbon && !S.ribbon.destroyed) { try { S.ribbon.close(); } catch (_) {} S.ribbon = null; S.ribbonT = 0; }
       let words = sub != null ? sub : (PLACE_WORDS[S.mapId] || KIND_WORDS[S.mapKind] || '');
       if (words && String(words).toLowerCase() === String(name).toLowerCase()) words = '';
       S.card = UI.window({
@@ -144,6 +167,8 @@ export function install(ctx = {}) {
       const words = text != null ? text : ribbonFor();
       if (!words) return false;
       if (S.ribbon && !S.ribbon.destroyed) { S.ribbon.destroy(); S.ribbon = null; }
+      // ...and a ribbon never lands on top of a card: showing one dismisses the other
+      if (S.card && !S.card.destroyed) { try { S.card.close(); } catch (_) {} S.card = null; S.cardT = 0; }
       S.ribbon = UI.window({
         id: 'hud-ribbon', left: 26, top: 26, origin: '0% 0%', pop: 'right', slim: true, className: 'hud-ribbon',
         destroyOnClose: true, openMs: 300, closeMs: 260,
@@ -157,12 +182,19 @@ export function install(ctx = {}) {
   }
 
   // ── 3. the little map ───────────────────────────────────────────────────────────────────────────────────
-  const MAP_PX = 232;                                  // design px of the drawn plan
+  //
+  // The plan is 248 DESIGN px wide and the canvas behind it is 2x that, so every mark has to be drawn in
+  // canvas pixels = design px * K. Getting that wrong is what made the first version unreadable: an arrow
+  // authored at 15 px came out 7 design px tall — smaller than a full stop — and the people were 1 px specks.
+  // Everything below is authored in DESIGN px and multiplied by K exactly once, in `mark()`.
+  const MAP_PX = 248;                                  // design px of the drawn plan
+  const YOU_PX = 15;                                   // the white arrow: half a centimetre on a laptop
 
   function bakeMap(map) {
     const c = document.createElement('canvas');
     const n = Math.max(map.w, map.h);
-    const cells = Math.min(160, Math.max(24, n));      // never more than 160 samples a side: this is a thumbnail
+    // enough samples that a lane one tile wide still reads as a lane, and never more than the plan can show
+    const cells = Math.min(208, Math.max(64, Math.round(n * 1.6)));
     c.width = cells; c.height = cells;
     const g = c.getContext('2d');
     g.clearRect(0, 0, cells, cells);
@@ -174,9 +206,7 @@ export function install(ctx = {}) {
         let col = GROUND.grass, solid = false;
         try { col = GROUND[map.groundAt(x, z)] || GROUND.grass; } catch (_) {}
         try { solid = !!map.solidAt(x, z); } catch (_) {}
-        g.fillStyle = col;
-        g.fillRect(i, j, 1, 1);
-        if (solid) g.fillStyle = css(SOLID_TINT, 0.55);
+        g.fillStyle = solid ? shade(col) : col;
         g.fillRect(i, j, 1, 1);
       }
     }
@@ -196,39 +226,72 @@ export function install(ctx = {}) {
     if (!b) return;
     const g = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
+    const K = W / MAP_PX;                               // canvas px per DESIGN px — every mark is sized by this
+    S.mapK = K;
     g.clearRect(0, 0, W, H);
-    g.imageSmoothingEnabled = false;
+    g.imageSmoothingEnabled = true;                     // a painted plan, not a spreadsheet
     g.drawImage(b.canvas, 0, 0, W, H);
-    g.imageSmoothingEnabled = true;
     const px = (x) => ((x - b.ox) / b.w) * W;
     const pz = (z) => ((z - b.oz) / b.h) * H;
-    const dot = (x, z, r, fill, ring) => {
+    const ink = css(PAL.ui.shadow, 0.85);
+    /** A round mark, authored in design px. */
+    const mark = (x, z, rPx, fill, ringPx = 1.6) => {
+      const r = rPx * K;
       g.beginPath(); g.arc(px(x), pz(z), r, 0, Math.PI * 2);
       g.fillStyle = fill; g.fill();
-      if (ring) { g.lineWidth = 1.2; g.strokeStyle = ring; g.stroke(); }
+      g.lineWidth = ringPx * K; g.strokeStyle = ink; g.stroke();
     };
-    // doors and lanes out
+
+    // ways out: a gold gate with an ink edge, never smaller than a child can aim at
     for (const e of (map.exits || [])) {
-      const w = Math.max(3, ((e.w ?? 1) / b.w) * W), h = Math.max(3, ((e.h ?? 1) / b.h) * H);
-      g.fillStyle = css(PAL.ui.gold, 0.92);
-      g.fillRect(px(e.x) - w / 2, pz(e.z) - h / 2, w, h);
+      const w = Math.max(9 * K, ((e.w ?? 1) / b.w) * W), hh = Math.max(9 * K, ((e.h ?? 1) / b.h) * H);
+      const x0 = px(e.x) - w / 2, y0 = pz(e.z) - hh / 2;
+      g.fillStyle = css(PAL.ui.gold, 0.96);
+      g.fillRect(x0, y0, w, hh);
+      g.lineWidth = 1.8 * K; g.strokeStyle = ink;
+      g.strokeRect(x0, y0, w, hh);
     }
-    // treasure, then people
-    for (const c of (map.chests || [])) dot(c.x, c.z, 2.6, css(PAL.ui.gold, 0.95), css(PAL.ui.shadow, 0.6));
-    for (const n of (map.npcs || [])) dot(n.x, n.z, 2.2, css(PAL.ui.textDim, 0.85), css(PAL.ui.shadow, 0.45));
-    // you
+    // treasure (gold, with a bright heart) and people (cream)
+    for (const c of (map.chests || [])) {
+      if (c && c.taken) continue;
+      mark(c.x, c.z, 4.2, css(PAL.ui.gold, 0.98), 1.8);
+      g.beginPath(); g.arc(px(c.x), pz(c.z), 1.5 * K, 0, Math.PI * 2);
+      g.fillStyle = css(PAL.ui.text, 0.9); g.fill();
+    }
+    // people are pale blue, never the white the arrow is: at a glance you can always tell which one is you
+    for (const n of (map.npcs || [])) mark(n.x, n.z, 3.6, css(PAL.ui.textDim, 0.95), 1.7);
+
+    // which way is up
+    g.save();
+    g.font = `${Math.round(13 * K)}px ${'ui-rounded, Arial Rounded MT Bold, Trebuchet MS, sans-serif'}`;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineWidth = 3 * K; g.strokeStyle = css(PAL.ui.shadow, 0.6);
+    g.strokeText('N', W - 15 * K, 15 * K);
+    g.fillStyle = css(PAL.ui.text, 0.8);
+    g.fillText('N', W - 15 * K, 15 * K);
+    g.restore();
+
+    // you: a big white arrow on a soft halo, turning as you turn
     let p = null;
     try { p = world.player && world.player.p; } catch (_) { p = null; }
     if (p) {
       const x = px(p.x), y = pz(p.z), a = p.yaw || 0;
+      const halo = g.createRadialGradient(x, y, 0, x, y, YOU_PX * 1.25 * K);
+      halo.addColorStop(0, css(PAL.ui.text, 0.42));
+      halo.addColorStop(1, css(PAL.ui.text, 0));
+      g.fillStyle = halo;
+      g.beginPath(); g.arc(x, y, YOU_PX * 1.25 * K, 0, Math.PI * 2); g.fill();
       g.save();
       g.translate(x, y);
       g.rotate(-a);                                     // yaw 0 faces -z, which is up on the plan
+      const s = YOU_PX * K;
       g.beginPath();
-      g.moveTo(0, -7.5); g.lineTo(5.2, 6); g.lineTo(0, 3); g.lineTo(-5.2, 6); g.closePath();
+      g.moveTo(0, -s * 0.62); g.lineTo(s * 0.44, s * 0.46); g.lineTo(0, s * 0.2); g.lineTo(-s * 0.44, s * 0.46);
+      g.closePath();
+      g.lineJoin = 'round';
+      g.lineWidth = 2.6 * K; g.strokeStyle = ink; g.stroke();
       g.fillStyle = PAL.ui.text;
       g.fill();
-      g.lineWidth = 1.8; g.strokeStyle = css(PAL.ui.shadow, 0.75); g.stroke();
       g.restore();
     }
   }
@@ -243,12 +306,19 @@ export function install(ctx = {}) {
       const title = (world && world.map && world.map.name) || S.mapName || 'Where you are';
       const canvas = document.createElement('canvas');
       canvas.className = 'hud-mapcanvas';
-      canvas.width = 464; canvas.height = 464;          // 2x the design size, for a crisp plan
+      canvas.width = MAP_PX * 2; canvas.height = MAP_PX * 2;   // 2x the design size, for a crisp plan
       S.mapCanvas = canvas;
+      const key = (glyph, cls, words) => UI.h('span.hud-keyitem', [UI.h('span.hud-glyph.' + cls, glyph), words]);
       S.map = UI.window({
         id: 'hud-map', right: 26, top: 26, origin: '100% 0%', pop: 'left', title, className: 'hud-map',
         destroyOnClose: true, openMs: 300, closeMs: 240,
-        content: UI.h('div.hud-mapbox', canvas),
+        content: [
+          UI.h('div.hud-mapbox', canvas),
+          UI.h('div.hud-maplegend', [
+            UI.h('div.hud-keyrow', [key('▲', 'hud-g-you', 'you'), key('●', 'hud-g-folk', 'people')]),
+            UI.h('div.hud-keyrow', [key('◆', 'hud-g-gold', 'treasure'), key('■', 'hud-g-gold', 'a way out')]),
+          ]),
+        ],
       });
       S.map.open();
       drawMap();
@@ -350,7 +420,8 @@ export function install(ctx = {}) {
       S.seen.set(m.id, now);
       showCard(m.name || m.id);
       const words = ribbonFor();
-      if (words) { S.ribbonText = words; setTimeout(() => { try { if (!S.hidden) showRibbon(words); } catch (_) {} }, 900); }
+      // one thing at a time: the ribbon waits until the place card has had its moment and gone
+      if (words) { S.ribbonText = words; setTimeout(() => { try { if (!S.hidden && S.cardT <= 0) showRibbon(words); } catch (_) {} }, (CARD_HOLD + 0.45) * 1000); }
     } catch (e) { oops('hud map.enter', e); }
   });
   Bus.on('flag.set', () => {
@@ -377,7 +448,17 @@ export function install(ctx = {}) {
     card: S.card && !S.card.destroyed && S.card.state !== 'closed' ? { name: S.cardName, left: Math.max(0, +S.cardT.toFixed(2)) } : null,
     ribbon: S.ribbon && !S.ribbon.destroyed && S.ribbon.state !== 'closed' ? { text: S.ribbonText, left: Math.max(0, +S.ribbonT.toFixed(2)) } : null,
     nextStep: S.ribbonText,
-    map: { open: !!(S.mapOpen && S.map && !S.map.destroyed), of: S.mapBakedFor, tiles: S.mapBaked ? S.mapBaked.cells : 0 },
+    map: (() => {
+      let w = null; try { w = Field.world && Field.world(); } catch (_) {}
+      const m = (w && w.map) || null;
+      return {
+        open: !!(S.mapOpen && S.map && !S.map.destroyed), of: S.mapBakedFor,
+        tiles: S.mapBaked ? S.mapBaked.cells : 0,
+        // what the plan actually marks, and how big those marks are in DESIGN px (a critic can check by eye)
+        marks: { you: YOU_PX, folk: (m && m.npcs ? m.npcs.length : 0), treasure: (m && m.chests ? m.chests.length : 0), ways: (m && m.exits ? m.exits.length : 0) },
+        px: MAP_PX,
+      };
+    })(),
     prompt: S.promptName,
     hidden: S.hidden, forcedOff: S.forced,
     places: Array.from(S.seen.keys()),
@@ -402,9 +483,18 @@ const CSS = `
 .hud-star{color: var(--dq-gold); font-size: calc(22 * var(--u))}
 .hud-quest{font-size: calc(24 * var(--u)); color: var(--dq-ink); white-space: normal}
 .hud-map{padding: calc(14 * var(--u))}
-.hud-mapbox{position:relative; width: calc(232 * var(--u)); height: calc(232 * var(--u)); border-radius: calc(8 * var(--u));
+.hud-mapbox{position:relative; width: calc(248 * var(--u)); height: calc(248 * var(--u)); border-radius: calc(8 * var(--u));
   overflow:hidden; box-shadow: inset 0 0 0 calc(1.6 * var(--u)) var(--dq-hair)}
 .hud-mapcanvas{width:100%; height:100%; display:block}
+.hud-maplegend{margin-top: calc(9 * var(--u)); padding-top: calc(7 * var(--u));
+  border-top: calc(1.4 * var(--u)) solid var(--dq-hair)}
+.hud-keyrow{display:flex; gap: calc(14 * var(--u)); justify-content:space-between; line-height:1.5}
+.hud-keyitem{display:inline-flex; align-items:center; gap: calc(6 * var(--u));
+  font-size: calc(17 * var(--u)); color: var(--dq-title-ink); white-space:nowrap}
+.hud-glyph{font-size: calc(15 * var(--u)); text-shadow: 0 calc(1 * var(--u)) 0 var(--dq-win-bot)}
+.hud-g-you{color: var(--dq-ink)}
+.hud-g-folk{color: var(--dq-label)}
+.hud-g-gold{color: var(--dq-gold)}
 .hud-prompt{opacity:.96; padding: calc(9 * var(--u)) calc(20 * var(--u))}
 .hud-promptbody{display:flex; align-items:center; gap: calc(12 * var(--u))}
 .hud-key{display:inline-flex; align-items:center; justify-content:center; min-width: calc(30 * var(--u));
