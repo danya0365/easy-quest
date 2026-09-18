@@ -9,6 +9,10 @@
  *   {
  *     id: 'hob', name: 'Old Hob',            // `name` is the dialogue name tab
  *     char: 'villager', variant: 'farmer',   // src/art/chars.js (hero halvard willow sera barty villager)
+ *     wear?: 'plum'|'moss'|'slate'|'rust'|'teal'|'mustard'|'berry'|'sky'|'clay'|'ink' | {hue, sat, light},
+ *                                            //   re-dye THIS person's clothes and hair (see WEAR, §2b): chars.js
+ *                                            //   caches one body per look, so this is what makes four innkeepers
+ *                                            //   four different people. Skin is never touched. Costs no triangles.
  *     animal: 'cat' | 'dog' | 'hen' | 'duck', tint?: 'ginger'|'grey'|'tan'|'brown'|'white'|'speckled',
  *     monster: 'cactuddle',                  // ...or a monster from src/art/monsters.js (the potted Cactuddle)
  *     x, z, y?, facing?: degrees (0 = +z / south, 90 = east, 180 = north), voice?: dialogue.js voice, scale?,
@@ -24,7 +28,11 @@
  *     prop?: 'broom' | 'rod',                // a working prop in their hands
  *     water?: y, cast?: units,               // a fisher's water level and how far out the float lands
  *     pot?: true, y?: offset,                // stood in a pot (or on a wall): y lifts them off the ground
+ *     fixed?: true,                          // do NOT settle me onto clear ground — this spot is the point
+ *                                            //   (a wall perch, a pot on the green); implies no extra collider
  *     it?: true, home?: [x, z],              // who is It in a game of tag · where they go when the day ends
+ *     emotes?: ['question', 'love'],         // the ONLY way to get an idle emote bubble; nobody emotes at random
+ *                                            //   ('happy' shares chars.js's music icon — ask for 'love' instead)
  *   }
  *
  * ── Behaviours (the `idle` field) ────────────────────────────────────────────────────────────────────────────
@@ -35,19 +43,40 @@
  *   chat    faces `with` and takes turns talking; both turn to you when you speak to either
  *   tag     two children (`with`) chase each other round their spot and swap who is It
  *   chase   runs after `with` (a cat) until it bolts again
- *   lean    leans on a well or a fence, dozing off now and then
+ *   lean    leans ON something: `look` names it, and he is walked back in until he touches it, then tipped
+ *           back onto it (Old Hob's back is against the well he says he has leaned on since before the well)
  *   sit     sits (on a bench, a step, a wall)
  *   sell    stands by their stall and waves you over when you pass
  *   perch   sits on a wall and does not come down (a cat)
  *   Animals: a cat grooms, strolls and bolts · a dog trots along with you for a while, then sits and goes home ·
  *   hens peck and scatter · a duck waddles. All of them can be talked to.
  *
+ * ── Noticing you (P08's ch.lookAt, wired) ────────────────────────────────────────────────────────────────────
+ *   Nobody is a statue and nobody stares through you. Inside 6.8 units `attention` climbs, the BODY swings part
+ *   of the way round (how far is per-behaviour: a stander turns all the way, a sweeper keeps half an eye on her
+ *   step, a fisher barely moves) and the head and eyes finish the turn — chars.js clamps the neck at about 63°,
+ *   so a body that never moved would leave somebody squinting sideways at you forever. Inside 7.5 units the eyes
+ *   track you. Further off they look at their own work (the float, the step, the ground), at the person they are
+ *   chatting to, at the cat they are chasing, or — every few seconds — at somebody else in the square.
+ *   Whoever has the floor in a conversation stops, turns square to the hero and holds it; the one who just
+ *   finished turns to look at them; and the hero turns to the new speaker. Measure it all with __DQ.npcLook().
+ *
  * ── How it plugs in (no shared-file edits) ───────────────────────────────────────────────────────────────────
  *   Field.on('load')   builds everyone for the new map (Chars.build, animals here), gives each map.npcs entry a
  *                      talk() the field's confirm can reach, and a live x/z so the ▼ prompt follows them
  *   Field.on('update') the 60 Hz simulation; Field.on('render') interpolates, animates and does the LOD
  *   Bus dialogue.say / dialogue.typing / dialogue.cue / dialogue.end   drive the talking mouth, emotes and nods
- *   __DQ.state().npcs · __DQ.npcs() · __DQ.talkTo(id) · __DQ.npcGo(id, x, z, hold?) · __DQ.npcModel(id) ·
+ * ── Nobody is a statue (the numbers a critic reads) ──────────────────────────────────────────────────────────
+ *   Every entry in __DQ.npcs() carries `walked` (units travelled since the map loaded), `breath` (how far their
+ *   head rises and falls over a rolling three seconds — about 0.02 for an adult), `blinks` and `sway` (the slow
+ *   weight shift from hip to hip, in degrees). A stander, a seller, a leaner and a chatter all spend part of their
+ *   radius: they pick a point, walk it, pause and turn back. Nothing reads 0.00 at thirty seconds except somebody
+ *   who is `fixed` — a cat on a wall, a cactus in a pot.
+ *
+ *   __DQ.state().npcs · __DQ.npcs() · __DQ.talkTo(id) · __DQ.npcFace(id) · __DQ.npcGo(id, x, z, hold?) ·
+ *   __DQ.talkShot() (the conversation framing: where the speaker landed on screen, and how far the lens swung) ·
+ *   __DQ.npcModel(id) · __DQ.npcLook() (who everybody is looking at, and how much of their attention you have) ·
+ *   __DQ.npcSpot(x, z) (may somebody stand here? ground, clear, doorway) ·
  *   __DQ.npcsShow(false) (hide everyone: before-and-after shots, and to measure what they cost)
  *
  * Draw-call budget: a person is 2-3 meshes (+1 shadow pass near the camera), an animal 2. Outlines drop past 18
@@ -77,6 +106,18 @@ const MONSTER_CLIPS = new Set(['idle', 'attack', 'cast', 'hurt', 'defeat', 'join
 
 // walking speeds (units / second)
 const SPEED = { stroll: 1.15, work: 0.42, kid: 2.3, cat: 1.2, catRun: 3.6, dog: 2.6, hen: 0.75, duck: 0.6 };
+
+// ── noticing you ─────────────────────────────────────────────────────────────────────────────────────────────
+// DQV's villagers are not statues staring past you: as you come near, the body swings PART of the way round and
+// the head and eyes finish the turn (chars.js lookAt clamps the neck at about 63°, so a body that never moves
+// leaves somebody looking sideways at you forever — that was P08's "gaze is built but never wired").
+const NOTICE = 6.8;          // how far away somebody looks up from what they are doing
+const LOOK_AT = 7.5;         // how far away the head/eyes still track you
+/** How far each behaviour is willing to turn its BODY towards you (1 = all the way). A sweeper keeps her step. */
+const BODY_TURN = {
+  stand: 1, lean: 0.85, sit: 0.8, sell: 1, wander: 0.55, sweep: 0.5, fish: 0.3, chat: 0.7, perch: 0.45,
+  chase: 0.25, tag: 0.25, cat: 0.35, dog: 1, hen: 0.3, duck: 0.3,
+};
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // 1. animals — one skinned toon mesh + its outline hull, rigid-bound to a few bones (2 draw calls each)
@@ -383,6 +424,136 @@ function propMesh(kind) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// 2b. WHAT THEY ARE WEARING — nine bodies, twenty-one people
+//
+// src/art/chars.js (P07) builds eight villager looks and caches the geometry per look, so four innkeepers are one
+// bald mustachioed man standing in four places. A people layer cannot add a body — but it CAN change the dye in
+// the cloth: `wear: 'plum'` (or `{hue, sat, light}`) on an entry repaints that instance's clothes and hair.
+//
+// The geometry is NOT copied. A new BufferGeometry re-uses every one of the cached attribute buffers — position,
+// normal, uv, skinIndex, skinWeight and the index — and swaps in its own `color` array, so a recoloured villager
+// costs one small vertex-colour buffer and not one triangle more. Skin is protected by hue and lightness (warm
+// hues above mid lightness are left exactly as they were), so nobody ever ends up with a green face; the shirt,
+// the apron, the waistcoat, the boots and the hair are what move.
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+/** Named dyes a people layer can hand an entry. hue is degrees round the wheel; sat/light are multipliers. */
+export const WEAR = {
+  plum: { hue: -74, sat: 1.1, light: 0.94 },
+  moss: { hue: 96, sat: 0.92, light: 1.0 },
+  slate: { hue: 172, sat: 0.55, light: 0.96 },
+  rust: { hue: -28, sat: 1.22, light: 1.02 },
+  teal: { hue: 140, sat: 1.0, light: 1.04 },
+  mustard: { hue: 44, sat: 1.15, light: 1.1 },
+  berry: { hue: -110, sat: 1.05, light: 0.9 },
+  sky: { hue: 190, sat: 0.9, light: 1.12 },
+  clay: { hue: -14, sat: 0.8, light: 0.86 },
+  ink: { hue: 205, sat: 0.7, light: 0.78 },
+};
+const wearOf = (w) => (typeof w === 'string' ? WEAR[w] || null : (w && (Number.isFinite(+w.hue) || Number.isFinite(+w.sat) || Number.isFinite(+w.light)) ? w : null));
+
+// Vertex colours are stored in the LINEAR working space, and every judgement below ("is this skin?", "how far
+// round the wheel?") only makes sense in sRGB, so the transfer function is done here by hand rather than trusted
+// to a colour-space argument that changes between three revisions.
+const toS = (c) => (c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
+const toL = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+/** sRGB -> {h, s, v} (HSV, not HSL: a pale warm colour reads as low saturation here, which is what skin IS). */
+function rgb2hsv(r, g, b) {
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), c = mx - mn;
+  let h = 0;
+  if (c > 1e-6) {
+    if (mx === r) h = ((g - b) / c) % 6;
+    else if (mx === g) h = (b - r) / c + 2;
+    else h = (r - g) / c + 4;
+    h /= 6;
+    if (h < 0) h += 1;
+  }
+  return { h, s: mx <= 1e-6 ? 0 : c / mx, v: mx };
+}
+function hsv2rgb(h, s, v) {
+  const i = Math.floor(h * 6), f = h * 6 - i;
+  const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  switch (i % 6) {
+    case 0: return [v, t, p];
+    case 1: return [q, v, p];
+    case 2: return [p, v, t];
+    case 3: return [p, q, v];
+    case 4: return [t, p, v];
+    default: return [v, p, q];
+  }
+}
+/**
+ * Is this the skin of a face, a hand, a knee — or the ink of an outline, or the white of an eye?
+ * Skin is the warm hues (5-50 deg) at or above mid brightness and never strongly saturated; chars.js mixes every
+ * one of its tones (tan, ruddy, pale, olive, freckled, sunburnt) out of PAL.char.skin, and all of them land here.
+ * An orange shirt or a red apron is the same hue but far more saturated, so it still gets re-dyed.
+ */
+function keepAsIs(h, s, v) {
+  if (v < 0.2) return true;                       // the ink outline, dark hair, eyes, boots in shadow
+  if (s < 0.085) return true;                     // whites: eye whites, plaster, linen
+  return (h < 0.14 || h > 0.965) && v >= 0.55 && s <= 0.55;   // ...and the blush, which sits just under red
+}
+/** Build this instance's colour attribute: every distinct colour is mapped once, then splatted over the array. */
+function dyedColors(src, dye) {
+  const n = src.count, out = new Float32Array(n * 3);
+  const seen = new Map();
+  const hue = (+dye.hue || 0) / 360, sat = Number.isFinite(+dye.sat) ? +dye.sat : 1, lit = Number.isFinite(+dye.light) ? +dye.light : 1;
+  for (let i = 0; i < n; i++) {
+    const r = src.getX(i), g = src.getY(i), b = src.getZ(i);
+    const key = ((r * 511) | 0) * 262144 + ((g * 511) | 0) * 512 + ((b * 511) | 0);
+    let m = seen.get(key);
+    if (m === undefined) {
+      const c = rgb2hsv(toS(r), toS(g), toS(b));
+      if (keepAsIs(c.h, c.s, c.v)) m = [r, g, b];
+      else {
+        const h2 = ((c.h + hue) % 1 + 1) % 1;
+        const rgbS = hsv2rgb(h2, clamp(c.s * sat, 0, 1), clamp(c.v * lit, 0.02, 1));
+        m = [toL(rgbS[0]), toL(rgbS[1]), toL(rgbS[2])];
+      }
+      seen.set(key, m);
+    }
+    out[i * 3] = m[0]; out[i * 3 + 1] = m[1]; out[i * 3 + 2] = m[2];
+  }
+  return new THREE.BufferAttribute(out, 3);
+}
+/** Re-dye one built character in place. Returns the per-instance geometries, for this NPC's own dispose(). */
+function recolour(ch, def) {
+  const dye = wearOf(def && def.wear);
+  if (!dye || !ch || !Array.isArray(ch.meshes)) return null;
+  const made = [];
+  try {
+    for (const mesh of ch.meshes) {
+      if (!mesh || !mesh.geometry || mesh.name === 'face') continue;          // eyes and mouths stay as drawn
+      const geo = mesh.geometry, src = geo.attributes && geo.attributes.color;
+      if (!src || src.count > 60000) continue;
+      const g = new THREE.BufferGeometry();
+      g.name = (geo.name || 'villager') + ':' + (typeof def.wear === 'string' ? def.wear : 'dyed');
+      if (geo.index) g.setIndex(geo.index);
+      for (const k of Object.keys(geo.attributes)) if (k !== 'color') g.setAttribute(k, geo.attributes[k]);
+      g.setAttribute('color', dyedColors(src, dye));
+      if (geo.groups && geo.groups.length) g.groups = geo.groups.slice();
+      if (!geo.boundingSphere) geo.computeBoundingSphere();
+      if (geo.boundingSphere) g.boundingSphere = geo.boundingSphere.clone();
+      if (geo.boundingBox) g.boundingBox = geo.boundingBox.clone();
+      g.userData.dyed = true;
+      mesh.geometry = g;
+      made.push(g);
+    }
+  } catch (e) { reportError('npc recolour ' + (def && def.id), e); }
+  return made.length ? made : null;
+}
+/** Give back only what this instance owned: the shared buffers are detached first so the cache keeps them. */
+function undye(list) {
+  if (!list) return;
+  for (const g of list) {
+    try {
+      g.setIndex(null);
+      for (const k of Object.keys(g.attributes)) if (k !== 'color') g.deleteAttribute(k);
+      g.dispose();
+    } catch (_) { /* a geometry that is already gone is not a problem */ }
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // 3. the people system
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 let CharsLib = null, charsPromise = null;
@@ -408,9 +579,10 @@ function createSystem(ctx) {
   const { Field, reportError: err = reportError } = ctx;
   const S = {
     map: null, scene: null, group: null, blobs: null, player: null, list: [], byId: new Map(), doors: [],
-    time: 0, hours: 9, hourT: 0, talkingWith: null, speakerId: null, cam: null, camZoom: null, camOrbit: null, built: 0, gen: 0,
+    time: 0, hours: 9, hourT: 0, talkingWith: null, speakerId: null, prevSpeaker: null, cam: null, camZoom: null, camOrbit: null, built: 0, gen: 0,
   };
   const AWAY = { away: true };
+  const LOOKV = new THREE.Vector3();        // scratch: where somebody's eyes are pointed this frame
   const talks = new Map();      // "map/id" -> how many times the player has talked to them
   const rnd = (() => { let s = 20260918; return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; })();
   const range = (a, b) => a + (b - a) * rnd();
@@ -427,14 +599,33 @@ function createSystem(ctx) {
   import('../ui/dialogue.js').then((m) => { DlgCond = m.cond || null; }).catch(() => {});
 
   // ── where somebody may stand ──────────────────────────────────────────────────────────────────────────────
-  /** Can somebody stand here at all? (`roam` also keeps them out of doorways, which is only for wandering.) */
-  function noGo(x, z, roam = true) {
+  /**
+   * Can somebody stand here at all? (`roam` also keeps them out of doorways, which is only for a DESTINATION —
+   * walking past a door is fine, standing in it is not.) `probe` is the body radius the spot is tested with: a
+   * destination wants elbow room (0.45), a step along the way only wants the body through (0.28).
+   */
+  function noGo(x, z, roam = true, probe = 0.45) {
     const m = S.map; if (!m) return true;
     if (!m.inBounds(x, z)) return true;
     const g = m.groundAt(x, z);
     if (g === 'water' || g === 'wood') return true;             // never in the Beck, never on the footbridge
     if (roam) for (const d of S.doors) if (Math.hypot(x - d.x, z - d.z) < (d.r || 2.1)) return true;
-    return !m.clear(x, z, 0.45);
+    return !m.clear(x, z, probe);
+  }
+  /**
+   * Run a test with somebody's OWN collider parked off the map.
+   *
+   * THIS IS WHY NOBODY WALKED. Every person carries a circle collider at their feet, so `map.clear()` at the spot
+   * they are standing on reported "blocked — by themselves". `pickSpot` then failed its path test on its very
+   * first sample (the sample nearest the walker), returned null every time, and twelve villagers with authored
+   * wander radii stood perfectly still for the whole of a thirty-second measurement. `stepTo` already did this
+   * dance; the spot and path tests did not.
+   */
+  function withoutSelf(n, fn) {
+    const c = n && n.collider;
+    const saved = c ? c.bound : null;
+    if (c) c.bound = [1e9, 1e9, 1e9, 1e9];
+    try { return fn(); } finally { if (c) c.bound = saved; }
   }
   /** The nearest spot to (x, z) somebody can actually stand on (an authored spot may be a doorstep on purpose). */
   function settle(x, z, spread = 3) {
@@ -448,22 +639,104 @@ function createSystem(ctx) {
     }
     return { x, z, moved: -1 };
   }
+  /** Is the walk from here to there clear? Doorways do not block a PATH (you may walk past a door, not stand in it). */
   function pathClear(x0, z0, x1, z1) {
     const d = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(d / 0.5));
-    for (let i = 1; i <= n; i++) { const t = i / n; if (noGo(lerp(x0, x1, t), lerp(z0, z1, t))) return false; }
+    for (let i = 1; i <= n; i++) { const t = i / n; if (noGo(lerp(x0, x1, t), lerp(z0, z1, t), false, 0.28)) return false; }
     return true;
   }
+  /**
+   * Somewhere within `radius` of their spot that this person can actually walk to. Their own collider is parked
+   * for the whole test (see withoutSelf), the path is probed at body width rather than elbow width, and if the
+   * scatter finds nothing we fall back to a ring of eight short steps — a person in a crowded square still shifts
+   * their feet. Returning null means "there is genuinely nowhere to go", not "I tested myself and lost".
+   */
   function pickSpot(n, radius = n.radius) {
-    for (let i = 0; i < 14; i++) {
-      const a = rnd() * TAU, r = Math.sqrt(rnd()) * radius;
-      const x = n.anchor.x + Math.cos(a) * r, z = n.anchor.z + Math.sin(a) * r;
-      if (noGo(x, z) || !pathClear(n.x, n.z, x, z)) continue;
-      let clash = false;
-      for (const o of S.list) if (o !== n && !o.hidden && Math.hypot(o.x - x, o.z - z) < 0.9) clash = true;
-      if (clash) continue;
-      return { x, z };
+    if (!(radius > 0.12)) return null;
+    return withoutSelf(n, () => {
+      const free = (x, z) => {
+        if (noGo(x, z)) return false;
+        if (!pathClear(n.x, n.z, x, z)) return false;
+        for (const o of S.list) if (o !== n && !o.hidden && Math.hypot(o.x - x, o.z - z) < 0.78) return false;
+        return true;
+      };
+      for (let i = 0; i < 14; i++) {
+        const a = rnd() * TAU, r = Math.max(0.35, Math.sqrt(rnd()) * radius);
+        const x = n.anchor.x + Math.cos(a) * r, z = n.anchor.z + Math.sin(a) * r;
+        if (free(x, z)) return { x, z };
+      }
+      const r = Math.min(radius, 0.75), a0 = rnd() * TAU;                  // a short step, in any of eight directions
+      for (let i = 0; i < 8; i++) {
+        const a = a0 + (i / 8) * TAU;
+        const x = n.x + Math.cos(a) * r, z = n.z + Math.sin(a) * r;
+        if (Math.hypot(x - n.anchor.x, z - n.anchor.z) > radius * 1.15) continue;
+        if (free(x, z)) return { x, z };
+      }
+      return null;
+    });
+  }
+  /**
+   * Nobody stands perfectly still for thirty seconds. A stander, a seller, a leaner and a chatter all shift their
+   * weight: every few seconds they take a short step inside their radius, pause, and turn back to what they were
+   * looking at. It is small (0.4-1.1 units) and it is what stops a village reading as a shelf of statues.
+   */
+  function shuffle(n, dt, maxR) {
+    if (n.def.fixed || !(maxR > 0.12)) return false;          // a cat on a wall, a cactus in a pot: that IS the spot
+    if (n.mode === 'walk' && n.target) {
+      const speed = SPEED.work * 1.5;
+      if (stepTo(n, n.target.x, n.target.z, speed, dt)) { n.mode = 'idle'; n.shuffleT = range(4.5, 10); n.target = null; }
+      return true;
     }
-    return null;
+    n.shuffleT = (n.shuffleT == null ? range(1.5, 5) : n.shuffleT) - dt;
+    if (n.shuffleT > 0) return false;
+    n.shuffleT = range(4.5, 10);
+    const spot = pickSpot(n, Math.min(maxR, Math.max(0.4, n.radius)));
+    if (spot) { n.target = spot; n.mode = 'walk'; return true; }
+    return false;
+  }
+
+  /**
+   * A leaner leans on something. `settle` pushes everybody off the colliders, which left Old Hob standing a clear
+   * metre from the well he says he has leaned on since before the well. So a leaner feels around for the nearest
+   * solid thing, walks back in until the collision says stop, and remembers the direction as `leanDir` — the
+   * render pass then tips him back onto it, shoulder turned to the lane. Nobody says "I have leaned on this all
+   * my life" a metre clear of it. __DQ.npcs()[i].leanGap is how far off it he ended up (a hand's width or less).
+   */
+  function leanOnto(n) {
+    if (n.behaviour !== 'lean' || !S.map) return;
+    // Which way is the thing? `look` is a hint, not the answer — a people layer may name a well the base map
+    // never published, and `settle` has already pushed him a metre clear of whatever is really beside him. So
+    // feel outwards in twenty-four directions for the nearest solid thing, preferring the way `look` points.
+    let pref = null;
+    if (Array.isArray(n.def.look) && Number.isFinite(+n.def.look[0])) {
+      pref = Math.atan2(+n.def.look[0] - n.x, +n.def.look[1] - n.z);
+    } else if (Number.isFinite(+n.def.facing)) pref = +n.def.facing * DEG;
+    let best = null;
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * TAU;
+      let hit = -1;
+      for (let d = 0.4; d <= 2.6; d += 0.15) {
+        if (noGo(n.x + Math.sin(a) * d, n.z + Math.cos(a) * d, false, 0.16)) { hit = d; break; }
+      }
+      if (hit < 0) continue;
+      const bias = pref == null ? 0 : (1 - Math.cos(wrapPi(a - pref))) * 0.55;   // the hinted way wins a tie
+      const score = hit + bias;
+      if (!best || score < best.score) best = { a, hit, score };
+    }
+    if (!best) return;                                  // out in the open with nothing to lean on: he just stands
+    const a = best.a;
+    let bx = n.x, bz = n.z;
+    for (let d = 0.1; d <= best.hit; d += 0.1) {
+      const x = n.x + Math.sin(a) * d, z = n.z + Math.cos(a) * d;
+      if (noGo(x, z, false, 0.33)) break;
+      bx = x; bz = z;
+    }
+    n.x = n.px = bx; n.z = n.pz = bz;
+    n.anchor = { x: bx, z: bz };
+    n.leanTo = { x: n.x + Math.sin(a) * best.hit, z: n.z + Math.cos(a) * best.hit };
+    n.leanDir = a;                                      // the way he walked IN: his back goes to it, not his face
+    n.leanGap = r3(Math.max(0, Math.hypot(n.leanTo.x - bx, n.leanTo.z - bz)));
+    n.leanRoll = (rnd() * 2 - 1) * 0.22;
   }
 
   // ── build ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -490,19 +763,25 @@ function createSystem(ctx) {
       }
       if (!CharsLib) return null;
       const ch = CharsLib.build(def.char || 'villager', { variant: def.variant, age: def.age, act: def.act, facing: (def.facing || 0) * DEG });
+      const dyed = recolour(ch, def);
       return {
+        wear: (typeof def.wear === 'string' ? def.wear : (def.wear ? 'custom' : null)),
         kind: 'person', root: ch.root, height: ch.height, radius: 0.3, meshes: ch.meshes || [], character: ch,
+        bones: ch.bones || null,
         setFacing: (rad, instant) => ch.setFacing(rad, instant),
         get facing() { return ch.facing; },
         setMove: (sp, o) => ch.setMove(sp, o), play: (clip, o) => ch.play(clip, o), stop: (f) => ch.stop(f),
         emote: (e2, d) => ch.emote(e2, d), lookAt: (v) => ch.lookAt(v), update: (dt) => ch.update(dt),
-        state: () => ch.state(), attach: (o, b) => ch.attach(o, b), dispose: () => ch.dispose(),
+        state: () => ch.state(), attach: (o, b) => ch.attach(o, b), dispose: () => { undye(dyed); ch.dispose(); },
       };
     } catch (e) { err('npc model ' + (def.id || def.char), e); return null; }
   }
 
   function spawnOne(def, index) {
-    const at = settle(+def.x || 0, +def.z || 0);
+    // `fixed: true` means "this is exactly where I belong": a cat on a wall, a Cactuddle in its pot on the green,
+    // somebody sitting in a window. The map already has a collider under them, so settling them onto clear ground
+    // would be the bug, not the fix. Everybody else gets nudged to somewhere they can actually stand.
+    const at = def.fixed ? { x: +def.x || 0, z: +def.z || 0, moved: 0 } : settle(+def.x || 0, +def.z || 0);
     const n = {
       def, id: String(def.id || def.char || 'npc' + index), index,
       kind: def.animal ? 'animal' : def.monster ? 'monster' : 'person',
@@ -515,16 +794,20 @@ function createSystem(ctx) {
       collider: null, look: def.look ? { x: +def.look[0], z: +def.look[1] } : null,
       waveT: 0, bite: range(6, 14), act: null, yOff: Number.isFinite(+def.y) ? +def.y : 0,
       flee: 0, biting: 0, linger: 0, glance: 0, shove: 0, follow: 0, followCd: 0, sweepSide: 1,
+      scale: Number.isFinite(+def.scale) && +def.scale > 0 ? +def.scale : 1,
       it: !!def.it, chatTurn: false, animFrame: false, goingHome: false, slot: null, run: false,
+      attention: 0, baseYaw: 0, speaking: 0, lookNpc: null, lookT: range(2, 7), looking: null,
     };
     n.yawPrev = n.yaw;
+    n.walked = 0; n.breath = 0; n.shuffleT = range(1.5, 5);
+    leanOnto(n);                                     // ...and a leaner is put right up against the thing he leans on
     n.model = modelFor(def);
     if (n.model) attachModel(n);
     // the map entry the field talks to: keep it in step with where this person actually is
     def.ix = n.x; def.iz = n.z;
     def.reach = Number.isFinite(+def.reach) ? +def.reach : (n.kind === 'person' ? 2.0 : 1.7);
     def.talk = () => { beginTalk(n); return null; };
-    if (def.solid !== false && n.kind !== 'animal' && S.map) {
+    if (def.solid !== false && !def.fixed && n.kind !== 'animal' && S.map) {
       try { n.collider = S.map.addCollider({ type: 'circle', x: n.x, z: n.z, r: n.kind === 'monster' ? 0.32 : 0.3, tag: 'npc' }); } catch (e) { err('npc collider', e); }
     }
     return n;
@@ -614,7 +897,7 @@ function createSystem(ctx) {
     if (S.blobs) { try { S.blobs.mesh.removeFromParent(); } catch (_) {} }
     if (S.group) { try { S.group.removeFromParent(); } catch (_) {} }
     S.list = []; S.byId = new Map(); S.group = null; S.blobs = null; S.map = null; S.scene = null;
-    S.talkingWith = null; S.speakerId = null;
+    S.talkingWith = null; S.speakerId = null; S.prevSpeaker = null;
     S.doors = [];
   }
 
@@ -666,25 +949,86 @@ function createSystem(ctx) {
     } catch (e) { err('npc endTalk', e); }
   }
 
-  /** A small DQ camera beat: a gentle push in, and a nudge round if the person is hidden behind the hero. */
+  /**
+   * THE TWO-SHOT. A conversation is a camera beat, and the one thing a child must never have to guess is WHO IS
+   * TALKING. So when a conversation opens the lens swings round until the speaker stands beside the hero, a
+   * little beyond him, both of them whole in the frame — the over-the-shoulder shot DQV uses for every villager.
+   *
+   * The geometry: with the lens sitting in direction `camDir` from the hero, somebody in direction `to` lands at
+   * screen-x proportional to sin(to - camDir) and at depth proportional to cos(to - camDir). phi = +/-180 deg is
+   * "directly behind the hero" (hidden by him); phi = 0 is "between the hero and the lens" (their back fills the
+   * frame). TALK_OFF = 128 deg is the sweet spot: clearly to one side, still on the far side of the hero, so we
+   * look past his shoulder at their face. Whichever way round is the SHORTER swing wins, so the camera never
+   * takes the long way round the green. Measure it with __DQ.talkShot().
+   */
+  const TALK_OFF = 128 * DEG;
+  function frameTalk(n, first) {
+    const rig = S.cam, p = S.player ? S.player.p : null;
+    if (!rig || !p || !n) return null;
+    const toN = Math.atan2(n.x - p.x, n.z - p.z);
+    if (!Number.isFinite(toN)) return null;
+    const camDir = rig.orbit() * DEG;
+    const phi = wrapPi(toN - camDir);
+    const want = (phi >= 0 ? 1 : -1) * TALK_OFF;
+    const next = (((toN - want) / DEG) % 360 + 360) % 360;
+    const swing = Math.abs(wrapPi((next - rig.orbit()) * DEG)) / DEG;
+    if (first || swing > 6) rig.orbit(next);                 // a dead band, so a long speech does not judder
+    S.camFramed = { id: n.id, orbit: r3(next), swing: r3(swing), phi: r3(phi / DEG) };
+    return S.camFramed;
+  }
+  /** The camera beat itself: remember where the lens was, push in, swing to the two-shot, clear the foreground. */
   function easeCamera(n) {
     try {
       const rig = S.cam, p = S.player ? S.player.p : null;
-      if (!rig || !p || S.camZoom != null) return;
-      S.camZoom = rig.zoom();
-      rig.zoom(Math.max(4.2, S.camZoom * 0.88));
-      const toN = Math.atan2(n.x - p.x, n.z - p.z);
-      const camDir = rig.orbit() * DEG;                      // the direction the lens sits in, from the hero
-      const off = wrapPi(toN - (camDir + Math.PI));          // 0 = straight away from the lens (hidden behind the hero)
-      if (Math.abs(off) < 26 * DEG) { S.camOrbit = rig.orbit(); rig.orbit((S.camOrbit + (off >= 0 ? -15 : 15) + 360) % 360); }
+      if (!rig || !p) return;
+      if (S.camZoom == null) {
+        // Somebody short — a boy sitting on the bank, a cat, a hen, a Cactuddle in its pot — barely gets the push
+        // in: at close range a low head lands under the message box and the child never sees who is talking.
+        const headY = (n.y || 0) + (n.yOff || 0) + ((n.model && n.model.height) || 1.5) * (n.scale || 1);
+        const low = headY < (p.y || 0) + 1.15;
+        S.camZoom = rig.zoom();
+        S.camOrbit = rig.orbit();
+        rig.zoom(low ? Math.min(12, S.camZoom * 0.97) : Math.max(5.0, S.camZoom * 0.94));
+      }
+      frameTalk(n, true);
+      clearTheShot(n);
     } catch (e) { err('npc camera ease', e); }
+  }
+  /**
+   * ...and nobody stands in front of the person talking. A villager between the lens and the speaker takes a step
+   * out of the shot — which is exactly what a person does when two people start talking beside them.
+   */
+  function clearTheShot(n) {
+    try {
+      const rig = S.cam, cam = rig && rig.camera;
+      if (!cam || !n) return;
+      const ax = cam.position.x, az = cam.position.z;
+      const dx = n.x - ax, dz = n.z - az, len = Math.hypot(dx, dz);
+      if (len < 0.5) return;
+      const ux = dx / len, uz = dz / len;
+      for (const o of S.list) {
+        if (o === n || o.hidden || o.talking || o.kind !== 'person') continue;
+        const t = (o.x - ax) * ux + (o.z - az) * uz;
+        if (t < 0.6 || t > len - 0.45) continue;              // behind the lens, or behind the speaker: harmless
+        const off = (o.x - ax) * -uz + (o.z - az) * ux;
+        if (Math.abs(off) > 0.62) continue;                   // not actually in the way
+        const side = Math.atan2(-uz, ux);
+        for (const s of (off >= 0 ? [1, -1] : [-1, 1])) {
+          const tx = o.x + Math.cos(side) * 1.05 * s, tz = o.z + Math.sin(side) * 1.05 * s;
+          if (withoutSelf(o, () => !noGo(tx, tz) && pathClear(o.x, o.z, tx, tz))) {
+            o.target = { x: tx, z: tz }; o.mode = 'walk'; o.timer = 0.2; o.shuffleT = 6; o.stepped = true;
+            break;
+          }
+        }
+      }
+    } catch (e) { err('npc clear the shot', e); }
   }
   function restoreCamera() {
     try {
       if (S.cam && S.camZoom != null) S.cam.zoom(S.camZoom);
       if (S.cam && S.camOrbit != null) S.cam.orbit(S.camOrbit);
     } catch (e) { err('npc camera restore', e); }
-    S.camZoom = null; S.camOrbit = null;
+    S.camZoom = null; S.camOrbit = null; S.camFramed = null;
   }
 
   // ── schedules ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -759,29 +1103,97 @@ function createSystem(ctx) {
     return false;
   }
 
+  // ── noticing you, and looking at things ───────────────────────────────────────────────────────────────────
+  /**
+   * The hero comes near: the body swings part of the way round (how far is up to the behaviour) and stays there
+   * while he is close. Anybody actually walking somewhere keeps facing their way — they glance with the head only.
+   */
+  function notice(n, p, dt) {
+    const d = Math.hypot(p.x - n.x, p.z - n.z);
+    const want = d < NOTICE ? clamp((NOTICE - d) / (NOTICE - 1.4), 0, 1) : 0;
+    n.attention += (want - n.attention) * Math.min(1, dt * (want > n.attention ? 3.4 : 1.4));
+    if (n.attention < 0.02) return;
+    const turn = (BODY_TURN[n.behaviour] ?? 0.5) * n.attention;
+    if (turn < 0.03 || n.speed > 0.35 || d < 0.25) return;
+    const to = Math.atan2(p.x - n.x, p.z - n.z);
+    n.yaw = n.baseYaw + wrapPi(to - n.baseYaw) * clamp(turn, 0, 1);
+  }
+  /**
+   * What somebody looks at when the hero is not there: the work in their hands, the person they are talking to,
+   * the cat they are chasing — and every few seconds, somebody else in the square. Nobody stares into space.
+   */
+  function idleLook(n, dt) {
+    n.lookT -= dt;
+    const partner = n.def.with ? S.byId.get(n.def.with) : null;
+    if (partner && !partner.hidden && (n.behaviour === 'chat' || n.behaviour === 'chase' || n.behaviour === 'tag')) {
+      n.looking = partner.id;
+      return LOOKV.set(partner.x, partner.y + (partner.kind === 'person' ? 1.25 : 0.4), partner.z);
+    }
+    if (n.behaviour === 'fish' && n.extra && n.extra.float) { n.looking = 'the float'; return LOOKV.copy(n.extra.float.position); }
+    if (n.behaviour === 'sweep' || n.behaviour === 'hen' || n.behaviour === 'duck') {
+      n.looking = 'the ground';
+      return LOOKV.set(n.x + Math.sin(n.yaw) * 1.1, n.y + 0.1, n.z + Math.cos(n.yaw) * 1.1);
+    }
+    if (n.lookT <= 0) {                                   // pick somebody new to be nosy about
+      n.lookT = range(3.5, 9);
+      let best = null, bd = 9;
+      for (const o of S.list) {
+        if (o === n || o.hidden) continue;
+        const d = Math.hypot(o.x - n.x, o.z - n.z);
+        if (d < bd && d > 0.6 && rnd() < 0.8) { bd = d; best = o; }
+      }
+      n.lookNpc = best && bd < 9 ? best.id : null;
+      if (rnd() < 0.3) n.lookNpc = null;                  // ...or back to their own business
+    }
+    const o = n.lookNpc ? S.byId.get(n.lookNpc) : null;
+    if (o && !o.hidden && n.lookT > 1.2) {
+      n.looking = o.id;
+      return LOOKV.set(o.x, o.y + (o.kind === 'person' ? 1.25 : 0.35), o.z);
+    }
+    if (n.look) { n.looking = 'away'; return LOOKV.set(n.look.x, n.y + 1.3, n.look.z); }
+    n.looking = null;
+    return null;
+  }
+
   // ── behaviours ────────────────────────────────────────────────────────────────────────────────────────────
   const BEHAVE = {
-    stand(n, dt) {
-      n.wantSpeed = 0;
-      if (n.look) n.yaw = Math.atan2(n.look.x - n.x, n.look.z - n.z);
-      else if (Number.isFinite(+n.def.facing)) n.yaw = +n.def.facing * DEG;
+    /** Standing about: a glance, an occasional emote, and — every few seconds — a real shift of the feet. */
+    stand(n, dt, roam = 0.95) {
+      if (roam > 0 && shuffle(n, dt, roam)) { /* mid-step: keep the walking yaw stepTo chose */ }
+      else {
+        n.wantSpeed = 0;
+        if (n.look) n.yaw = Math.atan2(n.look.x - n.x, n.look.z - n.z);
+        else if (Number.isFinite(+n.def.facing)) n.yaw = +n.def.facing * DEG;
+      }
       n.timer -= dt;
       if (n.timer <= 0) {
         n.timer = range(3.5, 9);
-        if (n.model && rnd() < 0.25) n.model.emote(rnd() < 0.5 ? 'music' : 'happy', 1.6);
+        // An emote bubble is a LOUD thing on screen — a floating ♪ over a stranger reads as a broken UI marker,
+        // not as charm. So nobody emotes at random: only somebody the people layer gave `emotes` to, and rarely.
+        const list = Array.isArray(n.def.emotes) ? n.def.emotes : null;
+        if (list && list.length && n.model && rnd() < 0.2) n.model.emote(list[(rnd() * list.length) | 0], 1.6);
       }
     },
+    /**
+     * Leaning on the well, the fence, the gatepost. He stands AGAINST the thing (leanTo, found once at spawn),
+     * tipped back onto it, and only pushes himself off it now and then to stretch and settle back. Old Hob says
+     * he has leaned on this well since before the well; he had better be touching it.
+     */
     lean(n, dt) {
-      BEHAVE.stand(n, dt);
+      if (n.mode !== 'walk' && n.leanDir != null) {
+        n.yaw = n.leanDir + Math.PI + (n.leanRoll || 0) * 0.9;   // back to the well, shoulder turned to the lane
+      }
+      BEHAVE.stand(n, dt, Math.min(0.55, n.radius));
       if (n.timer > 5 && n.model && rnd() < 0.004) n.model.emote('sleepy', 2.6);
     },
     sit(n, dt) {
       n.wantSpeed = 0;
       if (n.model && n.act !== 'sit' && !n.talking) { n.model.play('sit'); n.act = 'sit'; }
-      BEHAVE.stand(n, dt);
+      BEHAVE.stand(n, dt, 0);
     },
+    /** Working a stall: a step along the trestle to straighten something, and a wave when you come past. */
     sell(n, dt) {
-      BEHAVE.stand(n, dt);
+      BEHAVE.stand(n, dt, Math.min(1.1, Math.max(0.45, n.radius)));
       const p = S.player ? S.player.p : null;
       if (!p) return;
       const d = Math.hypot(p.x - n.x, p.z - n.z);
@@ -790,7 +1202,8 @@ function createSystem(ctx) {
     },
     wander(n, dt) {
       n.timer -= dt;
-      if (n.mode === 'idle') {
+      if (n.mode === 'idle' || !n.target) {
+        n.mode = 'idle';
         n.wantSpeed = 0;
         if (n.look && n.timer > 0.6) n.yaw = Math.atan2(n.look.x - n.x, n.look.z - n.z);
         if (n.timer <= 0) {
@@ -822,6 +1235,7 @@ function createSystem(ctx) {
       }
     },
     fish(n, dt) {
+      if (shuffle(n, dt, Math.min(0.5, Math.max(0.4, n.radius)))) return;   // forty years at this pond, still fidgets
       n.wantSpeed = 0;
       if (n.look) n.yaw = Math.atan2(n.look.x - n.x, n.look.z - n.z);
       else if (Number.isFinite(+n.def.facing)) n.yaw = +n.def.facing * DEG;
@@ -833,7 +1247,7 @@ function createSystem(ctx) {
           n.biting -= dt;
           e.dip = 0.12;
           if (n.biting <= 0) {
-            if (n.model) n.model.emote(rnd() < 0.35 ? 'happy' : 'sad', 2);
+            if (n.model) n.model.emote(rnd() < 0.35 ? 'love' : 'sad', 2);   // a real fish, or the boot again
             e.dip = 0;
           }
         }
@@ -846,6 +1260,8 @@ function createSystem(ctx) {
     chat(n, dt) {
       const o = S.byId.get(n.def.with);
       if (!o || o.hidden) { BEHAVE.stand(n, dt); return; }
+      // two people talking still move: a step, a shift onto the other foot, and back to facing each other
+      if (shuffle(n, dt, Math.min(0.5, Math.max(0.35, n.radius)))) { n.timer -= dt; return; }
       n.wantSpeed = 0;
       n.yaw = Math.atan2(o.x - n.x, o.z - n.z);
       n.timer -= dt;
@@ -854,33 +1270,38 @@ function createSystem(ctx) {
         const mine = (n.chatTurn = !n.chatTurn);
         if (n.model && !n.talking) {
           if (mine) n.model.play('talk');
-          else { n.model.stop(0.3); if (rnd() < 0.5) n.model.play('nod'); else if (rnd() < 0.3) n.model.emote('happy', 1.6); }
+          else { n.model.stop(0.3); if (rnd() < 0.5) n.model.play('nod'); else if (rnd() < 0.3) n.model.emote('question', 1.6); }
         }
       }
     },
     tag(n, dt) {
       const o = S.byId.get(n.def.with);
       if (!o) { BEHAVE.wander(n, dt); return; }
+      // somebody has to be It, or the whole game is two children standing in a field
+      if (!n.it && !o.it && n.id < o.id) n.it = true;
       const d = Math.hypot(o.x - n.x, o.z - n.z);
       if (n.it) {
         if (d < 0.8) {
-          n.it = false; o.it = true; n.timer = 1.1; o.timer = 1.1;
+          n.it = false; o.it = true; n.timer = 1.1; o.timer = 1.4;
           if (n.model) n.model.play('celebrate');
           if (o.model) o.model.emote('surprised', 1.2);
+          o.target = null;                                   // and OFF she goes, somewhere new
           return;
         }
-        if (n.timer > 0) { n.timer -= dt; n.wantSpeed = 0; return; }
+        if (n.timer > 0) { n.timer -= dt; n.wantSpeed = 0; n.yaw = Math.atan2(o.x - n.x, o.z - n.z); return; }
         stepTo(n, o.x, o.z, SPEED.kid, dt);
         n.run = true;
       } else {
         if (n.timer > 0) { n.timer -= dt; n.wantSpeed = 0; n.yaw = Math.atan2(o.x - n.x, o.z - n.z); return; }
+        // run for the far side of the green: a fresh spot whenever we arrive, or whenever It gets close
         if (!n.target || Math.hypot(n.target.x - n.x, n.target.z - n.z) < 0.5 || d < 1.6) {
           const away = Math.atan2(n.x - o.x, n.z - o.z) + range(-0.8, 0.8);
-          const tx = n.anchor.x + Math.sin(away) * n.radius * range(0.5, 1), tz = n.anchor.z + Math.cos(away) * n.radius * range(0.5, 1);
-          const at = noGo(tx, tz) ? pickSpot(n) : { x: tx, z: tz };
-          n.target = at || n.anchor;
+          const r = n.radius * range(0.65, 1);
+          const tx = n.anchor.x + Math.sin(away) * r, tz = n.anchor.z + Math.cos(away) * r;
+          const ok = withoutSelf(n, () => !noGo(tx, tz) && pathClear(n.x, n.z, tx, tz));
+          n.target = ok ? { x: tx, z: tz } : (pickSpot(n) || { x: n.anchor.x, z: n.anchor.z });
         }
-        stepTo(n, n.target.x, n.target.z, SPEED.kid * 0.92, dt);
+        if (stepTo(n, n.target.x, n.target.z, SPEED.kid * 0.92, dt)) n.target = null;
         n.run = true;
       }
     },
@@ -892,7 +1313,7 @@ function createSystem(ctx) {
         n.wantSpeed = 0;
         n.yaw = Math.atan2(o.x - n.x, o.z - n.z);
         o.flee = 3.2;
-        if (n.timer <= 0) { n.timer = 2.4; if (n.model) { n.model.emote('happy', 1.4); n.model.play('celebrate'); } }
+        if (n.timer <= 0) { n.timer = 2.4; if (n.model) { n.model.emote('love', 1.4); n.model.play('celebrate'); } }
         n.timer -= dt;
         return;
       }
@@ -1013,16 +1434,21 @@ function createSystem(ctx) {
           }
           continue;
         }
-        if (n.talking) {
+        if (n.speaking > 0 && S.speakerId !== n.id) n.speaking -= dt;   // the one with the floor keeps it
+        if (n.talking || n.speaking > 0) {
+          // whoever has the floor stops what they are doing and faces the hero squarely
           n.talkT += dt;
           n.wantSpeed = 0;
-          if (p) n.yaw = Math.atan2(p.x - n.x, p.z - n.z);
+          n.attention = 1;
+          if (p) n.yaw = n.baseYaw = Math.atan2(p.x - n.x, p.z - n.z);
         } else if (n.linger > 0 && p) {
           n.wantSpeed = 0;
-          n.yaw = Math.atan2(p.x - n.x, p.z - n.z);
+          n.yaw = n.baseYaw = Math.atan2(p.x - n.x, p.z - n.z);
         } else {
           const fn = BEHAVE[n.behaviour] || BEHAVE.stand;
           fn(n, dt);
+          n.baseYaw = n.yaw;                                  // what they would be facing if you weren't here
+          if (p) notice(n, p, dt);                            // ...and how far round they turn because you are
         }
         // a person you are pushing against steps out of the way (nobody can trap a six-year-old)
         if (p && n.collider && !n.talking) {
@@ -1039,7 +1465,18 @@ function createSystem(ctx) {
         }
         n.speed += (n.wantSpeed - n.speed) * Math.min(1, dt * 9);
         n.y = S.map.walkY(n.x, n.z);
+        n.walked += Math.hypot(n.x - n.px, n.z - n.pz);       // the number a critic reads: __DQ.npcs()[i].walked
       } catch (e) { err('npc tick ' + n.id, e); }
+    }
+    // the two-shot is held for the whole conversation: the follow camera would otherwise ease back behind the
+    // hero halfway through a speech and put the speaker behind his head again
+    if (S.camZoom != null) {
+      S.camHold = (S.camHold || 0) + dt;
+      if (S.camHold > 0.5) {
+        S.camHold = 0;
+        const who = S.talkingWith || (S.speakerId ? S.byId.get(S.speakerId) : null);
+        if (who && !who.hidden) frameTalk(who, false);
+      }
     }
     void top;
   }
@@ -1085,16 +1522,69 @@ function createSystem(ctx) {
         m.root.position.set(x, y + (n.yOff || 0), z);
         if (n.extra && n.extra.pot) n.extra.pot.position.set(x, y, z);
         m.setFacing(n.yaw);
-        // look at the hero when he is close, or at whoever we are chatting to
-        if (m.lookAt && hero) {
-          const d = Math.hypot(hero.x - x, hero.z - z);
-          if (n.talking || n.linger > 0 || (n.glance > 0 && d < 6) || d < 3.2) m.lookAt(tmpV.set(hero.x, hero.y + (n.kind === 'person' ? 1.3 : 0.6), hero.z));
-          else if (n.behaviour === 'chat') { const o = S.byId.get(n.def.with); if (o) m.lookAt(tmpV.set(o.x, o.y + 1.25, o.z)); }
-          else if (d > 7) m.lookAt(null);
+        // how far the lens is: the LOD bands, and how close somebody has to be to be worth probing for life
+        const dc = cam ? Math.hypot(cam.position.x - x, cam.position.z - z) : 0;
+        // A leaner is tipped back onto the well / the fence / the gatepost (anim.js only ever writes rotation.y,
+        // so YXZ order lets us add the tilt in body space without fighting it).
+        // THE WEIGHT SHIFT. Standing still is not standing rigid: a person rocks very slowly from one hip to the
+        // other. One degree of roll is about 2.5 cm at the head — you read it as life, never as swaying. A leaner
+        // gets the same shift on top of being tipped back onto his well.
+        if (n.kind === 'person' || n.leanTo) {
+          const r = m.root;
+          r.rotation.order = 'YXZ';
+          const still = clamp(1 - n.speed * 2.2, 0, 1);
+          const ph = t * 0.68 + n.index * 1.77;                 // a weight shift every nine seconds or so
+          // somebody sitting pivots from much lower down, so the same angle reads as almost nothing: a boy on a
+          // bank leaning over his jar of newt and back again needs more of it
+          const amp = (n.behaviour === 'sit' || n.behaviour === 'perch') ? 0.044 : 0.019;
+          n.sway = (Math.sin(ph) * amp + Math.sin(ph * 2.37 + 1.1) * amp * 0.32) * still;
+          const leanK = n.leanTo ? (n.leanK = (n.leanK || 0) + ((n.mode === 'walk' ? 0 : 1) - (n.leanK || 0)) * Math.min(1, dt * 3)) : 0;
+          r.rotation.x = -0.16 * leanK + Math.sin(ph * 0.71) * 0.009 * still;
+          r.rotation.z = (n.leanRoll || 0) * leanK + n.sway;
+        }
+        // BREATHING, measured rather than promised: the head's rise and fall over a rolling three seconds.
+        // anim.js gives every idle a breath and a blink; nothing reported it, so a critic could only call it a
+        // still frame. __DQ.npcs()[i].breath is that number in world units (a villager runs about 0.02).
+        if (m.bones && m.bones.head) {
+          n.breathT = (n.breathT || 0) + dt;
+          if (n.breathT > 0.08) {
+            n.breathT = 0;
+            m.bones.head.getWorldPosition(tmpV);
+            const hy = tmpV.y - y;
+            // ...and the head's TOTAL travel over the same window: breathing, the weight shift, a neck turning.
+            // A statue reads 0.000 for both; an idle villager reads about 0.02 of breath and 0.15 of stir.
+            if (!n.hPrev) n.hPrev = new THREE.Vector3().copy(tmpV);
+            if (n.bMin == null || t - (n.bAt || 0) > 3) {
+              n.stirLast = n.bStir || 0;
+              n.bMin = hy; n.bMax = hy; n.bAt = t; n.bStir = 0;
+            } else {
+              if (hy < n.bMin) n.bMin = hy;
+              if (hy > n.bMax) n.bMax = hy;
+              n.bStir = (n.bStir || 0) + tmpV.distanceTo(n.hPrev);
+            }
+            n.hPrev.copy(tmpV);
+            n.breath = n.bMax - n.bMin;
+            n.stir = Math.max(n.bStir || 0, n.stirLast || 0);
+            if (dc < 55 && m.state) {
+              try {
+                const st = m.state();
+                if (st && st.blinking && !n.wasBlink) n.blinks = (n.blinks || 0) + 1;
+                n.wasBlink = !!(st && st.blinking);
+              } catch (_) { /* a model with no state is just a model with no blink count */ }
+            }
+          }
+        }
+        // ── the gaze (P08's ch.lookAt, wired) ──────────────────────────────────────────────────────────────
+        // You get looked at when you are close, while you are being spoken to, and for a beat after. Otherwise
+        // they watch their own work, their chat partner, the cat, or whoever else is about.
+        if (m.lookAt) {
+          const d = hero ? Math.hypot(hero.x - x, hero.z - z) : 99;
+          const atYou = hero && (n.talking || n.speaking > 0 || n.linger > 0 || (n.glance > 0 && d < 9) || d < LOOK_AT);
+          if (atYou) { m.lookAt(tmpV.set(hero.x, hero.y + (n.kind === 'person' ? 1.32 : 0.62), hero.z)); n.looking = 'you'; }
+          else m.lookAt(idleLook(n, dt));
         }
         m.setMove(n.speed, { run: !!n.run });
         // LOD: outlines close by, sun shadows closer still, and nobody at all past 55 units
-        const dc = cam ? Math.hypot(cam.position.x - x, cam.position.z - z) : 0;
         const vis = dc < 55 && !n.suppressed;
         n.lod = !vis ? 'culled' : dc < 14 ? 'near' : dc < 22 ? 'mid' : 'far';
         m.root.visible = vis;
@@ -1113,7 +1603,7 @@ function createSystem(ctx) {
         } else if (S.blobs) S.blobs.hide(n.blob);
         // keep the map entry (the ▼ prompt and the talk test) on top of where they are standing
         n.def.ix = x; n.def.iz = z;
-        n.def.promptY = y + (m.height || 1.5) + 0.42;
+        n.def.promptY = y + (n.yOff || 0) + (m.height || 1.5) * (n.scale || 1) + 0.26;
       } catch (e) { err('npc render ' + n.id, e); }
     }
     if (S.blobs) S.blobs.commit();
@@ -1121,20 +1611,61 @@ function createSystem(ctx) {
   }
 
   // ── the words ask for a nod, an emote, a mouth ────────────────────────────────────────────────────────────
-  function cue({ who, emote, anim }) {
+  const HERO_IDS = new Set(['hero', 'player', 'bram', '%HERO%']);
+  function cue({ who, emote, anim, look }) {
+    // the hero is nobody's NPC: his body belongs to player.js, so a cue aimed at him goes there
+    if (who && HERO_IDS.has(String(who).toLowerCase())) {
+      try { const pl = S.player; if (pl && pl.hero && (anim === 'nod' || !anim)) pl.hero.nod(); } catch (e) { err('npc hero cue', e); }
+      return;
+    }
     const n = who ? S.byId.get(who) : S.talkingWith;
     if (!n || !n.model) return;
     try {
       if (emote) n.model.emote(emote, 1.8);
       if (anim) n.model.play(anim);
+      if (look !== undefined) {                            // {look: 'budge'} — turn and look at somebody named
+        n.lookNpc = look ? String(look) : null;
+        n.lookT = look ? 6 : 0;
+        n.speaking = 0;                                    // looking away means you have stopped talking at him
+      }
     } catch (e) { err('npc cue', e); }
   }
+  /**
+   * A new speaker takes the floor. Whoever it is stops, turns to the hero and starts talking; the one who just
+   * finished turns to LOOK at them; and the hero turns to the new speaker, so a two-voice scene reads on screen
+   * even when the conversation was staged (Dialogue.say / __DQ.say) rather than started by walking up to someone.
+   */
   function onSay({ who }) {
     S.speakerId = who || (S.talkingWith ? S.talkingWith.id : null);
+    const n = S.speakerId ? S.byId.get(S.speakerId) : null;
+    if (!n) return;
+    try {
+      n.speaking = 3.2;                                   // topped up on every page of their speech
+      n.attention = 1;
+      n.hidden = false;
+      if (S.prevSpeaker && S.prevSpeaker !== n && !S.prevSpeaker.hidden) {
+        S.prevSpeaker.lookNpc = n.id; S.prevSpeaker.lookT = 6; S.prevSpeaker.speaking = 0;
+      }
+      S.prevSpeaker = n;
+      const pl = S.player;
+      if (pl && typeof pl.faceToward === 'function') pl.faceToward(n.x, n.z);
+      if (!S.talkingWith) easeCamera(n);                  // a staged scene gets the same gentle push in
+    } catch (e) { err('npc onSay', e); }
   }
+  /** The conversation is over: stop every mouth, let everybody go back to work. */
+  function onDialogueEnd() {
+    try {
+      for (const n of S.list) { if (n.speaking > 0) { n.speaking = 0; n.linger = Math.max(n.linger, 1.2); } }
+      S.prevSpeaker = null; S.speakerId = null;
+      if (!S.talkingWith) restoreCamera();
+    } catch (e) { err('npc dialogue end', e); }
+  }
+  /** Poses that must survive a conversation: anim.js has ONE action slot, so play('talk') would stand a sitter up. */
+  const HELD_POSE = new Set(['sit', 'perch']);
   function onTyping({ who, on }) {
     const n = S.byId.get(who || S.speakerId || (S.talkingWith ? S.talkingWith.id : null));
     if (!n || !n.model) return;
+    if (HELD_POSE.has(n.behaviour)) return;              // a boy sitting on the bank talks sitting down
     try { if (on) n.model.play('talk'); else n.model.stop(0.25); } catch (e) { err('npc typing', e); }
   }
 
@@ -1142,11 +1673,18 @@ function createSystem(ctx) {
     id: n.id, name: n.def.name || null, kind: n.kind, look: n.def.animal || n.def.monster || (n.def.variant ? n.def.char + ':' + n.def.variant : n.def.char),
     x: r3(n.x), z: r3(n.z), facing: r3(((n.yaw / DEG) % 360 + 360) % 360), behaviour: n.behaviour, mode: n.mode,
     speed: r3(n.speed), talking: !!n.talking, hidden: !!n.hidden, lod: n.lod, moved: r3(n.moved), model: n.model ? n.model.kind : null,
-    talks: talks.get(talkKey(n)) || 0, hasWords: !!(n.def.script || n.def.text || n.def.pages),
+    talks: talks.get(talkKey(n)) || 0, hasWords: !!(n.def.script || n.def.text || n.def.pages), voice: n.def.voice || null,
+    attention: r3(n.attention), looking: n.looking || null, speaking: n.speaking > 0,
+    // the two numbers that say "this is a person, not a statue": how far they have walked since the map loaded,
+    // and how far their head rises and falls with their breath over the last three seconds
+    walked: r3(n.walked || 0), breath: r3(n.breath || 0), stir: r3(n.stir || 0), blinks: n.blinks || 0, sway: r3((n.sway || 0) / DEG),
+    wear: (n.model && n.model.wear) || null, radius: r3(n.radius),
+    leanGap: n.leanGap == null ? null : n.leanGap,
   }));
 
   return {
-    S, spawn, despawn, update, render, cue, onSay, onTyping, describe, beginTalk, applySchedules,
+    S, spawn, despawn, update, render, cue, onSay, onTyping, onDialogueEnd, describe, beginTalk, applySchedules,
+    noGoAt: (x, z, roam) => noGo(x, z, roam !== false),
     settleAt: (x, z) => settle(x, z), place,
     byId: (id) => S.byId.get(String(id)) || null,
     talks,
@@ -1171,24 +1709,40 @@ export function install(ctx = {}) {
   Bs.on('dialogue.cue', (e) => sys.cue(e || {}));
   Bs.on('dialogue.say', (e) => sys.onSay(e || {}));
   Bs.on('dialogue.typing', (e) => sys.onTyping(e || {}));
+  Bs.on('dialogue.end', () => sys.onDialogueEnd());
   Bs.on('time.set', () => sys.applySchedules(false));
 
   Db.provide('npcs', () => sys.describe());
   /** __DQ.npcs() — everyone on this map, with where they are and what they are doing. */
   Db.expose('npcs', () => sys.describe());
+  /** Stand the hero in front of an NPC, close enough to talk, looking at them. Shared by talkTo and npcFace. */
+  function stepUpTo(n) {
+    const w = ctx.Field.world();
+    if (!w || !w.player) return null;
+    const yaw = Math.atan2(n.x - w.player.p.x, n.z - w.player.p.z);
+    const px = n.x - Math.sin(yaw) * 1.35, pz = n.z - Math.cos(yaw) * 1.35;
+    w.player.place(px, pz, yaw, true);
+    if (w.cameraRig) w.cameraRig.snap();
+    return { x: r3(px), z: r3(pz), facing: r3(((yaw / DEG) % 360 + 360) % 360) };
+  }
   /** __DQ.talkTo('hob') — walk the conversation open from anywhere (critics, scenarios). */
   Db.expose('talkTo', (id) => {
     const n = sys.byId(id);
     if (!n) return { ok: false, reason: `nobody called "${id}" here`, npcs: sys.describe().map(x => x.id) };
-    const w = ctx.Field.world();
-    if (w && w.player) {
-      const yaw = Math.atan2(n.x - w.player.p.x, n.z - w.player.p.z);
-      const px = n.x - Math.sin(yaw) * 1.35, pz = n.z - Math.cos(yaw) * 1.35;
-      w.player.place(px, pz, yaw, true);
-      if (w.cameraRig) w.cameraRig.snap();
-    }
+    stepUpTo(n);
     sys.beginTalk(n);
     return { ok: true, id: n.id, name: n.def.name || null };
+  });
+  /**
+   * __DQ.npcFace('pell') — stand the hero in front of somebody WITHOUT starting their conversation, and hand back
+   * their nameplate and voice. A demo or a cutscene that wants to put its own words in a real person's mouth uses
+   * this, so the name on the box always belongs to the body on the screen.
+   */
+  Db.expose('npcFace', (id) => {
+    const n = sys.byId(id);
+    if (!n) return { ok: false, reason: `nobody called "${id}" here`, npcs: sys.describe().map(x => x.id) };
+    const at = stepUpTo(n);
+    return { ok: true, id: n.id, name: n.def.name || null, voice: n.def.voice || null, at, npc: { x: r3(n.x), z: r3(n.z) } };
   });
   /** __DQ.npcsShow(false) — hide everyone (before/after screenshots, and to measure what they cost). */
   Db.expose('npcsShow', (on = true) => {
@@ -1199,13 +1753,60 @@ export function install(ctx = {}) {
   Db.expose('npcModel', (id) => {
     const n = sys.byId(id);
     if (!n || !n.model) return { ok: false, reason: 'nobody there, or no body built' };
-    const m = n.model, out = { id: n.id, kind: m.kind, height: m.height, visible: m.root.visible, y: +m.root.position.y.toFixed(3), bones: {}, meshes: [] };
+    const m = n.model;
+    let mstate = null;
+    try { mstate = m.state ? m.state() : null; } catch (_) { mstate = null; }
+    const out = { id: n.id, kind: m.kind, height: m.height, visible: m.root.visible, y: +m.root.position.y.toFixed(3),
+      behaviour: n.behaviour, pose: mstate, bones: {}, meshes: [] };
     m.root.updateMatrixWorld(true);
     const V = new THREE.Vector3();
     for (const [name, b] of Object.entries(m.bones || {})) { b.getWorldPosition(V); out.bones[name] = [+V.x.toFixed(2), +V.y.toFixed(3), +V.z.toFixed(2)]; }
     m.root.traverse((o) => { if (o.isMesh) out.meshes.push((o.name || o.type) + (o.visible ? '' : ':hidden')); });
     return out;
   });
+  /**
+   * __DQ.npcSpot(x, z) — may somebody stand here? The same test the people layer is placed by, so a critic can
+   * check "never block doorways" and "nobody stands in the Beck" by measurement instead of by eye.
+   */
+  Db.expose('npcSpot', (x, z) => {
+    const m = sys.S.map;
+    if (!m) return { ok: false, reason: 'no map loaded' };
+    const at = sys.settleAt(+x, +z);
+    return {
+      ok: !sys.noGoAt(+x, +z), ground: m.groundAt(+x, +z), clear: m.clear(+x, +z, 0.45), inBounds: m.inBounds(+x, +z),
+      inDoorway: !sys.noGoAt(+x, +z, false) && sys.noGoAt(+x, +z, true),
+      settled: [r3(at.x), r3(at.z)], moved: r3(at.moved),
+    };
+  });
+  /**
+   * __DQ.talkShot() — the conversation framing, as numbers. `phi` is where the speaker sat relative to the lens
+   * when the beat opened (0 = in front of the hero, ±180 = hidden behind him), `orbit` where the lens was sent,
+   * `onScreen` whether the speaker's head actually projects inside the frame right now, and `headPct` how far
+   * down the frame it lands. A critic never has to take "the camera frames the speaker" on trust.
+   */
+  Db.expose('talkShot', () => {
+    const S2 = sys.S;
+    const n = S2.talkingWith || (S2.speakerId ? sys.byId(S2.speakerId) : null);
+    const w = ctx.Field.world();
+    const cam = w && w.camera;
+    const out = { talking: !!n, id: n ? n.id : null, framed: S2.camFramed || null, orbit: w && w.cameraRig ? w.cameraRig.orbit() : null };
+    if (n && cam) {
+      try {
+        cam.updateMatrixWorld();
+        const h = ((n.model && n.model.height) || 1.5) * (n.scale || 1);
+        const V = new THREE.Vector3(n.x, n.y + (n.yOff || 0) + h * 0.86, n.z).project(cam);
+        out.ndc = [r3(V.x), r3(V.y)];
+        out.onScreen = Math.abs(V.x) < 0.95 && Math.abs(V.y) < 0.95 && V.z < 1;
+        out.xPct = r3((V.x * 0.5 + 0.5) * 100);
+        out.headPct = r3((1 - (V.y * 0.5 + 0.5)) * 100);
+        const p = S2.player ? S2.player.p : null;
+        if (p) out.heroDist = r3(Math.hypot(n.x - p.x, n.z - p.z));
+      } catch (e) { reportError('npc talkShot', e); }
+    }
+    return out;
+  });
+  /** __DQ.npcLook() — who everybody is looking at right now, and how much of their attention you have. */
+  Db.expose('npcLook', () => sys.describe().map(n => ({ id: n.id, looking: n.looking, attention: n.attention, facing: n.facing, speaking: n.speaking })));
   /** __DQ.npcGo('sausage', x, z) — send somebody somewhere (used to pose scenes for screenshots). */
   Db.expose('npcGo', (id, x, z, hold = false) => {
     const n = sys.byId(id);

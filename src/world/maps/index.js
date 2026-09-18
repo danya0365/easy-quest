@@ -7,5 +7,10 @@
  * Map ids come from docs/CANON.md §2 (the opening meadow keeps the slice id 'meadow').
  */
 export default [
-  { id: 'meadow' },                 // Puddlewick Vale, the opening meadow
+  { id: 'meadow' },                                  // Puddlewick Vale, the opening meadow
+  { id: 'puddlewick', layers: ['npcs'] },            // the home village (CANON §2 [01]) — the lane out of the vale
+  { id: 'hollybank', layers: ['npcs'] },             // Bram's home (CANON §2 [02]) — the north-west door on the green
+  { id: 'puddlewick_inn', layers: ['npcs'] },        // the inn on the green: the second door that is real
+  // NOTE: none of these list a 'chests' layer because src/world/maps/<id>.chests.js (P30) does not exist for them
+  // yet, and a listed layer file that 404s fails the harness. Add 'chests' the moment P30 creates each file.
 ];

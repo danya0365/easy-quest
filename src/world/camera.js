@@ -44,9 +44,13 @@
  *    (only if it is off by 5-120°, and never after a manual orbit — a view you chose is a view you keep).
  *  - **Ground and sight lines.** The lens never sinks into the hillside, and when a rise would hide the hero the
  *    camera climbs over it (both on springs, so bumpy ground never pops).
+ *  - **Framing.** The boy is 20% of frame height outdoors (144 px at 720p) with the horizon 17% down the frame
+ *    and the ground angle the map asked for (26° in docs/approved/field-opening.png) — a lens FOLLOWING a child
+ *    at DQV PS2 scale, not a survey of the valley he happens to be standing in. `__DQ.cameraFrame()` measures it.
  *  - **Modes.** CAM_MODES per map kind: interiors are tighter and steeper, dungeons a little tighter, the overworld
- *    wider. A map's own `camera` block still wins; FRAME scales what is left so the hero READS (P07's Bram is a
- *    six-year-old, shorter than the placeholder the approved frames were composed around).
+ *    wider. The LIVE map's own `camera` block wins on every mode change (`cameraMode` re-reads it, it is never
+ *    copied into a preset), and the rig solves the boom for whoever P07 actually built — Bram the six-year-old
+ *    is 1.11 units tall, where the approved frames were composed around a 1.6-unit placeholder.
  *
  * ── The occluder fade (docs/INTEGRATION-NEEDS.md: "clean alpha fade, outline kept, ~150 ms, only true occluders") ─
  * Anything between the lens and the hero is drawn at ~40% with a DEPTH PRE-PASS (so a canopy never shows its own
@@ -62,7 +66,9 @@
  *      constant-alpha blending
  *   5. 150 ms out, 220 ms back, with a 100 ms hold so an edge never flickers
  *   6. a surface right against the lens (under FADE.melt) goes entirely instead of smearing 40% of a roof over
- *      half the frame, ramping back up to the full 40% by FADE.near
+ *      half the frame, ramping back up to the full 40% by FADE.solid — and that near-zone ramp is measured from
+ *      the part of the object that is ON THE SIGHT LINE, so a fence post beside the lens cannot make its own
+ *      cottage translucent and a back wall the lens has walked past cannot dissolve the front of the house
  * `__DQ.cameraFade(false)` switches the whole pass off (and hands see-through back to the old dither) for A/B.
  */
 import * as THREE from 'three';
@@ -82,29 +88,40 @@ export const CAM_DEFAULT = Object.freeze({ orbit: 0, pitch: 13, dist: 5.4, fov: 
 /**
  * ── THE COMPOSITION (this is the camera's real job) ───────────────────────────────────────────────────────────
  * A DQV field shot is a RELATIONSHIP between a lens and a boy: he is the subject, the village is the setting.
- * So a mode does not state a boom length — it states where the boy and the horizon must LAND IN THE FRAME, and
- * the rig solves the boom for whoever P07 actually built (`hero`) at whatever lens the map asked for:
- *   frame.hero     his height as a % of frame height        (the boy is the subject, not a dot on a lawn)
- *   frame.horizon  how far DOWN the frame the horizon sits  (a real band of sky over the shot)
+ * So a mode does not state a boom length — it states the ground angle and where the boy and the horizon must
+ * LAND IN THE FRAME, and the rig solves the boom for whoever P07 actually built (`hero`):
+ *   pitch          the GROUND ANGLE — how much of the shot is the land he is walking over. DQV PS2 sits at
+ *                  24-30° outdoors (the owner-approved field-opening frame is 26°), steeper indoors.
+ *                  **The live map owns it** (`def.camera.pitch`); a mode only says what a map does not.
+ *   frame.hero     his height as a % of frame height. 20 outdoors = 144 px of boy at 720p: DQV PS2 scale, a
+ *                  camera FOLLOWING a child, not surveying him from the hill behind. (The pre-solver rig sat
+ *                  at 9 units and 13%, which read as a diorama with a dot in it — P09 gap #1.)
+ *   frame.horizon  how far DOWN the frame the horizon sits (17 outdoors: a real band of sky over the shot)
  *   frame.feet     ... or, indoors where there is no horizon, how far down the frame his feet sit
- * `pitch` is then the only free knob: it decides how much of the frame is the ground he is walking over.
+ *   frame.feetMax  the floor: if pitch + horizon would slide his feet past this, the feet win and the sky band
+ *                  gives way instead (a map may ask for a steep ground angle; the boy still stands in his frame)
+ * Two targets, two knobs: the boom solves `hero`, the look point solves `horizon` (or `feet`). A composition
+ * that states all three of hero / feet / horizon solves the pitch as well, and then the map's pitch is only a
+ * fallback hint — so a map that wants to dictate the ground angle simply states two, not three.
  * `talk` is the same thing for a conversation — the camera steps in and up for the beat, and steps back after.
+ * It states `feet` (not a horizon) because the boy must land ABOVE the message window, which fills the bottom
+ * ~31% of the frame in docs/approved/dialogue.png: feet at 63-64% keeps all of him in the clear.
  * `__DQ.cameraFrame()` measures all of it through the live projection matrix: never eyeballed, always a number.
  *
  * `behind` and `lead` scale the ease-behind and the walking lead (interiors barely swing: rooms are small and
  * the walls are the frame). `floor` is how far the lens stays clear of the hillside.
  */
 export const CAM_MODES = Object.freeze({
-  field:    Object.freeze({ pitch: 12, fov: 47, frame: Object.freeze({ hero: 28, feet: 72, horizon: 37 }),
-    talk: Object.freeze({ hero: 34, feet: 64, pitch: 15 }), behind: 1.0, lead: 1.0, floor: 0.8 }),
-  town:     Object.freeze({ pitch: 13, fov: 47, frame: Object.freeze({ hero: 30, feet: 72, horizon: 39 }),
-    talk: Object.freeze({ hero: 36, feet: 64, pitch: 16 }), behind: 0.9, lead: 0.85, floor: 0.8 }),
-  world:    Object.freeze({ pitch: 14, fov: 48, frame: Object.freeze({ hero: 23, feet: 70, horizon: 34 }),
-    talk: Object.freeze({ hero: 32, feet: 64, pitch: 17 }), behind: 1.0, lead: 1.2, floor: 0.85 }),
-  interior: Object.freeze({ pitch: 38, fov: 45, frame: Object.freeze({ hero: 28, feet: 72 }),
-    talk: Object.freeze({ hero: 36, feet: 66, pitch: 40 }), behind: 0.4, lead: 0.5, floor: 0.5 }),
-  dungeon:  Object.freeze({ pitch: 24, fov: 47, frame: Object.freeze({ hero: 28, feet: 74 }),
-    talk: Object.freeze({ hero: 34, feet: 66, pitch: 26 }), behind: 0.75, lead: 0.8, floor: 0.6 }),
+  field:    Object.freeze({ pitch: 26, fov: 47, frame: Object.freeze({ hero: 20, horizon: 17, feetMax: 82 }),
+    talk: Object.freeze({ hero: 27, feet: 64, pitch: 22 }), behind: 1.0, lead: 1.0, floor: 0.8 }),
+  town:     Object.freeze({ pitch: 25, fov: 47, frame: Object.freeze({ hero: 22, horizon: 19, feetMax: 80 }),
+    talk: Object.freeze({ hero: 29, feet: 63, pitch: 21 }), behind: 0.9, lead: 0.85, floor: 0.8 }),
+  world:    Object.freeze({ pitch: 28, fov: 48, frame: Object.freeze({ hero: 18, horizon: 18, feetMax: 82 }),
+    talk: Object.freeze({ hero: 27, feet: 64, pitch: 23 }), behind: 1.0, lead: 1.2, floor: 0.85 }),
+  interior: Object.freeze({ pitch: 42, fov: 45, frame: Object.freeze({ hero: 26, feet: 74 }),
+    talk: Object.freeze({ hero: 32, feet: 63, pitch: 41 }), behind: 0.4, lead: 0.5, floor: 0.5 }),
+  dungeon:  Object.freeze({ pitch: 30, fov: 47, frame: Object.freeze({ hero: 24, feet: 78 }),
+    talk: Object.freeze({ hero: 30, feet: 64, pitch: 28 }), behind: 0.75, lead: 0.8, floor: 0.6 }),
 });
 const MODE_OF_KIND = { field: 'field', town: 'town', world: 'world', interior: 'interior', dungeon: 'dungeon', cave: 'dungeon' };
 
@@ -177,9 +194,34 @@ function compose(pitchDeg, fovDeg, heroH, want) {
   const fov = clamp(fovDeg, FRAME.minFov, FRAME.maxFov);
   const full = Number.isFinite(+want.hero) && Number.isFinite(+want.feet) && Number.isFinite(+want.horizon);
   const pitch = clamp(full ? solvePitch(fov, heroH, want, pitchDeg) : pitchDeg, FRAME.minPitch, FRAME.maxPitch);
-  const dist = clamp(solveDist(pitch, fov, heroH, want), FRAME.minDist, FRAME.maxDist);
-  const lookUp = solveLookUp(pitch, dist, fov, heroH, want);
-  return { pitch, dist, lookUp, fov, measured: frameOf(pitch, dist, lookUp, fov, heroH) };
+  let dist = clamp(solveDist(pitch, fov, heroH, want), FRAME.minDist, FRAME.maxDist);
+  let lookUp = solveLookUp(pitch, dist, fov, heroH, want);
+  let measured = frameOf(pitch, dist, lookUp, fov, heroH);
+  // THE FLOOR GUARD. Pitch and the horizon together decide where his feet land, so a map that asks for a steep
+  // ground angle (Puddlewick: 28°) slides the boy toward the bottom edge until there is nothing in front of him.
+  // When that happens the boy keeps his place in the frame — and the GROUND ANGLE gives way before the sky does:
+  // we re-solve the pitch for all three targets, so Puddlewick ends up at 24.6° with its band of sky over the
+  // roofs instead of 28° with 11% of sky and the boy jammed against the bottom edge. Only if no ground angle in
+  // the DQV band can hold all three does the horizon finally give way (the boy is always the subject).
+  const cap = +want.feetMax;
+  let solvedPitch = pitch;
+  if (Number.isFinite(cap) && Number.isFinite(+want.horizon) && measured.feet > cap) {
+    const w3 = { hero: want.hero, feet: cap, horizon: want.horizon };
+    const p3 = solvePitch(fov, heroH, w3, pitch);
+    const d3 = clamp(solveDist(p3, fov, heroH, w3), FRAME.minDist, FRAME.maxDist);
+    const u3 = solveLookUp(p3, d3, fov, heroH, w3);
+    const m3 = frameOf(p3, d3, u3, fov, heroH);
+    if (p3 > FRAME.minPitch + 0.05 && p3 < FRAME.maxPitch - 0.05 &&
+        Math.abs(m3.feet - cap) < 0.6 && Math.abs(m3.horizon - want.horizon) < 0.6 && Math.abs(m3.hero - want.hero) < 0.6) {
+      solvedPitch = p3; dist = d3; lookUp = u3; measured = m3;
+    } else {
+      const w2 = { hero: want.hero, feet: cap };
+      dist = clamp(solveDist(pitch, fov, heroH, w2), FRAME.minDist, FRAME.maxDist);
+      lookUp = solveLookUp(pitch, dist, fov, heroH, w2);
+      measured = frameOf(pitch, dist, lookUp, fov, heroH);
+    }
+  }
+  return { pitch: solvedPitch, dist, lookUp, fov, measured };
 }
 
 /** Occluder fade tuning (docs/INTEGRATION-NEEDS.md). Live-tunable through __DQ.cameraFade(true, {alpha, ...}). */
@@ -198,10 +240,12 @@ const FADE = ({
   rays: 5,             // hero sample points per object
   lens: 0.78,          // the lens counts as INSIDE a canopy inside this fraction of its radius
   melt: 0.3,           // a surface this close to the lens goes entirely (the lens is never pressed into a wall)
+  solid: 1.25,         // ... ramping up to the full 40% by here, so a real occluder is the 35-45% the brief asks
+                       //     for and only the last hand's width before the lens dissolves it
   near: 2.2,           // ... and anything whose surface is inside this fades WHETHER OR NOT it covers the hero:
                        //     a canopy the lens has walked under never becomes an opaque plate over the frame
 });
-const FADE_KEYS = ['alpha', 'outline', 'outMs', 'inMs', 'hold', 'ghosts', 'slots', 'lens', 'melt', 'near'];
+const FADE_KEYS = ['alpha', 'outline', 'outMs', 'inMs', 'hold', 'ghosts', 'slots', 'lens', 'melt', 'solid', 'near'];
 
 const wrapPi = (a) => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI * 2; return a - Math.PI; };
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -230,6 +274,24 @@ const SEE = (() => { try { return Toon && Toon.see ? Toon.see : null; } catch (_
 const RUNS = new WeakMap();      // geometry -> [{start, count, box}]  (merged-bucket segmentation, computed once)
 const SEE_MAT = new WeakMap();   // material -> is it a see-through material?
 const HIDDEN_MATS = new Map();   // side -> the material that hides a bucket range from the colour pass only
+const CLASS = new WeakMap();     // mesh -> its candidate class (recomputed only when the scan re-traverses)
+
+/**
+ * THE WORLD ITSELF is never an occluder to slide around: the ground, the water, the sky, the far hills and the
+ * flat decals painted on the floor. The lens is kept out of the hillside by `clearance()` on its own spring —
+ * a camera that tried to dodge the terrain would have nowhere to stand.
+ */
+const WORLD_NAME = /^(ground|terrain|water|river|sea|sky|skydome|cloud|hill-|fog|haze|horizon|blobShadow|contactShadow|prompt|selection|weather|rain|snow)/i;
+/** An actor: a person, an animal, a monster. It can hide the boy, but it is never ghosted — people are not glass. */
+function isActorPart(o) {
+  if (o.isSkinnedMesh) return true;
+  for (let a = o.parent, n = 0; a && n < 6; a = a.parent, n++) {
+    if (a.userData && (a.userData.actor || a.userData.isCharacter)) return true;
+    if (/^(char:|npc:|monster|party:|follower)/i.test(a.name || '')) return true;
+  }
+  return false;
+}
+function isUnder(o, root) { for (let a = o; a; a = a.parent) if (a === root) return true; return false; }
 
 /** A material opts into see-through by carrying Toon.see.patch — its program cache key then contains "see". */
 function isSeeMaterial(m) {
@@ -291,7 +353,12 @@ function hiddenMaterial(side) {
   return m;
 }
 
-/** Split a merged bucket geometry into pieces: runs of triangles that stay together in space. */
+/**
+ * Split a merged bucket geometry into pieces: runs of triangles that stay together in space.
+ * Straight off the typed arrays (no BufferAttribute accessors, no Vector3 churn) — a 29 000-triangle village
+ * bucket is segmented in a couple of milliseconds instead of twenty, which is what used to make the rescan
+ * visible as a dropped frame. Cached per GEOMETRY, so it is paid once per map however often the scan re-runs.
+ */
 function runsOf(mesh) {
   const geo = mesh.geometry;
   const hit = RUNS.get(geo);
@@ -299,42 +366,42 @@ function runsOf(mesh) {
   const out = [];
   try {
     const pos = geo.attributes.position, idx = geo.index;
+    const P = pos ? pos.array : null;
+    const I = idx ? idx.array : null;
     const total = idx ? idx.count : (pos ? pos.count : 0);
-    // an art piece may publish its own pieces: mesh.userData.pieces = [{start, count}]
     const given = mesh.userData && Array.isArray(mesh.userData.pieces) ? mesh.userData.pieces : null;
+    const at = (t) => (I ? I[t] : t) * 3;
     const push = (start, count) => {
-      const box = new THREE.Box3();
-      const v = new THREE.Vector3();
+      let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
       for (let t = start; t < start + count; t++) {
-        const vi = idx ? idx.getX(t) : t;
-        box.expandByPoint(v.set(pos.getX(vi), pos.getY(vi), pos.getZ(vi)));
+        const o = at(t), x = P[o], y = P[o + 1], z = P[o + 2];
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+        if (z < z0) z0 = z; if (z > z1) z1 = z;
       }
-      out.push({ start, count, box });
+      out.push({ start, count, box: new THREE.Box3(new THREE.Vector3(x0, y0, z0), new THREE.Vector3(x1, y1, z1)) });
     };
     if (given) { for (const p of given) push(p.start | 0, p.count | 0); }
-    else if (pos) {
+    else if (P) {
       let start = 0, count = 0;
-      const box = new THREE.Box3(), v = new THREE.Vector3(), c = new THREE.Vector3();
-      const close = () => { if (count) out.push({ start, count, box: box.clone() }); box.makeEmpty(); count = 0; };
+      let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+      const close = () => {
+        if (count) out.push({ start, count, box: new THREE.Box3(new THREE.Vector3(x0, y0, z0), new THREE.Vector3(x1, y1, z1)) });
+        x0 = y0 = z0 = Infinity; x1 = y1 = z1 = -Infinity; count = 0;
+      };
       for (let t = 0; t + 2 < total; t += 3) {
-        c.set(0, 0, 0);
-        for (let k = 0; k < 3; k++) {
-          const vi = idx ? idx.getX(t + k) : t + k;
-          v.set(pos.getX(vi), pos.getY(vi), pos.getZ(vi));
-          c.add(v);
-        }
-        c.multiplyScalar(1 / 3);
+        const a = at(t), b = at(t + 1), c2 = at(t + 2);
+        const cx = (P[a] + P[b] + P[c2]) / 3, cy = (P[a + 1] + P[b + 1] + P[c2 + 1]) / 3, cz = (P[a + 2] + P[b + 2] + P[c2 + 2]) / 3;
         if (count) {
-          const dx = Math.max(box.min.x - c.x, c.x - box.max.x, 0);
-          const dy = Math.max(box.min.y - c.y, c.y - box.max.y, 0);
-          const dz = Math.max(box.min.z - c.z, c.z - box.max.z, 0);
-          const spanX = Math.max(box.max.x, c.x) - Math.min(box.min.x, c.x);
-          const spanZ = Math.max(box.max.z, c.z) - Math.min(box.min.z, c.z);
+          const dx = Math.max(x0 - cx, cx - x1, 0), dy = Math.max(y0 - cy, cy - y1, 0), dz = Math.max(z0 - cz, cz - z1, 0);
+          const spanX = Math.max(x1, cx) - Math.min(x0, cx), spanZ = Math.max(z1, cz) - Math.min(z0, cz);
           if (Math.sqrt(dx * dx + dy * dy + dz * dz) > FADE.gap || Math.hypot(spanX, spanZ) > FADE.span) { close(); start = t; }
         } else start = t;
-        for (let k = 0; k < 3; k++) {
-          const vi = idx ? idx.getX(t + k) : t + k;
-          box.expandByPoint(v.set(pos.getX(vi), pos.getY(vi), pos.getZ(vi)));
+        for (const o of [a, b, c2]) {
+          const x = P[o], y = P[o + 1], z = P[o + 2];
+          if (x < x0) x0 = x; if (x > x1) x1 = x;
+          if (y < y0) y0 = y; if (y > y1) y1 = y;
+          if (z < z0) z0 = z; if (z > z1) z1 = z;
         }
         count += 3;
       }
@@ -349,10 +416,10 @@ function runsOf(mesh) {
  * The fade pass. Owns its own scan of the scene, its own occlusion test, the hide-in-the-main-pass bookkeeping
  * and the ghost draw. Everything is guarded: a failure switches the pass off for the frame, never throws.
  */
-function createFadePass() {
+function createFadePass({ hero = () => null } = {}) {
   const S = {
-    enabled: true, scene: null, kids: -1, rescanT: 0, scanMs: 0,
-    objects: [], groups: [], solids: [],
+    enabled: true, scene: null, kids: -1, rescanT: 0, scanMs: 0, scanFrames: 0, pend: null,
+    objects: [], groups: [], solids: [], blockers: [],
     fading: [], ghosts: [], hiddenInst: [], hiddenSolid: new Map(),
     ms: 0, tested: 0, occluding: 0, drawn: 0, installed: null, before: null, after: null,
     touched: [], carriers: { byGeo: new Map(), all: [] }, saved: null,
@@ -368,27 +435,106 @@ function createFadePass() {
   const localRay = new THREE.Ray();
   const pts = [];
 
+  // ── what a mesh IS ─────────────────────────────────────────────────────────────────────────────────────────
+  const heroRootOf = () => { try { return hero() || null; } catch (_) { return null; } };
+  function boundsOf(o) {
+    const g = o.geometry;
+    if (!g.boundingSphere) g.computeBoundingSphere();
+    if (!g.boundingBox) g.computeBoundingBox();
+    return g.boundingSphere || null;
+  }
+  /**
+   * Sort a mesh into what the camera must do about it:
+   *   'inst'      an instanced see-through species  -> can be ghosted AND counts against the sight line
+   *   'solid'     a merged bucket / one-off mesh    -> can be ghosted (hidden range + ghost draw) AND counts
+   *   'instBlock' an instanced species we cannot hide (no fade slot, or no see material) -> counts only
+   *   'card'      a small glow card or a multi-material mesh                             -> counts only
+   *   'actor'     a person, an animal, a monster    -> counts only; people are never drawn as glass
+   *   null        the world itself (ground, water, sky, far hills), the hero, a ground decal, a huge haze card
+   * The verdict is cached per mesh and re-taken whenever the scan re-traverses with a different material.
+   */
+  function classifyRaw(o, heroRoot) {
+    if (!o.geometry || o.userData.camGhost || o.userData.camIgnore) return null;
+    if (o.visible === false) return null;
+    if (WORLD_NAME.test(o.name || '')) return null;
+    if (heroRoot && isUnder(o, heroRoot)) return null;
+    const arr = Array.isArray(o.material);
+    const m = arr ? o.material[0] : o.material;
+    if (!m || m.colorWrite === false) return null;
+    if (isActorPart(o)) return isOutlinePart(o) ? null : 'actor';
+    const sph = boundsOf(o);
+    const bb = o.geometry.boundingBox;
+    const r = sph ? sph.radius : 0;
+    const hgt = bb ? bb.max.y - bb.min.y : 0;
+    // an additive glow, a multiply-blended contact shadow, a half-transparent card: not a wall. Only a SMALL
+    // upright one counts at all (a lantern's halo can sit on the sight line; the haze over the valley cannot).
+    const ghostly = m.blending !== THREE.NormalBlending || (m.transparent && (m.opacity == null ? 1 : m.opacity) < 0.92);
+    if (ghostly) {
+      if (!(r <= 1.8 && hgt >= 0.5)) return null;
+      return o.isInstancedMesh ? 'instBlock' : 'card';
+    }
+    const see = isSeeMaterial(o.material);
+    if (!see && r > 90) return null;                          // a landscape ring, a map-wide floor
+    // something that cannot reach the boy's chest from the ground is not worth tracking: a bed of flowers is
+    // not a wall, and 291 of them would cost more to test than every cottage in the village put together
+    if (!see && hgt < 0.5) return null;
+    if (o.isInstancedMesh) return (see && SEE) ? 'inst' : 'instBlock';
+    if (arr) return 'card';                                   // we cannot hide one range of a multi-material mesh
+    return 'solid';
+  }
+  function classify(o, heroRoot) {
+    const c = CLASS.get(o);
+    if (c !== undefined && c.v === o.visible && c.m === o.material) return c.k;
+    let k = null;
+    try { k = classifyRaw(o, heroRoot); } catch (_) { k = null; }
+    CLASS.set(o, { k, v: o.visible, m: o.material });
+    return k;
+  }
+
   // ── scan ───────────────────────────────────────────────────────────────────────────────────────────────────
-  function scan() {
+  /**
+   * Re-take the census of the scene. Segmenting a 29 000-triangle village bucket is real work, so the scan is
+   * BUDGETED: it walks the scene once (cheap), then chews through the merged buckets a few milliseconds per
+   * frame, and only swaps the new census in when it is complete — the old one keeps working meanwhile. That is
+   * what stops a rescan from showing up as a dropped frame in the middle of a town orbit.
+   * Returns true when the census is finished.
+   */
+  function scan(budgetMs = 0) {
     const t0 = performance.now();
-    S.objects = []; S.groups = []; S.solids = [];
     const sc = S.scene;
-    if (!sc) return;
-    const byMatrix = new Map();
-    const solidMeshes = [];
-    sc.traverse((o) => {
-      if (!o.isMesh || !o.geometry || o.userData.camGhost) return;
-      if (!isSeeMaterial(o.material)) return;
-      if (o.isInstancedMesh) {
-        if (!SEE) return;                                   // no fade slots: instances can't be hidden, leave them solid
-        let g = byMatrix.get(o.instanceMatrix);
-        if (!g) { g = { members: [], parts: [], n: o.count, version: -1, cx: [], cy: [], cz: [], r: [], local: null }; byMatrix.set(o.instanceMatrix, g); }
-        g.members.push(o);
-        g.n = Math.min(g.n, o.count);
-      } else solidMeshes.push(o);
-    });
-    // instanced objects: one per instance
-    for (const g of byMatrix.values()) {
+    if (!sc) { S.pend = null; return true; }
+    let P = S.pend;
+    if (!P) {
+      P = S.pend = { byMatrix: new Map(), solidMeshes: [], blockers: [], all: [], heavy: [], i: 0, ms: 0 };
+      const heroRoot = heroRootOf();
+      sc.traverse((o) => {
+        if (!o.isMesh) return;
+        const k = classify(o, heroRoot);
+        if (!k) return;
+        if (k === 'inst' || k === 'instBlock') {
+          let g = P.byMatrix.get(o.instanceMatrix);
+          if (!g) { g = { members: [], parts: [], n: o.count, version: -1, cx: [], cy: [], cz: [], r: [], local: null, fadeable: false }; P.byMatrix.set(o.instanceMatrix, g); }
+          g.members.push(o);
+          g.n = Math.min(g.n, o.count);
+          if (k === 'inst') g.fadeable = true;
+        } else if (k === 'solid') P.solidMeshes.push(o);
+        else P.blockers.push({ kind: k, mesh: o, sph: boundsOf(o), cx: 0, cy: 0, cz: 0, r: 0, ver: -1 });
+      });
+      P.ms = performance.now() - t0;
+      S.scanFrames = 1;
+    } else S.scanFrames++;
+    // merged buckets: runs in WORLD space (the coarse tests below compare them against the world-space lens)
+    while (P.i < P.solidMeshes.length) {
+      const mesh = P.solidMeshes[P.i++];
+      mesh.updateWorldMatrix(true, false);
+      const rs = runsOf(mesh);
+      P.heavy.push({ name: mesh.name || 'mesh', runs: rs.length });
+      for (const run of rs) P.all.push({ mesh, run, box: run.box.clone().applyMatrix4(mesh.matrixWorld) });
+      if (budgetMs > 0 && performance.now() - t0 > budgetMs) { P.ms += performance.now() - t0; S.scanMs = Math.round(P.ms * 10) / 10; return false; }
+    }
+    S.objects = []; S.groups = []; S.solids = []; S.blockers = P.blockers;
+    // instanced objects: one per instance (fadeable ones join the fade census, the rest only block the view)
+    for (const g of P.byMatrix.values()) {
       const sph = new THREE.Sphere();
       let first = true;
       for (const m of g.members) {
@@ -403,16 +549,11 @@ function createFadePass() {
       g.local = sph;
       S.groups.push(g);
       for (let i = 0; i < g.n; i++) {
-        S.objects.push({ kind: 'inst', g, i, alpha: 1, hitT: 0, inside: false, dist: 0, name: (g.members[0].name || 'instance') + '#' + i });
+        const ob = { kind: 'inst', g, i, alpha: 1, hitT: 0, inside: false, dist: 0, name: (g.members[0].name || 'instance') + '#' + i };
+        if (g.fadeable) S.objects.push(ob); else S.blockers.push(ob);
       }
     }
-    // merged buckets: runs clustered into one object per building / prop group.
-    // Every box is put in WORLD space here: the coarse tests below compare them against the world-space lens.
-    const all = [];
-    for (const mesh of solidMeshes) {
-      mesh.updateWorldMatrix(true, false);
-      for (const run of runsOf(mesh)) all.push({ mesh, run, box: run.box.clone().applyMatrix4(mesh.matrixWorld) });
-    }
+    const all = P.all;
     // ONE OBJECT PER THING: runs are segmented small (so the per-run tests below are precise about what is
     // actually in the way) and then clustered back together by PROXIMITY, capped at FADE.cluster across, so a
     // whole cottage — walls, roof, chimney — fades as one piece while a bucket three metres away does not.
@@ -460,7 +601,40 @@ function createFadePass() {
       cl.r = Math.hypot(w, hgt) / 2;
       S.solids.push(cl); S.objects.push(cl);
     }
-    S.scanMs = Math.round((performance.now() - t0) * 10) / 10;
+    S.scanMs = Math.round((P.ms + performance.now() - t0) * 10) / 10;
+    S.heavy = P.heavy.sort((a, b) => b.runs - a.runs).slice(0, 6);
+    S.runs = all.length;
+    S.pend = null;
+    return true;
+  }
+
+  /** A blocker that is not a fade candidate (an actor, a glow card): its world sphere, once a tick. */
+  function refreshBlocker(b, dt) {
+    const o = b.mesh;
+    if (!o.parent || o.visible === false) { b.r = -1; return; }
+    o.updateWorldMatrix(true, false);
+    const sph = b.sph;
+    if (!sph) { b.r = -1; return; }
+    V.copy(sph.center).applyMatrix4(o.matrixWorld);
+    b.cx = V.x; b.cy = V.y; b.cz = V.z;
+    const scale = o.matrixWorld.getMaxScaleOnAxis();
+    // a person is an upright capsule as wide as their shoulders, not a ball the size of the air around them:
+    // the camera steps aside when someone really stands in front of the boy, and not otherwise
+    const bb = o.geometry.boundingBox;
+    if (b.kind === 'actor' && bb) {
+      b.r = Math.max(0.16, Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z) * 0.5 * scale * 1.1);
+      b.hy = Math.max(0.1, (bb.max.y - bb.min.y) * 0.5 * scale - b.r * 0.5);
+      V.set((bb.min.x + bb.max.x) / 2, (bb.min.y + bb.max.y) / 2, (bb.min.z + bb.max.z) / 2).applyMatrix4(o.matrixWorld);
+      b.cx = V.x; b.cy = V.y; b.cz = V.z;
+    } else { b.r = sph.radius * scale; b.hy = 0; }
+    // A PERSON WALKS. The boy's own path is predicted below; a villager's is predicted here, by widening him
+    // by as far as he can get in the look-ahead — so the camera is already stepping aside as he walks into
+    // the shot, instead of a quarter of a second after he has covered the boy.
+    if (b.px !== undefined && dt > 0) {
+      const sp = Math.hypot(b.cx - b.px, b.cz - b.pz) / dt;
+      b.pad = Math.min(1.1, sp * DODGE.look);
+    } else b.pad = 0;
+    b.px = b.cx; b.pz = b.cz;
   }
 
   /** Instance bounds, refreshed whenever the instance matrices change (critters move). */
@@ -511,7 +685,10 @@ function createFadePass() {
   }
 
   function rayHitsSolid(obj, origin, dir, far) {
-    for (const it of (obj.hitRuns && obj.hitRuns.length ? obj.hitRuns : obj.runs)) {
+    return runsHitRay(obj.hitRuns && obj.hitRuns.length ? obj.hitRuns : obj.runs, origin, dir, far);
+  }
+  function runsHitRay(list, origin, dir, far) {
+    for (const it of list) {
       const mesh = it.mesh, geo = mesh.geometry;
       MI.copy(mesh.matrixWorld).invert();
       localRay.origin.copy(origin).applyMatrix4(MI);
@@ -534,6 +711,9 @@ function createFadePass() {
    * lens / hero are world positions; camYaw orients the two side samples across the hero's body.
    */
   function update(dt, lens, hero, camYaw) {
+    // bounds first, always: the sight guarantee reads them even when the fade itself is switched off
+    for (const b of S.blockers) if (b.kind === 'actor' || b.kind === 'card') { try { refreshBlocker(b, dt); } catch (_) { b.r = -1; } }
+    for (const g of S.groups) { try { refreshGroup(g); } catch (e) { reportError('camera fade: instance bounds', e); } }
     if (!S.enabled || !S.objects.length) { S.fading.length = 0; return; }
     const t0 = performance.now();
     lensV.set(lens.x, lens.y, lens.z);
@@ -545,7 +725,6 @@ function createFadePass() {
     const heroD = Math.hypot(hx - lens.x, hy + 0.8 - lens.y, hz - lens.z);
     let tested = 0, occluding = 0;
     const probe = [];
-    for (const g of S.groups) { try { refreshGroup(g); } catch (e) { reportError('camera fade: instance bounds', e); } }
 
     for (const obj of S.objects) {
       let cx, cy, cz, rad;
@@ -594,25 +773,24 @@ function createFadePass() {
         obj.surf = inside ? 0 : Math.max(0, mn);
       }
       obj.inside = inside;
-      // right up against the lens, an occluder goes entirely instead of smearing itself over the frame
-      if (inside || obj.surf < FADE.melt) { obj.inside = true; obj.hitT = FADE.hold; occluding++; obj.why = inside ? 'lens inside it' : 'melted at the lens'; ease(obj, dt); continue; }
-      // ... and anything whose surface is INSIDE the near zone fades whether or not it covers him: this is the
-      // canopy the lens has just walked under, which would otherwise be an opaque plate across the frame
-      if (obj.surf < FADE.near) {
-        obj.hitT = FADE.hold; occluding++; obj.why = 'at the lens';
-        probe.push({ name: obj.name, kind: obj.kind, dist: r3(obj.dist), surf: r3(obj.surf), reason: 'at the lens', hits: -1 });
-        ease(obj, dt);
-        continue;
-      }
+      obj.melt = false;
+      obj.ramp = obj.surf;                    // which surface distance the 40% ramp is measured from (below)
+      // the lens INSIDE it: it goes entirely — you can never be stuck inside a canopy or a roof
+      if (inside) { obj.hitT = FADE.hold; occluding++; obj.why = 'lens inside it'; ease(obj, dt); continue; }
       // coarse: does it sit on the segment lens -> hero at all? (per run, so a merged bucket's overall box
       // can never nominate a stone bucket six metres away as the thing covering the hero)
-      let seg = null;
+      let seg = null, sightSurf = obj.surf;
       if (obj.kind === 'inst') {
         const s = segDist(lens.x, lens.y, lens.z, hx, hy + 0.8, hz, cx, cy, cz);
         if (s.d <= rad + 0.7 && s.u <= 0.985 && obj.dist <= heroD + rad) seg = { d: s.d, u: s.u, r: rad };
       } else {
         obj.hitRuns = obj.hitRuns || [];
         obj.hitRuns.length = 0;
+        // ... and the near-zone ramp below is measured from the runs ON THE SIGHT LINE only. A cluster is a
+        // whole cottage: the back wall the lens has already walked past must not dissolve the front of the
+        // house, and a fence post beside the lens must not turn its cottage translucent (the round-2 note:
+        // "it even does this to objects that are not in front of the hero").
+        let mnSight = 1e9;
         for (const it of obj.runs) {
           const b = it.box;
           const rx = (b.min.x + b.max.x) / 2, ry = (b.min.y + b.max.y) / 2, rz = (b.min.z + b.max.z) / 2;
@@ -621,14 +799,32 @@ function createFadePass() {
           if (s.d > rr + 0.5 || s.u > 0.985) continue;
           if (Math.hypot(rx - lens.x, ry - lens.y, rz - lens.z) > heroD + rr) continue;
           obj.hitRuns.push(it);
+          mnSight = Math.min(mnSight, b.distanceToPoint(lensV));
           if (!seg || s.d < seg.d) seg = { d: s.d, u: s.u, r: rr };
         }
+        sightSurf = mnSight < 1e9 ? Math.max(0, mnSight) : obj.surf;
       }
       obj.segD = seg ? r3(seg.d) : null;
-      if (!seg) { obj.hitT = Math.max(0, obj.hitT - dt); obj.why = 'not on the sight line'; ease(obj, dt); continue; }
+      if (!seg) {
+        // nothing of it lies between the lens and the boy. The one exception is a surface pressed right against
+        // the lens: that is a plate over the frame whatever it is in front of, so it still goes.
+        if (obj.surf < FADE.melt) { obj.melt = true; obj.hitT = FADE.hold; occluding++; obj.why = 'pressed against the lens'; ease(obj, dt); continue; }
+        obj.hitT = Math.max(0, obj.hitT - dt); obj.why = 'not on the sight line'; ease(obj, dt); continue;
+      }
+      obj.ramp = sightSurf;
+      // right up against the lens, an occluder goes entirely instead of smearing itself over the frame
+      if (sightSurf < FADE.melt) { obj.melt = true; obj.hitT = FADE.hold; occluding++; obj.why = 'melted at the lens'; ease(obj, dt); continue; }
+      // ... and anything whose surface is INSIDE the near zone fades whether or not its triangles cover him:
+      // this is the canopy the lens has just walked under, which would otherwise be an opaque plate
+      if (sightSurf < FADE.near) {
+        obj.hitT = FADE.hold; occluding++; obj.why = 'at the lens';
+        probe.push({ name: obj.name, kind: obj.kind, dist: r3(obj.dist), surf: r3(sightSurf), reason: 'at the lens', hits: -1 });
+        ease(obj, dt);
+        continue;
+      }
       // fine: rays from the lens to five points on his body
       tested++;
-      probe.push({ name: obj.name, kind: obj.kind, dist: r3(obj.dist), surf: r3(obj.surf), segD: r3(seg.d), u: r3(seg.u), r: r3(seg.r), hits: 0 });
+      probe.push({ name: obj.name, kind: obj.kind, dist: r3(obj.dist), surf: r3(sightSurf), segD: r3(seg.d), u: r3(seg.u), r: r3(seg.r), hits: 0 });
       let n = 0, centre = false;
       for (let k = 0; k < pts.length; k++) {
         const p = pts[k];
@@ -657,7 +853,186 @@ function createFadePass() {
     S.ms = Math.round((performance.now() - t0) * 100) / 100;
   }
 
-  const targetOf = (obj) => (obj.inside ? 0 : (obj.hitT > 0 ? FADE.alpha * smooth(FADE.melt, FADE.near, obj.surf ?? 9) : 1));
+  // ── THE SIGHT LINE ─────────────────────────────────────────────────────────────────────────────────────────
+  // "Can the lens see the boy's chest from here?" — asked of a POSE THE CAMERA HAS NOT TAKEN YET, dozens of
+  // times a tick, so it is answered off the cached bounds (per-instance spheres, per-run world boxes, one sphere
+  // per actor) rather than by raycasting the scene. Conservative on purpose: a box says "blocked" a little
+  // before the triangles do, so the camera has already stepped aside by the time a wall really crosses the line.
+  /**
+   * The shortest distance between the sight line and an UPRIGHT CAPSULE — how a person is actually shaped.
+   * A villager's bounding sphere is nearly a metre across and swallows the air beside him; a 0.4-wide capsule
+   * the height of his body is the difference between "the camera steps aside when someone stands in front of
+   * the boy" and "the camera runs away from everyone in the square".
+   */
+  function segCapsule(ax, ay, az, bx, by, bz, cx, cy, cz, r, hh) {
+    const ux = bx - ax, uy = by - ay, uz = bz - az;      // the sight line
+    const vy = 2 * hh;                                   // the body, straight up
+    const wx = ax - cx, wy = ay - (cy - hh), wz = az - cz;
+    const A = ux * ux + uy * uy + uz * uz, B = uy * vy, C = vy * vy;
+    const D = ux * wx + uy * wy + uz * wz, E = vy * wy;
+    const den = A * C - B * B;
+    let sN, sD = den, tN, tD = den;
+    if (den < 1e-9) { sN = 0; sD = 1; tN = E; tD = C; }
+    else {
+      sN = B * E - C * D; tN = A * E - B * D;
+      if (sN < 0) { sN = 0; tN = E; tD = C; }
+      else if (sN > sD) { sN = sD; tN = E + B; tD = C; }
+    }
+    if (tN < 0) { tN = 0; if (-D < 0) sN = 0; else if (-D > A) sN = sD; else { sN = -D; sD = A; } }
+    else if (tN > tD) { tN = tD; if ((-D + B) < 0) sN = 0; else if ((-D + B) > A) sN = sD; else { sN = -D + B; sD = A; } }
+    const sc = Math.abs(sD) < 1e-9 ? 0 : sN / sD, tc = Math.abs(tD) < 1e-9 ? 0 : tN / tD;
+    const dx = wx + sc * ux, dy = wy + sc * uy - tc * vy, dz = wz + sc * uz;
+    return Math.sqrt(dx * dx + dy * dy + dz * dz) <= r;
+  }
+  /** Does the segment a->b reach inside this sphere? */
+  function segSphere(ax, ay, az, bx, by, bz, cx, cy, cz, r) {
+    const vx = bx - ax, vy = by - ay, vz = bz - az;
+    const L2 = vx * vx + vy * vy + vz * vz || 1e-9;
+    let u = ((cx - ax) * vx + (cy - ay) * vy + (cz - az) * vz) / L2;
+    u = u < 0 ? 0 : u > 1 ? 1 : u;
+    const dx = ax + vx * u - cx, dy = ay + vy * u - cy, dz = az + vz * u - cz;
+    return dx * dx + dy * dy + dz * dz <= r * r;
+  }
+  /** Slab test: does the segment a->b cross this world-space box (grown by `pad`)? */
+  function segBox(ax, ay, az, dx, dy, dz, len, box, pad) {
+    let t0 = 0, t1 = len;
+    const lo = box.min, hi = box.max;
+    for (let k = 0; k < 3; k++) {
+      const o = k === 0 ? ax : k === 1 ? ay : az;
+      const d = k === 0 ? dx : k === 1 ? dy : dz;
+      const mn = (k === 0 ? lo.x : k === 1 ? lo.y : lo.z) - pad;
+      const mx = (k === 0 ? hi.x : k === 1 ? hi.y : hi.z) + pad;
+      if (Math.abs(d) < 1e-7) { if (o < mn || o > mx) return false; continue; }
+      let ta = (mn - o) / d, tb = (mx - o) / d;
+      if (ta > tb) { const s = ta; ta = tb; tb = s; }
+      if (ta > t0) t0 = ta;
+      if (tb < t1) t1 = tb;
+      if (t0 > t1) return false;
+    }
+    return true;
+  }
+  const inBox = (x, y, z, box, pad) => x > box.min.x - pad && x < box.max.x + pad && y > box.min.y - pad &&
+    y < box.max.y + pad && z > box.min.z - pad && z < box.max.z + pad;
+
+  /**
+   * What (if anything) stands between `lens` and the point `to`. `skip` is a distance from the lens inside which
+   * a surface does not count (nothing is ever perfectly clear of the boy's own contact shadow).
+   * Returns null when the way is clear, else {name, kind, big} for the first thing found.
+   */
+  /**
+   * Everything that could possibly sit between a lens on this boom and the boy, gathered once a tick, so the
+   * pose search below costs a few dozen sphere tests instead of a walk over the whole village.
+   */
+  const SHORT = [];
+  function shortlist(hx, hy, hz, radius) {
+    SHORT.length = 0;
+    for (const list of [S.objects, S.blockers]) {
+      for (const obj of list) {
+        let cx, cy, cz, r;
+        if (obj.kind === 'inst') {
+          const g = obj.g, i = obj.i;
+          if (!Number.isFinite(g.cx[i])) continue;
+          cx = g.cx[i]; cy = g.cy[i]; cz = g.cz[i]; r = g.r[i];
+        } else if (obj.kind === 'solid') {
+          const b = obj.box;
+          cx = (b.min.x + b.max.x) / 2; cy = (b.min.y + b.max.y) / 2; cz = (b.min.z + b.max.z) / 2;
+          r = obj.r || Math.hypot(b.max.x - b.min.x, b.max.z - b.min.z) / 2;
+        } else {
+          if (!(obj.r > 0)) continue;
+          cx = obj.cx; cy = obj.cy; cz = obj.cz; r = obj.r + (obj.hy || 0);
+        }
+        const dx = cx - hx, dy = cy - hy, dz = cz - hz, rr = radius + r;
+        if (dx * dx + dy * dy + dz * dz > rr * rr) continue;
+        SHORT.push(obj);
+      }
+    }
+    return SHORT;
+  }
+
+  /**
+   * The coarse test is deliberately conservative — a box says "blocked" a little before the triangles do, which
+   * is what gives the camera time to step aside BEFORE the boy is actually hidden. `precise` asks the triangles
+   * themselves, so the rig can also report the honest truth: was he ever really hidden?
+   */
+  const HITRUNS = [];
+  function preciseHit(obj, lens, to, runs) {
+    let dx = to.x - lens.x, dy = to.y - lens.y, dz = to.z - lens.z;
+    const len = Math.hypot(dx, dy, dz) || 1e-6;
+    const far = len - 0.12;
+    if (far <= 0.1) return true;
+    V.copy(lens); V3.set(dx / len, dy / len, dz / len);
+    try {
+      if (obj.kind === 'inst') return rayHitsInstance(obj, V, V3, far);
+      if (obj.kind === 'solid') return runsHitRay(runs && runs.length ? runs : obj.runs, V, V3, far);
+    } catch (_) { return true; }
+    return true;                                   // an actor or a glow card: its sphere IS the test
+  }
+
+  function sightBlocked(lens, to, opts = {}) {
+    const pad = opts.pad ?? 0.05;
+    const wantWorst = !!opts.worst;
+    const precise = !!opts.precise;
+    const ax = lens.x, ay = lens.y, az = lens.z;
+    let dx = to.x - ax, dy = to.y - ay, dz = to.z - az;
+    const len = Math.hypot(dx, dy, dz) || 1e-6;
+    dx /= len; dy /= len; dz /= len;
+    const bx = to.x, by = to.y, bz = to.z;
+    const loY = Math.min(ay, by) - pad, hiY = Math.max(ay, by) + pad;
+    let worst = null, n = 0;
+    const lists = opts.lists || [S.objects, S.blockers];
+    for (const list of lists) {
+      for (const obj of list) {
+        if (obj.kind === 'inst') {
+          const g = obj.g, i = obj.i;
+          if (!Number.isFinite(g.cx[i])) continue;
+          if (g.cy[i] + g.r[i] < loY || g.cy[i] - g.r[i] > hiY) continue;
+          if (!segSphere(ax, ay, az, bx, by, bz, g.cx[i], g.cy[i], g.cz[i], g.r[i] + pad)) continue;
+          let hit = !g.parts.length;
+          for (const part of g.parts) {
+            // the ink hull sits a shaving outside the canopy: 1.04 covers it without inventing a bigger tree
+            if (segSphere(ax, ay, az, bx, by, bz, part.cx[i], part.cy[i], part.cz[i], part.r[i] * 1.04 + pad)) { hit = true; break; }
+            if (segSphere(ax, ay, az, ax, ay, az, part.cx[i], part.cy[i], part.cz[i], part.r[i] * FADE.lens)) { hit = true; break; }
+          }
+          if (!hit) continue;
+          if (precise && !preciseHit(obj, lens, to)) continue;
+          n++;
+          if (!worst || g.r[i] > worst.r) worst = { name: obj.name, kind: 'inst', r: g.r[i], big: g.r[i] > 2.2 };
+          if (!wantWorst) return worst;
+        } else if (obj.kind === 'solid') {
+          if (obj.box.max.y < loY || obj.box.min.y > hiY) continue;
+          if (!segBox(ax, ay, az, dx, dy, dz, len, obj.box, pad)) continue;
+          let hit = null, inside = false;
+          HITRUNS.length = 0;
+          for (const it of obj.runs) {
+            if (it.box.max.y < loY || it.box.min.y > hiY) continue;
+            if (inBox(ax, ay, az, it.box, 0.2)) { hit = it; inside = true; break; }
+            if (segBox(ax, ay, az, dx, dy, dz, len, it.box, pad)) { hit = hit || it; HITRUNS.push(it); if (!precise) break; }
+          }
+          if (!hit) continue;
+          if (precise && !inside && !preciseHit(obj, lens, to, HITRUNS)) continue;
+          n++;
+          const w = Math.max(obj.box.max.x - obj.box.min.x, obj.box.max.z - obj.box.min.z);
+          if (!worst || w > worst.r) worst = { name: obj.name, kind: 'solid', r: w, big: w > 3.2 };
+          if (!wantWorst) return worst;
+        } else {
+          if (!(obj.r > 0)) continue;
+          const reach = obj.hy ? obj.hy + obj.r : obj.r;
+          if (obj.cy + reach < loY || obj.cy - reach > hiY) continue;
+          const rr = obj.r + pad + (precise ? 0 : (obj.pad || 0));
+          const hit = obj.hy
+            ? segCapsule(ax, ay, az, bx, by, bz, obj.cx, obj.cy, obj.cz, rr, obj.hy)
+            : segSphere(ax, ay, az, bx, by, bz, obj.cx, obj.cy, obj.cz, rr);
+          if (!hit) continue;
+          n++;
+          if (!worst || obj.r > worst.r) worst = { name: (obj.mesh && obj.mesh.name) || obj.kind, kind: obj.kind, r: obj.r, big: obj.r > 2.2 };
+          if (!wantWorst) return worst;
+        }
+      }
+    }
+    return worst ? Object.assign(worst, { n }) : null;
+  }
+
+  const targetOf = (obj) => ((obj.inside || obj.melt) ? 0 : (obj.hitT > 0 ? FADE.alpha * smooth(FADE.melt, FADE.solid, obj.ramp ?? obj.surf ?? 9) : 1));
 
   function ease(obj, dt) {
     const target = targetOf(obj);
@@ -892,7 +1267,8 @@ function createFadePass() {
     };
     S.installed = S.scene;
     S.kids = -1;
-    scan();
+    S.pend = null;
+    scan();                                    // a map load is already behind a transition: take the whole census
   }
 
   function detach() {
@@ -907,19 +1283,24 @@ function createFadePass() {
     S.carriers.byGeo.clear();
     restore();
     unneutralise();
-    S.installed = null; S.scene = null; S.objects = []; S.groups = []; S.solids = [];
+    S.installed = null; S.scene = null; S.objects = []; S.groups = []; S.solids = []; S.blockers = []; S.pend = null;
     S.fading.length = 0; S.ghosts.length = 0; S.hiddenInst.length = 0; S.hiddenSolid.clear();
   }
 
-  /** Once per frame: follow the field's scene, and rescan when the scene's contents change. */
+  /**
+   * Once per frame: follow the field's scene, and re-take the census when the scene's contents change — a few
+   * milliseconds at a time (the old census stays live until the new one is finished), so a tree LOD swapping
+   * tiers mid-orbit can never cost a frame.
+   */
   function sync(sc, dt = 0) {
     if (sc !== S.scene) { attach(sc); return; }
     if (!sc) return;
+    if (S.pend) { scan(3); return; }
     S.rescanT += dt;
     if (S.rescanT > 0.5) {
       S.rescanT = 0;
       const kids = sc.children.length;
-      if (kids !== S.kids) { S.kids = kids; scan(); }
+      if (kids !== S.kids) { S.kids = kids; scan(3); }
     }
   }
 
@@ -932,6 +1313,8 @@ function createFadePass() {
       if (!v) { restore(); unneutralise(); S.fading.length = 0; S.ghosts.length = 0; for (const c of S.carriers.all) c.count = 0; }
     },
     update, settle, settled, sync, attach, detach,
+    /** The sight line: what stands between a lens and a point, off the cached bounds (see sightBlocked). */
+    blocked: sightBlocked, shortlist,
     /** What the last tick actually ray-tested, and how many of the five hero rays each object blocked. */
     probe() { return (S.probe || []).slice(0, 12); },
     /**
@@ -943,8 +1326,8 @@ function createFadePass() {
       const list = S.objects.filter((o) => Number.isFinite(o.dist)).slice();
       list.sort((a, b) => (a.surf ?? 9e9) - (b.surf ?? 9e9));
       return list.slice(0, Math.max(1, limit | 0)).map((o) => ({
-        name: o.name, kind: o.kind, dist: r3(o.dist), surf: r3(o.surf ?? 0), segD: o.segD ?? null,
-        verdict: o.why || 'not tested yet', alpha: r3(o.alpha), inside: !!o.inside,
+        name: o.name, kind: o.kind, dist: r3(o.dist), surf: r3(o.surf ?? 0), sightSurf: r3(o.ramp ?? o.surf ?? 0),
+        segD: o.segD ?? null, verdict: o.why || 'not tested yet', alpha: r3(o.alpha), inside: !!o.inside, melted: !!o.melt,
       }));
     },
     /** Live tuning for A/B work: fade.tune({alpha, outline, outMs, inMs, hold, ghosts}). */
@@ -953,8 +1336,8 @@ function createFadePass() {
       return Object.assign({}, FADE);
     },
     list() {
-      return S.fading.slice(0, 12).map((o) => ({ name: o.name, alpha: r3(o.alpha), inside: !!o.inside, dist: r3(o.dist),
-        kind: o.kind, ghost: true, surf: r3(o.surf ?? 0) }));
+      return S.fading.slice(0, 12).map((o) => ({ name: o.name, alpha: r3(o.alpha), inside: !!o.inside, melted: !!o.melt,
+        dist: r3(o.dist), kind: o.kind, ghost: true, surf: r3(o.surf ?? 0) }));
     },
     /** Every candidate the pass knows about, biggest first: what a demo or a critic can walk behind. */
     objects(limit = 40) {
@@ -978,6 +1361,7 @@ function createFadePass() {
     },
     state() {
       return { on: S.enabled, objects: S.objects.length, instances: S.objects.length - S.solids.length, groups: S.groups.length, pieces: S.solids.length,
+        blockers: S.blockers.length, scanning: !!S.pend, scanFrames: S.scanFrames, runs: S.runs || 0, heavy: S.heavy || [],
         tested: S.tested, occluding: S.occluding, fading: S.fading.length, ghosts: S.drawn, hidden: S.hiddenInst.length + S.hiddenSolid.size,
         alpha: FADE.alpha, ms: S.ms, scanMs: S.scanMs, scene: S.scene ? (S.scene.name || 'scene') : null };
     },
@@ -994,6 +1378,46 @@ const RECENTRE_RATE = 1.1;
 const RECENTRE_CAP = 55 * DEG;
 const MANUAL_HOLD = 2.2;            // no automatic swing for this long after a manual orbit
 
+/**
+ * ── KEEPING THE BOY ────────────────────────────────────────────────────────────────────────────────────────────
+ * "When a roof would come between, the camera slides along the wall and keeps him." That is the DQV field camera,
+ * and it is a HARD GUARANTEE here, not a courtesy: every tick, after the fade has decided what to ghost, the rig
+ * asks whether a straight line from the lens to the boy's chest is clear. If it is not, it looks for the NEAREST
+ * pose that is — first by sliding the boom round him (a few degrees for a fence post, forty for a cottage), then,
+ * only if no slide works, by lifting the boom over the obstruction. It never dollies in: the boom length is the
+ * map's composition and nothing in the way is allowed to change it.
+ *
+ * The slide goes into the CAMERA, not into the walk frame (the same trick as the ease-behind swing: it is added
+ * to `drift` while a direction is held), so a boy walking a straight line keeps walking a straight line while the
+ * lens steps round the corner of the house.
+ */
+const DODGE = ({
+  max: 100 * DEG,       // how far round the boom may slide before it gives up and lets the fade have it
+  step: 6 * DEG,        // the search grid
+  lifts: [0, 0.55, 1.2, 2.1, 3.2, 4.6],
+  liftCost: 15,         // degrees-equivalent per unit of lift: a slide is always preferred to a climb
+  stick: 0.42,          // ... and staying where we already are is preferred to either (no flip-flopping)
+  hold: 0.35,           // hold a slide this long after the way is clear, so a doorway cannot strobe
+  rateIn: 10.0,         // spring rate while he is hidden (fast: he must come back NOW)
+  rateOut: 2.6,         // ... and coming home (gentle: a view that settles, not a snap)
+  capIn: 300 * DEG,     // never faster than this, even hidden — a slide is a camera move, not a cut
+  capOut: 85 * DEG,
+  chest: 0.62,          // the aiming point on the boy, as a fraction of his height
+  pad: 0.3,             // the warning margin: the camera steps aside before the wall really covers him
+  budget: 230,          // at most this many sight tests a tick (two per pose: now, and when it lands)
+  look: 0.32,           // seconds of look-ahead: where the boy and the boom will be when the slide lands
+  lookYaw: 0.88,        // ... and where the yaw spring will have reached by then
+});
+/** Every pose the guarantee may consider, cheapest first: a magnitude of slide and a climb. Built once. */
+const RINGS = (() => {
+  const out = [];
+  for (let m = 0; m * DODGE.step <= DODGE.max + 1e-6; m++) {
+    for (const lift of DODGE.lifts) out.push({ mag: m * DODGE.step, lift, cost: m * (DODGE.step / DEG) + lift * DODGE.liftCost });
+  }
+  out.sort((a, b) => a.cost - b.cost);
+  return out;
+})();
+
 let FieldMod = null;                // src/world/field.js, imported lazily (only to find the scene being drawn)
 function fieldWorld(rig) {
   try {
@@ -1009,6 +1433,11 @@ function fieldWorld(rig) {
   } catch (_) { return null; }
 }
 function fieldScene(rig) { const w = fieldWorld(rig); return w ? (w.scene || null) : null; }
+/** The hero's own model root — never an occluder of himself, and never something to slide around. */
+function fieldHeroGroup(rig) {
+  const w = fieldWorld(rig);
+  return (w && w.player && w.player.hero && w.player.hero.group) || null;
+}
 /** The real hero's model height, so the composer frames whoever P07 actually built (fallback: a six-year-old). */
 function fieldHeroHeight(rig) {
   const w = fieldWorld(rig);
@@ -1027,8 +1456,11 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
     lift: 0, liftT: 0,
     manualT: 99, moveT: 0, stillT: 99, walked: 0, auto: true, talk: 0, swing: 0, mode: 'field',
     pose: null, talkPose: null, installed: null, solvedFor: null, resolveT: 0,
+    dodge: 0, dodgeT: 0, over: 0, overT: 0, clearT: 9, hvx: 0, hvz: 0, hpx: undefined, hpz: undefined, yawTv: 0, yawTp: undefined,
   };
-  const pc = { yaw: 0, tx: 0, ty: 0, tz: 0, dist: CAM_DEFAULT.dist, talk: 0, lift: 0, lx: 0, lz: 0, pitch: c.pitch, fov: c.fov, lookUp: c.lookUp, shotT: 0 };
+  const pc = { yaw: 0, tx: 0, ty: 0, tz: 0, dist: CAM_DEFAULT.dist, talk: 0, lift: 0, lx: 0, lz: 0, pitch: c.pitch, fov: c.fov, lookUp: c.lookUp, shotT: 0, dodge: 0, over: 0 };
+  /** What the sight guarantee did this tick (state().field.camera.keep, and __DQ.cameraSight()). */
+  const KEEP = { on: true, blocked: false, blockedBy: null, slide: 0, lift: 0, tests: 0, ms: 0, solved: true, hiddenTicks: 0, ticks: 0 };
   let camera = null;
   let modeDef = CAM_MODES.field;
 
@@ -1062,9 +1494,10 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
   };
 
   const remember = () => Object.assign(pc, { yaw: c.yaw, tx: c.tx, ty: c.ty, tz: c.tz, dist: c.dist, talk: c.talk,
-    lift: c.lift, lx: c.lx, lz: c.lz, pitch: c.pitch, fov: c.fov, lookUp: c.lookUp, shotT: SHOT.t });
+    lift: c.lift, lx: c.lx, lz: c.lz, pitch: c.pitch, fov: c.fov, lookUp: c.lookUp, shotT: SHOT.t,
+    dodge: c.dodge, over: c.over });
 
-  const fade = createFadePass();
+  const fade = createFadePass({ hero: () => fieldHeroGroup(rig) });
 
   /** Ground clearance + sight line: the lens stays out of the hill, and climbs a rise that would hide him. */
   function clearance(yaw, pitchDeg, dist, g) {
@@ -1085,18 +1518,163 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
     return clamp(need, 0, 7);
   }
 
+  /** Where the lens really is: the boom plus whatever slide and climb the sight guarantee is holding. */
+  const camYaw = () => wrapPi(c.yaw + c.dodge);
+  const camLift = () => c.lift + c.over;
+  /** The point on the boy the lens must be able to see: his chest, the same point a critic's probe aims at. */
+  const chestOf = (p) => ({ x: p.x, y: p.y + heroHeight() * DODGE.chest, z: p.z });
+  /** Ground clearance for a pose the camera has NOT taken (the full sight-line version is clearance()). */
+  function groundLift(yaw, pitchDeg, dist, g) {
+    const m = map();
+    if (!m || typeof m.heightAt !== 'function') return 0;
+    const L = lensAt(yaw, pitchDeg, dist, g.x, g.y, g.z, 0);
+    try { return clamp(m.heightAt(L.x, L.z) + (modeDef.floor ?? 0.85) - L.y, 0, 7); } catch (_) { return 0; }
+  }
+
   /**
-   * Install a mode's composition. `def` is the block the MAP asked for; the map owns `orbit`, `mode`, `fov` and
-   * (optionally) its own `frame`/`talk` composition targets, and the rig solves the boom. A map's legacy
-   * `pitch` still nudges how much ground is in shot, but never at the cost of the boy reading on screen.
+   * THE SIGHT GUARANTEE — run every tick, after the fade has decided what to ghost.
+   * Ray from the lens to the boy's chest; if anything opaque is in the way, find the CHEAPEST pose that is clear
+   * (slide round him first, climb only if no slide works) and ease the boom there on its own spring. The boom
+   * length never changes: this is a slide and a lift, never a dolly in.
+   */
+  function keepHero(dt, snap = false) {
+    KEEP.ticks++;
+    const finish = () => {
+      if (snap) { c.dodge = c.dodgeT; c.over = c.overT; return 0; }
+      const blocked = KEEP.blocked;
+      const rate = blocked ? DODGE.rateIn : DODGE.rateOut;
+      const cap = (blocked ? DODGE.capIn : DODGE.capOut) * dt;
+      const d = wrapPi(c.dodgeT - c.dodge);
+      const step = clamp(d * (1 - Math.exp(-dt * rate)), -cap, cap);
+      c.dodge = wrapPi(c.dodge + step);
+      const dl = c.overT - c.over;
+      c.over = clamp(c.over + clamp(dl * (1 - Math.exp(-dt * (dl > 0 ? 8 : 2.6))), -5 * dt, 7 * dt), 0, 4);
+      return step;
+    };
+    if (!KEEP.on || SHOT.active || SHOT.rel > 0 || !fade.blocked) {
+      c.dodgeT = 0; c.overT = 0; KEEP.blocked = false; KEEP.blockedBy = null; KEEP.slide = 0; KEEP.lift = 0;
+      return finish();
+    }
+    const t0 = performance.now();
+    let step = 0;
+    try {
+      const p = heroPos();
+      const chest = chestOf(p);
+      const g = { x: c.tx, y: c.ty, z: c.tz };
+      // LOOK AHEAD. The lens takes about a quarter of a second to slide round a corner, so the question is not
+      // "is he hidden now" but "will he be hidden by the time I could have moved" — the test is run against
+      // where the boy, the boom and the orbit will all be in DODGE.look seconds. That is what turns a camera
+      // that catches up after he disappears into one that is already stepping aside as the roof comes round.
+      // the MEASURED velocity, not the one he is asking for: a boy pressed against a wall (or against the
+      // villager who is covering him) still reports a full walking speed, and predicting from that would send
+      // the camera looking for a clear line to a place he is never going to reach
+      if (dt > 0) {
+        const mvx = (p.x - (c.hpx ?? p.x)) / dt, mvz = (p.z - (c.hpz ?? p.z)) / dt;
+        c.hvx += (mvx - c.hvx) * 0.4; c.hvz += (mvz - c.hvz) * 0.4;
+      }
+      c.hpx = p.x; c.hpz = p.z;
+      const av = DODGE.look;
+      const ax = c.hvx * av, az = c.hvz * av;
+      const gA = { x: c.tx + ax, y: c.ty, z: c.tz + az };
+      const chestA = { x: chest.x + ax, y: chest.y, z: chest.z + az };
+      // ... and the same for the ORBIT: while the player is swinging the view round (or the ease-behind is),
+      // the boom is aimed at where the orbit will be, not where it is
+      if (dt > 0) {
+        const tv = wrapPi(c.yawT - (c.yawTp ?? c.yawT)) / dt;
+        c.yawTv += (clamp(tv, -6, 6) - c.yawTv) * 0.4;
+      }
+      c.yawTp = c.yawT;
+      const base = wrapPi(c.yaw + wrapPi(wrapPi(c.yawT + c.yawTv * av) - c.yaw) * DODGE.lookYaw);
+      const short = fade.shortlist(p.x + ax * 0.5, p.y + heroHeight() * 0.5, p.z + az * 0.5, c.dist + 4.2);
+      const LISTS = [short];
+      let tests = 0;
+      const poseAt = (off, extra, now = false) => {
+        const yaw = wrapPi((now ? c.yaw : base) + off);
+        const G = now ? g : gA;
+        const lift = Math.max(c.lift, groundLift(yaw, c.pitch, c.dist, G)) + extra;
+        return lensAt(yaw, c.pitch, c.dist, G.x, G.y, G.z, lift);
+      };
+      // A pose only counts as clear if it is clear NOW **and** still clear when the slide would land there:
+      // during a 360 orbit the two are twenty-odd degrees apart, and a camera that only checked one of them
+      // would step neatly behind the tree it was trying to avoid.
+      const OPT = { pad: DODGE.pad, lists: LISTS };
+      const tryPose = (off, extra) => {
+        tests += 2;
+        return fade.blocked(poseAt(off, extra, true), chest, OPT) || fade.blocked(poseAt(off, extra), chestA, OPT);
+      };
+      // the coarse test is the EARLY WARNING (it fires a shade before the triangles really cover him, which is
+      // what buys the camera time to step aside); the precise one is the honest tally of whether he was ever
+      // actually hidden, which is the number this whole piece is judged on
+      const here = tryPose(c.dodge, c.over);              // is the way clear from where the lens IS right now?
+      KEEP.blocked = !!here;
+      KEEP.blockedBy = here ? here.name : null;
+      if (here) {
+        const real = fade.blocked(poseAt(c.dodge, c.over, true), chest, { pad: 0, lists: LISTS, precise: true });
+        if (real) { KEEP.hiddenTicks++; KEEP.hiddenBy = real.name; }
+      }
+      let best = null;
+      const sign = c.dodgeT >= 0 ? 1 : -1;
+      for (const r of RINGS) {
+        if (best || tests >= DODGE.budget) break;
+        for (const s of (r.mag === 0 ? [0] : [sign, -sign])) {
+          if (!tryPose(r.mag * s, r.lift)) { best = { off: r.mag * s, lift: r.lift }; break; }
+          if (tests >= DODGE.budget) break;
+        }
+      }
+      KEEP.solved = !!best;
+      KEEP.tests = tests;
+      if (best) {
+        // a way through is clear: hold the slide we have for a beat before coming home, so a doorway or a
+        // passing villager cannot make the camera strobe back and forth
+        if (best.off === 0 && best.lift === 0 && (Math.abs(c.dodgeT) > 1e-3 || c.overT > 1e-3)) {
+          c.clearT += dt;
+          if (c.clearT > DODGE.hold) { c.dodgeT = 0; c.overT = 0; }
+        } else { c.clearT = 0; c.dodgeT = clamp(best.off, -DODGE.max, DODGE.max); c.overT = best.lift; }
+      }
+      // else: nothing in reach is clear — keep the slide we have and let the fade ghost what is left
+      KEEP.slide = r3(c.dodgeT / DEG); KEEP.lift = r3(c.overT);
+    } catch (e) { reportError('camera sight guarantee', e); KEEP.on = false; }
+    step = finish();
+    KEEP.ms = Math.round((performance.now() - t0) * 100) / 100;
+    return step;
+  }
+
+  /**
+   * THE LIVE MAP'S OWN FRAMING — `def.camera` on the map that is loaded RIGHT NOW (src/world/maps/<id>.js).
+   * The rig reads it on every mode change instead of keeping a private copy, so a map edited under a running
+   * game (P23 rebuilding Puddlewick) reframes at once, and `cameraMode(...)` can never fall back to a hardcoded
+   * table while a map is asking for something else (P09 gap #1).
+   */
+  function liveMapCam() {
+    try {
+      const m = map();
+      const d = m && m.def && m.def.camera;
+      return d && typeof d === 'object' ? d : null;
+    } catch (_) { return null; }
+  }
+
+  /**
+   * Install a mode's composition. The MAP owns `orbit`, `mode`, `fov`, the ground angle `pitch`, and optionally
+   * its own `frame` / `talk` composition targets; the rig solves the boom and the look point for the hero P07
+   * actually built. (A map's `dist` / `lookUp` are read as the composition's fallback only — the boom is solved,
+   * because the boy's height decides it: the same 10.5 that framed the old 1.6-unit placeholder left P07's
+   * 1.11-unit six-year-old reading at 13% of frame height.)
    *
-   * `remember` records the def as the one the map installed, so cameraMode('interior') -> cameraMode('field')
-   * comes back to THIS map's framing instead of a hardcoded table (walking out of a house kept the sky).
+   * Where `def` comes from, in order:
+   *   1. the block the caller passed (field.js on map load: `configure(def.camera)`)
+   *   2. the LIVE map's own camera block, when the mode asked for is the map's own mode
+   *      -> `cameraMode('interior')` then `cameraMode('field')` comes back to THIS map's framing, not a preset
+   *   3. otherwise, the live map's LENS only (its fov): the ground angle and the composition belong to the mode
+   *      being asked for, because the map authored its pitch for its own kind of place
+   * `remember` records which mode the map installed, so step 2 knows what "the map's own mode" is.
    */
   function applyMode(name, def = null, remember = false) {
     const key = CAM_MODES[name] ? name : 'field';
-    const isInstalled = !def && c.installed && c.installed.mode === key;
-    const d = def || (isInstalled ? c.installed.def : null) || {};
+    const live = liveMapCam();
+    const installedMode = c.installed ? c.installed.mode : null;
+    const isInstalled = !def && (installedMode === key || (!installedMode && key === 'field'));
+    const lens = live && Number.isFinite(+live.fov) ? { fov: +live.fov } : {};
+    const d = def || (isInstalled ? (live || (c.installed && c.installed.def) || {}) : lens) || {};
     c.mode = key;
     modeDef = CAM_MODES[key];
     const h = heroHeight();
@@ -1105,8 +1683,8 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
     const fov = clamp(Number.isFinite(+d.fov) ? +d.fov * FRAME.fovScale : modeDef.fov, FRAME.minFov, FRAME.maxFov);
     // a map may state the composition itself: camera.frame = {hero, horizon | feet}
     const want = Object.assign({}, modeDef.frame, (d.frame && typeof d.frame === 'object') ? d.frame : null);
-    // A full composition solves the boom pitch itself; a map's legacy `pitch` is only the hint the solver falls
-    // back on when the composition has no horizon to place (indoors, where the walls ARE the frame).
+    // The GROUND ANGLE is the map's (26° in the owner-approved field-opening frame). It is only solved for when
+    // a composition states all three of hero / feet / horizon, which no built-in mode does.
     const pitch = Number.isFinite(+d.pitch) ? clamp(+d.pitch, FRAME.minPitch, FRAME.maxPitch) : modeDef.pitch;
     const pose = compose(pitch, fov, h, want);
     const talkWant = Object.assign({}, modeDef.talk, (d.talk && typeof d.talk === 'object') ? d.talk : null);
@@ -1137,8 +1715,9 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
     const h = fieldHeroHeight(rig);
     if (!h || Math.abs(h - s.h) < 0.01) return false;
     heroH = h;
+    c.resolves = (c.resolves || 0) + 1;
     const keepZoom = Math.abs(c.distT - c.base) > 0.05 ? c.distT : 0;
-    applyMode(c.mode, c.installed && c.installed.mode === c.mode ? c.installed.def : null);
+    applyMode(c.mode);                         // re-reads the live map's framing (see applyMode)
     if (keepZoom) { c.distT = keepZoom; recompose(keepZoom); }
     return true;
   }
@@ -1152,7 +1731,7 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
     },
     /** The frame the PLAYER walks in (see the header: the ease-behind swing is not fed back while a key is held). */
     get yaw() { return c.yawCtl; },
-    get camYaw() { return c.yaw; },
+    get camYaw() { return camYaw(); },
     get auto() { return c.auto; },
     set auto(on) { c.auto = !!on; },
 
@@ -1181,6 +1760,7 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
       c.pitch = c.pitchT; c.dist = c.distT; c.fov = c.fovT; c.lookUp = c.lookUpT;
       c.yaw = c.yawT = c.yawCtl = (keepYaw ? c.yaw : wrapPi((Number.isFinite(+d.orbit) ? +d.orbit : 0) * DEG));
       c.drift = 0; c.lx = 0; c.lz = 0; c.lift = c.liftT = 0; c.manualT = 99; c.walked = 0; c.stillT = 99;
+      c.dodge = c.dodgeT = 0; c.over = c.overT = 0; c.clearT = 9;
       rig.cut();
       return Object.assign({ orbit: deg360(c.yawT) }, out);
     },
@@ -1189,9 +1769,15 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
       const g = goal(), gp = rig.goalPose();
       c.tx = g.x; c.ty = g.y; c.tz = g.z; c.vx = c.vy = c.vz = 0; c.yaw = c.yawT;
       c.dist = gp.dist; c.pitch = gp.pitch; c.fov = gp.fov; c.lookUp = gp.lookUp;
-      c.lx = 0; c.lz = 0; c.drift = 0; c.yawCtl = c.yaw;
+      c.lx = 0; c.lz = 0; c.drift = 0; c.dodge = c.dodgeT = 0; c.over = c.overT = 0; c.clearT = 9;
+      c.yawCtl = c.yaw;
       c.liftT = clearance(c.yaw, c.pitch, c.dist, g);
       c.lift = c.liftT;
+      rig.settleFade();
+      keepHero(1 / 60, true);              // arrive already looking at him, even if we arrive behind a wall
+      c.liftT = clearance(camYaw(), c.pitch, c.dist, g);
+      c.lift = c.liftT;
+      c.yawCtl = camYaw();
       remember();
       rig.settleFade();
     },
@@ -1200,8 +1786,8 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
     settleFade() {
       try {
         fade.sync(scene ? scene() : fieldScene(rig), 0);
-        const L = lensAt(c.yaw, c.pitch, c.dist, c.tx, c.ty, c.tz, c.lift);
-        fade.update(1 / 60, L, heroPos(), c.yaw);
+        const L = lensAt(camYaw(), c.pitch, c.dist, c.tx, c.ty, c.tz, camLift());
+        fade.update(1 / 60, L, heroPos(), camYaw());
         fade.settle();
       } catch (e) { reportError('camera settleFade', e); }
     },
@@ -1265,18 +1851,9 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
       }
       c.swing = swing / Math.max(1e-6, dt);
 
-      // ── the walk frame: manual orbit moves it, the automatic swing does not while a direction is held ──
-      let stick = 0;
-      try { const ax = Input.axis(); stick = Math.hypot(ax.x, ax.y); } catch (_) { stick = 0; }
-      const held = stick > 0.15 || moving;
-      if (!held) c.drift = 0;
-      else if (swing) c.drift = clamp(c.drift + swing, -150 * DEG, 150 * DEG);
-
       // ── yaw spring ──
       c.yawT = wrapPi(c.yawT);
       c.yaw = wrapPi(c.yaw + wrapPi(c.yawT - c.yaw) * (1 - Math.exp(-dt * 7.5)));
-      c.yawCtl = wrapPi(c.yaw - c.drift);
-      if (Math.abs(wrapPi(c.yaw - c.yawCtl)) > 150 * DEG) { c.drift = 0; c.yawCtl = c.yaw; }
 
       // ── A CONVERSATION IS A CAMERA BEAT: the lens steps in and up for the line, and steps back after ──
       const t = !!talking();
@@ -1286,7 +1863,7 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
 
       // ── the hero model loads asynchronously; re-solve the composition once it reports its real height ──
       c.resolveT += dt;
-      if (c.resolveT > 0.4) { c.resolveT = 0; try { resolveIfHeroChanged(); } catch (e) { reportError('camera recompose', e); } }
+      if (c.resolveT > 0.1) { c.resolveT = 0; try { resolveIfHeroChanged(); } catch (e) { reportError('camera recompose', e); } }
 
       // ── distance / pitch / lens springs (a zoom request, a mode change or the talk beat; NEVER an occluder) ──
       const g0 = rig.goalPose();
@@ -1298,7 +1875,10 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
       // ── the lead: the look point runs ahead of him, on its own spring so starting and stopping never lurch ──
       if (p) {
         const k = (modeDef.lead ?? 1) * 0.3;
-        const wantX = clamp(p.vx * k, -1.7, 1.7), wantZ = clamp(p.vz * k, -1.7, 1.7);
+        // the lead is a fraction of the SHOT, not a fixed distance: on the short DQV boom (≈6 units) a 1.7-unit
+        // lead would swing him a fifth of the way off centre, which reads as the camera wandering off the boy
+        const cap = clamp(c.dist * 0.22, 0.8, 1.7);
+        const wantX = clamp(p.vx * k, -cap, cap), wantZ = clamp(p.vz * k, -cap, cap);
         const kk = 1 - Math.exp(-dt * 3.2);
         c.lx += (wantX - c.lx) * kk; c.lz += (wantZ - c.lz) * kk;
       }
@@ -1311,26 +1891,39 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
       }
 
       // ── ground clearance and sight line, on a spring (fast up, gentle down) ──
-      c.liftT = SHOT.active ? 0 : clearance(c.yaw, c.pitch, c.dist, { x: c.tx, y: c.ty, z: c.tz });
+      c.liftT = SHOT.active ? 0 : clearance(camYaw(), c.pitch, c.dist, { x: c.tx, y: c.ty, z: c.tz });
       c.lift += (c.liftT - c.lift) * (1 - Math.exp(-dt * (c.liftT > c.lift ? 9 : 3.5)));
 
       // ── who is covering the hero? (sim-time, so freeze and advance stay deterministic) ──
       try {
         fade.sync(scene ? scene() : fieldScene(rig), dt);
         const pose = SHOT.pose && (SHOT.active || SHOT.rel > 0) ? SHOT.pose : null;
-        const L = pose ? { x: pose.px, y: pose.py, z: pose.pz } : lensAt(c.yaw, c.pitch, c.dist, c.tx, c.ty, c.tz, c.lift);
-        fade.update(dt, L, heroPos(), c.yaw);
+        const L = pose ? { x: pose.px, y: pose.py, z: pose.pz } : lensAt(camYaw(), c.pitch, c.dist, c.tx, c.ty, c.tz, camLift());
+        fade.update(dt, L, heroPos(), camYaw());
       } catch (e) { reportError('camera fade update', e); }
+
+      // ── AND THEN: KEEP THE BOY. Whatever is still in the way, slide the boom round it (never a dolly in) ──
+      const slid = keepHero(dt);
+
+      // ── the walk frame: manual orbit moves it; the ease-behind swing and the slide do not, while a direction
+      //    is held (so a boy walking a straight line keeps walking a straight line while the lens steps round) ──
+      let stick = 0;
+      try { const ax = Input.axis(); stick = Math.hypot(ax.x, ax.y); } catch (_) { stick = 0; }
+      const held = stick > 0.15 || moving;
+      if (!held) c.drift = 0;
+      else if (swing || slid) c.drift = clamp(c.drift + swing + slid, -150 * DEG, 150 * DEG);
+      c.yawCtl = wrapPi(camYaw() - c.drift);
+      if (Math.abs(wrapPi(camYaw() - c.yawCtl)) > 150 * DEG) { c.drift = 0; c.yawCtl = camYaw(); }
     },
 
     place(alpha) {
       const cam = rig.camera;
       const tx = pc.tx + (c.tx - pc.tx) * alpha, ty = pc.ty + (c.ty - pc.ty) * alpha, tz = pc.tz + (c.tz - pc.tz) * alpha;
-      const yaw = pc.yaw + wrapPi(c.yaw - pc.yaw) * alpha;
+      const yaw = wrapPi(pc.yaw + wrapPi(c.yaw - pc.yaw) * alpha + pc.dodge + wrapPi(c.dodge - pc.dodge) * alpha);
       const dist = pc.dist + (c.dist - pc.dist) * alpha;
       const pitch = pc.pitch + (c.pitch - pc.pitch) * alpha;
       const fov = pc.fov + (c.fov - pc.fov) * alpha;
-      const lift = pc.lift + (c.lift - pc.lift) * alpha;
+      const lift = pc.lift + (c.lift - pc.lift) * alpha + pc.over + (c.over - pc.over) * alpha;
       const talk = pc.talk + (c.talk - pc.talk) * alpha;
       const lookUpBase = pc.lookUp + (c.lookUp - pc.lookUp) * alpha;
       const ph = pitch * DEG;
@@ -1390,7 +1983,7 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
         if (p) return p;
         if (v && (Number.isFinite(+v.dist) || Number.isFinite(+v.orbit) || Number.isFinite(+v.pitch))) {
           const around = vec3of(v.of, hero);
-          const yaw = wrapPi((Number.isFinite(+v.orbit) ? +v.orbit : deg360(c.yaw)) * DEG);
+          const yaw = wrapPi((Number.isFinite(+v.orbit) ? +v.orbit : deg360(camYaw())) * DEG);
           const pitch = (Number.isFinite(+v.pitch) ? +v.pitch : c.pitch) * DEG;
           const d = Number.isFinite(+v.dist) ? +v.dist : c.dist;
           return { x: around.x + Math.sin(yaw) * Math.cos(pitch) * d, y: around.y + Math.sin(pitch) * d + 0.5, z: around.z + Math.cos(yaw) * Math.cos(pitch) * d };
@@ -1455,21 +2048,66 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
     orbit(deg, snap) {
       if (deg === undefined) return deg360(c.yawT);
       c.yawT = wrapPi(Number(deg) * DEG); c.manualT = 0; c.walked = 0; c.drift = 0;
-      if (snap) { c.yaw = c.yawT; c.yawCtl = c.yaw; pc.yaw = c.yaw; rig.settleFade(); }
+      if (snap) {
+        c.yaw = c.yawT; pc.yaw = c.yaw; c.clearT = 9;
+        keepHero(1 / 60, true);                       // the guarantee lands with it, so a frozen frame is honest
+        c.yawCtl = camYaw(); pc.dodge = c.dodge; pc.over = c.over;
+        rig.settleFade();
+      }
       return deg360(c.yawT);
+    },
+    /** The sight guarantee: read it, or switch it off for an A/B. */
+    keep(on) {
+      if (on !== undefined) { KEEP.on = !!on; if (!KEEP.on) { c.dodgeT = 0; c.overT = 0; } }
+      const p = heroPos();
+      const blocker = (KEEP.on && fade.blocked)
+        ? fade.blocked(lensAt(camYaw(), c.pitch, c.dist, c.tx, c.ty, c.tz, camLift()), chestOf(p),
+          { pad: DODGE.pad, lists: [fade.shortlist(p.x, p.y + heroHeight() * 0.5, p.z, c.dist + 3.6)] })
+        : null;
+      return { on: KEEP.on, clear: !blocker, blockedBy: blocker ? blocker.name : null,
+        slide: r3(c.dodge / DEG), slideTarget: r3(c.dodgeT / DEG), climb: r3(c.over), climbTarget: r3(c.overT),
+        solved: KEEP.solved, tests: KEEP.tests, ms: KEEP.ms,
+        hiddenTicks: KEEP.hiddenTicks, ticks: KEEP.ticks, hiddenPct: KEEP.ticks ? r3(100 * KEEP.hiddenTicks / KEEP.ticks) : 0 };
+    },
+    /** Reset the running hidden-frames tally (a scenario measures one walk at a time). */
+    keepReset() { KEEP.hiddenTicks = 0; KEEP.ticks = 0; return true; },
+    /**
+     * WHY: the poses the guarantee considered this tick and what stood in each one — so "why is the camera
+     * over there?" (or "why did it give up?") is answerable from outside without reading the code.
+     */
+    keepWhy(limit = 16) {
+      const p = heroPos();
+      const chest = chestOf(p);
+      const g = { x: c.tx, y: c.ty, z: c.tz };
+      const base = wrapPi(c.yaw);
+      const short = fade.shortlist(p.x, p.y + heroHeight() * 0.5, p.z, c.dist + 3.6);
+      const out = [];
+      const sign = c.dodgeT >= 0 ? 1 : -1;
+      for (const r of RINGS) {
+        for (const s of (r.mag === 0 ? [0] : [sign, -sign])) {
+          const yaw = wrapPi(base + r.mag * s);
+          const lift = Math.max(c.lift, groundLift(yaw, c.pitch, c.dist, g)) + r.lift;
+          const b = fade.blocked(lensAt(yaw, c.pitch, c.dist, g.x, g.y, g.z, lift), chest, { pad: DODGE.pad, lists: [short], worst: true });
+          out.push({ slide: r3(r.mag * s / DEG), climb: r.lift, cost: r3(r.cost), clear: !b, by: b ? b.name : null, kind: b ? b.kind : null, n: b ? b.n : 0 });
+          if (out.length >= limit) return { candidates: short.length, poses: out };
+        }
+      }
+      return { candidates: short.length, poses: out };
     },
     /** Debug zoom. The composition follows: the horizon stays where the mode put it, the hero just reads bigger. */
     zoom(n, snap) {
       if (n === undefined) return r3(c.distT);
       c.distT = clamp(Number(n) || c.base, FRAME.minDist, 40);
       recompose(c.distT);
-      if (snap) { c.dist = c.distT; c.lookUp = c.lookUpT; pc.dist = c.dist; pc.lookUp = c.lookUp; rig.settleFade(); }
+      if (snap) { c.dist = c.distT; c.lookUp = c.lookUpT; pc.dist = c.dist; pc.lookUp = c.lookUp;
+        keepHero(1 / 60, true); pc.dodge = c.dodge; pc.over = c.over; rig.settleFade(); }
       return r3(c.distT);
     },
     settled() {
       const g = rig.goalPose();
       return Math.abs(wrapPi(c.yawT - c.yaw)) < 0.6 * DEG && Math.abs(g.dist - c.dist) < 0.05 &&
-        Math.abs(g.pitch - c.pitch) < 0.2 && Math.abs(g.fov - c.fov) < 0.2 && !SHOT.active && SHOT.rel <= 0 && fade.settled();
+        Math.abs(g.pitch - c.pitch) < 0.2 && Math.abs(g.fov - c.fov) < 0.2 && !SHOT.active && SHOT.rel <= 0 &&
+        Math.abs(wrapPi(c.dodgeT - c.dodge)) < 0.6 * DEG && Math.abs(c.overT - c.over) < 0.03 && fade.settled();
     },
     /**
      * Tune live (A/B work and the demo): {mode} picks a mode; {hero, horizon, feet} restate the COMPOSITION and
@@ -1545,11 +2183,16 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
       const g = rig.goalPose();
       const composed = c.pose ? c.pose.measured : null;
       return {
-        mode: c.mode, orbit: rig.orbit(), current: deg360(c.yaw), walk: deg360(c.yawCtl), drift: r3(c.drift / DEG),
+        mode: c.mode, orbit: rig.orbit(), current: deg360(camYaw()), boom: deg360(c.yaw), walk: deg360(c.yawCtl), drift: r3(c.drift / DEG),
         pitch: r3(c.pitch), dist: r3(c.dist), distTarget: r3(g.dist), fov: r3(c.fov), lookUp: r3(c.lookUp),
         auto: c.auto, swing: r3(c.swing / DEG), lift: r3(c.lift), lead: [r3(c.lx), r3(c.lz)],
+        keep: { on: KEEP.on, blocked: KEEP.blocked, by: KEEP.blockedBy, solved: KEEP.solved,
+          slide: r3(c.dodge / DEG), slideTarget: r3(c.dodgeT / DEG), climb: r3(c.over), climbTarget: r3(c.overT),
+          tests: KEEP.tests, ms: KEEP.ms, hiddenTicks: KEEP.hiddenTicks, ticks: KEEP.ticks,
+          hiddenPct: KEEP.ticks ? r3(100 * KEEP.hiddenTicks / KEEP.ticks) : 0 },
         settled: rig.settled(), talkFraming: r3(c.talk),
-        heroHeight: r3(heroHeight()),
+        heroHeight: r3(heroHeight()), solvedFor: c.solvedFor ? { h: r3(c.solvedFor.h), mode: c.solvedFor.mode } : null,
+        resolves: c.resolves || 0,
         composed: composed ? { hero: r3(composed.hero), feet: r3(composed.feet), horizon: r3(composed.horizon) } : null,
         installed: c.installed ? c.installed.mode : null,
         shot: SHOT.active || SHOT.rel > 0 ? { active: SHOT.active, t: r3(SHOT.t), duration: r3(SHOT.dur), releasing: SHOT.rel > 0 } : null,
@@ -1620,6 +2263,15 @@ export function installCameraDebug(getRig) {
   });
   /** __DQ.cameraFrame() — the projection probe: where the hero and the horizon actually land in the frame. */
   Debug.expose('cameraFrame', () => { const rig = getRig(); return rig ? rig.frame() : null; });
+  /**
+   * __DQ.cameraSight() — THE GUARANTEE, as a number: is the line from the lens to the boy's chest clear right
+   * now, what is in the way if not, and how far the boom has slid and climbed to keep him. __DQ.cameraSight(false)
+   * switches the guarantee off for an A/B; cameraSight(true) puts it back.
+   */
+  Debug.expose('cameraSight', (on) => { const rig = getRig(); return rig ? rig.keep(on) : null; });
+  Debug.expose('cameraSightReset', () => { const rig = getRig(); return rig ? rig.keepReset() : null; });
+  /** __DQ.cameraSightWhy() — every pose the guarantee weighed this tick, and what stood in each one. */
+  Debug.expose('cameraSightWhy', (n) => { const rig = getRig(); return rig ? rig.keepWhy(n === undefined ? 16 : n) : null; });
   /** __DQ.cameraOccluders() — what is fading right now, and how far. */
   Debug.expose('cameraOccluders', (probe) => {
     const rig = getRig(); if (!rig) return null;

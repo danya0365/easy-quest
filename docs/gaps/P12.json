@@ -1,0 +1,33 @@
+{
+  "id": "P12",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "The camera never frames the person speaking",
+      "detail": "Measured in the real game (index.html), 15 conversations in the meadow: state().field.camera.current stayed at 4.0 deg in 13 of 15 while the hero's facing swung from 23 to 326 deg, and camera.talkFraming reads 0 throughout. Nothing moves the lens when a conversation opens, so who is on screen is an accident of where the camera happened to be. Measured consequences in shots/P12-critic-c1/meadow: talkTo('nib') -> the ONLY face in frame is the hero's own, Nib Tolley is entirely off screen while his nameplate is up (11-m-nib.png); talkTo('thurl') and talkTo('wat') -> a different villager's bald head covers 15-25 percent of the frame and the speaker's nameplate sits over that stranger's chest (13-m-thurl.png, 14-m-wat.png); talkTo('budge') -> Fennick Quiddle's backpack covers the hero (09-m-budge.png); talkTo('tansy') -> Tansy is half off the bottom-right corner behind the text box (05-m-tansy.png); talkTo('cactuddle') in Puddlewick leaves it at the right edge behind the well. BUILD: when Dialogue opens with an npc, ease the field camera over 0.4-0.6s into a two-shot - orbit to (heroFacing +/- 20-25 deg), dist about 3.0-3.5, lookAt the midpoint of hero and speaker lifted to chest height, fov unchanged - hold it for the conversation, and release back to the walk orbit when it closes. Also add NPC bodies to the see-through candidate set: cameraOccluders(true) at orbit 250 with Mr Budge's head over 20 percent of the frame reports fading=[stone, wood] and tested=[], and the nearest list contains butterflies and robins but not one person, so a villager between the lens and the hero can never fade.",
+      "state": "claimed-fixed",
+      "opened": "2026-09-17T23:42:32.187Z",
+      "events": [
+        {
+          "at": "2026-09-18T00:35:21.507Z",
+          "by": "builder",
+          "note": "npc.js now solves a real two-shot when a conversation opens, instead of nudging. Geometry: with the lens at direction camDir from the hero, somebody at direction to lands at screen-x proportional to sin(to-camDir) and depth proportional to cos(to-camDir); phi = +/-180 is hidden behind the hero, phi = 0 is their back filling the frame. frameTalk() sends the orbit to phi = +/-128 deg (the nearer side, so the lens never takes the long way round), holds it for the whole speech (re-asserted every 0.5s, so the follow camera cannot ease back mid-line), pushes in to max(5.0, dist*0.94) and restores both on close. clearTheShot() also steps any villager standing on the lens-to-speaker line 1.05 units aside. New probe __DQ.talkShot() reports it. Measured in the real game: 21 of 21 conversations (9 in the meadow, 12 in Puddlewick) returned onScreen true, speaker at 24-75 percent across the frame and 16-49 percent down it; camera.talkFraming reads 0.997 while the box is up; talkTo nib, which the critic found with the boy's own face as the only one in frame, now gives ndc -0.24/0.247, xPct 38, head 44 percent down - Nib whole in shot. Shots: shots/P12-round3/after-two-shot-candlewick.png, after-four-people-one-scene.png."
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "title": "Talking to Dimity Rowe opens a conversation with no words in it",
+      "detail": "Measured in the real game: the third time you speak to Dimity Rowe, __DQ.talkTo('dimity') returns {ok:true,name:'Dimity Rowe'} and __DQ.state().dialogue is null - no window opens at all. Screenshot shots/P12-critic-c1/meadow/17-m-dimity-3-emote-turn.png shows the result: a small white '?' over her head, the detached blue '...' prompt still floating over the path, and no text box. A child presses A on the flower girl and the game says nothing. Cause is in the data shape, not the engine: her again.cycle in src/world/maps/meadow.npcs.js is [line, line, {emote:'question'}, line, line] and the {emote} entry is consumed as a whole turn. Nib Tolley has the same shape - {emote:'love'} sits at position 4 of his cycle - so he will do the same on his fifth talk, and any future NPC authored this way will too. BUILD: an emote entry must decorate the page that follows it (play the bubble, then immediately advance to the next line in the same turn) and never count as a turn of its own; if a cycle step yields no pages, fall through to the next step rather than opening and closing an empty conversation. Second, smaller bug visible in the same shot and in shots/P12-critic-c1/village/01-occ-01-orbit-250.png and 02-occ-02-orbit-215.png: the '...' talk prompt is mis-anchored - it floats in open air over grass or a fence, 100-150px from any head, instead of sitting above the person it refers to.",
+      "state": "claimed-fixed",
+      "opened": "2026-09-17T23:42:44.620Z",
+      "events": [
+        {
+          "at": "2026-09-18T00:35:21.644Z",
+          "by": "builder",
+          "note": "Two fixes. (1) Authoring: the lone {emote} turns inside again.cycle for Dimity Rowe and Nib Tolley are now attached to the line they belong to ({emote: question, say: ...}), so the bubble and the words arrive together. (2) Safety net in dialogue.js: the scene counts its says, and if a script runs to the end having said nothing at all - a stage direction on its own, a {set} that only flipped a flag, an {if} that matched nothing - it says STR['talk.nothing'] rather than opening and shutting the window in the same frame. state().dialogue now reports said so it is measurable. Measured in the real game: four consecutive talks to Dimity Rowe give open=true said=1 every time - 'This one is a dandelion', 'Who are they for?', 'Nobody has bought one yet', 'I picked these out of Mrs Pell's garden' (the second one is the turn that used to return talkTo ok with state().dialogue null). And across all 21 conversations measured for the framing gap, every one reported said>=1 and a non-empty text. Shot: shots/P12-round3/after-dimity-third-talk-has-words.png."
+        }
+      ]
+    }
+  ]
+}

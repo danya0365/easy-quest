@@ -12,6 +12,7 @@
 <script type="module">
 // DEMO — P05 buildings: every piece of the village kit at its best, on one green, with doors that open.
 //   __DQ.show(name)     cottage · thatch · inn · shop · bakery · barn · mill · church · well · bridge · market · shrine
+//                       · room (the INTERIOR kit: hearth, table, three chairs, loft, bed, chest) · doorway (the reveal)
 //   __DQ.doors(true|false|null)   force every door open / shut / back to automatic (they open as you walk up)
 //   __DQ.walk(x, z)     move the "hero" stand-in (the doors watch him)  ·  __DQ.orbit(deg) · __DQ.zoom(n) · __DQ.pitch(deg)
 //   __DQ.state().buildings   what was built, and which doors are open
@@ -74,10 +75,14 @@ function heightAt(x, z) {
   return h;
 }
 
+const ROOM = { x: -44, z: 6, W: 12.6, D: 10.6, H: 2.45, DX: -2.8, DW: 1.3, DH: 2.15, LOFT_Y: 1.15 };
 const SPOTS = {
   cottage: { x: -18, z: 3 }, thatch: { x: -9, z: 3.5 }, inn: { x: 2, z: 2 }, shop: { x: 13, z: 2.5 },
-  bakery: { x: 22, z: 3 }, barn: { x: 31, z: 3.5 }, mill: { x: -30, z: -12.6 }, church: { x: 12, z: -20 },
+  bakery: { x: 22, z: 3 }, barn: { x: 31, z: 3.5 }, mill: { x: -30, z: -12.6 }, church: { x: 12, z: -22 },
   well: { x: 4, z: 11 }, bridge: { x: -0.4, z: -11.2 }, market: { x: -8, z: 12 }, shrine: { x: 26, z: -18 },
+  // the room the doors open into, and the doorway whose reveal and back wall stop daylight coming through
+  room: { x: ROOM.x, z: ROOM.z - 1.5, pitch: 52, dist: 13, orbit: 0 },
+  doorway: { x: -18, z: 3, pitch: 12, dist: 7, orbit: 0 },
 };
 
 Scenes.register('demo', () => {
@@ -105,6 +110,7 @@ Scenes.register('demo', () => {
 
     // building pads, so nothing stands on a slope
     for (const [k, p] of Object.entries(SPOTS)) st.pads.push({ x: p.x, z: p.z, r: k === 'church' ? 7 : 4.2, y: raw(p.x, p.z) });
+    st.pads.push({ x: ROOM.x, z: ROOM.z, r: 9.5, y: 0 });         // the interior room stands on level ground at y = 0
 
     const recs = {};
     recs.cottage = kit.cottage({ id: 'demo-cottage', kind: 'cottage', x: SPOTS.cottage.x, z: SPOTS.cottage.z, rot: 0.18, W: 5.4, D: 4.3, H: 2.4,
@@ -146,9 +152,45 @@ Scenes.register('demo', () => {
       kit.bench(SPOTS.shrine.x + 0.4, SPOTS.shrine.z + 3.2, 0.1);
     });
 
+    // ── the INTERIOR kit: what is actually behind a door now (src/world/maps/hollybank.js builds with these) ──
+    safe('room', () => {
+      const R = ROOM, RY = 0.2;              // the room stands a hand's breadth above the demo's grass, so nothing z-fights
+      const r = kit.roomShell({ x: R.x, z: R.z, rot: 0, y: RY, W: R.W, D: R.D, H: R.H, wall: 'plaster', wallTint: PAL.plaster.light,
+        floor: 'wood', beams: false, ceiling: false,
+        openings: [{ side: 'south', at: R.DX, w: R.DW, h: R.DH, kind: 'door' }],
+        windows: [{ side: 'south', at: -5.0, y: 1.35, w: 1.0, h: 0.9, shutter: PAL.paint.shutterGreen },
+          { side: 'south', at: 2.2, y: 1.35, w: 1.0, h: 0.9, shutter: PAL.paint.shutterGreen },
+          { side: 'west', at: 1.4, y: 1.35, w: 0.9, h: 0.85, shutter: PAL.paint.shutterGreen }] });
+      const at = (lx, lz) => ({ x: R.x + lx, z: R.z + lz });
+      const h = at(-2.8, -4.7); kit.hearth(h.x, h.z, 0, { w: 2.0, h: 1.55, y: RY });
+      const t = at(-2.4, -1.5); kit.roomTable(t.x, t.z, 0, { w: 2.1, d: 1.15, top: 0.78, y: RY,
+        things: [{ kind: 'loaf', x: -0.45, z: -0.1 }, { kind: 'bowl', x: 0.35, z: 0.08 }, { kind: 'candle', x: 0.72, z: -0.22 }, { kind: 'cup', x: -0.1, z: 0.24 }] });
+      const c1 = at(-2.4, -2.85), c2 = at(-3.85, -0.2), c3 = at(-0.95, -0.2);
+      kit.chair(c1.x, c1.z, 0, { big: true, y: RY });                       // Father's chair, and it is bigger
+      kit.chair(c2.x, c2.z, Math.PI, { y: RY }); kit.chair(c3.x, c3.z, Math.PI, { y: RY });
+      const dr = at(-5.85, -2.4); kit.dresser(dr.x, dr.z, Math.PI / 2, { w: 1.6, h: 2.0, y: RY });
+      const sh = at(0.4, -5.12); kit.shelf(sh.x, sh.z, 0, { w: 1.5, y: 1.5, n: 2, seed: 12, y0: RY });
+      const rg = at(-2.4, 1.5); kit.rug(rg.x, rg.z, 0.1, { w: 2.6, d: 1.7, color: PAL.cloth.red, seed: 4, y: RY });
+      kit.roomLamp(t.x, t.z, R.H - 0.28, { floor: RY });
+      // the loft: deck, rail, the bed and the chest at the foot of it
+      const LY = RY + R.LOFT_Y;
+      const lx0 = R.x + 2.0, lz1 = R.z + 1.0, hw = R.x + R.W / 2, hd0 = R.z - R.D / 2;
+      kit.addTo('wood', new THREE.BoxGeometry(hw - lx0 + 0.1, 0.16, lz1 - hd0 + 0.1), new THREE.Matrix4().setPosition((lx0 + hw) / 2, LY - 0.08, (hd0 + lz1) / 2), PAL.wood.mid);
+      kit.addTo('wood', new THREE.BoxGeometry(0.12, R.LOFT_Y, lz1 - hd0), new THREE.Matrix4().setPosition(lx0 + 0.06, RY + R.LOFT_Y / 2, (hd0 + lz1) / 2), PAL.wood.dark);
+      kit.addTo('wood', new THREE.BoxGeometry(0.1, 0.1, lz1 - hd0 - 0.3), new THREE.Matrix4().setPosition(lx0 + 0.06, LY + 0.72, (hd0 + lz1) / 2), PAL.wood.light);
+      for (const z of [hd0 + 0.3, (hd0 + lz1) / 2, lz1 - 0.1]) kit.addTo('wood', new THREE.BoxGeometry(0.1, 0.72, 0.1), new THREE.Matrix4().setPosition(lx0 + 0.06, LY + 0.36, z), PAL.wood.beam);
+      const bd = at(4.15, -3.4); kit.bed(bd.x, bd.z, 0, { w: 0.95, l: 1.85, small: true, blanket: PAL.cloth.green, y: LY });
+      const ch = at(4.15, -1.5); kit.chestBox(ch.x, ch.z, 0, { w: 0.9, h: 0.5, d: 0.56, y: LY });
+      // the daylight in the open front door
+      kit.addGlow(new THREE.BoxGeometry(R.DW - 0.06, R.DH - 0.06, 0.08), new THREE.Matrix4().setPosition(R.x + R.DX, RY + (R.DH - 0.06) / 2, R.z + R.D / 2 + 0.24), '#f2ecdc');
+      void r;
+    });
+
     safe('flush', () => kit.flush());
     safe('water', () => kit.water({ stream: st.stream, width: 2 * (HW + BANK + 0.5), y: WATER_Y, shoreDepth: 0.42 }));
-    const onGrass = (x, z) => S.masks.sample(0, x, z) < 0.3 && S.water.sample(x, z) > 2.3;
+    // the interior room is a floor, not a field: no tufts or flowers grow through its boards
+    const inRoom = (x, z) => Math.abs(x - ROOM.x) < ROOM.W / 2 + 1.0 && Math.abs(z - ROOM.z) < ROOM.D / 2 + 1.0;
+    const onGrass = (x, z) => S.masks.sample(0, x, z) < 0.3 && S.water.sample(x, z) > 2.3 && !inRoom(x, z);
     safe('tufts', () => kit.tufts({ count: 900, radius: 46, seed: 88, accept: onGrass }));
     safe('flowers', () => kit.flowers([{ x: -6, z: 16, hue: PAL.flower.white, n: 16 }, { x: 8, z: 17, hue: PAL.flower.yellow, n: 14 },
       { x: 20, z: 14, hue: PAL.flower.pink, n: 12 }, { x: -24, z: 10, hue: PAL.flower.blue, n: 12 }], { accept: onGrass }));
@@ -196,8 +238,14 @@ Scenes.register('demo', () => {
     api: {
       show(name) {
         const p = SPOTS[name] || SPOTS.inn;
+        if (p.pitch !== undefined) view.pitch = p.pitch;
+        if (p.dist !== undefined) view.dist = p.dist;
+        if (p.orbit !== undefined) view.orbit = p.orbit;
         view.want.set(p.x, heightAt(p.x, p.z) + 1.6, p.z + 2);
-        hero.x = p.x + (name === 'church' ? 0 : 0.2); hero.z = p.z + (name === 'church' ? 7.6 : 4.6);
+        // the church is deep (D = 9.2), so the stand-in goes further out — but not so far that he wades into
+        // the stream that runs past its forecourt (its near bank is at about z = -14.3).
+        hero.x = p.x + (name === 'church' ? 0 : 0.2);
+        hero.z = p.z + (name === 'church' ? 6.2 : name === 'room' ? 3.0 : 4.6);
         placeHero();
         document.getElementById('label').textContent = name;
         return { show: name, at: p };

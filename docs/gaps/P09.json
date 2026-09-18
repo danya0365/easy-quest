@@ -5,8 +5,28 @@
       "n": 1,
       "title": "Camera surveys the boy instead of following him",
       "detail": "Framing is too high and far, so the hero is a small figure in a surveyed scene. Re-frame the field camera (distance, pitch, lookUp, FOV) so it follows a child at DQV PS2 scale, and make cameraMode read the live map framing instead of writing its own.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-17T22:30:08.203Z",
+      "events": [
+        {
+          "at": "2026-09-17T23:19:51.430Z",
+          "by": "builder",
+          "note": "Re-framed the field camera around the boy and made cameraMode re-read the LIVE map. Measured with __DQ.cameraFrame() through the live projection matrix, in /index.html and demos/P09.html: boy 13.4%->20.0% of frame height (144px at 720p), boom 9.03->5.97 units, ground angle 26 deg (the map's own camera.pitch, and the angle of docs/approved/field-opening.png), horizon 37%->17.0% down the frame so there is a real band of sky, feet 79.0%. The old CAM_MODES asked for hero+feet+horizon all three, which made the solver pick pitch 11.2 and a flat, eye-level shot; modes now state {hero, horizon} only, so the MAP owns the ground angle. cameraMode('interior') then cameraMode('field') in the running game now returns to pitch 26.000 / dist 5.971 / hero 20.00 / horizon 17.0 - identical to the opening frame to 3 decimals (asserted in scenarios/P09.json). Talk framing states feet 64% so the speaker clears the message window (approved dialogue.png window starts at 69%). 31/31 demo assertions and 7/7 index assertions pass, 0 errors, 116-118 fps."
+        },
+        {
+          "at": "2026-09-17T23:42:18.977Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Re-measured in the RUNNING build through __DQ.cameraFrame() (live projection matrix), not the demo. /index.html meadow opening: heroPct 20.000 (144px of boy at 720p), feetPct 78.97, horizonPct 17.00, pitch 26 (the map's own), dist 5.971, fov 47, eyeAboveFeet 3.117 - matches docs/approved/field-opening.png where the boy measures ~16pct / feet ~77pct. Puddlewick (town mode): heroPct 22.000 (158px), feetPct 80.0, pitch 28, dist 5.459. The boom is 5.4-6.0 units everywhere, never the old 9.03. Held under load: 655-frame meadow walk heroPct 18.62-21.37; 617-frame Puddlewick lane walk 21.14-24.09; 738-frame 360deg orbit 21.997-22.001 (spread 0.004). Mode round-trip in /index.html: field pitch26/dist5.971/hero20 -> interior pitch42/dist3.805/hero20 -> field pitch26/dist5.971/hero20, identical, so cameraMode does re-read the live map. Framing gap is genuinely closed."
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "title": "In a town the lens goes through the walls and the boy disappears",
+      "detail": "MEASURED in /index.html with a per-frame raycast from the lens to the hero's chest against the live scene (hits ignored only if they belong to the hero's own group or are already below 0.6 opacity). Puddlewick, a plain four-direction walk through the village, 361 samples: the hero is FULLY HIDDEN behind opaque geometry in 20.5 pct of frames (blockers: tree-oak-near-hull[inst] 46, tree-oak-near[inst] 28) and the lens reports itself INSIDE an object in 51.5 pct of frames. A 360 deg orbit standing at the square, 175 samples: 26.9 pct hidden (bucket-plaster 38, bucket-wood 3, bucket-tile 3, interiors 2, bucket-brick 1). The same probe in the meadow, 271 samples: 0.0 pct hidden, 0.0 pct lens-inside. So the clean alpha fade works on meadow geometry and does essentially nothing for Puddlewick: fade.objects is 390 in the meadow and 217-226 in Puddlewick, because the town's merged building buckets (bucket-plaster / wood / tile / brick / thatch, and 'interiors') and its instanced tree collision hulls (tree-*-hull) are never registered as fade candidates. Visual proof: shots/P09-critic-c1/index/12-C-walk-lane-f9.png and 23-D-run-end.png (lens inside a cottage, the interior of the wall and detached shutters filling the right 45 pct of frame, boy jammed in the corner); shots/P09-critic-c1/index3/04-V2-square-135.png (house fully opaque, boy pinned bottom-left, no sky); shots/P09-critic-c1/index/50-H-corner.png and 51-I-fade-on.png (lens inside a thicket, boy a near-black dot in a green box). And when the ghost DOES fire on a town building it is not a DQV courtesy but a hard-edged glass slab over half the frame with its ink outline lost: shots/P09-critic-c1/index3/05-V2-square-225.png. BUILD: (1) opt the town's merged building buckets and the tree hull instances into Toon.see.patch so the existing cluster/instance fade actually covers them - the pass is right, its candidate set is not; (2) give the rig a hero-visibility guarantee that runs AFTER the fade pass each tick: ray lens->hero chest, and if anything still opaque blocks it, nudge the boom's yaw and lift along the wall on the existing springs until it clears (keep the never-zoom-in rule, this is a slide and a lift, not a dolly); (3) prove it with a measurement, not a bookkeeping assertion - a four-direction walk through Puddlewick AND a 360 deg orbit at the square must both report heroHiddenPct 0. Note for whoever fixes this: the P09 demo's own showcase is not evidence. demos/P09.html 'behind-house-clean-fade' (shots/P09-critic-c1/demo/26) is a frame with NO HERO IN IT AT ALL - the lens is sitting on the cottage roof, p09stand has pulled the boom to dist 12.95 so heroPct is 9.19 (worse than the 13.4 gap #1 was opened against), and a raycast at that instant finds three fully opaque meshes between lens and boy (bucket-thatch at 3.11, bucket-thatch at 3.32, bucket-plaster at 7.86) while p09fade reports exactly one ghost, 'stone 7.4x6.0@-13,-0' at alpha 0.42. All 31 demo assertions pass over that frame, because nothing in the suite ever asserts that the hero is visible.",
+      "state": "open",
+      "opened": "2026-09-17T23:42:38.205Z",
       "events": []
     }
   ]

@@ -1,180 +1,278 @@
-{ "name": "critic-P09 b1 — THE CAMERA, fresh eyes, no charity: does it ever zoom, jerk, fight, clip, dither or lose the boy?",
-  "steps": [
-  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 45000},
-  {"wait": 2200},
-  {"eval": "__DQ.state().scene === 'title' ? (__DQ.press('confirm', 60), 'title: confirmed') : 'already in the field'"},
-  {"wait": 3000},
-  {"eval": "typeof __DQ.p09panel === 'function' ? (__DQ.p09panel(false), 'demo panel hidden') : 'real game'"},
-  {"wait": 600},
-
-  {"note": "MEASURING RIG — per-frame camera samples, where the boy sits on screen, and whether anything is between the lens and him"},
-  {"eval": "(async () => { const THREE = await import('three'); const { Field } = await import('/src/world/field.js'); const W = () => Field.world(); const rig = { THREE, Field, probe(ms) { return new Promise(res => { const S = []; const t0 = performance.now(); const v = new THREE.Vector3(); const step = () => { const w = W(); if (w && w.camera && w.player) { const c = w.camera, p = w.player.p; v.set(p.x, p.y + 1.0, p.z); v.project(c); const st = (__DQ.state().field || {}).camera || {}; S.push({ t: +(performance.now() - t0).toFixed(1), cx: +c.position.x.toFixed(4), cy: +c.position.y.toFixed(4), cz: +c.position.z.toFixed(4), sx: +v.x.toFixed(4), sy: +v.y.toFixed(4), fov: +c.fov.toFixed(3), px: +p.x.toFixed(3), py: +p.y.toFixed(3), pz: +p.z.toFixed(3), occ: st.occluding || 0, dist: st.dist, ground: (w.map && w.map.height) ? +w.map.height(c.position.x, c.position.z).toFixed(3) : null }); } if (performance.now() - t0 < ms) requestAnimationFrame(step); else res(rig.stats(S)); }; requestAnimationFrame(step); }); }, start(ms) { window.__critLast = 'running'; rig.probe(ms).then(r => { window.__critLast = r; }); return 'probing ' + ms + 'ms'; }, stats(S) { const n = S.length; if (n < 4) return { frames: n, error: 'too few frames' }; const sp = [], ac = []; for (let i = 1; i < n; i++) { const dt = Math.max(1, S[i].t - S[i - 1].t) / 1000; sp.push(Math.hypot(S[i].cx - S[i - 1].cx, S[i].cy - S[i - 1].cy, S[i].cz - S[i - 1].cz) / dt); } for (let i = 1; i < sp.length; i++) ac.push((sp[i] - sp[i - 1]) / 0.0167); let maxJerk = 0; for (let i = 1; i < ac.length; i++) maxJerk = Math.max(maxJerk, Math.abs(ac[i] - ac[i - 1])); const rng = a => [+Math.min.apply(null, a).toFixed(3), +Math.max.apply(null, a).toFixed(3)]; const dh = S.map(s => (s.ground == null ? 99 : +(s.cy - s.ground).toFixed(3))); const heroRadius = S.map(s => +Math.hypot(s.cx - s.px, s.cz - s.pz).toFixed(3)); return { frames: n, seconds: +(S[n - 1].t / 1000).toFixed(2), camSpeedMax: +Math.max.apply(null, sp).toFixed(2), camAccelMax: +Math.max.apply(null, ac.map(Math.abs)).toFixed(1), camJerkMax: +maxJerk.toFixed(1), heroScreenX: rng(S.map(s => s.sx)), heroScreenY: rng(S.map(s => s.sy)), heroOffscreenFrames: S.filter(s => Math.abs(s.sx) > 1 || Math.abs(s.sy) > 1).length, fovRange: rng(S.map(s => s.fov)), camDistRange: rng(S.map(s => s.dist == null ? 0 : s.dist)), camGroundClearanceMin: +Math.min.apply(null, dh).toFixed(3), camRadiusFromHero: rng(heroRadius), framesWithOccluder: S.filter(s => s.occ > 0).length, heroMoved: +Math.hypot(S[n - 1].px - S[0].px, S[n - 1].pz - S[0].pz).toFixed(2), pathBend: (() => { const a = S[0], b = S[n - 1]; const dx = b.px - a.px, dz = b.pz - a.pz, L = Math.hypot(dx, dz) || 1; let m = 0; for (const q of S) m = Math.max(m, Math.abs((q.px - a.px) * dz - (q.pz - a.pz) * dx) / L); return +m.toFixed(3); })() }; } }; window.__crit = rig; return 'rig installed'; })()"},
-
-  {"note": "A. THE OPENING FRAME — untouched. Is this inviting? Does it tell a ten-year-old where to go?"},
-  {"shot": "01-opening-untouched"},
-  {"eval": "JSON.stringify({scene: __DQ.state().scene, map: __DQ.state().map && __DQ.state().map.id, camera: (__DQ.state().field || {}).camera, player: __DQ.state().player})"},
-  {"eval": "JSON.stringify({maps: __DQ.listMaps(), fps: __DQ.state().fps, render: __DQ.state().render})"},
-
-  {"note": "B. WALKING UP THE LANE with the real arrow key — 12 frames of motion plus a per-frame measurement"},
-  {"eval": "window.__crit.start(2600)"},
-  {"key": "ArrowUp", "hold": 2500},
-  {"wait": 400},
-  {"eval": "JSON.stringify(window.__critLast)"},
-  {"eval": "window.__crit.start(1500)"},
-  {"key": "ArrowUp", "hold": 1500},
-  {"burst": {"name": "walk-up-the-lane", "count": 10, "interval": 110}},
-  {"eval": "JSON.stringify(window.__critLast)"},
-
-  {"note": "C. DOES IT FIGHT THE PLAYER? Hold up-and-right together for two and a half seconds and watch whether his path bends while the camera swings"},
-  {"eval": "window.__crit.start(2800)"},
-  {"key": "ArrowRight", "hold": 2600},
-  {"wait": 400},
-  {"eval": "JSON.stringify(window.__critLast)"},
-  {"burst": {"name": "turning-while-walking", "count": 10, "interval": 110}},
-
-  {"note": "D. RUNNING along the path (Shift held) — a different speed, so the spring has to keep up"},
-  {"eval": "window.__crit.start(3000)"},
-  {"eval": "__DQ.hold('run', 3000)"},
-  {"key": "ArrowUp", "hold": 2800},
-  {"wait": 500},
-  {"eval": "JSON.stringify(window.__critLast)"},
-  {"eval": "window.__crit.start(1400)"},
-  {"eval": "__DQ.hold('run', 1400)"},
-  {"key": "ArrowDown", "hold": 1400},
-  {"burst": {"name": "running", "count": 10, "interval": 100}},
-  {"eval": "JSON.stringify(window.__critLast)"},
-
-  {"note": "E. STOP AND WAIT. Four seconds of no input at all: does it settle, drift, or snap?"},
-  {"eval": "window.__crit.start(4200)"},
-  {"burst": {"name": "standing-still", "count": 12, "interval": 330}},
-  {"wait": 600},
-  {"eval": "JSON.stringify(window.__critLast)"},
-  {"eval": "JSON.stringify({settled: (__DQ.state().field||{}).camera && __DQ.state().field.camera.settled, orbit: __DQ.cameraOrbit(), facing: __DQ.state().player.facing, screenshotReady: __DQ.screenshotReady()})"},
-  {"shot": "02-after-waiting"},
-
-  {"note": "F. THE COTTAGE. Stand in front of it, then orbit the whole way round in eight steps — does the lens go through the thatch, into the ground, or lose him?"},
-  {"eval": "JSON.stringify(__DQ.teleport('meadow', -12.6, 5.0, 180))"},
-  {"wait": 1600},
-  {"eval": "__DQ.cameraAuto(false)"},
-  {"shot": "03-cottage-front"},
-  {"eval": "(async () => { const out = []; for (const a of [0, 45, 90, 135, 180, 225, 270, 315]) { __DQ.cameraOrbit(a); await new Promise(r => setTimeout(r, 1100)); const c = __DQ.state().field.camera; const w = window.__crit.Field.world(); const g = w.map && w.map.height ? w.map.height(c.pos[0], c.pos[2]) : null; out.push({ orbit: a, dist: c.dist, distTarget: c.distTarget, occluding: c.occluding, clearance: g == null ? null : +(c.pos[1] - g).toFixed(2), fading: (__DQ.cameraOccluders() || []).length }); } window.__critOrbit = out; return JSON.stringify(out); })()"},
-  {"eval": "__DQ.cameraOrbit(180)"}, {"wait": 1100}, {"shot": "04-cottage-orbit-behind-thatch"},
-  {"eval": "__DQ.cameraOrbit(90)"}, {"wait": 1100}, {"shot": "05-cottage-orbit-side"},
-  {"eval": "JSON.stringify({fading: __DQ.cameraOccluders(), cam: __DQ.state().field.camera})"},
-  {"assert": "window.__critOrbit.every(o => Math.abs(o.dist - o.distTarget) < 0.08)", "msg": "the camera never pulls in to dodge the cottage"},
-  {"assert": "window.__critOrbit.every(o => o.clearance === null || o.clearance > 0.3)", "msg": "the lens never sinks into the ground on a full orbit"},
-
-  {"note": "G. WALKING THROUGH the cottage's shadow with the camera following — natural occlusion, 12 frames"},
-  {"eval": "__DQ.cameraAuto(true)"},
-  {"eval": "JSON.stringify(__DQ.teleport('meadow', -12.6, 7.5, 0))"},
-  {"wait": 1500},
-  {"eval": "__DQ.cameraOrbit(0)"},
-  {"wait": 1200},
-  {"eval": "window.__crit.start(3000)"},
-  {"key": "ArrowUp", "hold": 2800},
-  {"burst": {"name": "walking-into-the-cottage", "count": 12, "interval": 240}},
-  {"wait": 400},
-  {"eval": "JSON.stringify(window.__critLast)"},
-  {"shot": "06-behind-the-cottage"},
-  {"eval": "JSON.stringify({fading: __DQ.cameraOccluders(), cam: __DQ.state().field.camera})"},
-
-  {"note": "H. THE TREES. Find the fattest canopy on the map, stand the boy under it with the lens outside it, and look."},
-  {"eval": "(async () => { const w = window.__crit.Field.world(); const rigf = w.cameraRig.fade; const cam = __DQ.state().field.camera; const p = w.player.p; const flat = Math.cos(cam.pitch * Math.PI / 180) * cam.dist, up = Math.sin(cam.pitch * Math.PI / 180) * cam.dist + 0.5; const list = (rigf.objects(900) || []).filter(o => o.r > 1.4); let best = null; for (const o of list) { const h = Math.max(0.6, o.y - p.y); let back = flat * (h - 0.85) / Math.max(0.5, up - 0.85); back = Math.max(0.9, Math.min(flat - 1.4, back)); const gap = Math.hypot(flat - back, up - h) - o.r; if (gap > 1.2 && (!best || o.r > best.o.r)) best = { o, back, gap }; } if (!best) return 'no canopy fits the lens'; __DQ.cameraAuto(false); __DQ.teleport('meadow', +best.o.x.toFixed(2), +(best.o.z - best.back).toFixed(2), 0); __DQ.cameraOrbit(0); return JSON.stringify({ under: best.o.name || best.o.kind, r: +best.o.r.toFixed(2), back: +best.back.toFixed(2) }); })()"},
-  {"wait": 1800},
-  {"shot": "07-under-the-canopy"},
-  {"eval": "JSON.stringify({fading: __DQ.cameraOccluders(), occluding: __DQ.state().field.camera.occluding, dist: __DQ.state().field.camera.dist, target: __DQ.state().field.camera.distTarget})"},
-  {"note": "the same frame with the fade switched off — if THIS is what the game normally shows, it is dithered"},
-  {"eval": "__DQ.cameraFade(false)"},
-  {"wait": 900},
-  {"shot": "08-canopy-fade-OFF-for-comparison"},
-  {"eval": "__DQ.cameraFade(true)"},
-  {"wait": 900},
-  {"shot": "09-canopy-fade-back-ON"},
-
-  {"note": "I. CLOSE-UP of whatever the fade does to a trunk — zoomed in hard so a checkerboard cannot hide"},
-  {"eval": "__DQ.cameraZoom(3.2)"},
-  {"wait": 1400},
-  {"shot": "10-fade-closeup"},
-  {"eval": "__DQ.cameraZoom(9)"},
-  {"wait": 1200},
-
-  {"note": "J. THE FOOTBRIDGE AND THE BECK — walk it; water and a narrow deck are where cameras clip"},
-  {"eval": "__DQ.cameraAuto(true)"},
-  {"eval": "(async () => { const s = (__DQ.state().map && __DQ.state().map.probe) ? __DQ.state().map.probe() : null; return JSON.stringify(s || Object.keys(__DQ.state().map || {})); })()"},
-  {"eval": "typeof __DQ.walkTo === 'function' ? JSON.stringify(__DQ.walkTo(1.2, -12.0)) : 'no walkTo'"},
-  {"wait": 3200},
-  {"eval": "window.__crit.start(2600)"},
-  {"key": "ArrowUp", "hold": 2400},
-  {"burst": {"name": "over-the-bridge", "count": 10, "interval": 240}},
-  {"wait": 400},
-  {"eval": "JSON.stringify(window.__critLast)"},
-  {"shot": "11-bridge"},
-
-  {"note": "K. ORBIT WITH REAL KEYS (Q then E) — eased, or does it snap and slide?"},
-  {"eval": "__DQ.cameraAuto(false)"},
-  {"eval": "window.__crit.start(2400)"},
-  {"key": "q", "hold": 1200},
-  {"burst": {"name": "orbit-by-key-q", "count": 10, "interval": 120}},
-  {"wait": 500},
-  {"eval": "JSON.stringify(window.__critLast)"},
-  {"eval": "window.__crit.start(2000)"},
-  {"key": "e", "hold": 1600},
-  {"wait": 500},
-  {"eval": "JSON.stringify(window.__critLast)"},
-  {"shot": "12-after-key-orbit"},
-
-  {"note": "L. THE VILLAGE CLUSTER in the north — three cottages together, the real test of framing and occlusion"},
-  {"eval": "__DQ.cameraAuto(true)"},
-  {"eval": "JSON.stringify(__DQ.teleport('meadow', 18.0, -45.0, 270))"},
-  {"wait": 2000},
-  {"shot": "13-village-cluster"},
-  {"eval": "window.__crit.start(3000)"},
-  {"key": "ArrowLeft", "hold": 2800},
-  {"burst": {"name": "into-the-village", "count": 12, "interval": 240}},
-  {"wait": 400},
-  {"eval": "JSON.stringify(window.__critLast)"},
-  {"eval": "JSON.stringify({fading: __DQ.cameraOccluders(), cam: __DQ.state().field.camera})"},
-  {"shot": "14-among-the-cottages"},
-  {"eval": "__DQ.cameraOrbit(0)"}, {"wait": 1200}, {"shot": "15-village-orbit-0"},
-  {"eval": "__DQ.cameraOrbit(180)"}, {"wait": 1200}, {"shot": "16-village-orbit-180"},
-
-  {"note": "M. TALKING — does the camera give a conversation a beat?"},
-  {"eval": "__DQ.cameraAuto(true)"},
-  {"eval": "JSON.stringify(__DQ.teleport('meadow', 2.2, 12.6, 200))"},
-  {"wait": 1600},
-  {"eval": "typeof __DQ.face === 'function' ? __DQ.face(200) : 'no face'"},
-  {"wait": 800},
-  {"eval": "typeof __DQ.talkNear === 'function' ? JSON.stringify(__DQ.talkNear()) : 'no talkNear'"},
-  {"wait": 1800},
-  {"shot": "17-talking"},
-  {"eval": "JSON.stringify({dialogue: !!__DQ.state().dialogue, talkFraming: __DQ.state().field.camera.talkFraming, pitch: __DQ.state().field.camera.pitch, dist: __DQ.state().field.camera.dist})"},
-  {"press": "Enter", "times": 6, "delay": 450},
-  {"wait": 900},
-
-  {"note": "N. A BUILDING INTERIOR if there is one to go in — otherwise the interior framing on its own"},
-  {"eval": "JSON.stringify({maps: __DQ.listMaps()})"},
-  {"eval": "typeof __DQ.cameraMode === 'function' ? JSON.stringify(__DQ.cameraMode('interior')) : 'no cameraMode'"},
-  {"wait": 1800},
-  {"shot": "18-interior-framing"},
-  {"eval": "JSON.stringify(__DQ.state().field.camera)"},
-  {"eval": "typeof __DQ.cameraMode === 'function' ? JSON.stringify(__DQ.cameraMode('field')) : 0"},
-  {"wait": 1500},
-
-  {"note": "O. THE MAP EDGE — push north until something stops him; is the camera still behaving out there?"},
-  {"eval": "__DQ.cameraAuto(true)"},
-  {"eval": "window.__crit.start(6500)"},
-  {"key": "ArrowUp", "hold": 6000},
-  {"wait": 500},
-  {"eval": "JSON.stringify(window.__critLast)"},
-  {"shot": "19-pushed-to-the-edge"},
-  {"eval": "JSON.stringify({player: __DQ.state().player, cam: __DQ.state().field.camera})"},
-
-  {"note": "P. LAST LOOK: back to the opening, and the health numbers"},
-  {"eval": "JSON.stringify(__DQ.teleport('meadow', 1.4, 19.2, 180))"},
-  {"eval": "__DQ.cameraOrbit(4)"},
-  {"wait": 2000},
-  {"shot": "20-closing"},
-  {"eval": "JSON.stringify({fps: __DQ.state().fps, render: __DQ.state().render, cam: __DQ.state().field.camera, errors: __DQ.errors.slice(0, 10), stubs: __DQ.state().stubs})"},
-  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors while a critic drove the camera"},
-  {"assert": "__DQ.state().fps >= 50", "msg": "fps >= 50 through the whole camera audit"}
-]}
+{
+ "name": "critic-P09 c1 — the camera, measured in the real game and in Puddlewick",
+ "steps": [
+  {
+   "waitFor": "window.__DQ && __DQ.ready && __DQ.state().field",
+   "timeout": 45000
+  },
+  {
+   "wait": 2000
+  },
+  {
+   "eval": "(async () => {\n  const { Field } = await import('/src/world/field.js');\n  const R2D = 180 / Math.PI;\n  window.__CS = {\n    on: false, s: [], label: '',\n    start(l) { this.label = l || ''; this.s = []; this.on = true; return 'sampling ' + this.label; },\n    stop() { this.on = false; return this.report(); },\n    report() {\n      const s = this.s;\n      if (s.length < 8) return { label: this.label, n: s.length, err: 'too few samples' };\n      const dp = [], da = [], dtv = [];\n      for (let i = 1; i < s.length; i++) {\n        const a = s[i-1], b = s[i];\n        dp.push(Math.hypot(b.px-a.px, b.py-a.py, b.pz-a.pz));\n        let dot = Math.abs(a.qx*b.qx + a.qy*b.qy + a.qz*b.qz + a.qw*b.qw);\n        dot = Math.min(1, dot);\n        da.push(2 * Math.acos(dot) * R2D);\n        dtv.push(b.t - a.t);\n      }\n      const med = (arr) => { const c = arr.slice().sort((x,y)=>x-y); return c[Math.floor(c.length/2)]; };\n      const mx = (arr) => arr.reduce((m,v)=>Math.max(m,v), 0);\n      const jerkP = [], jerkA = [];\n      for (let i = 1; i < dp.length; i++) { jerkP.push(Math.abs(dp[i]-dp[i-1])); jerkA.push(Math.abs(da[i]-da[i-1])); }\n      const heros = s.map(v=>v.hero).filter(v=>typeof v === 'number');\n      const fxs = s.map(v=>Math.abs(v.fx)).filter(v=>typeof v === 'number');\n      const clr = s.map(v=>v.clr).filter(v=>typeof v === 'number');\n      const zoom = s.map(v=>Math.abs(v.dist - v.distT));\n      const r3 = (v) => +Number(v).toFixed(3);\n      return {\n        label: this.label, n: s.length, secs: r3((s[s.length-1].t - s[0].t)/1000),\n        medFrameMs: r3(med(dtv)), maxFrameMs: r3(mx(dtv)),\n        stepMed: r3(med(dp)), stepMax: r3(mx(dp)), stepRatio: r3(mx(dp)/Math.max(1e-6, med(dp))),\n        turnMedDeg: r3(med(da)), turnMaxDeg: r3(mx(da)), turnRatio: r3(mx(da)/Math.max(1e-6, med(da))),\n        jerkPosMax: r3(mx(jerkP)), jerkAngMax: r3(mx(jerkA)),\n        heroMin: r3(Math.min(...heros)), heroMax: r3(Math.max(...heros)), heroSpread: r3(Math.max(...heros)-Math.min(...heros)),\n        heroOffCentreMax: r3(Math.max(...fxs)),\n        zoomMax: r3(mx(zoom)),\n        lensClearanceMin: clr.length ? r3(Math.min(...clr)) : null,\n        occludedFrames: s.filter(v=>v.occ > 0).length, ghostMax: r3(mx(s.map(v=>v.ghost||0))),\n        fadeMsMax: r3(mx(s.map(v=>v.fms||0))),\n      };\n    },\n  };\n  const tick = () => {\n    requestAnimationFrame(tick);\n    if (!window.__CS.on) return;\n    try {\n      const w = Field.world(); if (!w) return;\n      const cam = w.camera, m = w.map;\n      const st = __DQ.state().field.camera;\n      const f = __DQ.cameraFrame();\n      const oc = __DQ.cameraOccluders ? __DQ.cameraOccluders() : null;\n      let clr = null;\n      if (m && typeof m.heightAt === 'function') clr = cam.position.y - m.heightAt(cam.position.x, cam.position.z);\n      window.__CS.s.push({ t: performance.now(),\n        px: cam.position.x, py: cam.position.y, pz: cam.position.z,\n        qx: cam.quaternion.x, qy: cam.quaternion.y, qz: cam.quaternion.z, qw: cam.quaternion.w,\n        dist: st.dist, distT: st.distTarget, hero: f && f.heroPct, fx: f && f.heroNdcX, feet: f && f.feetPct,\n        clr, occ: (st.fade && st.fade.occluding) || 0,\n        ghost: oc && oc.length ? Math.max.apply(null, oc.map(o => o.alpha != null ? o.alpha : 0)) : 0,\n        fms: (st.fade && st.fade.ms) || 0 });\n    } catch (e) {}\n  };\n  requestAnimationFrame(tick);\n  return 'sampler installed';\n})()"
+  },
+  {
+   "note": "A. OPENING FRAME in the real game, meadow — the frame gap #1 was opened against."
+  },
+  {
+   "shot": "A-index-opening"
+  },
+  {
+   "eval": "JSON.stringify({ where: 'meadow-opening', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
+  },
+  {
+   "note": "B. PUDDLEWICK. The town the assignment names. Arrive and measure what the camera does with a town map."
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick'))"
+  },
+  {
+   "wait": 2600
+  },
+  {
+   "shot": "B-puddlewick-arrival"
+  },
+  {
+   "eval": "JSON.stringify({ where: 'puddlewick-arrival', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
+  },
+  {
+   "note": "C. WALK up the gate lane, 10 frames of real motion, sampled every rendered frame."
+  },
+  {
+   "eval": "window.__CS.start('walk-lane')"
+  },
+  {
+   "eval": "__DQ.hold('up', 2800)"
+  },
+  {
+   "burst": {
+    "name": "C-walk-lane",
+    "count": 10,
+    "interval": 150
+   }
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "JSON.stringify(window.__CS.stop())"
+  },
+  {
+   "eval": "JSON.stringify({ where: 'after-walk', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
+  },
+  {
+   "note": "D. RUN (shift) up the same lane — a run is faster, so any camera lag or fight shows here."
+  },
+  {
+   "eval": "window.__CS.start('run-lane')"
+  },
+  {
+   "eval": "__DQ.hold('run', 3000); __DQ.hold('up', 3000)"
+  },
+  {
+   "burst": {
+    "name": "D-run-lane",
+    "count": 10,
+    "interval": 150
+   }
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "JSON.stringify(window.__CS.stop())"
+  },
+  {
+   "shot": "D-run-end"
+  },
+  {
+   "note": "E. STOP AND WAIT — 3.5s of nothing. A settled camera must be perfectly still; any residual creep is a fight."
+  },
+  {
+   "eval": "window.__CS.start('idle')"
+  },
+  {
+   "wait": 3600
+  },
+  {
+   "eval": "JSON.stringify(window.__CS.stop())"
+  },
+  {
+   "shot": "E-idle"
+  },
+  {
+   "eval": "JSON.stringify({ settled: __DQ.state().field.camera.settled, shotReady: __DQ.screenshotReady && __DQ.screenshotReady(), orbit: __DQ.cameraOrbit(), facing: __DQ.state().player.facing })"
+  },
+  {
+   "note": "F. WALK INTO THE VILLAGE proper — houses and trees between lens and boy. 10 frames."
+  },
+  {
+   "eval": "window.__CS.start('into-village')"
+  },
+  {
+   "eval": "__DQ.hold('left', 1600)"
+  },
+  {
+   "wait": 1700
+  },
+  {
+   "eval": "__DQ.hold('up', 3200)"
+  },
+  {
+   "burst": {
+    "name": "F-into-village",
+    "count": 10,
+    "interval": 220
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "JSON.stringify(window.__CS.stop())"
+  },
+  {
+   "shot": "F-village"
+  },
+  {
+   "eval": "JSON.stringify({ fade: __DQ.state().field.camera.fade, occluders: __DQ.cameraOccluders && __DQ.cameraOccluders() })"
+  },
+  {
+   "note": "G. ORBIT 360 around the boy in the town — does he keep his size, does the lens sink into the ground or a wall?"
+  },
+  {
+   "eval": "window.__CS.start('orbit')"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 1300
+  },
+  {
+   "shot": "G-orbit-000"
+  },
+  {
+   "eval": "JSON.stringify({ where: 'orbit-000', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(90)"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "G-orbit-090"
+  },
+  {
+   "eval": "JSON.stringify({ where: 'orbit-090', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(180)"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "G-orbit-180"
+  },
+  {
+   "eval": "JSON.stringify({ where: 'orbit-180', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
+  },
+  {
+   "eval": "__DQ.cameraOrbit(270)"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "G-orbit-270"
+  },
+  {
+   "eval": "JSON.stringify({ where: 'orbit-270', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
+  },
+  {
+   "eval": "JSON.stringify(window.__CS.stop())"
+  },
+  {
+   "note": "H. WALK AROUND A BUILDING: hug the wall and turn the corner, 10 frames — clipping and pop-through show here."
+  },
+  {
+   "eval": "window.__CS.start('around-building')"
+  },
+  {
+   "eval": "__DQ.hold('right', 2600)"
+  },
+  {
+   "burst": {
+    "name": "H-around-building",
+    "count": 10,
+    "interval": 200
+   }
+  },
+  {
+   "wait": 800
+  },
+  {
+   "eval": "JSON.stringify(window.__CS.stop())"
+  },
+  {
+   "shot": "H-corner"
+  },
+  {
+   "note": "I. THE FADE: is what covers the boy a clean alpha ghost or a screen-door dither?"
+  },
+  {
+   "eval": "JSON.stringify({ fadeState: __DQ.state().field.camera.fade, list: (__DQ.cameraOccluders && __DQ.cameraOccluders()) || null })"
+  },
+  {
+   "shot": "I-fade-on"
+  },
+  {
+   "eval": "__DQ.cameraFade(false)"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "I-fade-off"
+  },
+  {
+   "eval": "__DQ.cameraFade(true)"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "I-fade-on-again"
+  },
+  {
+   "note": "J. BACK TO THE VALE and the mode round-trip gap #1 named: interior -> field must return to the LIVE map framing."
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('meadow'))"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "eval": "JSON.stringify({ where: 'meadow-return', map: __DQ.state().map && __DQ.state().map.id, mode: __DQ.state().field.camera.mode, frame: __DQ.cameraFrame(), cam: __DQ.state().field.camera })"
+  },
+  {
+   "eval": "JSON.stringify((() => { const g = () => { const c = __DQ.state().field.camera; return { pitch: c.pitch, dist: c.distTarget, fov: c.fov, hero: __DQ.cameraFrame().heroPct }; }; const before = g(); __DQ.cameraMode('interior', true); const interior = g(); __DQ.cameraMode('field', true); const after = g(); window.__rt = { before, interior, after }; return window.__rt; })())"
+  },
+  {
+   "shot": "J-mode-roundtrip"
+  },
+  {
+   "note": "K. verdict numbers"
+  },
+  {
+   "eval": "JSON.stringify({ fps: __DQ.state().fps, errors: __DQ.errors.length, render: __DQ.state().render })"
+  },
+  {
+   "assert": "__DQ.errors.length === 0",
+   "msg": "no runtime errors"
+  }
+ ]
+}

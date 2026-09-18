@@ -1,0 +1,177 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DEMO — P15 · P29 · P31 — battles, transitions and encounters in the real world</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:var(--pal-sky-page)}
+#game-canvas{display:block;width:100vw;height:100vh}
+#notes{position:fixed;right:12px;top:12px;z-index:60;pointer-events:none;
+  font-family:var(--dq-font);font-size:13px;line-height:1.5;color:var(--pal-ui-text);
+  text-shadow:0 2px 0 var(--pal-ui-shadow),0 0 5px var(--pal-ui-shadow);text-align:right;opacity:.82}
+#notes b{color:var(--pal-ui-gold)}
+#notes.off{display:none}
+</style>
+</head><body>
+<canvas id="game-canvas"></canvas>
+<div id="ui-root"></div>
+<div id="notes">
+  <b>arrows</b> walk &middot; <b>Shift</b> run &middot; <b>Z</b> talk &middot; <b>Q/E</b> turn<br/>
+  <b>N</b> a fight now &middot; <b>M</b> a fight in one pace &middot; <b>B</b> the boss door<br/>
+  <b>K</b> Mumbleroot now &middot; <b>V</b> wake at the church &middot; <b>G</b> level Bram up<br/>
+  <b>1</b> swirl &middot; <b>2</b> door fade &middot; <b>3</b> flash &middot; <b>4</b> iris &middot; <b>5</b> white<br/>
+  <b>6</b> through the door to Puddlewick &middot; <b>7</b> back to the vale<br/>
+  <b>H</b> hide these words
+</div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// P15 (battle presentation) + P29 (transitions) + P31 (encounters), installed into the REAL field exactly as
+// src/main.js does it — so this page is the game, with the fights, the wipes and the boss door reachable from a
+// keyboard. Everything below the install(ctx) loop is demo scaffolding.
+import { App } from '/src/engine/app.js';
+import { Loop } from '/src/engine/loop.js';
+import { Scenes } from '/src/engine/states.js';
+import { Bus } from '/src/engine/events.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { Save } from '/src/engine/save.js';
+import { applyCssVars } from '/src/art/palette.js';
+import { UI } from '/src/ui/window.js';
+import { Text } from '/src/ui/text.js';
+import { Audio } from '/src/audio/audio.js';
+import { Sfx } from '/src/audio/sfx.js';
+import { Maps } from '/src/world/map.js';
+import { Field } from '/src/world/field.js';
+import { preloadHero } from '/src/world/player.js';
+import { Transitions } from '/src/ui/transitions.js';
+
+const VERSION = '0.3.0-P15';
+const guard = (where, fn) => { try { return fn(); } catch (e) { reportError('P15 demo ' + where, e); return undefined; } };
+
+applyCssVars();
+Input.init();
+App.start({ canvas: document.getElementById('game-canvas'), version: VERSION, beforeUpdate: Input.update });
+Audio.init();
+Audio.bindEvents(Bus);
+
+// the score, lazily, exactly as main.js hands it to a plugin
+let musicPromise = null;
+function loadMusic() {
+  if (!musicPromise) {
+    musicPromise = import('/src/audio/music.js').then((m) => {
+      const M = m.Music || m.default;
+      M.init({ ctx: Audio.ctx, output: Audio.bus('music'), reverbSend: Audio.reverbSend, quality: App.quality });
+      return M;
+    }).catch((e) => { reportError('P15 demo music', e); musicPromise = null; return null; });
+  }
+  return musicPromise;
+}
+
+const ctx = {
+  version: VERSION, App, Loop, Scenes, Bus, Debug, reportError, Input, UI, Text, Save, Audio, Sfx, Field, Maps,
+  Music: loadMusic,
+  vars: { HERO: 'Bram' },
+  boot: { scene: 'field', ctx: { map: 'meadow' }, newGame: false },
+};
+
+await Maps.loadAll();
+await preloadHero().catch(() => false);
+Field.install();
+let Encounter = null, Battle = null;
+for (const [name, path] of [['transitions', '/src/ui/transitions.js'], ['dialogue', '/src/ui/dialogue.js'],
+  ['npc', '/src/world/npc.js'], ['encounter', '/src/world/encounter.js'],
+  ['battle.present', '/src/battle/present.js'], ['battle.scene', '/src/battle/scene.js']]) {
+  try {
+    const mod = await import(path);
+    const out = (mod.install || mod.default)(ctx);
+    if (name === 'encounter') Encounter = out;
+    if (name === 'battle.scene') Battle = out;
+  } catch (e) { reportError('P15 demo install ' + name, e); }
+}
+Scenes.push('field', { map: 'meadow' });
+Bus.emit('app.booted', { scene: 'field' });
+
+// ── the boss door ────────────────────────────────────────────────────────────────────────────────────────────
+// There is no Cobwell Manor map yet (NEEDS P23), so the demo stands its door in the meadow: a place on the Long
+// Lane where something is waiting. Walk into the circle and the game asks whether you are ready; wipe twice and
+// the unhurried woman with the basket is there on the third approach.
+const DOOR = { x: -14.5, z: -6.0, r: 2.6, area: 'cobwell_manor', name: 'the door under the ivy',
+  ask: 'Something inside this door is\nvery old and very cross.' };
+if (Encounter && Encounter.addBossDoor) Encounter.addBossDoor('meadow', DOOR);
+
+// ── demo controls ────────────────────────────────────────────────────────────────────────────────────────────
+const at = (x, z, facing) => guard('walk', () => Field.teleport('meadow', x, z, facing));
+
+const KEYS = {
+  KeyN: () => __DQ.encounterNow(),
+  KeyM: () => __DQ.encounterSoon(1),
+  KeyB: () => at(DOOR.x, DOOR.z - 4.5, 0),
+  KeyK: () => __DQ.bossDoor('cobwell_manor'),
+  KeyV: () => __DQ.church(),
+  KeyG: () => __DQ.setLevel(Math.min(30, (__DQ.state().roster.party[0].lvl || 1) + 1)),
+  Digit1: () => Transitions.swirl().then(() => Transitions.clear()),
+  Digit2: () => Transitions.cover(() => {}, { kind: 'door' }),
+  Digit3: () => Transitions.flash(),
+  Digit4: () => Transitions.iris(false).then(() => Transitions.iris(true)),
+  Digit5: () => Transitions.white(true).then(() => Transitions.white(false)),
+  // the exact code path Field.setTransition runs for a door (NEEDS P23: no map exit points anywhere yet)
+  Digit6: () => Transitions.cover(() => Field.teleport('puddlewick'), { kind: 'door' }),
+  Digit7: () => Transitions.cover(() => Field.teleport('meadow'), { kind: 'edge' }),
+  KeyH: () => document.getElementById('notes').classList.toggle('off'),
+};
+addEventListener('keydown', (e) => {
+  const fn = KEYS[e.code];
+  if (!fn) return;
+  e.preventDefault();
+  guard('key ' + e.code, fn);
+});
+
+// ── extra controls for a critic ──────────────────────────────────────────────────────────────────────────────
+Debug.provide('demo', () => ({ piece: 'P15+P29+P31', door: DOOR, keys: Object.keys(KEYS) }));
+Debug.expose('throughTheDoor', (to = 'puddlewick', kind = 'door') => Transitions.cover(() => Field.teleport(to), { kind }));
+Debug.expose('walkTo', (x, z, facing) => at(x, z, facing));
+/** Walk the hero on the spot for `paces` paces, so the step counter really counts (no teleporting). */
+Debug.expose('walk', (paces = 40) => {
+  const before = __DQ.state().encounter;
+  Input.inject('up', Math.max(80, paces * 36));
+  return { before: before.stepsToNext, injected: Math.max(80, paces * 36) };
+});
+Debug.expose('door', () => at(DOOR.x, DOOR.z - 4.5, 0));
+Debug.expose('showcase', (what = 'swirl', opts = {}) => __DQ.wipe(what, opts));
+/** Put Bram one point of EXP short of his next level, so the very next fight is a level-up ceremony. */
+Debug.expose('brinkOfLevel', async (lvl) => {
+  const { expForLevel } = await import('/src/data/growth.js');
+  const R = Battle && Battle.Roster;
+  if (!R) return null;
+  const hero = R.ensure().find((m) => m.id === 'hero');
+  if (!hero) return null;
+  if (lvl) { hero.lvl = Math.max(1, Math.min(29, Number(lvl))); }
+  hero.exp = expForLevel(hero.lvl + 1) - 1;
+  return { id: hero.id, lvl: hero.lvl, exp: hero.exp, next: expForLevel(hero.lvl + 1) };
+});
+/**
+ * MONSTER-BIBLE §7 / formulas.RECRUIT_GUARANTEE_AFTER: a species refused or missed twelve times is GUARANTEED to
+ * ask on the thirteenth. Nobody's collection stalls on bad luck — and it makes the join beat reproducible here
+ * without any seed hunting: mark the species missed twelve times and the next one you beat will ask.
+ */
+Debug.expose('guaranteeJoin', (species = 'cactuddle') => {
+  const R = Battle && Battle.Roster;
+  if (!R) return null;
+  R.recruit = Object.assign({}, R.recruit, { misses: Object.assign({}, R.recruit.misses, { [species]: 12 }) });
+  return Object.assign({}, R.recruit.misses);
+});
+Debug.expose('bossWipes', (n) => {
+  const R = Battle && Battle.Roster;
+  if (!R) return null;
+  if (n !== undefined) R.bossWipes.mumbleroot = Number(n) || 0;
+  return Object.assign({}, R.bossWipes);
+});
+/** The fight, rendered as audio: `node tools/audio-probe.mjs --url .../demos/P15.html --ids battle,victory`. */
+Debug.expose('renderAudio', async (id = 'battle', seconds = 12) => {
+  if (Sfx.list().includes(id)) return Sfx.render(id, seconds);
+  const M = await loadMusic();
+  return M ? M.renderOffline(id, seconds) : null;
+});
+</script></body></html>

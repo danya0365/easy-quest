@@ -65,6 +65,7 @@ export function buildingRecipes(kit) {
   // ── this kit's own merged meshes (flushed with the buckets) ────────────────────────────────────────────────
   const CLOTH = new Map();            // texture key -> {tex, geos: []}    awnings, bunting, stall roofs
   const INTERIOR = [];                // the dark warm room you see through an open door
+  const GLOW = [];                    // unshaded warm light INSIDE a room: firelight, lamps, daylight in a door
   const DOORS = [];                   // every registered door leaf group
   const SIGNS = [];                   // hanging boards (each swings, so each is its own small mesh)
   const BOARDS = [];                  // sign board geometries waiting for their pivot groups
@@ -82,6 +83,20 @@ export function buildingRecipes(kit) {
       m = Math.min(m, heightAt(p.x, p.z));
     }
     return m - 0.05;
+  };
+  /**
+   * HIGHEST terrain under the same footprint. A house stands at the LOWEST corner (padY) so no daylight shows
+   * under its sill — which means the hillside inside it can be most of a metre higher than that. The floor of the
+   * room you see through the open door has to clear THAT, or the meadow grows through the back of the chapel
+   * (P05 gap #4, measured: the chapel's ground runs 0.10 at the door to 1.51 at the altar end).
+   */
+  const padTop = (o, W, D) => {
+    let m = -Infinity;
+    for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) {
+      const p = toWorld(o, (i / 4 - 0.5) * W * 0.98, (j / 4 - 0.5) * D * 0.98);
+      m = Math.max(m, heightAt(p.x, p.z));
+    }
+    return m;
   };
 
   const clothGeos = (base, stripe, scallop, S = 128) => {
@@ -211,6 +226,14 @@ export function buildingRecipes(kit) {
     return door;
   };
 
+  /**
+   * Light you can see, indoors. The kit core's 'glow' bucket is tuned for lanterns on a village street: it DIMS
+   * by 0.78 in daylight and only brightens at dusk, which indoors turned every fire and every lamp into a flat
+   * white pebble. This bucket is unshaded and always at full strength, because a hearth does not know it is
+   * three o'clock. Merged by kit.flush() into one mesh named 'roomglow'.
+   */
+  kit.addGlow = (geo, matrix, hex) => { const g = prep(geo, hex); if (matrix) g.applyMatrix4(matrix); GLOW.push(g); return g; };
+
   kit.doors = DOORS;
   kit.doorAt = (id) => DOORS.find(d => d.id === id) || null;
   /** Force a door open (1), shut (0) or back to automatic (null) — demos and cutscenes. */
@@ -218,21 +241,27 @@ export function buildingRecipes(kit) {
   kit.onDoor = null;
 
   let doorMeshes = [];
+  /**
+   * One MESH per leaf, not one InstancedMesh per style. It costs a dozen draw calls and buys the thing the
+   * see-through pass could not do before: P09's occluder fade clusters solid meshes that touch each other into one
+   * object, but handles instanced meshes one instance at a time — so a ghosting cottage used to leave its red door
+   * hanging in mid-air on the green (P05 gap #2). A leaf that is its own mesh sits in the doorway, touching the
+   * wall runs, and fades with the house it belongs to.
+   */
   const buildDoors = () => {
-    const groups = new Map();
+    const made = [];
+    const geos = new Map();
     for (const d of DOORS) {
       const key = `${d.style}|${d.color}`;
-      if (!groups.has(key)) groups.set(key, { style: d.style, color: d.color, leaves: [] });
-      for (const lf of d.leaves) groups.get(key).leaves.push({ door: d, lf });
-    }
-    const made = [];
-    for (const g of groups.values()) {
-      const geo = leafGeometry(g.style, g.color);
-      const mesh = new THREE.InstancedMesh(geo, woodMat(), g.leaves.length);
-      mesh.name = 'door-' + g.style; mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false;
-      g.leaves.forEach((entry, i) => { entry.lf.mesh = mesh; entry.lf.index = i; });
-      scene.add(mesh);
-      made.push(mesh);
+      if (!geos.has(key)) geos.set(key, leafGeometry(d.style, d.color));
+      for (const lf of d.leaves) {
+        const mesh = new THREE.Mesh(geos.get(key), woodMat());
+        mesh.name = 'door-' + d.id; mesh.castShadow = true; mesh.receiveShadow = true;
+        mesh.matrixAutoUpdate = false; mesh.frustumCulled = false;
+        lf.mesh = mesh; lf.index = -1;
+        scene.add(mesh);
+        made.push(mesh);
+      }
     }
     doorMeshes = made;
     writeDoors(true);
@@ -249,8 +278,9 @@ export function buildingRecipes(kit) {
         if (!lf.mesh) continue;
         dq.setFromAxisAngle(dy, ang * lf.sign);
         dm.compose(dv.set(0, 0, 0), dq, ds.set(lf.sx, lf.sy, 1));
-        lf.mesh.setMatrixAt(lf.index, dm.premultiply(lf.m));
-        lf.mesh.instanceMatrix.needsUpdate = true;
+        dm.premultiply(lf.m);
+        if (lf.mesh.isInstancedMesh) { lf.mesh.setMatrixAt(lf.index, dm); lf.mesh.instanceMatrix.needsUpdate = true; }
+        else { lf.mesh.matrix.copy(dm); lf.mesh.matrixWorldNeedsUpdate = true; }
       }
     }
   };
@@ -283,20 +313,47 @@ export function buildingRecipes(kit) {
   };
 
   /**
-   * What you see through an open door: a shallow, dark, faintly lamplit room behind the doorway. It is a box drawn
-   * from the inside (BackSide), sitting just behind the wall's inner face, with its floor a whisker above the
-   * plinth so the sunlit stonework can never show through. The real interiors are their own maps (P06).
+   * What you see through an open door. Not a painted card: the whole inside of the shell, drawn from within
+   * (BackSide) — floorboards, side walls, a ceiling and a real back wall with one lit window and the ember glow
+   * of a hearth on it. Three rules earn their keep:
+   *   1. `floorY` is the floorboard level, and the callers pass the HIGHEST ground under the footprint, so the
+   *      hillside the house stands on can never grow up through the room (P05 gap #4).
+   *   2. it fills the shell (roomW x depth), so a wide-open church door shows a nave receding, not a 1.6 m box.
+   *   3. the top is the wall plate, so nothing pokes out through the roof.
+   * The rooms a child can actually WALK into are their own maps (src/world/maps/hollybank.js, puddlewick_inn.js).
    */
-  const interiorRoom = (base, { x = 0, zFace, T = WALL_T, y0 = 0, w, h, depth = 1.1 }) => {
-    const W = w + 0.55, H = h + 0.12, zc = zFace - T - depth / 2 + 0.02;
-    const g = prep(new THREE.BoxGeometry(W, H, depth, 1, 3, 1), PAL.interior.dark);
-    g.applyMatrix4(base.clone().multiply(M4(x, y0 + 0.09 + H / 2, zc)));
+  const interiorRoom = (base, { x = 0, zFace, T = WALL_T, y0 = 0, w, h, depth = 1.1, roomW = null, floorY = null, top = null, hearth = false }) => {
+    const W = roomW != null ? roomW : w + 0.55;
+    const fy = floorY != null ? floorY : y0 + 0.09;
+    const ceil = Math.max(fy + Math.max(h, 1.6) + 0.35, top != null ? top : fy + h + 0.5);
+    const H = ceil - fy;
+    const zc = zFace - T - depth / 2 + 0.02;
+    const g = prep(new THREE.BoxGeometry(W, H, depth, 1, 4, 1), PAL.interior.dark);
+    g.applyMatrix4(base.clone().multiply(M4(x, fy + H / 2, zc)));
     const p = g.attributes.position, c = g.attributes.color, t = new THREE.Color();
-    const floor = C3(mixHex(PAL.interior.dark, PAL.shadow.contact, 0.45)), glow = C3(mixHex(PAL.interior.dark, PAL.interior.lamp, 0.34));
+    const boards = C3(mixHex(PAL.wood.dark, PAL.interior.dark, 0.6)), glow = C3(mixHex(PAL.interior.dark, PAL.interior.lamp, 0.46));
     let lo = Infinity, hi = -Infinity;
     for (let i = 0; i < p.count; i++) { lo = Math.min(lo, p.getY(i)); hi = Math.max(hi, p.getY(i)); }
-    for (let i = 0; i < p.count; i++) { t.copy(floor).lerp(glow, smooth(lo, hi + 0.4, p.getY(i))); c.setXYZ(i, t.r, t.g, t.b); }
+    for (let i = 0; i < p.count; i++) { t.copy(boards).lerp(glow, smooth(lo, hi + 0.5, p.getY(i))); c.setXYZ(i, t.r, t.g, t.b); }
     INTERIOR.push(g);
+    // a shuttered window high on the back wall: the one bright thing in the room, so the dark has depth
+    const bz = zFace - T - depth + 0.14;
+    const win = prep(new THREE.BoxGeometry(Math.min(1.1, W * 0.42), Math.min(1.15, H * 0.45), 0.1), mixHex(PAL.interior.lamp, PAL.plaster.light, 0.6));
+    win.applyMatrix4(base.clone().multiply(M4(x - W * 0.17, fy + Math.min(H - 0.7, 1.62), bz)));
+    INTERIOR.push(win);
+    // a lamp on the back wall: one small warm point so the dark has a scale to it
+    const lamp = prep(new THREE.BoxGeometry(0.26, 0.26, 0.1), PAL.interior.lamp);
+    lamp.applyMatrix4(base.clone().multiply(M4(x + W * 0.22, fy + Math.min(H - 0.55, 1.85), bz)));
+    INTERIOR.push(lamp);
+    // the hearth: embers low on the back wall, the warm floor pool in front of them
+    if (hearth) {
+      const e = prep(new THREE.BoxGeometry(Math.min(1.15, W * 0.45), 0.44, 0.12), mixHex(PAL.interior.lamp, PAL.flower.red, 0.3));
+      e.applyMatrix4(base.clone().multiply(M4(x + W * 0.17, fy + 0.32, bz)));
+      INTERIOR.push(e);
+      const pool = prep(new THREE.BoxGeometry(Math.min(1.6, W * 0.6), 0.04, Math.min(1.4, depth * 0.5)), mixHex(PAL.interior.dark, PAL.interior.lamp, 0.42));
+      pool.applyMatrix4(base.clone().multiply(M4(x + W * 0.17, fy + 0.03, bz + Math.min(0.9, depth * 0.3))));
+      INTERIOR.push(pool);
+    }
   };
 
   // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -554,8 +611,14 @@ export function buildingRecipes(kit) {
       if (hl > -W / 2 + 0.02) slab(hl + W / 2, H, T, (-W / 2 + hl) / 2, P + H / 2, D / 2 - T / 2, P);
       if (hr < W / 2 - 0.02) slab(W / 2 - hr, H, T, (hr + W / 2) / 2, P + H / 2, D / 2 - T / 2, P);
       if (H - holeH > 0.05) slab(holeW, H - holeH, T, dx, P + holeH + (H - holeH) / 2, D / 2 - T / 2, P);
-      interiorRoom(base, { x: dx, zFace: D / 2, T, y0: P, w: holeW, h: holeH, depth: Math.min(1.5, D - 2 * T - 0.1) });
-      add('wood', boxUV(holeW + 0.1, 0.06, T + 0.12, 1), M4(dx, P + 0.03, D / 2 - T / 2), PAL.wood.dark);
+      // the floorboards clear the highest ground under the house, so the hillside never grows into the room
+      const floorY = Math.max(P + 0.09, padTop(o, W, D) - y + 0.1);
+      interiorRoom(base, { x: dx, zFace: D / 2, T, y0: P, w: holeW, h: holeH, roomW: W - 2 * T - 0.06,
+        depth: D - 2 * T - 0.06, floorY, top: P + H - 0.12, hearth: true });
+      // the reveal: the doorway has real thickness — lined jambs and a head, then an oak threshold
+      for (const s of [-1, 1]) add('wood', boxUV(0.07, holeH, T + 0.02, 1), M4(dx + s * (holeW / 2 - 0.035), P + holeH / 2, D / 2 - T / 2), PAL.wood.dark);
+      add('wood', boxUV(holeW, 0.07, T + 0.02, 1), M4(dx, P + holeH - 0.035, D / 2 - T / 2), PAL.wood.dark);
+      add('wood', boxUV(holeW + 0.1, 0.09, T + 0.16, 1), M4(dx, P + 0.045, D / 2 - T / 2), PAL.wood.dark);
     }
     // timber frame: corner posts, wall plate, sill beam
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) add('wood', boxUV(0.22, H, 0.22, 1.2), M4(sx * W / 2, P + H / 2, sz * D / 2), beam);
@@ -847,7 +910,16 @@ export function buildingRecipes(kit) {
     slab(hl + W / 2, H, T, (-W / 2 + hl) / 2, P + H / 2, D / 2 - T / 2);
     slab(W / 2 - hr, H, T, (hr + W / 2) / 2, P + H / 2, D / 2 - T / 2);
     slab(holeW, H - holeH, T, 0, P + holeH + (H - holeH) / 2, D / 2 - T / 2);
-    interiorRoom(base, { x: 0, zFace: D / 2, T, y0: P, w: holeW, h: holeH, depth: 1.6 });
+    // the nave you see through the open doors: the full inside of the shell, floored above the knoll it stands on
+    {
+      const floorY = Math.max(P + 0.09, padTop({ x: o.x, z: o.z, rot }, W, D) - y + 0.1);
+      interiorRoom(base, { x: 0, zFace: D / 2, T, y0: P, w: holeW, h: holeH, roomW: W - 2 * T - 0.06,
+        depth: D - 2 * T - 0.06, floorY, top: P + H - 0.1, hearth: true });
+      // the doorway's reveal: stone lining up both jambs and across the head, and a worn stone threshold
+      for (const s of [-1, 1]) add('stone', boxUV(0.09, holeH, T + 0.02, Tex.worldSize('stone')), M4(s * (holeW / 2 - 0.045), P + holeH / 2, D / 2 - T / 2), PAL.stone.mid);
+      add('stone', boxUV(holeW, 0.09, T + 0.02, Tex.worldSize('stone')), M4(0, P + holeH - 0.045, D / 2 - T / 2), PAL.stone.mid);
+      add('stone', boxUV(holeW + 0.12, 0.1, T + 0.18, Tex.worldSize('stone')), M4(0, P + 0.05, D / 2 - T / 2), PAL.stone.light);
+    }
     // stone quoins up the corners and a string course
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (let k = 0; k < Math.floor(H / 0.42); k++) {
       const big = k % 2 === 0;
@@ -1261,6 +1333,374 @@ export function buildingRecipes(kit) {
   };
 
   // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+  // INTERIORS — the rooms the doors actually open into                                        (P05, for P23)
+  //
+  // Every door in Puddlewick promised a room and gave a line of text instead (P23 gap #6). These recipes are the
+  // inside of a house, built in the same kit and the same buckets as the outside: a shell with a real doorway cut
+  // in it, floorboards, a beamed ceiling, and the furniture WORLD-BIBLE §3 names by hand — a hearth with the fire
+  // in, a table with three chairs (one is Father's and is bigger), a ladder to a loft, a bed, and a chest at the
+  // foot of it. src/world/maps/hollybank.js and puddlewick_inn.js build with these.
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+  const ROOM_T = 0.34;                               // interior wall thickness
+  const SIDES = { south: 0, east: Math.PI / 2, north: Math.PI, west: -Math.PI / 2 };
+
+  /**
+   * The shell of a room, seen from the inside. Local +z is SOUTH (the wall a door is usually in), matching the
+   * exterior recipes' convention that a building's front face is local +z.
+   *   o = {x, z, rot, W, D, H, y, wall:'plaster'|'stone'|'planks', wallTint, floor:'wood'|'stone', beams,
+   *        openings:[{side, at, w, h, kind:'door'|'arch'}], windows:[{side, at, y, w, h, shutter}], skirt}
+   * Returns {x, z, rot, W, D, H, y, at(lx, lz) -> {x, z}, doorAt(side, at) -> {x, z, facing}}.
+   */
+  kit.roomShell = (o) => {
+    const W = o.W ?? 8, D = o.D ?? 7, H = o.H ?? 2.6, y = o.y ?? 0, rot = o.rot || 0;
+    const base = M4(o.x || 0, y, o.z || 0, rot);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    const wallKind = o.wall || 'plaster';
+    const bucket = wallKind === 'stone' ? 'stone' : wallKind === 'planks' ? 'wood' : 'plaster';
+    const texName = bucket === 'wood' ? 'wood' : bucket;
+    const T = o.T ?? ROOM_T;
+    const floorKind = o.floor || 'wood';
+    const openings = o.openings || [];
+    const hi = C3(o.wallTint || PAL.plaster.light), lo = C3(mixHex(o.wallTint || PAL.plaster.light, PAL.plaster.grime, 0.55));
+
+    // ── floorboards: warm at the middle of the room, dark in the corners ──
+    {
+      const g = addTo(floorKind === 'stone' ? 'stone' : 'wood',
+        boxUV(W + 2 * T, 0.3, D + 2 * T, Tex.worldSize(floorKind === 'stone' ? 'stone' : 'wood'), [Math.max(2, Math.round(W)), 1, Math.max(2, Math.round(D))]),
+        base.clone().multiply(M4(0, -0.15, 0)));
+      const p = g.attributes.position, c = g.attributes.color, t = new THREE.Color();
+      const mid = C3(floorKind === 'stone' ? PAL.stone.light : PAL.wood.light), edge = C3(floorKind === 'stone' ? PAL.stone.dark : PAL.wood.dark);
+      for (let i = 0; i < p.count; i++) {
+        const lx = p.getX(i) - (o.x || 0), lz = p.getZ(i) - (o.z || 0);
+        const e = Math.max(Math.abs(lx) / (W / 2 + T), Math.abs(lz) / (D / 2 + T));
+        t.copy(mid).lerp(edge, smooth(0.45, 1.0, e) * 0.8);
+        c.setXYZ(i, t.r, t.g, t.b);
+      }
+    }
+
+    // ── the four walls, each split around its openings ──
+    const wallSlab = (w, h, lx, ly, lz, ry) => {
+      if (w <= 0.02 || h <= 0.02) return;
+      const g = addTo(bucket, boxUV(w, h, T, Tex.worldSize(texName), [Math.max(2, Math.round(w)), 3, 1]), base.clone().multiply(M4(lx, ly, lz, ry)));
+      const p = g.attributes.position, c = g.attributes.color, t = new THREE.Color();
+      for (let i = 0; i < p.count; i++) { t.copy(lo).lerp(hi, smooth(0.1, H * 0.75, p.getY(i) - y)); c.setXYZ(i, t.r, t.g, t.b); }
+    };
+    for (const side of ['south', 'north', 'east', 'west']) {
+      const ry = SIDES[side];
+      const span = (side === 'south' || side === 'north') ? W : D;
+      const off = (side === 'south' || side === 'north') ? D / 2 + T / 2 : W / 2 + T / 2;
+      // the wall runs along its own local x; place it by rotating the room frame
+      const put = (w, h, at, yc) => {
+        const c = Math.cos(ry), s = Math.sin(ry);
+        const lx = at * c + off * s, lz = -at * s + off * c;
+        wallSlab(w, h, lx, yc, lz, ry);
+      };
+      const cuts = openings.filter(op => op.side === side).sort((a, b) => (a.at || 0) - (b.at || 0));
+      let x0 = -span / 2 - T;
+      for (const op of cuts) {
+        const ow = (op.w ?? 1.2) + 0.06, oh = (op.h ?? 2.05) + 0.04, oa = op.at ?? 0;
+        const l = (oa - ow / 2) - x0;
+        if (l > 0.02) put(l, H, x0 + l / 2, H / 2);
+        if (H - oh > 0.04) put(ow, H - oh, oa, oh + (H - oh) / 2);
+        x0 = oa + ow / 2;
+        // the reveal: the doorway has thickness, lined in oak, with a threshold under it
+        const c = Math.cos(ry), s = Math.sin(ry);
+        const jx = oa * c + off * s, jz = -oa * s + off * c;
+        for (const sg of [-1, 1]) add('wood', boxUV(0.08, oh, T, 1), M4((oa + sg * (ow / 2 - 0.04)) * c + off * s, oh / 2, -(oa + sg * (ow / 2 - 0.04)) * s + off * c, ry), PAL.wood.dark);
+        add('wood', boxUV(ow + 0.16, 0.12, T + 0.02, 1), M4(jx, oh + 0.06, jz, ry), PAL.wood.beam);
+        add('wood', boxUV(ow, 0.06, T + 0.06, 1), M4(jx, 0.03, jz, ry), PAL.wood.dark);
+      }
+      const l = (span / 2 + T) - x0;
+      if (l > 0.02) put(l, H, x0 + l / 2, H / 2);
+    }
+
+    // ── windows: a splayed reveal, a frame, glass, and the daylight it lets in ──
+    for (const wn of (o.windows || [])) {
+      const ry = SIDES[wn.side] ?? 0;
+      const off = (wn.side === 'south' || wn.side === 'north') ? D / 2 : W / 2;
+      const ww = wn.w ?? 1.0, wh = wn.h ?? 0.9, wy = wn.y ?? 1.35, at = wn.at ?? 0;
+      const c = Math.cos(ry), s = Math.sin(ry);
+      const fm = M4(at * c + off * s, wy, -at * s + off * c, ry);
+      const a = (b, g, m, col) => add(b, g, fm.clone().multiply(m), col);
+      a('wood', boxUV(ww + 0.22, wh + 0.22, 0.12, 1.2), M4(0, 0, 0.06), PAL.wood.beam);
+      kit.addGlow(new THREE.BoxGeometry(ww, wh, 0.08), fm.clone().multiply(M4(0, 0, 0.1)).premultiply(base), mixHex(PAL.sky.horizon, PAL.plaster.light, 0.5));
+      a('wood', boxUV(0.06, wh, 0.06, 1), M4(0, 0, 0.02), PAL.wood.beam);
+      a('wood', boxUV(ww, 0.06, 0.06, 1), M4(0, 0, 0.02), PAL.wood.beam);
+      a('wood', boxUV(ww + 0.34, 0.1, 0.3, 1.2), M4(0, -wh / 2 - 0.09, -0.08), PAL.wood.light);        // the sill
+      if (wn.shutter !== false) for (const sg of [-1, 1]) {
+        const sm = M4(sg * (ww / 2 + ww * 0.28), 0, -0.04, sg * 0.28);
+        a('paint', boxUV(ww * 0.52, wh + 0.14, 0.05, 1), sm, wn.shutter || PAL.paint.shutterGreen);
+        for (const by of [-wh * 0.28, wh * 0.28]) a('paint', boxUV(ww * 0.5, 0.07, 0.03, 1), sm.clone().multiply(M4(0, by, 0.04)), mixHex(wn.shutter || PAL.paint.shutterGreen, PAL.wood.dark, 0.45));
+      }
+    }
+
+    // ── the ceiling and its beams ──
+    // A room the camera looks DOWN into has no ceiling (DQV PS2's own answer, and the only one that works with a
+    // 40-degree follow camera: with a ceiling on, the fade pass ghosted it and every interior frame was brown mud).
+    // Instead the walls are capped with a timber plate, so the top of the wall reads as built and not as a cut edge.
+    if (o.ceiling === true) add(bucket, boxUV(W + 2 * T, 0.26, D + 2 * T, Tex.worldSize(texName)), M4(0, H + 0.13, 0), PAL.plaster.mid);
+    else {
+      for (const [w, lx, lz, ry] of [[W + 2 * T, 0, D / 2 + T / 2, 0], [W + 2 * T, 0, -D / 2 - T / 2, 0],
+        [D + 2 * T, W / 2 + T / 2, 0, Math.PI / 2], [D + 2 * T, -W / 2 - T / 2, 0, Math.PI / 2]]) {
+        add('wood', boxUV(w, 0.16, T + 0.14, 1.2), M4(lx, H + 0.08, lz, ry), PAL.wood.beam);
+      }
+    }
+    if (o.beams !== false) {
+      const n = Math.max(2, Math.round(D / 1.35));
+      for (let k = 0; k < n; k++) {
+        const lz = -D / 2 + (k + 0.5) * (D / n);
+        add('wood', boxUV(W + 2 * T, 0.2, 0.24, 1.2), M4(0, H - 0.1, lz), PAL.wood.beam);
+      }
+      add('wood', boxUV(0.26, 0.26, D + 2 * T, 1.2), M4(0, H - 0.1, 0), PAL.wood.dark);                // the spine
+    }
+    // skirting, so wall and floor meet in a line instead of a seam
+    if (o.skirt !== false) {
+      for (const [w, lx, lz, ry] of [[W, 0, D / 2, 0], [W, 0, -D / 2, Math.PI], [D, W / 2, 0, -Math.PI / 2], [D, -W / 2, 0, Math.PI / 2]]) {
+        add('wood', boxUV(w, 0.16, 0.08, 1), M4(lx, 0.08, lz, ry), PAL.wood.dark);
+      }
+    }
+    const at = (lx, lz) => toWorld({ x: o.x || 0, z: o.z || 0, rot }, lx, lz);
+    return { x: o.x || 0, z: o.z || 0, rot, W, D, H, y, T, at,
+      spot(side, a = 0, into = 1.0) {
+        const ry = SIDES[side] ?? 0, c = Math.cos(ry), s = Math.sin(ry);
+        const off = (side === 'south' || side === 'north') ? D / 2 - into : W / 2 - into;
+        const p = at(a * c + off * s, -a * s + off * c);
+        return { x: p.x, z: p.z, facing: rot + ry + Math.PI };
+      } };
+  };
+
+  /** A hearth in a wall: stone surround, a sooty brick back, a mantel, fire irons, and the fire itself. */
+  kit.hearth = (x, z, rot = 0, { w = 1.9, h = 1.5, lit = true, kettle = true, y: yy = null } = {}) => {
+    const y = yy != null ? +yy : heightAt(x, z), base = M4(x, y, z, rot);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    // A fireplace is a HOLE with stone round it: piers up both sides, a bressumer beam across, and the chimney
+    // breast above — never one solid slab, which is what it was, and which hid the fire completely.
+    const d = 0.7, pier = 0.42;
+    for (const s of [-1, 1]) add('stone', boxUV(pier, h + 0.2, d + 0.2, Tex.worldSize('stone')), M4(s * (w / 2 + pier / 2), (h + 0.2) / 2, -0.1), PAL.stone.mid);
+    add('stone', boxUV(w + 2 * pier, 0.55, d + 0.2, Tex.worldSize('stone')), M4(0, h + 0.2 + 0.275, -0.1), PAL.stone.mid);   // the chimney breast
+    add('brick', boxUV(w, h, 0.26, Tex.worldSize('brick')), M4(0, h / 2, -d / 2 - 0.06), PAL.brick.soot);               // the sooty back
+    for (const s of [-1, 1]) add('brick', boxUV(0.2, h, d, Tex.worldSize('brick')), M4(s * (w / 2 - 0.1), h / 2, -0.1), PAL.brick.dark);
+    add('brick', boxUV(w, 0.22, d, Tex.worldSize('brick')), M4(0, h - 0.11, -0.1), PAL.brick.soot);                     // the sooty throat
+    add('stone', boxUV(w + 2 * pier + 0.3, 0.22, d + 0.4, Tex.worldSize('stone')), M4(0, h + 0.31, 0.0), PAL.stone.light); // the mantel shelf
+    add('wood', boxUV(w + 0.26, 0.24, 0.32, 1.2), M4(0, h + 0.08, 0.14), PAL.wood.beam);                                // the oak bressumer
+    add('stone', boxUV(w + 2 * pier + 0.4, 0.16, 1.15, Tex.worldSize('stone')), M4(0, 0.08, 0.5), PAL.stone.light);      // the hearthstone
+    // logs and the fire
+    const r = mulberry(Math.abs((x * 13 + z * 7) | 0) + 3);
+    for (let k = 0; k < 4; k++) add('wood', new THREE.CylinderGeometry(0.075, 0.065, 0.62, 6),
+      M4((r() - 0.5) * 0.5, 0.16 + (k > 1 ? 0.12 : 0), -0.18 + (r() - 0.5) * 0.2, 0, 0, Math.PI / 2 + (r() - 0.5) * 0.5), PAL.wood.dark);
+    if (lit) {
+      for (let k = 0; k < 11; k++) {
+        const a = (k / 11) * TAU, rr = 0.12 + r() * 0.24;
+        kit.addGlow(new THREE.ConeGeometry(0.11 + r() * 0.08, 0.34 + r() * 0.36, 6),
+          base.clone().multiply(M4(Math.cos(a) * rr, 0.24 + r() * 0.22, -0.16 + Math.sin(a) * rr * 0.5)),
+          k % 3 === 0 ? PAL.flower.yellow : k % 3 === 1 ? PAL.paint.gold : PAL.flower.red);
+      }
+      kit.addGlow(new THREE.SphereGeometry(0.3, 10, 8), base.clone().multiply(M4(0, 0.16, -0.14, 0, 0, 0, 1)), PAL.interior.lamp);
+    }
+    if (kettle) {
+      add('paint', boxUV(0.05, 0.05, w * 0.82, 1), M4(0, h - 0.3, -0.18, 0, 0, Math.PI / 2), PAL.paint.iron);
+      add('paint', new THREE.CylinderGeometry(0.018, 0.018, 0.32, 5), M4(0.12, h - 0.46, -0.18), PAL.paint.iron);
+      add('paint', new THREE.SphereGeometry(0.16, 10, 8), M4(0.12, h - 0.68, -0.18), PAL.paint.iron);
+      add('paint', new THREE.CylinderGeometry(0.07, 0.09, 0.07, 9), M4(0.12, h - 0.52, -0.18), PAL.paint.iron);
+    }
+    kit.contact(x, z + 0.3, 0.9, 0.5, { rx: (w + 0.8) / 2, rz: 0.8, rot });
+    return { x, z, y, w, h };
+  };
+
+  /** A plank table on trestle legs. `top` = the height of the top. */
+  kit.roomTable = (x, z, rot = 0, { w = 1.8, d = 1.0, top = 0.78, cloth = null, things = [], y: yy = null } = {}) => {
+    const y = yy != null ? +yy : heightAt(x, z), base = M4(x, y, z, rot);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    const n = Math.max(3, Math.round(d / 0.26));
+    for (let k = 0; k < n; k++) add('wood', boxUV(w, 0.07, d / n - 0.012, 1.0), M4(0, top - 0.035, -d / 2 + (k + 0.5) * (d / n)), k % 2 ? PAL.wood.light : PAL.wood.mid);
+    add('wood', boxUV(w + 0.06, 0.05, d + 0.06, 1.0), M4(0, top - 0.09, 0), PAL.wood.mid);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) add('wood', boxUV(0.1, top - 0.1, 0.1, 1.2), M4(sx * (w / 2 - 0.16), (top - 0.1) / 2, sz * (d / 2 - 0.14)), PAL.wood.beam);
+    for (const sx of [-1, 1]) add('wood', boxUV(0.08, 0.08, d - 0.28, 1), M4(sx * (w / 2 - 0.16), 0.22, 0), PAL.wood.beam);
+    if (cloth) add('paint', boxUV(w + 0.2, 0.03, d + 0.2, 1), M4(0, top + 0.01, 0), cloth);
+    for (const t of things) {
+      const tx = t.x ?? 0, tz = t.z ?? 0;
+      if (t.kind === 'bowl') { add('tile', new THREE.SphereGeometry(0.13, 12, 8, 0, TAU, 0, Math.PI / 2), M4(tx, top + 0.13, tz, 0, Math.PI), t.color || PAL.tile.light); add('paint', new THREE.CircleGeometry(0.11, 12), M4(tx, top + 0.07, tz, 0, -Math.PI / 2), t.fill || PAL.thatch.light); }
+      else if (t.kind === 'loaf') { add('thatch', new THREE.SphereGeometry(0.16, 10, 8), M4(tx, top + 0.08, tz, t.rot || 0, 0, 0, 1), PAL.thatch.mid); }
+      else if (t.kind === 'candle') { add('paint', new THREE.CylinderGeometry(0.035, 0.04, 0.22, 7), M4(tx, top + 0.11, tz), PAL.plaster.light); kit.addGlow(new THREE.ConeGeometry(0.035, 0.11, 6), base.clone().multiply(M4(tx, top + 0.28, tz)), PAL.flower.yellow); }
+      else if (t.kind === 'cup') { add('tile', new THREE.CylinderGeometry(0.06, 0.05, 0.11, 9), M4(tx, top + 0.055, tz), t.color || PAL.tile.light); }
+    }
+    kit.contact(x, z, Math.max(w, d) * 0.45, 0.55, { rx: w * 0.5, rz: d * 0.5, rot });
+    return { x, z, top };
+  };
+
+  /** A chair. `big` is Father's, and it is bigger, exactly as WORLD-BIBLE §3 says. */
+  kit.chair = (x, z, rot = 0, { big = false, seat = 0.46, color = null, y: yy = null } = {}) => {
+    const y = yy != null ? +yy : heightAt(x, z), base = M4(x, y, z, rot);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    const s = big ? 1.22 : 1, w = 0.44 * s, dd = 0.42 * s, sy = seat * (big ? 1.06 : 1);
+    add('wood', boxUV(w, 0.07, dd, 1), M4(0, sy, 0), color || PAL.wood.light);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) add('wood', boxUV(0.06 * s, sy, 0.06 * s, 1.2), M4(sx * (w / 2 - 0.05), sy / 2, sz * (dd / 2 - 0.05)), PAL.wood.beam);
+    for (const sx of [-1, 1]) add('wood', boxUV(0.07 * s, 0.62 * s, 0.07 * s, 1.2), M4(sx * (w / 2 - 0.05), sy + 0.31 * s, -dd / 2 + 0.05), PAL.wood.beam);
+    for (const k of [0.22, 0.44]) add('wood', boxUV(w - 0.08, 0.08 * s, 0.05, 1), M4(0, sy + k * s, -dd / 2 + 0.05), color || PAL.wood.mid);
+    if (big) {
+      add('wood', boxUV(w - 0.06, 0.09, 0.06, 1), M4(0, sy + 0.64, -dd / 2 + 0.05), PAL.wood.light);
+      for (const sx of [-1, 1]) add('wood', boxUV(0.06, 0.06, dd - 0.1, 1), M4(sx * (w / 2 - 0.03), sy + 0.3, 0), PAL.wood.beam);
+    }
+    kit.contact(x, z, 0.3 * s, 0.5);
+    return { x, z, big };
+  };
+
+  /** A stool — an inn is mostly stools. */
+  kit.stool = (x, z, rot = 0, { h = 0.44, y: yy = null } = {}) => {
+    const y = yy != null ? +yy : heightAt(x, z), base = M4(x, y, z, rot);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    add('wood', new THREE.CylinderGeometry(0.2, 0.19, 0.07, 12), M4(0, h, 0), PAL.wood.light);
+    for (let k = 0; k < 3; k++) { const a = (k / 3) * TAU + rot; add('wood', new THREE.CylinderGeometry(0.035, 0.045, h, 6), M4(Math.cos(a) * 0.13, h / 2, Math.sin(a) * 0.13, 0, 0.12 * Math.cos(a), -0.12 * Math.sin(a)), PAL.wood.beam); }
+    kit.contact(x, z, 0.22, 0.5);
+  };
+
+  /** A bed with a blanket and a pillow. Local +z is the foot. */
+  kit.bed = (x, z, rot = 0, { w = 1.0, l = 1.9, blanket = null, small = false, y: yy = null } = {}) => {
+    const y = yy != null ? +yy : heightAt(x, z), base = M4(x, y, z, rot);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    const fy = small ? 0.3 : 0.36;
+    for (const sz of [-1, 1]) add('wood', boxUV(w + 0.14, sz < 0 ? 0.85 : 0.5, 0.12, 1.2), M4(0, (sz < 0 ? 0.85 : 0.5) / 2, sz * (l / 2 + 0.06)), PAL.wood.mid);
+    for (const sx of [-1, 1]) add('wood', boxUV(0.1, 0.24, l, 1.2), M4(sx * (w / 2 + 0.05), fy - 0.1, 0), PAL.wood.beam);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) add('wood', boxUV(0.12, fy, 0.12, 1.2), M4(sx * (w / 2 + 0.03), fy / 2, sz * (l / 2 + 0.02)), PAL.wood.beam);
+    add('thatch', boxUV(w, 0.2, l - 0.1, 1), M4(0, fy + 0.1, 0), PAL.thatch.pale);                              // the straw mattress
+    add('paint', boxUV(w + 0.08, 0.14, l * 0.62, 1), M4(0, fy + 0.26, l * 0.16), blanket || PAL.cloth.red);      // the blanket
+    add('paint', boxUV(w + 0.09, 0.05, 0.22, 1), M4(0, fy + 0.33, l * 0.16 - l * 0.31), mixHex(blanket || PAL.cloth.red, PAL.cloth.cream, 0.6));
+    add('paint', new THREE.SphereGeometry(0.22, 12, 8), M4(0, fy + 0.3, -l / 2 + 0.3, 0, 0, 0, 1), PAL.cloth.cream);
+    kit.contact(x, z, 0.8, 0.6, { rx: w * 0.64, rz: l * 0.56, rot });
+    return { x, z };
+  };
+
+  /** A ladder to the loft. `h` is the height it reaches; it leans back `lean` at the top. */
+  kit.ladder = (x, z, rot = 0, { h = 2.2, w = 0.5, lean = 0.12, y: yy = null } = {}) => {
+    const y = yy != null ? +yy : heightAt(x, z), base = M4(x, y, z, rot);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    const L = Math.hypot(h, lean);
+    for (const sx of [-1, 1]) add('wood', boxUV(0.09, L, 0.07, 1.2), M4(sx * w / 2, h / 2, lean / 2, 0, Math.atan2(lean, h)), PAL.wood.mid);
+    const n = Math.max(3, Math.round(h / 0.3));
+    for (let k = 1; k <= n; k++) { const t = k / (n + 1); add('wood', new THREE.CylinderGeometry(0.035, 0.035, w + 0.04, 7), M4(0, h * t, lean * t, 0, 0, Math.PI / 2), PAL.wood.light); }
+    kit.contact(x, z, 0.3, 0.45, { rx: w * 0.7, rz: 0.3, rot });
+  };
+
+  /** A loft deck: joists, boards, and a rail along its open edge (local -z is the open side). */
+  kit.loftDeck = (x, z, rot = 0, { w = 4.0, d = 2.6, y: ly = 2.05, rail = true } = {}) => {
+    const y = heightAt(x, z) + ly, base = M4(x, y, z, rot);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    const n = Math.max(3, Math.round(w / 0.42));
+    for (let k = 0; k < n; k++) add('wood', boxUV(w / n - 0.015, 0.08, d, 1.0), M4(-w / 2 + (k + 0.5) * (w / n), 0, 0), k % 2 ? PAL.wood.light : PAL.wood.mid);
+    add('wood', boxUV(w + 0.1, 0.16, 0.2, 1.2), M4(0, -0.12, -d / 2 + 0.1), PAL.wood.beam);
+    add('wood', boxUV(w + 0.1, 0.16, 0.2, 1.2), M4(0, -0.12, d / 2 - 0.1), PAL.wood.beam);
+    if (rail) {
+      for (const sx of [-1, 1]) add('wood', boxUV(0.1, 0.62, 0.1, 1.2), M4(sx * (w / 2 - 0.08), 0.35, -d / 2 + 0.08), PAL.wood.beam);
+      add('wood', boxUV(w - 0.1, 0.09, 0.1, 1.2), M4(0, 0.62, -d / 2 + 0.08), PAL.wood.light);
+      const m = Math.max(2, Math.round(w / 0.55));
+      for (let k = 1; k < m; k++) add('wood', boxUV(0.06, 0.58, 0.06, 1), M4(-w / 2 + k * (w / m), 0.33, -d / 2 + 0.08), PAL.wood.mid);
+    }
+    return { x, z, y };
+  };
+
+  /** A chest: oak, iron-banded, with a lid that stands a little open when it has been found. */
+  kit.chestBox = (x, z, rot = 0, { w = 0.8, h = 0.52, d = 0.5, open = 0, color = null, y: yy = null } = {}) => {
+    const y = yy != null ? +yy : heightAt(x, z), base = M4(x, y, z, rot);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    add('wood', boxUV(w, h, d, 0.9), M4(0, h / 2, 0), color || PAL.wood.mid);
+    for (const sx of [-1, 1]) add('paint', boxUV(0.07, h + 0.02, d + 0.02, 1), M4(sx * (w / 2 - 0.1), h / 2, 0), PAL.paint.iron);
+    // the lid, hinged along the back edge: `open` 0 = shut, 1 = thrown right back
+    const ang = Math.max(0, Math.min(1, open)) * 1.15;
+    const hinge = M4(0, h, -d / 2).multiply(M4(0, 0, 0, 0, -ang));
+    add('wood', boxUV(w, 0.12, d, 0.9), hinge.clone().multiply(M4(0, 0.06, d / 2)), color || PAL.wood.light);
+    for (const sx of [-1, 1]) add('paint', boxUV(0.07, 0.14, d + 0.02, 1), hinge.clone().multiply(M4(sx * (w / 2 - 0.1), 0.06, d / 2)), PAL.paint.iron);
+    add('paint', boxUV(0.18, 0.2, 0.07, 1), M4(0, h - 0.06, d / 2 + 0.02), PAL.paint.gold);
+    kit.contact(x, z, 0.42, 0.6, { rx: w * 0.6, rz: d * 0.65, rot });
+    return { x, z };
+  };
+
+  /** A dresser with plates on it — every DQ kitchen has one. */
+  kit.dresser = (x, z, rot = 0, { w = 1.5, h = 1.9, d = 0.45, y: yy = null } = {}) => {
+    const y = yy != null ? +yy : heightAt(x, z), base = M4(x, y, z, rot);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    add('wood', boxUV(w, 0.86, d, 0.9), M4(0, 0.43, 0), PAL.wood.mid);
+    for (const sx of [-1, 1]) { add('wood', boxUV(w / 2 - 0.08, 0.34, 0.06, 0.9), M4(sx * w / 4, 0.62, d / 2 + 0.02), PAL.wood.light); add('paint', new THREE.SphereGeometry(0.045, 8, 6), M4(sx * w / 4, 0.62, d / 2 + 0.07), PAL.paint.iron); }
+    add('wood', boxUV(w, 0.06, d, 0.9), M4(0, 0.89, 0), PAL.wood.light);
+    for (const sx of [-1, 1]) add('wood', boxUV(0.07, h - 0.9, d - 0.08, 0.9), M4(sx * (w / 2 - 0.035), 0.9 + (h - 0.9) / 2, -0.04), PAL.wood.mid);
+    add('wood', boxUV(w, 0.06, d - 0.08, 0.9), M4(0, h, -0.04), PAL.wood.mid);
+    for (const k of [0.45, 0.8]) {
+      add('wood', boxUV(w - 0.14, 0.05, d - 0.1, 0.9), M4(0, 0.9 + (h - 0.9) * k, -0.04), PAL.wood.light);
+      for (let i = -1; i <= 1; i++) add('tile', new THREE.CylinderGeometry(0.15, 0.15, 0.025, 14), M4(i * 0.4, 0.9 + (h - 0.9) * k + 0.16, -0.16, 0, 0, Math.PI / 2), i === 0 ? PAL.tile.light : PAL.plaster.light);
+    }
+    kit.contact(x, z, 0.55, 0.6, { rx: w * 0.55, rz: d * 0.8, rot });
+  };
+
+  /** A shelf of pots and books against a wall. */
+  kit.shelf = (x, z, rot = 0, { w = 1.3, y: sy = 1.45, n = 2, seed = 5, y0 = null } = {}) => {
+    const y = y0 != null ? +y0 : heightAt(x, z), base = M4(x, y, z, rot);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    const r = mulberry(seed);
+    for (let k = 0; k < n; k++) {
+      const ly = sy + k * 0.46;
+      add('wood', boxUV(w, 0.06, 0.28, 0.9), M4(0, ly, 0), PAL.wood.light);
+      for (const sx of [-1, 1]) add('wood', boxUV(0.06, 0.16, 0.24, 1), M4(sx * (w / 2 - 0.06), ly - 0.1, 0), PAL.wood.beam);
+      let cx = -w / 2 + 0.16;
+      while (cx < w / 2 - 0.16) {
+        const pick = r();
+        if (pick < 0.45) { const hh = 0.18 + r() * 0.12; add('tile', new THREE.CylinderGeometry(0.08, 0.06, hh, 10), M4(cx, ly + 0.03 + hh / 2, 0), r() < 0.5 ? PAL.tile.mid : PAL.tile.light); cx += 0.2; }
+        else if (pick < 0.8) { for (let b2 = 0; b2 < 3; b2++) { add('paint', boxUV(0.05, 0.24, 0.17, 1), M4(cx + b2 * 0.06, ly + 0.15, 0, 0, 0, b2 === 2 ? 0.2 : 0), [PAL.cloth.red, PAL.cloth.blue, PAL.cloth.green][b2 % 3]); } cx += 0.26; }
+        else { add('paint', new THREE.SphereGeometry(0.1, 10, 8), M4(cx, ly + 0.12, 0), PAL.flower.yellow); cx += 0.24; }
+      }
+    }
+  };
+
+  /** A rag rug: an oval of warm colour on the boards. */
+  kit.rug = (x, z, rot = 0, { w = 2.0, d = 1.3, color = PAL.cloth.red, seed = 3, y: yy = null } = {}) => {
+    const y = yy != null ? +yy : heightAt(x, z), base = M4(x, y, z, rot);
+    const r = mulberry(seed);
+    for (let k = 0; k < 4; k++) {
+      const t = 1 - k * 0.22;
+      addTo('paint', new THREE.CircleGeometry(0.5, 22).scale(w * t, d * t, 1).rotateX(-Math.PI / 2),
+        base.clone().multiply(M4(0, 0.012 + k * 0.004, 0)), k % 2 ? mixHex(color, PAL.cloth.cream, 0.45) : mixHex(color, PAL.wood.dark, 0.2 + r() * 0.1));
+    }
+    kit.contact(x, z, Math.max(w, d) * 0.5, 0.18, { rx: w * 0.52, rz: d * 0.52, rot, lift: 0.02 });
+  };
+
+  /** A barrel-and-plank counter — the inn's bar, with a row of tankards. */
+  kit.counter = (x, z, rot = 0, { w = 3.0, h = 1.02, d = 0.7, y: yy = null } = {}) => {
+    const y = yy != null ? +yy : heightAt(x, z), base = M4(x, y, z, rot);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    add('wood', boxUV(w, h - 0.12, d, 0.9, [Math.max(3, Math.round(w)), 3, 1]), M4(0, (h - 0.12) / 2, 0), PAL.wood.mid);
+    add('wood', boxUV(w + 0.16, 0.12, d + 0.22, 0.9), M4(0, h - 0.06, 0), PAL.wood.light);
+    for (const sx of [-1, 0, 1]) add('wood', boxUV(0.1, h - 0.2, 0.08, 1), M4(sx * (w / 2 - 0.2), (h - 0.2) / 2, d / 2 + 0.02), PAL.wood.beam);
+    for (let k = 0; k < 4; k++) add('tile', new THREE.CylinderGeometry(0.075, 0.065, 0.16, 10), M4(-w / 2 + 0.4 + k * 0.42, h + 0.08, -0.12), PAL.stone.light);
+    kit.contact(x, z, 0.8, 0.6, { rx: w * 0.52, rz: d * 0.75, rot });
+    return { x, z, h };
+  };
+
+  /** A stack of kegs. */
+  kit.kegs = (x, z, rot = 0, { n = 3, seed = 7, y: yy = null } = {}) => {
+    const y = yy != null ? +yy : heightAt(x, z), base = M4(x, y, z, rot);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    const r = mulberry(seed);
+    for (let k = 0; k < n; k++) {
+      const row = k < 2 ? 0 : 1, i = k < 2 ? k : k - 2;
+      const lx = (i - 0.5) * 0.66 + (row ? 0.33 : 0), ly = 0.3 + row * 0.6, lz = (r() - 0.5) * 0.1;
+      add('wood', new THREE.CylinderGeometry(0.28, 0.28, 0.6, 12), M4(lx, ly, lz, 0, 0, Math.PI / 2), PAL.wood.mid);
+      for (const e of [-1, 1]) add('paint', new THREE.TorusGeometry(0.285, 0.025, 4, 14), M4(lx + e * 0.2, ly, lz, 0, Math.PI / 2), PAL.paint.iron);
+    }
+    kit.contact(x, z, 0.7, 0.6, { rx: 0.8, rz: 0.45, rot });
+  };
+
+  /** A lantern hanging from a ceiling beam — the one warm point of light in a dark room. */
+  kit.roomLamp = (x, z, y0 = 2.2, { drop = 0.35, floor = null } = {}) => {
+    const y = (floor != null ? +floor : heightAt(x, z)) + y0, base = M4(x, y, z);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    add('paint', new THREE.CylinderGeometry(0.012, 0.012, drop, 5), M4(0, drop / 2, 0), PAL.paint.iron);
+    add('paint', new THREE.ConeGeometry(0.2, 0.16, 8), M4(0, -0.02, 0), PAL.paint.iron);
+    kit.addGlow(new THREE.SphereGeometry(0.1, 10, 8), base.clone().multiply(M4(0, -0.15, 0, 0, 0, 0, 1)), PAL.flower.yellow);
+    kit.addGlow(new THREE.ConeGeometry(0.055, 0.15, 7), base.clone().multiply(M4(0, -0.06, 0)), mixHex(PAL.flower.yellow, PAL.plaster.light, 0.4));
+    for (let k = 0; k < 4; k++) add('paint', boxUV(0.022, 0.24, 0.022, 1), M4(Math.cos(k * TAU / 4) * 0.115, -0.15, Math.sin(k * TAU / 4) * 0.115), PAL.paint.iron);
+    add('paint', new THREE.TorusGeometry(0.115, 0.014, 4, 12), M4(0, -0.27, 0, 0, Math.PI / 2), PAL.paint.iron);
+    return { x, y: y - 0.16, z };
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
   // merge: the kit's own meshes go in with the buckets; doors and signs animate from kit.update
   // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
   const flushBuildings = () => {
@@ -1283,6 +1723,15 @@ export function buildingRecipes(kit) {
       mesh.name = 'bunting'; mesh.castShadow = false; mesh.receiveShadow = true;
       scene.add(mesh); out.push(mesh);
       FLAGS.length = 0;
+    }
+    if (GLOW.length) {
+      const mat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true });
+      mat.onBeforeCompile = (sh) => See.patch(sh);
+      mat.customProgramCacheKey = () => 'bldglow|see';
+      const mesh = new THREE.Mesh(mergeGeometries(GLOW), mat);
+      mesh.name = 'roomglow'; mesh.castShadow = false; mesh.receiveShadow = false;
+      scene.add(mesh); out.push(mesh);
+      GLOW.length = 0;
     }
     if (INTERIOR.length) {
       const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: true });

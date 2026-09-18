@@ -26,8 +26,11 @@
  * GROUNDING (the rule every recipe here obeys) — set dressing must sit IN the field, not on top of it:
  *   1. feet reach the LOWEST ground under their own footprint (kit.lowestAt), so no post, picket, leg or roof
  *      support ever ends in mid-air on a slope, and a run of fence follows the ground post by post and bay by bay;
- *   2. everything that stands gets the same soft contact blob the hero gets (kit.contact) — ONE InstancedMesh for
- *      the whole map, each quad laid flat on the local slope, so it can neither clip through nor z-fight the grass;
+ *   2. everything that stands gets a soft contact POOL (kit.contact) — ONE InstancedMesh for the whole map, each
+ *      quad laid flat on the local slope so it can neither clip through nor z-fight the grass. The pool reaches
+ *      PAST the prop's own footprint (POOL.spread), leans away from the sun (POOL.lean) and MULTIPLIES the ground
+ *      instead of alpha-blending a flat dark green over it. Before that it was exactly footprint-sized, hidden
+ *      under its own prop, and every crate, barrel, well and fence post met the grass with a hard bright seam;
  *   3. earth beds (flower beds, kitchen gardens) are DRAPED over the terrain, never one flat card.
  *
  * THE KIT CORE — createPropsKit({scene, heightAt, ao, low}) -> kit   (src/world/scenery.js createKit adds the
@@ -37,12 +40,13 @@
  *                                                       buckets: stone plaster wood thatch tile brick bark
  *                                                       dirtbed paint · glow (unshaded, lights up at night)
  *   kit.lowestAt(x, z, r, n) / kit.normalAt(x, z, h)    the grounding samplers
- *   kit.contact(x, z, r, strength, {rx, rz, rot, lift}) a soft contact shadow, merged by kit.flush()
- *   kit.plant(x, z, r, {ao, aoS, blob, blobS, rot})     AO mask + contact blob in one call
+ *   kit.contact(x, z, r, strength, {rx, rz, rot, lift, spread, lean})   a contact POOL, merged by kit.flush()
+ *   kit.plant(x, z, r, {ao, aoS, blob, blobS, rot})     AO mask + contact pool in one call
+ *   kit.setSun(dir) / kit.pools({spread, lean, cap, near, far})         which way pools lean, and how far they reach
  *   kit.footBox(x, z, w, d, rot, pad) / kit.footDisc(x, z, r) / kit.blocked(x, z)   tufts and flowers stay out
- *   kit.seeSurface(texName, opts)                       a textured toon material that dissolves in front of the hero
- *   kit.FADE.push({x, z, cy, R, trunk, keep: 1, kind})   register a see-through candidate (trees, forest cards)
- *   kit.update(t, dt, camera, focus)                    grove culling + animators + the see-through pass
+ *   kit.seeSurface(texName, opts)                       a textured toon material the camera pass may fade
+ *   kit.seeMode('auto'|'ghost'|'off') / kit.seeTune({alpha, outMs, inMs}) / kit.seeState / kit.clearSee()
+ *   kit.update(t, dt, camera, focus)                    the see-through pass + grove culling + animators
  *   kit.flush()                                         build the grove, merge every bucket into one mesh per material
  *
  * Prop recipes on the kit:
@@ -58,9 +62,9 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { PAL, C3, css, lerp, smooth, clamp01, mixHex } from './palette.js';
+import { PAL, C3, css, rgb, lerp, smooth, clamp01, mixHex } from './palette.js';
 import { Tex, mulberry, vnoise, mkCanvas, ctx2 } from './tex.js';
-import { Toon, makeToon, outlineMaterial, hullGeometry, spherizeNormals, normalsUp, OUTLINE, TOON_PRESETS, See } from './toon.js';
+import { Toon, makeToon, outlineMaterial, hullGeometry, spherizeNormals, normalsUp, OUTLINE, TOON_PRESETS, See, SUN_DIR } from './toon.js';
 import { ENV } from './weather.js';
 import { Font } from '../ui/font.js';
 import { reportError } from '../engine/debug.js';
@@ -257,21 +261,72 @@ function barkTrunkGeometry(h = 1.6, flare = 1, thin = 1) {
   return wrapUV(new THREE.LatheGeometry(pts, 10), 1, h / Tex.worldSize('bark'));
 }
 
-/** Slim white stem with dark lenticel marks (no texture: the marks are vertex colours). */
-function birchTrunkGeometry(h = 3.0, thin = 0.6) {
-  const N = Math.max(5, Math.round(h / 0.62)), pts = [];
-  for (let i = 0; i <= N; i++) { const t = i / N; pts.push(new THREE.Vector2(lerp(0.3, 0.1, Math.pow(t, 0.7)) * thin, t * h)); }
-  const g = new THREE.LatheGeometry(pts, 7);
-  const p = g.attributes.position, cols = new Float32Array(p.count * 3), tmp = new THREE.Color();
-  const pale = C3(mixHex(PAL.plaster.light, PAL.stone.light, 0.55)), grey = C3(mixHex(PAL.stone.mid, PAL.outline.char, 0.45)), foot = C3(mixHex(PAL.stone.dark, PAL.outline.char, 0.35));
-  for (let i = 0; i < p.count; i++) {
-    const a = Math.atan2(p.getZ(i), p.getX(i)), y = p.getY(i);
-    const mark = smooth(0.5, 0.86, vnoise(a * 2.1 + 11, y * 2.6, 61));
-    tmp.copy(pale).lerp(grey, mark * 0.9).lerp(foot, smooth(0.6, 0.02, y) * 0.5);
-    cols[i * 3] = tmp.r; cols[i * 3 + 1] = tmp.g; cols[i * 3 + 2] = tmp.b;
+/**
+ * A birch stem: a slim creamy-white bole with REAL markings — the dark lenticel dashes, the sooty flare at the
+ * foot and two dark branch "eyes". Only the lenticels were vertex colours before, spread over a 7-segment lathe
+ * with six rings, which averaged out to nothing: from three metres away a birch read as a plastic pole standing
+ * beside oaks with proper bark. The dashes are now chunky geometry laid ON the bole (DQV draws its bark, it does
+ * not smear it), and the paper-white is broken by a warm shadow side and a grey underlay.
+ * `detail` -1 drops the marks (the far LOD is six pixels wide).
+ */
+function birchTrunkGeometry(h = 3.0, thin = 0.6, detail = 1) {
+  const N = Math.max(7, Math.round(h / 0.34)), pts = [];
+  const rAt = (t) => lerp(0.3, 0.1, Math.pow(t, 0.7)) * thin;
+  for (let i = 0; i <= N; i++) { const t = i / N; pts.push(new THREE.Vector2(rAt(t), t * h)); }
+  const SEG = detail >= 1 ? 9 : 7;
+  const g = new THREE.LatheGeometry(pts, SEG);
+  const paint = (geo) => {
+    const p = geo.attributes.position, cols = new Float32Array(p.count * 3), tmp = new THREE.Color();
+    const pale = C3(mixHex(PAL.plaster.light, PAL.flower.white, 0.5));
+    const cream = C3(mixHex(PAL.plaster.light, PAL.bark.light, 0.22));
+    const grey = C3(mixHex(PAL.stone.mid, PAL.bark.dark, 0.3));
+    const foot = C3(mixHex(PAL.bark.furrow, PAL.outline.char, 0.3));
+    for (let i = 0; i < p.count; i++) {
+      const a = Math.atan2(p.getZ(i), p.getX(i)), y = p.getY(i);
+      // long vertical grain streaks, a warm side, and the sooty flare where the bole meets the ground
+      const streak = smooth(0.42, 0.88, vnoise(a * 1.7 + 11, y * 0.55, 61));
+      tmp.copy(pale).lerp(cream, 0.28 + 0.46 * (0.5 + 0.5 * Math.sin(a + 0.7)))
+        .lerp(grey, streak * 0.62)
+        .lerp(foot, smooth(0.62, 0.0, y) * 0.9);
+      cols[i * 3] = tmp.r; cols[i * 3 + 1] = tmp.g; cols[i * 3 + 2] = tmp.b;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+    return geo;
+  };
+  paint(g);
+  if (detail < 1) return g;
+  // the lenticels: short dark dashes wrapped round the bole, and two branch scars
+  const parts = [g], dash = C3(mixHex(PAL.bark.furrow, PAL.outline.char, 0.45));
+  const paintFlat = (geo, col) => {
+    const n = geo.attributes.position.count, c = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { c[i * 3] = col.r; c[i * 3 + 1] = col.g; c[i * 3 + 2] = col.b; }
+    geo.setAttribute('color', new THREE.BufferAttribute(c, 3));
+    return geo;
+  };
+  const r0 = mulberry(613);
+  const MARKS = Math.max(5, Math.round(h * 2.6));
+  for (let i = 0; i < MARKS; i++) {
+    const t = 0.10 + 0.86 * ((i + 0.35 * r0()) / MARKS), r = rAt(t) * 0.985;
+    const a = r0() * 6.283, w = r * (0.55 + r0() * 0.95), th = 0.022 + r0() * 0.022;
+    const b = new THREE.BoxGeometry(w, th, 0.03);
+    b.applyMatrix4(M4(Math.cos(a) * r, t * h, Math.sin(a) * r, -a + Math.PI / 2, 0, (r0() - 0.5) * 0.12));
+    parts.push(paintFlat(b, dash));
+    if (r0() < 0.34) {                                            // a shorter partner dash just under it
+      const w2 = r * (0.3 + r0() * 0.4), a2 = a + (r0() - 0.5) * 0.9;
+      const b2 = new THREE.BoxGeometry(w2, th * 0.85, 0.03);
+      b2.applyMatrix4(M4(Math.cos(a2) * r, t * h - th * 2.6, Math.sin(a2) * r, -a2 + Math.PI / 2));
+      parts.push(paintFlat(b2, dash));
+    }
   }
-  g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
-  return g;
+  for (const [t, a] of [[0.52, 1.1], [0.78, 3.9]]) {              // branch scars: a dark eye with a pale lid
+    const r = rAt(t) * 0.99;
+    const e = new THREE.SphereGeometry(rAt(t) * 0.42, 7, 5);
+    e.applyMatrix4(M4(Math.cos(a) * r * 0.86, t * h, Math.sin(a) * r * 0.86, 0, 0, 0, 1));
+    e.scale(1, 0.72, 1);
+    parts.push(paintFlat(e, dash));
+  }
+  const merged = mergeGeometries(parts.map(q => (q.index ? q.toNonIndexed() : q)));
+  return merged || g;
 }
 
 /** A tiered conifer: four rounded skirts with scalloped rims — chunky and friendly, never spiky. */
@@ -342,7 +397,7 @@ function treeGeometry(kind, def, detail, outline = true) {
   const fruits = def.fruit && detail >= 1 ? fruitGeometry(def.blobs, def.fruit, 77, detail >= 2 ? 1 : 0) : null;
   const canopy = fruits ? mergeGeometries([treePart(canopyRaw, 0), treePart(fruits, 0)]) : treePart(canopyRaw, 0);
   const T = def.trunk;
-  const trunk = T ? treePart(T.birch ? birchTrunkGeometry(T.h + 0.5, T.thin ?? 0.6)
+  const trunk = T ? treePart(T.birch ? birchTrunkGeometry(T.h + 0.5, T.thin ?? 0.6, detail)
     : barkTrunkGeometry(T.h + 0.4, T.flare ?? 1, T.thin ?? 1), T.birch ? 0 : 1) : null;
   let proxy = null;
   if (def.shadow !== false) {
@@ -574,47 +629,143 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
   kit.normalAt = (x, z, h = 0.7) => new THREE.Vector3(heightAt(x - h, z) - heightAt(x + h, z), 2 * h, heightAt(x, z - h) - heightAt(x, z + h)).normalize();
   const CONTACT = [];
   /**
+   * POOL — the contact-shadow tuning, and the one number that decides whether set dressing looks PLANTED.
+   *
+   * Measured, not guessed (shots/P04-before/03-prop-yard.png with the pools tinted red): a pool exactly the size
+   * of the prop's own footprint is ~95% HIDDEN UNDER that prop from the gameplay camera, so a well, a barrel, a
+   * crate and a fence post each met the grass with a hard bright seam and the whole yard read as stickers laid on
+   * a lawn. Three fixes, all here:
+   *   spread   every pool reaches PAST its prop's footprint, so a ring of shade is always visible round the base;
+   *   lean     the pool is offset away from the sun, so it reads as a shadow instead of a symmetric dark ring;
+   *   multiply the pool DARKENS the ground (dst * (1 - a * (1 - tint))) instead of alpha-blending a flat dark
+   *            green over it — grass keeps its hue and gets shade, and it can never wash out over dirt or stone.
+   * `cap` limits how much shade may stack in one spot (a hedgerow's 80 overlapping pools would otherwise multiply
+   * into a black band round the vale).
+   */
+  const POOL = { spread: 1.8, min: 0.4, max: 4.6, lean: 0.55, cap: 1.15, floor: 0.2, grid: 1.0, near: 58, far: 104,
+    // Tex.blob()'s gradient is very soft (alpha .85 at the centre, .6 at half, 0 at the rim), which spread over a
+    // pool 1.8x the footprint left only a 10-15% wash where it mattered — measured, and invisible in the frame.
+    // `gain` pulls the core up so the ring the prop does NOT cover is a real shadow (~55% at half radius).
+    gain: 1.45, max_a: 0.88, white: 0.22 };
+  const SUNXZ = new THREE.Vector2(SUN_DIR.x, SUN_DIR.z).normalize();
+  /** Point the contact shadows away from a different sun (a dusk / night map): pass the rig's `dir`. */
+  kit.setSun = (dir) => { if (dir && (dir.x || dir.z)) SUNXZ.set(dir.x, dir.z).normalize(); return SUNXZ.toArray(); };
+  /**
+   * How far a contact pool reaches and how deep it goes. `spread`/`lean`/`cap` are read when a recipe registers a
+   * pool, so they only bite before kit.flush(); `near`/`far` (the distance fade) are a live uniform and take
+   * effect at once. A demo exposes this as __DQ.pools().
+   */
+  let CONTACT_U = null;
+  kit.pools = (o = {}) => {
+    for (const k of ['spread', 'lean', 'cap', 'near', 'far']) if (Number.isFinite(+o[k])) POOL[k] = +o[k];
+    if (CONTACT_U) CONTACT_U.uDqRange.value.set(POOL.near, POOL.far);
+    return Object.assign({}, POOL, { live: !!CONTACT_U });
+  };
+  /**
    * A soft contact shadow under a standing prop. Round by default; pass rx/rz + rot for a long thin one (a fence
    * rail, a bench, a wall). Collected here and merged into one InstancedMesh by kit.flush().
+   *   strength 0..1   how dark the core is (0.9 = a crate sitting in the grass, 0.45 = a wide soft tree pool)
+   *   spread          override POOL.spread for this pool (1 = exactly the footprint — almost never what you want)
    */
-  kit.contact = (x, z, r, strength = 0.85, { rx = r, rz = r, rot = 0, lift = 0.045 } = {}) => {
+  kit.contact = (x, z, r, strength = 0.85, { rx = r, rz = r, rot = 0, lift = 0.05, spread = POOL.spread, lean = 1 } = {}) => {
     if (!(rx > 0) || !(rz > 0)) return;
-    CONTACT.push({ x, z, rx: Math.min(rx, 4.2), rz: Math.min(rz, 4.2), rot, k: Math.max(0.04, Math.min(1, strength)), lift });
+    CONTACT.push({ x, z,
+      rx: Math.min(Math.max(rx * spread, POOL.min), POOL.max),
+      rz: Math.min(Math.max(rz * spread, POOL.min), POOL.max),
+      rot, k: Math.max(0.04, Math.min(1, strength)), lift, lean });
   };
   /** AO into the painted mask AND the contact blob — what a standing prop calls instead of ao.disc alone. */
   kit.plant = (x, z, r, { ao: aoR = r * 1.9, aoS = 0.55, blob = r * 1.45, blobS = 0.8, rx = 0, rz = 0, rot = 0 } = {}) => {
     if (aoR > 0) ao.disc(x, z, aoR, aoS);
     kit.contact(x, z, blob, blobS, { rx: rx || blob, rz: rz || blob, rot });
   };
+  let CONTACT_MAT = null;
+  /** The pool material: a tinted MULTIPLY over whatever is already on the ground, with its own distance fade. */
+  function contactMaterial() {
+    if (CONTACT_MAT) return CONTACT_MAT;
+    const t = rgb(mixHex(PAL.shadow.contact, PAL.char.white, POOL.white));
+    const m = new THREE.MeshBasicMaterial({ map: Tex.blob(), transparent: true, depthWrite: false, fog: false });
+    // out = src * dst + dst * (1 - srcA); with src.rgb premultiplied by srcA this is dst * (1 - a * (1 - tint))
+    m.blending = THREE.CustomBlending;
+    m.blendEquation = THREE.AddEquation;
+    m.blendSrc = THREE.DstColorFactor;
+    m.blendDst = THREE.OneMinusSrcAlphaFactor;
+    m.polygonOffset = true; m.polygonOffsetFactor = -6; m.polygonOffsetUnits = -6;
+    m.onBeforeCompile = (sh) => {
+      try {
+        sh.uniforms.uDqTint = { value: new THREE.Vector3(t[0] / 255, t[1] / 255, t[2] / 255) };
+        sh.uniforms.uDqRange = { value: new THREE.Vector2(POOL.near, POOL.far) };
+        sh.uniforms.uDqGain = { value: new THREE.Vector2(POOL.gain, POOL.max_a) };
+        CONTACT_U = sh.uniforms;
+        sh.vertexShader = sh.vertexShader
+          .replace('#include <common>', '#include <common>\nattribute float aK; varying float vDqK; varying float vDqD;')
+          .replace('#include <project_vertex>', '#include <project_vertex>\n  vDqK = aK;\n  vDqD = -mvPosition.z;');
+        sh.fragmentShader = sh.fragmentShader
+          .replace('#include <common>', '#include <common>\nvarying float vDqK; varying float vDqD; uniform vec3 uDqTint; uniform vec2 uDqRange; uniform vec2 uDqGain;')
+          .replace('#include <dithering_fragment>', `#include <dithering_fragment>
+  {
+    float dqA = min( clamp( gl_FragColor.a, 0.0, 1.0 ) * uDqGain.x, uDqGain.y ) * vDqK;
+    dqA *= 1.0 - smoothstep( uDqRange.x, uDqRange.y, vDqD );
+    gl_FragColor = vec4( uDqTint * dqA, dqA );
+  }`);
+      } catch (e) { reportError('props contact shadow patch', e); }
+    };
+    m.customProgramCacheKey = () => 'dqcontact2';
+    m.name = 'contact';
+    CONTACT_MAT = m;
+    return m;
+  }
   function buildContacts() {
     if (!CONTACT.length) return null;
     const geo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
-    const aK = new THREE.InstancedBufferAttribute(new Float32Array(CONTACT.length), 1);
+    const N = CONTACT.length;
+    const aK = new THREE.InstancedBufferAttribute(new Float32Array(N), 1);
     geo.setAttribute('aK', aK);
-    const mat = new THREE.MeshBasicMaterial({ map: Tex.blob(), color: C3(PAL.shadow.contact), transparent: true, opacity: 0.6, depthWrite: false, fog: true });
-    mat.polygonOffset = true; mat.polygonOffsetFactor = -6; mat.polygonOffsetUnits = -6;
-    mat.onBeforeCompile = (sh) => {
-      try {
-        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aK; varying float vDqK;')
-          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvDqK = aK;');
-        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vDqK;')
-          .replace('#include <map_fragment>', '#include <map_fragment>\ndiffuseColor.a *= vDqK;');
-      } catch (e) { reportError('props contact shadow patch', e); }
-    };
-    mat.customProgramCacheKey = () => 'dqcontact';
-    const mesh = new THREE.InstancedMesh(geo, mat, CONTACT.length);
+    const mesh = new THREE.InstancedMesh(geo, contactMaterial(), N);
     mesh.name = 'contactShadows'; mesh.renderOrder = 2; mesh.castShadow = false; mesh.receiveShadow = false; mesh.frustumCulled = false;
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), qy = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+    // the stacking cap: a coarse world grid of how much shade is already pooled at a spot (each pool stamps its own
+    // falloff into it), so overlapping pools stay shade instead of turning into a black blot
+    const acc = new Map();
+    const G = POOL.grid, cellKey = (i, j) => (i + 4096) * 16384 + (j + 4096);
+    const readAcc = (x, z) => acc.get(cellKey(Math.round(x / G), Math.round(z / G))) || 0;
+    let peak = 0;
     CONTACT.forEach((c, i) => {
+      const k = c.k * Math.max(POOL.floor, 1 - readAcc(c.x, c.z) / POOL.cap);
+      const i0 = Math.round((c.x - c.rx) / G), i1 = Math.round((c.x + c.rx) / G);
+      const j0 = Math.round((c.z - c.rz) / G), j1 = Math.round((c.z + c.rz) / G);
+      for (let gi = i0; gi <= i1; gi++) for (let gj = j0; gj <= j1; gj++) {
+        const dx = (gi * G - c.x) / c.rx, dz = (gj * G - c.z) / c.rz, d = Math.hypot(dx, dz);
+        if (d >= 1) continue;
+        const key = cellKey(gi, gj), was = acc.get(key) || 0, now = was + k * (1 - d);
+        acc.set(key, now);
+        if (now > peak) peak = now;
+      }
+      // lean the pool away from the sun: a shadow leaves the base on the shaded side, it is not a collar
+      const lean = c.lean * POOL.lean * Math.min(0.6, Math.max(c.rx, c.rz) * 0.42);
+      const px = c.x - SUNXZ.x * lean, pz = c.z - SUNXZ.y * lean;
       const nrm = kit.normalAt(c.x, c.z, Math.max(0.45, Math.max(c.rx, c.rz) * 0.7));
       q.setFromUnitVectors(UP, nrm).multiply(qy.setFromAxisAngle(UP, c.rot));
-      m4.compose(v.set(c.x, heightAt(c.x, c.z) + c.lift, c.z), q, sc.set(c.rx * 2, 1, c.rz * 2));
+      // the quad is the tangent plane at its centre, so on rolling ground its edges can sink UNDER the hillside
+      // (and the ground mesh is a 1-unit grid, which lifts it further between samples). Lift by the worst
+      // deviation actually sampled round the pool, plus a margin: a soft blob 0.1 high reads exactly the same.
+      const y0 = heightAt(px, pz), inv = 1 / Math.max(0.2, nrm.y);
+      let up = 0;
+      for (let a = 0; a < 8; a++) {
+        const th = a * Math.PI / 4, ca = Math.cos(th), sa = Math.sin(th);
+        for (const rr of [0.55, 1]) {
+          const dx = ca * c.rx * rr, dz = sa * c.rz * rr;
+          up = Math.max(up, heightAt(px + dx, pz + dz) - (y0 - (nrm.x * dx + nrm.z * dz) * inv));
+        }
+      }
+      m4.compose(v.set(px, y0 + up + c.lift + Math.min(0.12, 0.045 * Math.max(c.rx, c.rz)), pz), q, sc.set(c.rx * 2, 1, c.rz * 2));
       mesh.setMatrixAt(i, m4);
-      aK.array[i] = c.k;
+      aK.array[i] = k;
     });
     mesh.instanceMatrix.needsUpdate = true; aK.needsUpdate = true;
     scene.add(mesh);
-    counts.contactShadows = CONTACT.length;
+    counts.contactShadows = N;
+    counts.poolPeak = +peak.toFixed(2);
     CONTACT.length = 0;
     return mesh;
   }
@@ -641,7 +792,7 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
     if (!buckets.has('stone')) buckets.set('stone', []);
     buckets.get('stone').push(geo);
     ao.disc(x, z, 1.0 * s * sx, 0.6);
-    kit.contact(x, z, 0.74 * s * Math.max(sx, sz), 0.82);
+    kit.contact(x, z, 0.72 * s * Math.max(sx, sz), 0.74, { spread: 1.3 });
     kit.footDisc(x, z, 0.55 * s * sx);
     return { x, z, r: 0.5 * s * Math.max(sx, sz) };
   };
@@ -739,6 +890,277 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
     ao.box(x, z, 1.9, 1.2, rot, 0.7, 0.6); kit.contact(x, z, 0, 0.8, { rx: 1.0, rz: 0.7, rot }); kit.footBox(x, z, 2.0, 1.3, rot);
   };
 
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+  // THE OUTFIELD KIT — what a field has in it that is not a tree. Away from the cottage the vale was five grass
+  // tufts and four flower sprigs over sixty metres of one green; these are the things that give a corner of it a
+  // reason to exist, and a second hue: cut stone, ochre stubble, bramble purple, toadstool red, mushroom cream.
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+  /** A cut stump: flared roots, saw-cut rings on top, moss down one side, the odd bracket fungus. */
+  kit.stump = (x, z, rot = 0, { s = 1, seed = 3, fungi = true } = {}) => {
+    const r = mulberry(seed * 977 + 41), y = kit.lowestAt(x, z, 0.55 * s, 6) - 0.06 * s;
+    const base = M4(x, y, z, rot, 0, 0, s), add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    const H = 0.44 + r() * 0.26;
+    const prof = [[0.52, 0], [0.40, 0.09], [0.345, 0.22], [0.33, H]].map(([rr, yy]) => new THREE.Vector2(rr, yy));
+    add('bark', wrapUV(new THREE.LatheGeometry(prof, 11), 2, H / Tex.worldSize('bark')), M4(0, 0, 0));
+    add('paint', new THREE.CircleGeometry(0.335, 11), M4(0, H + 0.001, 0, 0, -Math.PI / 2), PAL.wood.light);
+    for (const [ri, rw] of [[0.12, 0.022], [0.21, 0.02], [0.29, 0.018]]) {                 // the saw-cut growth rings
+      add('paint', new THREE.RingGeometry(ri, ri + rw, 12), M4(0, H + 0.004, 0, 0, -Math.PI / 2), PAL.wood.mid);
+    }
+    for (let i = 0; i < 4; i++) {                                                          // roots reaching out
+      const a = i * 1.57 + r() * 0.5, L = 0.42 + r() * 0.3;
+      const g = new THREE.CylinderGeometry(0.08, 0.13, L, 6);
+      add('bark', wrapUV(g, 1, L / Tex.worldSize('bark')), M4(Math.cos(a) * L * 0.42, 0.06, Math.sin(a) * L * 0.42, -a + Math.PI / 2, 0, Math.PI / 2 - 0.35));
+    }
+    {                                                                                      // a moss cushion on one cheek
+      const mg = new THREE.SphereGeometry(0.19, 8, 6); mg.scale(1.1, 0.52, 0.9);
+      add('paint', mg, M4(0.22, H - 0.1, 0.16), mixHex(PAL.bark.moss, PAL.foliage.mid, 0.3));
+    }
+    if (fungi) for (let i = 0; i < 2 + ((r() * 2) | 0); i++) {                              // bracket fungi on the flank
+      const a = r() * 6.283, yy = 0.12 + r() * (H - 0.18);
+      const g = new THREE.SphereGeometry(0.075 + r() * 0.05, 7, 5); g.scale(1, 0.34, 0.62);
+      add('paint', g, M4(Math.cos(a) * 0.33, yy, Math.sin(a) * 0.33, -a), mixHex(PAL.thatch.pale, PAL.bark.light, 0.3));
+    }
+    ao.disc(x, z, 0.95 * s, 0.6); kit.contact(x, z, 0.6 * s, 0.86, { spread: 1.35 }); kit.footDisc(x, z, 0.55 * s);
+    return { x, z, r: 0.5 * s, h: H * s };
+  };
+
+  /** A fallen trunk lying in the grass: a mossy bole, a splintered end, bracket fungi and a couple of toadstools. */
+  kit.fallenLog = (x, z, rot = 0, { len = 3.2, rad = 0.3, seed = 7 } = {}) => {
+    const r = mulberry(seed * 631 + 17);
+    const c = Math.cos(rot), si = Math.sin(rot);
+    const ends = [[x - si * len / 2, z - c * len / 2], [x + si * len / 2, z + c * len / 2]];
+    const y = Math.min(kit.lowestAt(ends[0][0], ends[0][1], rad, 4), kit.lowestAt(ends[1][0], ends[1][1], rad, 4), kit.lowestAt(x, z, rad, 4));
+    const base = M4(x, y + rad * 0.78, z, rot), add = (b, g, m, col) => addTo(b, g, base.clone().multiply(m), col);
+    add('bark', wrapUV(new THREE.CylinderGeometry(rad * 0.86, rad, len, 10, 1, true), 1, len / Tex.worldSize('bark')), M4(0, 0, 0, 0, Math.PI / 2));
+    for (const e of [1, -1]) {                                                             // the sawn / splintered ends
+      add('paint', new THREE.CircleGeometry(rad * (e > 0 ? 0.86 : 1), 10), M4(0, 0, e * len / 2, e > 0 ? 0 : Math.PI), PAL.wood.light);
+      add('paint', new THREE.RingGeometry(rad * 0.3, rad * 0.44, 10), M4(0, 0, e * (len / 2 + 0.01), e > 0 ? 0 : Math.PI), PAL.wood.mid);
+    }
+    for (let i = 0; i < 5; i++) {                                                          // moss cushions along the top
+      const t = (i + 0.35 + r() * 0.3) / 5 - 0.5, a = (r() - 0.5) * 1.2;
+      const g = new THREE.SphereGeometry(rad * (0.5 + r() * 0.4), 8, 6); g.scale(1.25, 0.5, 1.0);
+      add('paint', g, M4(Math.sin(a) * rad * 0.7, Math.cos(a) * rad * 0.82, t * len), mixHex(PAL.bark.moss, PAL.foliage.mid, r() * 0.5));
+    }
+    for (let i = 0; i < 3; i++) {                                                          // bracket fungi on the flank
+      const t = (r() - 0.5) * 0.78, side = r() < 0.5 ? 1 : -1;
+      const g = new THREE.SphereGeometry(0.1 + r() * 0.07, 7, 5); g.scale(1, 0.3, 0.66);
+      add('paint', g, M4(side * rad * 0.88, -0.02 + r() * rad * 0.5, t * len, side > 0 ? -Math.PI / 2 : Math.PI / 2),
+        mixHex(PAL.thatch.pale, PAL.bark.light, 0.25));
+    }
+    const R = Math.max(rad, len * 0.5);
+    ao.box(x, z, len + 0.6, rad * 3.2, rot, 0.7, 0.6);
+    kit.contact(x, z, 0, 0.85, { rx: rad * 1.5, rz: len * 0.52, rot, spread: 1.25 });
+    kit.footBox(x, z, len + 0.4, rad * 3, rot);
+    kit.mushrooms(x - si * len * 0.36 + c * 0.75, z - c * len * 0.36 - si * 0.75, 4, seed + 5, 0.5);
+    return { x, z, r: R, ends };
+  };
+
+  /** Toadstools: red caps with white spots, and a cream one or two. A ring of them is a thing a child walks to. */
+  kit.mushrooms = (x, z, n = 5, seed = 9, spread = 0.7) => {
+    const r = mulberry(seed * 5171 + 3);
+    for (let i = 0; i < n; i++) {
+      const a = r() * 6.283, d = Math.sqrt(r()) * spread, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d;
+      if (kit.blocked(px, pz)) continue;
+      const s = 0.55 + r() * 0.75, y = kit.lowestAt(px, pz, 0.1, 4) - 0.02;
+      const red = r() < 0.62;
+      const cap = red ? PAL.flower.red : mixHex(PAL.plaster.light, PAL.thatch.pale, 0.4);
+      const base = M4(px, y, pz, r() * 6.283, 0, 0, s), add = (g, m, c) => addTo('paint', g, base.clone().multiply(m), c);
+      add(new THREE.CylinderGeometry(0.034, 0.05, 0.19, 6), M4(0, 0.095, 0), mixHex(PAL.plaster.light, PAL.thatch.light, 0.25));
+      const cg = new THREE.SphereGeometry(0.135, 9, 6, 0, 6.283, 0, Math.PI / 2); cg.scale(1, 0.78, 1);
+      add(cg, M4(0, 0.185, 0), cap);
+      if (red) for (let k = 0; k < 4; k++) {
+        const ka = k * 1.57 + r(), kd = 0.055 + r() * 0.06;
+        const sp = new THREE.SphereGeometry(0.024, 5, 4); sp.scale(1, 0.5, 1);
+        add(sp, M4(Math.cos(ka) * kd, 0.185 + 0.09 * (1 - kd / 0.14), Math.sin(ka) * kd), PAL.flower.white);
+      }
+      ao.disc(px, pz, 0.24 * s, 0.35); kit.contact(px, pz, 0.14 * s, 0.6);
+    }
+    counts.mushrooms = (counts.mushrooms || 0) + n;
+  };
+
+  /**
+   * A molehill: a heap of fresh earth with a scrape of bare soil beside it. Cheap (two shapes) and the most
+   * useful thing in the kit for a field that is one green — a handful of these puts BROWN in every frame.
+   */
+  kit.molehill = (x, z, { s = 1, seed = 2 } = {}) => {
+    const r = mulberry(seed * 2087 + 5), y = kit.lowestAt(x, z, 0.5 * s, 4) - 0.05 * s;
+    const base = M4(x, y, z, r() * 6.283, 0, 0, s);
+    const heap = new THREE.SphereGeometry(0.34, 9, 6, 0, 6.283, 0, Math.PI / 2);
+    heap.scale(1 + r() * 0.3, 0.46 + r() * 0.2, 1 + r() * 0.3);
+    addTo('dirtbed', heap, base, PAL.dirt.base);
+    for (let i = 0; i < 3; i++) {                                   // clods of turned earth round the foot
+      const a = r() * 6.283, d = 0.3 + r() * 0.3;
+      const g = new THREE.IcosahedronGeometry(0.06 + r() * 0.05, 0);
+      addTo('dirtbed', g, base.clone().multiply(M4(Math.cos(a) * d, 0.02, Math.sin(a) * d)), r() < 0.5 ? PAL.dirt.dark : PAL.dirt.light);
+    }
+    ao.disc(x, z, 0.62 * s, 0.45); kit.contact(x, z, 0.34 * s, 0.55); kit.footDisc(x, z, 0.42 * s);
+    counts.molehills = (counts.molehills || 0) + 1;
+    return { x, z, r: 0.34 * s };
+  };
+
+  /** A clump of bracken: fronds arching out of one crown, green at the foot and going to rust at the tips. */
+  kit.bracken = (x, z, { s = 1, seed = 4 } = {}) => {
+    const r = mulberry(seed * 4409 + 19), y = kit.lowestAt(x, z, 0.5 * s, 4) - 0.05 * s;
+    const base = M4(x, y, z, r() * 6.283, 0, 0, s);
+    const N = 6 + ((r() * 4) | 0);
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * 6.283 + r() * 0.4, L = 0.6 + r() * 0.42, lean = 0.55 + r() * 0.4;
+      const rust = r();
+      const col = rust < 0.34 ? mixHex(PAL.grass.dry, PAL.bark.light, 0.35)
+        : rust < 0.66 ? mixHex(PAL.foliage.mid, PAL.grass.dry, 0.42) : PAL.foliage.mid;
+      const g = new THREE.ConeGeometry(0.09 + r() * 0.05, L, 4);
+      g.scale(1, 1, 0.42);
+      addTo('paint', g, base.clone().multiply(M4(Math.cos(a) * 0.1, L * 0.42, Math.sin(a) * 0.1, -a, 0, lean)), col);
+    }
+    ao.disc(x, z, 0.7 * s, 0.5); kit.contact(x, z, 0.4 * s, 0.6); kit.footDisc(x, z, 0.45 * s);
+    counts.bracken = (counts.bracken || 0) + 1;
+    return { x, z, r: 0.42 * s };
+  };
+
+  /** A bramble thicket: a dark thorny mound with blackberry dots and a few arching canes. Purple, not green. */
+  kit.brambles = (x, z, { s = 1, seed = 11 } = {}) => {
+    const r = mulberry(seed * 3331 + 29), y = kit.lowestAt(x, z, 0.8 * s, 6) - 0.08 * s;
+    const base = M4(x, y, z, r() * 6.283, 0, 0, s), add = (g, m, c) => addTo('paint', g, base.clone().multiply(m), c);
+    const dark = mixHex(PAL.foliage.dark, PAL.outline.leaf, 0.42), leaf = mixHex(PAL.foliage.mid, PAL.cloth.purpleDark, 0.16);
+    for (let i = 0; i < 7; i++) {
+      const a = r() * 6.283, d = r() * 0.55, rr = 0.24 + r() * 0.25;
+      const g = new THREE.IcosahedronGeometry(rr, 1); g.scale(1.15, 0.72, 1.15);
+      add(g, M4(Math.cos(a) * d, 0.16 + r() * 0.26, Math.sin(a) * d), r() < 0.5 ? dark : leaf);
+    }
+    for (let i = 0; i < 5; i++) {                                                          // arching canes
+      const a = r() * 6.283, L = 0.7 + r() * 0.5;
+      const g = new THREE.CylinderGeometry(0.018, 0.026, L, 5);
+      add(g, M4(Math.cos(a) * 0.3, 0.42 + r() * 0.2, Math.sin(a) * 0.3, -a, 0, 0.9 + r() * 0.5), mixHex(PAL.bark.dark, PAL.cloth.purpleDark, 0.35));
+    }
+    for (let i = 0; i < 9; i++) {                                                          // blackberries
+      const a = r() * 6.283, d = 0.2 + r() * 0.45;
+      add(new THREE.IcosahedronGeometry(0.035, 0), M4(Math.cos(a) * d, 0.3 + r() * 0.35, Math.sin(a) * d),
+        r() < 0.6 ? mixHex(PAL.cloth.purpleDark, PAL.outline.char, 0.3) : PAL.flower.red);
+    }
+    ao.disc(x, z, 1.1 * s, 0.6); kit.contact(x, z, 0.72 * s, 0.8, { spread: 1.3 }); kit.footDisc(x, z, 0.7 * s);
+    return { x, z, r: 0.62 * s };
+  };
+
+  /**
+   * A drystone wall along a polyline: courses of stacked stone following the ground, a row of cap stones on top,
+   * lichen and moss on the weather side. One extra HUE on a green hillside, and something to walk along.
+   */
+  kit.drystoneWall = (pts, { h = 0.82, seed = 17, thick = 0.42 } = {}) => {
+    const r = mulberry(seed * 131 + 7);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = Math.hypot(x1 - x0, z1 - z0);
+      const n = Math.max(2, Math.round(L / 0.46)), ang = Math.atan2(x1 - x0, z1 - z0);
+      for (let k = 0; k < n; k++) {
+        const t = (k + 0.5) / n, px = lerp(x0, x1, t), pz = lerp(z0, z1, t);
+        const y = kit.lowestAt(px, pz, 0.3, 4) - 0.1;
+        const courses = 3;
+        for (let c = 0; c < courses; c++) {
+          const cy = y + (c + 0.5) * (h / courses), w = (L / n) * (0.82 + r() * 0.3);
+          const hh = (h / courses) * (0.86 + r() * 0.2), dd = thick * (0.84 + r() * 0.26);
+          const g = boxUV(w, hh, dd, 0.9);
+          const col = r() < 0.16 ? mixHex(PAL.stone.mid, PAL.stone.moss, 0.42)
+            : r() < 0.5 ? PAL.stone.light : r() < 0.82 ? PAL.stone.mid : PAL.stone.dark;
+          addTo('stone', g, M4(px + (r() - 0.5) * 0.05, cy, pz + (r() - 0.5) * 0.05, ang + (r() - 0.5) * 0.14, (r() - 0.5) * 0.08), col);
+        }
+        // the cap stones: set on edge, the way a real drystone wall is finished
+        addTo('stone', boxUV((L / n) * 0.92, 0.16, thick * 1.12, 0.9),
+          M4(px, y + h + 0.07, pz, ang + (r() - 0.5) * 0.1, (r() - 0.5) * 0.12), r() < 0.35 ? PAL.stone.dark : PAL.stone.light);
+        ao.disc(px, pz, 0.6, 0.5); kit.footDisc(px, pz, 0.3);
+        if (k % 2 === 0) kit.contact(px, pz, 0, 0.8, { rx: (L / n), rz: thick * 0.85, rot: ang });
+      }
+    }
+    counts.wallRuns = (counts.wallRuns || 0) + pts.length - 1;
+    return pts;
+  };
+
+  /** A five-bar field gate hung between two posts: the thing at the end of a lane that says a person farms here. */
+  kit.fieldGate = (x, z, rot = 0, { w = 2.6, h = 1.15, open = 0.35 } = {}) => {
+    const c = Math.cos(rot), s = Math.sin(rot);
+    const hy = (dx) => kit.lowestAt(x + c * dx, z - s * dx, 0.25, 4);
+    const yL = hy(-w / 2), yR = hy(w / 2);
+    for (const e of [-1, 1]) {                                                            // the two hanging posts
+      const px = x + c * (e * w / 2), pz = z - s * (e * w / 2), py = e < 0 ? yL : yR;
+      addTo('wood', boxUV(0.19, h + 0.85, 0.19, 0.9), M4(px, py + (h - 0.5) / 2 + 0.1, pz, rot), PAL.wood.beam);
+      addTo('wood', new THREE.ConeGeometry(0.13, 0.17, 4), M4(px, py + h + 0.36, pz, rot + Math.PI / 4), PAL.wood.beam);
+      ao.disc(px, pz, 0.5, 0.5); kit.contact(px, pz, 0.34, 0.8); kit.footDisc(px, pz, 0.3);
+    }
+    // the gate itself, swung open a little so the lane reads as a way THROUGH
+    const gx = x + c * (-w / 2), gz = z - s * (-w / 2), gy = yL;
+    const gw = w - 0.4, ga = rot + open;
+    const gb = M4(gx, gy, gz, ga), add = (g, m, col) => addTo('wood', g, gb.clone().multiply(m), col);
+    for (let i = 0; i < 5; i++) add(boxUV(gw, 0.085, 0.06, 0.9), M4(gw / 2, 0.24 + i * 0.22, 0), PAL.wood.weathered);
+    add(boxUV(0.1, h, 0.07, 0.9), M4(0.08, 0.24 + h / 2 - 0.12, 0), PAL.wood.weathered);
+    add(boxUV(0.1, h, 0.07, 0.9), M4(gw - 0.06, 0.24 + h / 2 - 0.12, 0), PAL.wood.weathered);
+    add(boxUV(Math.hypot(gw, h) - 0.1, 0.075, 0.05, 0.9), M4(gw / 2, 0.24 + h / 2 - 0.12, 0.02, 0, 0, Math.atan2(h - 0.2, gw)), PAL.wood.weathered);
+    kit.contact(gx + Math.sin(ga) * gw * 0.5, gz + Math.cos(ga) * gw * 0.5, 0, 0.45, { rx: gw * 0.5, rz: 0.2, rot: ga });
+    return { x, z, rot, w };
+  };
+
+  /**
+   * A stook: six sheaves of cut corn stood up against each other in a stubble field, twine round each one and the
+   * cut ears fanning out at the head. Each sheaf is built base-out / head-in from a real direction vector, so the
+   * stook leans together into a cone the way one in a field does.
+   */
+  kit.stook = (x, z, rot = 0, { s = 1, seed = 5 } = {}) => {
+    const r = mulberry(seed * 7717 + 11), y = kit.lowestAt(x, z, 0.5 * s, 6) - 0.04 * s;
+    const base = M4(x, y, z, rot, 0, 0, s);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    const UP = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3(), pos = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
+    const q = new THREE.Quaternion();
+    const lay = (bx, bz, H, tilt, a) => {                      // a sheaf from (bx, 0, bz) leaning in toward the middle
+      dir.set(-Math.cos(a) * tilt, H, -Math.sin(a) * tilt).normalize();
+      q.setFromUnitVectors(UP, dir);
+      return { m: new THREE.Matrix4().compose(pos.set(bx + dir.x * H / 2, dir.y * H / 2, bz + dir.z * H / 2), q, one), dir: dir.clone(), H };
+    };
+    for (let i = 0; i < 6; i++) {
+      const a = i * 1.0472 + (r() - 0.5) * 0.3, R = 0.30 + r() * 0.06;
+      const H = 1.08 + r() * 0.2, tilt = 0.30 + r() * 0.12;
+      const bx = Math.cos(a) * R, bz = Math.sin(a) * R;
+      const sh = lay(bx, bz, H, tilt, a);
+      const body = wrapUV(new THREE.CylinderGeometry(0.12, 0.2, H, 8), 1, H / 1.2);
+      add('thatch', body, sh.m, r() < 0.45 ? PAL.thatch.light : r() < 0.8 ? PAL.thatch.mid : PAL.thatch.pale);
+      // the twine, two thirds up, and the cut ears fanning out of the head
+      const tw = new THREE.Matrix4().compose(pos.set(bx + sh.dir.x * H * 0.66, sh.dir.y * H * 0.66, bz + sh.dir.z * H * 0.66), q.clone(), one);
+      add('thatch', new THREE.TorusGeometry(0.135, 0.024, 4, 9), tw.clone().multiply(M4(0, 0, 0, 0, Math.PI / 2)), PAL.cloth.rope);
+      for (let k = 0; k < 3; k++) {
+        const ea = a + (k - 1) * 0.5 + r() * 0.2, eL = 0.26 + r() * 0.12;
+        const head = new THREE.Matrix4().compose(pos.set(bx + sh.dir.x * H * 0.98, sh.dir.y * H * 0.98, bz + sh.dir.z * H * 0.98), q.clone(), one);
+        add('thatch', new THREE.ConeGeometry(0.055, eL, 5), head.clone().multiply(M4(Math.cos(ea) * 0.07, eL * 0.36, Math.sin(ea) * 0.07, -ea, 0, 0.5)), PAL.thatch.pale);
+      }
+    }
+    ao.disc(x, z, 0.95 * s, 0.6); kit.contact(x, z, 0.5 * s, 0.86, { spread: 1.4 }); kit.footDisc(x, z, 0.48 * s);
+    counts.stooks = (counts.stooks || 0) + 1;
+    return { x, z, r: 0.45 * s };
+  };
+
+  /** A two-wheeled farm handcart, shafts down in the stubble, with a plank bed and a spoked wheel each side. */
+  kit.handcart = (x, z, rot = 0, { s = 1 } = {}) => {
+    const y = kit.lowestAt(x, z, 1.1 * s, 8), base = M4(x, y, z, rot, 0, 0, s);
+    const add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    for (let i = 0; i < 5; i++) add('wood', boxUV(0.29, 0.07, 1.9, 0.9), M4((i - 2) * 0.3, 0.62, 0), i % 2 ? PAL.wood.light : PAL.wood.mid);
+    for (const e of [-1, 1]) add('wood', boxUV(1.55, 0.3, 0.08, 0.9), M4(0, 0.78, e * 0.95), PAL.wood.beam);
+    for (const e of [-1, 1]) add('wood', boxUV(0.09, 0.3, 1.9, 0.9), M4(e * 0.72, 0.78, 0), PAL.wood.beam);
+    add('wood', boxUV(1.5, 0.12, 0.12, 0.9), M4(0, 0.55, 0), PAL.wood.beam);               // the axle
+    for (const e of [-1, 1]) {                                                             // the shafts, resting down
+      add('wood', boxUV(0.085, 0.085, 1.5, 0.9), M4(e * 0.5, 0.36, 1.55, 0, -0.26), PAL.wood.beam);
+    }
+    for (const e of [-1, 1]) {
+      // A wheel stands in the plane ACROSS the axle. THREE's torus lies in local XY with its axis on +Z, so the
+      // wheel is built there and the whole thing is turned a quarter turn about Y to put that axis on world X.
+      // (Built the other way round the rim lay flat on the grass and read as a dark arc in the stubble.)
+      const wb = M4(e * 0.8, 0.55, 0, Math.PI / 2);
+      add('wood', new THREE.TorusGeometry(0.52, 0.062, 6, 16), wb, PAL.wood.mid);
+      add('wood', new THREE.TorusGeometry(0.46, 0.028, 5, 14), wb, PAL.wood.light);        // the inner felloe line
+      for (let k = 0; k < 6; k++) add('wood', boxUV(0.052, 0.94, 0.052, 0.9), wb.clone().multiply(M4(0, 0, 0, 0, 0, k * 0.5236)), PAL.wood.light);
+      add('paint', new THREE.CylinderGeometry(0.1, 0.1, 0.16, 9), wb.clone().multiply(M4(0, 0, 0, 0, Math.PI / 2)), PAL.paint.iron);
+    }
+    ao.box(x, z, 2.2, 2.6, rot, 0.8, 0.6);
+    kit.contact(x, z, 0, 0.78, { rx: 0.9 * s, rz: 1.2 * s, rot, spread: 1.2 });
+    kit.footBox(x, z, 2.2 * s, 2.8 * s, rot);
+    return { x, z, r: 1.1 * s };
+  };
+
   /**
    * Flower bed: an earth patch heaped with round flower heads and leaves. The earth follows the ground (a grid, not
    * one flat card) and every head sits ON the leaves — nothing hangs over open air on a slope.
@@ -763,7 +1185,7 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
       addTo('paint', new THREE.IcosahedronGeometry(0.12 + r() * 0.05, 0), base.clone().multiply(M4(lx, localY(lx, lz) + 0.16 + r() * 0.1, lz)), PAL.foliage.mid); }
     for (let i = 0; i < n * 0.8; i++) { const lx = (r() - 0.5) * w * 0.9, lz = (r() - 0.5) * d * 0.9;
       addTo('paint', new THREE.IcosahedronGeometry(0.075 + r() * 0.03, 0), base.clone().multiply(M4(lx, localY(lx, lz) + 0.27 + r() * 0.1, lz)), hues[(r() * hues.length) | 0]); }
-    ao.box(x, z, w, d, rot, 0.4, 0.35); kit.contact(x, z, 0, 0.5, { rx: w * 0.55, rz: d * 0.55, rot }); kit.footBox(x, z, w, d, rot);
+    ao.box(x, z, w, d, rot, 0.4, 0.35); kit.contact(x, z, 0, 0.5, { rx: w * 0.55, rz: d * 0.55, rot, spread: 1.2 }); kit.footBox(x, z, w, d, rot);
   };
 
   // ── foliage ──
@@ -786,6 +1208,13 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
     return treeMats.get(key);
   };
   const hullMaterial = (def) => outlineMaterial(def.ink || PAL.outline.leaf, { wind: def.wind ?? 0.018, windBase: def.windBase ?? 1.6, see: true });
+  /**
+   * How faded a ghost may be and still carry its ink line. A canopy four metres from the lens fades almost all
+   * the way out (see kit.updateSee `f.screen`); drawing a full-strength ink hull round a tree that is no longer
+   * there left a hard black ellipse arcing across a fifth of the frame with a dirty translucent wedge inside it.
+   * Below this alpha the ghost keeps its depth and its sun shadow but drops its outline.
+   */
+  const INK_MIN = 0.22;
 
   function ensureSpecies(kind, override) {
     let S = grove.species.get(kind);
@@ -811,18 +1240,22 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
     const m = new THREE.Matrix4().compose(new THREE.Vector3(t.x, y, t.z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rot, 0, 'YXZ')), new THREE.Vector3(sx, sy, sz));
     const tint = t.tint ?? 0, warm = Math.max(0, tint), cool = Math.max(0, -tint);
     const cy = y + B.cy * sy, cr = B.R * Math.max(sx, sz);
-    S.items.push({ x: t.x, z: t.z, cy, cr, tier: 1, m: m.elements.slice(),
-      col: [c * (1 + warm * 0.06), c * (1 - tint * 0.01), c * 0.95 * (1 + cool * 0.08)] });
+    const item = { x: t.x, z: t.z, cy, cr, tier: 1, ghost: 1, m: m.elements.slice(),
+      col: [c * (1 + warm * 0.06), c * (1 - tint * 0.01), c * 0.95 * (1 + cool * 0.08)] };
+    S.items.push(item);
     const box = def.box || def.aoBox;
     if (box) ao.box(t.x, t.z, box[0] * sx, box[1] * sz, rot, 0.6, def.aoS ?? 0.6);
     else if ((def.aoR ?? 1.9) > 0) ao.disc(t.x, t.z, (def.aoR ?? 1.9) * s, def.aoS ?? 0.65);
     // GROUNDING: the soft contact blob the hero gets. A trunked tree gets a pool at its root flare; a bush or a
     // hedge gets one its own width, which is what stops it reading as a sticker laid on the lawn.
-    if (def.blobBox) kit.contact(t.x, t.z, 0, def.blobS ?? 0.8, { rx: def.blobBox[0] * sx, rz: def.blobBox[1] * sz, rot });
-    else if ((def.blobR ?? def.foot ?? 0.55) > 0) kit.contact(t.x, t.z, (def.blobR ?? (def.foot ?? 0.55) * 1.35) * s, def.blobS ?? 0.78);
+    if (def.blobBox) kit.contact(t.x, t.z, 0, def.blobS ?? 0.8, { rx: def.blobBox[0] * sx, rz: def.blobBox[1] * sz, rot, spread: 1.3 });
+    else if ((def.blobR ?? def.foot ?? 0.55) > 0) kit.contact(t.x, t.z, (def.blobR ?? (def.foot ?? 0.55) * 1.35) * s, def.blobS ?? 0.78, { spread: def.trunk ? POOL.spread : 1.3 });
     if (box) kit.footBox(t.x, t.z, box[0] * sx, box[1] * sz, rot);
     else if ((def.foot ?? 0.55) > 0) kit.footDisc(t.x, t.z, (def.foot ?? 0.55) * s);
-    if (def.fade !== false) FADE.push({ x: t.x, z: t.z, cy, R: cr * 0.86, trunk: def.trunk ? 0.35 * s : 0, keep: 1, kind: S.kind });
+    // a see-through candidate, linked to its grove instance so the ghost pass can draw exactly this tree.
+    // Only things TALL enough to hide a child: a knee-high bush or a hedgerow can never cover him, and fading one
+    // is the "it triggers on objects not covering the hero" complaint in miniature.
+    if (def.fade !== false && cy + cr > y + 1.1) FADE.push({ x: t.x, z: t.z, cy, R: cr * 0.86, trunk: def.trunk ? 0.35 * s : 0, keep: 1, p: 0, hit: 0, kind: S.kind, item });
     // the woodland FLOOR: one broad, weak pool per tree that merges with its neighbours into leafy shade. Kept wide
     // and soft on purpose — a small strong disc reads as a hard-edged polygon decal stamped on the grass.
     if (shade && (def.shadeR ?? 5.0) > 0) shade.disc(t.x, t.z, (def.shadeR ?? 5.0) * s, def.shadeS ?? 0.5);
@@ -830,8 +1263,90 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
 
   function disposeSpecies(S) {
     if (!S.tiers) return;
-    for (const t of S.tiers.list) for (const m of [t.mesh, t.hull]) if (m) { m.removeFromParent(); m.dispose(); }
+    for (const t of S.tiers.list) for (const m of [t.mesh, t.hull, t.gdepth, t.ghull, t.gbody]) if (m) { m.removeFromParent(); m.dispose(); }
     S.tiers = null;
+  }
+
+  // ── the SEE-THROUGH ghost: a clean alpha fade, never a screen-door dither ──────────────────────────────────
+  /**
+   * When a canopy covers the hero it is drawn ONCE, translucent, with its ink line kept — the DQV see-through.
+   * The three meshes below share the tier's geometry and are packed with only the trees that are actually fading:
+   *   gdepth  renderOrder 20, colour OFF, depth ON, pushed back a hair — the DEPTH PRE-PASS. It is also the tree
+   *           that CASTS THE SUN SHADOW while it is a ghost (a faded tree still shades the grass).
+   *   ghull   renderOrder 21, the shared ink hull material — its inside is depth-rejected by gdepth, so all that
+   *           survives is the rim: the outline stays at full strength.
+   *   gbody   renderOrder 22, transparent, depth-write OFF — only the FRONT-MOST canopy layer passes the depth
+   *           test, so a ghost is one clean 40% surface instead of four stacked blobs (that muddiness is exactly
+   *           why the old pass used a Bayer dither). Its alpha is PER INSTANCE (aGA), so each tree eases alone.
+   */
+  const SEE = { alpha: 0.40, outMs: 150, inMs: 220, hold: 0.1, max: 6 };
+  const ghostMats = new Map();
+  function ghostMaterials(def) {
+    const wind = def.wind ?? 0.018, windBase = def.windBase ?? 1.6, key = `${wind}:${windBase}`;
+    if (!ghostMats.has(key)) {
+      const preset = Object.assign({}, TOON_PRESETS.canopy, { wind, windBase });
+      const depth = makeToon({ map: Tex.bark(), vertexColors: true }, preset, [barkPatch]);
+      depth.name = 'ghost-depth'; depth.colorWrite = false; depth.depthWrite = true;
+      depth.polygonOffset = true; depth.polygonOffsetFactor = 0.6; depth.polygonOffsetUnits = 0.6;
+      const body = makeToon({ map: Tex.bark(), vertexColors: true }, preset, [barkPatch, ghostAlphaPatch]);
+      body.name = 'ghost-body'; body.transparent = true; body.depthWrite = false; body.opacity = 1;
+      ghostMats.set(key, { depth, body });
+    }
+    return ghostMats.get(key);
+  }
+  /** Per-instance ghost alpha (so two trees fading at different moments never share one opacity). */
+  function ghostAlphaPatch(sh) {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aGA; varying float vDqGA;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\n  vDqGA = aGA;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vDqGA;')
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n  gl_FragColor.a *= clamp( vDqGA, 0.0, 1.0 );');
+  }
+  ghostAlphaPatch.key = 'ghostA';
+  /** A geometry that SHARES the tier's attribute buffers but owns its own draw range and instanced attributes. */
+  function share(src) {
+    const g = new THREE.BufferGeometry();
+    for (const [k, a] of Object.entries(src.attributes)) g.setAttribute(k, a);
+    if (src.index) g.setIndex(src.index);
+    g.userData.shared = true;
+    return g;
+  }
+  function ensureGhost(S, t, parts) {
+    if (t.gbody) return;
+    const M = ghostMaterials(S.def), cap = SEE.max;
+    const gd = share(parts.geo), gb = share(parts.geo);
+    const aGA = new THREE.InstancedBufferAttribute(new Float32Array(cap).fill(1), 1);
+    aGA.setUsage(THREE.DynamicDrawUsage);
+    gb.setAttribute('aGA', aGA);
+    const mkGhost = (geo, mat, order, name, cast) => {
+      const m = new THREE.InstancedMesh(geo, mat, cap);
+      m.name = `${t.mesh.name}-${name}`;
+      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      m.renderOrder = order; m.castShadow = !!cast; m.receiveShadow = false;
+      m.count = 0; m.visible = false; m.frustumCulled = false;
+      if (parts.shadow) {
+        m.onBeforeRender = () => geo.setDrawRange(parts.main[0], parts.main[1]);
+        if (cast) m.onBeforeShadow = () => geo.setDrawRange(parts.shadow[0], parts.shadow[1]);
+      }
+      scene.add(m);
+      return m;
+    };
+    t.gdepth = mkGhost(gd, M.depth, 20, 'gdepth', !!parts.shadow);
+    t.gbody = mkGhost(gb, M.body, 22, 'gbody', false);
+    t.gbody.instanceMatrix = t.gdepth.instanceMatrix;             // one matrix drives all three ghost passes
+    t.gAlpha = aGA;
+    if (t.hull && parts.hull) {
+      const gh = share(parts.hull);
+      const m = new THREE.InstancedMesh(gh, t.hull.material, cap);
+      m.name = `${t.mesh.name}-ghull`;
+      m.instanceMatrix = t.gdepth.instanceMatrix;                 // the ink follows the ghost, matrix for matrix
+      m.userData.isOutline = true;
+      m.renderOrder = 21; m.castShadow = false; m.receiveShadow = false;
+      m.count = 0; m.visible = false; m.frustumCulled = false;
+      scene.add(m);
+      t.ghull = m;
+    }
   }
 
   function buildSpecies(S) {
@@ -867,7 +1382,7 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
         hullMesh.boundingSphere = mesh.boundingSphere;
         scene.add(hullMesh);
       }
-      const tier = { key, i: list.length, mesh, hull: hullMesh, n: 0, sig: 0, lastSig: -1 };
+      const tier = { key, i: list.length, mesh, hull: hullMesh, parts, n: 0, ng: 0, sig: 0, lastSig: -1 };
       list.push(tier);
       return tier;
     };
@@ -898,10 +1413,10 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
     if (camera) { camera.updateMatrixWorld(); gF.setFromProjectionMatrix(gM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)); }
     const cx = camera ? camera.position.x : 0, cz = camera ? camera.position.z : 0;
     const fx = focus ? focus.x : cx, fz = focus ? focus.z : cz;
-    let visible = 0;
+    let visible = 0, ghosts = 0;
     for (const S of grove.species.values()) {
       const T = S.tiers; if (!T) continue;
-      for (const t of T.list) { t.n = 0; t.sig = 0; t.x0 = t.z0 = t.y0 = 1e9; t.x1 = t.z1 = t.y1 = -1e9; t.rmax = 0; }
+      for (const t of T.list) { t.n = 0; t.ng = 0; (t.gList || (t.gList = [])).length = 0; t.sig = 0; t.x0 = t.z0 = t.y0 = 1e9; t.x1 = t.z1 = t.y1 = -1e9; t.rmax = 0; }
       for (let i = 0; i < S.items.length; i++) {
         const it = S.items[i];
         let ti = T.mid.i;
@@ -914,6 +1429,13 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
         }
         it.tier = ti;
         const t = T.list[ti];
+        // SEE-THROUGH: a tree that is covering the hero leaves the solid pass altogether and is drawn by its
+        // tier's three ghost meshes instead (depth pre-pass, ink rim, one clean translucent surface).
+        const ga = it.ghost;                                              // signed: a negative alpha drops the ink
+        if (ga != null && Math.abs(ga) < 0.995) {
+          if (t.gList.length < SEE.max) { t.gList.push(it.m, ga); if (Math.abs(ga) > 0.02) ghosts++; }
+          continue;                                                       // never in the solid pass, ghost or gone
+        }
         t.mesh.instanceMatrix.array.set(it.m, t.n * 16);
         const ca = t.mesh.instanceColor.array, k3 = t.n * 3;
         ca[k3] = it.col[0]; ca[k3 + 1] = it.col[1]; ca[k3 + 2] = it.col[2];
@@ -938,10 +1460,37 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
         }
         t.mesh.visible = t.n > 0;
         if (t.hull) t.hull.visible = t.n > 0;
+        // the ghosts, drawn ones first: a tree faded all the way out (the lens is inside it) still goes into the
+        // depth mesh, because a faded tree must keep shading the grass
+        if (t.gList.length || t.gbody) {
+          if (t.gList.length) ensureGhost(S, t, t.parts);
+          if (t.gbody) {
+            // packed in three bands so each ghost mesh can stop early: inked (a > INK_MIN), faint (still drawn,
+            // no outline), and gone (depth + sun shadow only)
+            let inked = 0, vis = 0, all = 0;
+            for (let pass = 0; pass < 3; pass++) {
+              for (let q = 0; q < t.gList.length; q += 2) {
+                const av = t.gList[q + 1], a = Math.abs(av);
+                const band = av > INK_MIN ? 0 : a > 0.02 ? 1 : 2;
+                if (band !== pass) continue;
+                t.gdepth.instanceMatrix.array.set(t.gList[q], all * 16);
+                t.gAlpha.array[all] = a;
+                all++;
+                if (pass === 0) { inked++; vis++; } else if (pass === 1) vis++;
+              }
+            }
+            t.ng = vis;
+            t.gdepth.count = all; t.gdepth.visible = all > 0;
+            t.gbody.count = vis; t.gbody.visible = vis > 0;
+            if (t.ghull) { t.ghull.count = inked; t.ghull.visible = inked > 0; }
+            if (all) { t.gdepth.instanceMatrix.needsUpdate = true; t.gAlpha.needsUpdate = true; }
+          }
+        }
         visible += t.n;
       }
     }
     grove.stats.visible = visible;
+    grove.stats.ghosts = ghosts;
   };
 
   /** Plant a mixed list of trees: [{kind, x, z, s, r, c, tint, sx, sz, sy}] (kind = a SPECIES id). */
@@ -976,7 +1525,7 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
     return { kind: name, count: list.length };
   };
 
-  kit.groveState = () => ({ species: grove.species.size, instances: grove.stats.instances, visible: grove.stats.visible, meshes: grove.stats.meshes });
+  kit.groveState = () => ({ species: grove.species.size, instances: grove.stats.instances, visible: grove.stats.visible, meshes: grove.stats.meshes, ghosts: grove.stats.ghosts || 0 });
 
   /** Dark clusters in belts along a rim: no outline, no shadow. */
   kit.forestBelt = ({ radius = 60, rows = 3, rowGap = 7, seed = 777, threshold = 0.42, step = 0.06, skip = null, yAt = heightAt } = {}) => {
@@ -1048,7 +1597,9 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
       const k = 0.9 + ((i * 13) % 7) * 0.025; mesh.setColorAt(i, col.setRGB(k, k, k * 0.96));
       aCard.setXYZ(i, c.v ?? ((i * 5) % 4), Math.min(0.6, c.haze ?? 0), 0);
       if (shade) shade.disc(c.x, c.z, c.w * 0.45, 0.85);
-      FADE.push({ x: c.x, z: c.z, cy: y + c.w * 0.62, R: c.w * 0.4, trunk: 0, keep: 1, kind: 'card' });
+      // NOT a see-through candidate: the painted hills sit 20+ units beyond the walkable edge, so they can never
+      // be between the lens and the hero. Registering them was pure per-frame cost and one more way to fade
+      // something that was not covering him.
     });
     mesh.name = 'forestCards'; mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = false;
     scene.add(mesh);
@@ -1075,7 +1626,11 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
   };
 
   /** Grass tufts, instanced, lit like the ground. accept(x, z) -> bool gates placement. */
-  kit.tufts = ({ count = 900, radius = 36, seed = 999, accept = () => true, rimOf = () => 0, boost = () => 0 } = {}) => {
+  /**
+   * Grass tufts. `dry(x, z) -> 0..1` mixes STRAW-coloured tufts through the green ones: a meadow in high summer
+   * is not one hue, and a field that is 90 percent a single green is wallpaper however many tufts are in it.
+   */
+  kit.tufts = ({ count = 900, radius = 36, seed = 999, accept = () => true, rimOf = () => 0, boost = () => 0, dry = null } = {}) => {
     const list = [], tr = mulberry(seed);
     let tries = 0;
     while (list.length < count && tries++ < count * 40) {
@@ -1084,14 +1639,24 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
       const aoV = ao.sample(x, z), rim = rimOf(x, z) * 0.6 + smooth(0.05, 0.3, aoV) * 0.45;
       const cluster = vnoise(x * 0.2, z * 0.2, 71);
       if (tr() > smooth(0.55, 0.9, cluster) * 0.4 + rim + boost(x, z)) continue;
-      list.push({ x, z, s: 0.5 + tr() * 0.55, r: tr() * 3.14, c: 0.95 + tr() * 0.25 });
+      list.push({ x, z, s: 0.5 + tr() * 0.55, r: tr() * 3.14, c: 0.95 + tr() * 0.25,
+        d: dry ? clamp01(dry(x, z)) * (0.35 + 0.65 * tr()) : 0 });
     }
     const A = new THREE.PlaneGeometry(0.9, 0.62); A.translate(0, 0.29, 0); const B = A.clone().rotateY(Math.PI / 2);
     const g = normalsUp(mergeGeometries([A, B]));
     const mat = makeToon({ map: Tex.tuft(), alphaTest: 0.5, side: THREE.DoubleSide }, Object.assign({}, TOON_PRESETS.tuft, { wind: 0.14, windBase: 0.05 }));
     const mesh = new THREE.InstancedMesh(g, mat, list.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), col = new THREE.Color();
-    list.forEach((t, i) => { q.setFromAxisAngle(up, t.r); m4.compose(new THREE.Vector3(t.x, heightAt(t.x, t.z) - 0.04, t.z), q, new THREE.Vector3(t.s, t.s * (0.8 + tr() * 0.4), t.s)); mesh.setMatrixAt(i, m4); col.setRGB(t.c, t.c, t.c * 0.9); mesh.setColorAt(i, col); });
-    mesh.name = 'tufts'; mesh.receiveShadow = true; scene.add(mesh); counts.tufts = list.length;
+    let dryN = 0;
+    list.forEach((t, i) => {
+      q.setFromAxisAngle(up, t.r);
+      m4.compose(new THREE.Vector3(t.x, heightAt(t.x, t.z) - 0.04, t.z), q, new THREE.Vector3(t.s, t.s * (0.8 + tr() * 0.4), t.s));
+      mesh.setMatrixAt(i, m4);
+      // green tuft -> straw tuft: the multiplier that takes PAL.grass toward PAL.grass.dry through the texture
+      const d = t.d || 0; if (d > 0.25) dryN++;
+      col.setRGB(t.c * (1 + d * 0.55), t.c * (1 + d * 0.10), t.c * 0.9 * (1 - d * 0.46));
+      mesh.setColorAt(i, col);
+    });
+    mesh.name = 'tufts'; mesh.receiveShadow = true; scene.add(mesh); counts.tufts = list.length; counts.dryTufts = dryN;
     return mesh;
   };
 
@@ -1394,23 +1959,38 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
   };
 
   /**
-   * A lantern on a post: iron frame, warm glass, a little cap. The pane goes in the 'glow' bucket, which is
-   * unshaded and brightens as the sky goes over to dusk and night (ENV), and a soft halo fades in with it — so a
-   * lane has warm light in it after dark instead of nothing at all.
+   * A lantern on a post: an iron CAGE (four corner uprights, a base tray, a capped roof and a ring) round a warm
+   * glass box with a brighter flame inside it. The glass and the flame go in the 'glow' bucket, which is unshaded
+   * and brightens as the sky goes over to dusk and night (ENV), and a soft halo, centred on the pane itself,
+   * fades in with them — so a lane has warm light in it after dark instead of nothing at all.
+   *
+   * It used to be four SOLID iron panels 0.33 wide round a 0.30 glass box: the light could never be seen from any
+   * angle, and ten of these read as flat grey plates by day and black blocks at night. The uprights are 0.05
+   * square and stand at the corners, so from every bearing the glass is the biggest thing on the lamp.
    */
   kit.lantern = (x, z, rot = 0, { h = 2.0, glow = true } = {}) => {
     const y = kit.lowestAt(x, z, 0.3, 4), base = M4(x, y, z, rot), add = (b, g, m, c) => addTo(b, g, base.clone().multiply(m), c);
+    const GLASS = mixHex(PAL.interior.lamp, PAL.paint.gold, 0.30);        // amber glass, warm even at noon
+    const FLAME = mixHex(PAL.interior.lamp, PAL.char.white, 0.45);        // the wick, brighter than the pane
+    const IRON = PAL.paint.iron, IRON_LIT = mixHex(PAL.paint.iron, PAL.interior.lamp, 0.22);
     add('wood', boxUV(0.13, h + 0.4, 0.13, 1.2), M4(0, h / 2 - 0.2, 0), PAL.wood.beam);
-    add('paint', boxUV(0.055, 0.055, 0.42, 1), M4(0, h - 0.05, 0.2), PAL.paint.iron);
-    add('paint', wrapUV(new THREE.CylinderGeometry(0.014, 0.014, 0.12, 5), 1, 1), M4(0, h - 0.14, 0.38), PAL.paint.iron);
-    const ly = h - 0.42;
-    add('glow', new THREE.BoxGeometry(0.3, 0.34, 0.3), M4(0, ly, 0.38), PAL.interior.lamp);          // the warm glass
-    for (const [dx, dz] of [[-0.15, 0], [0.15, 0], [0, -0.15], [0, 0.15]]) add('paint', new THREE.BoxGeometry(dx ? 0.05 : 0.33, 0.38, dz ? 0.05 : 0.33), M4(dx, ly, 0.38 + dz), PAL.paint.iron);
-    add('paint', new THREE.BoxGeometry(0.34, 0.05, 0.34), M4(0, ly - 0.2, 0.38), PAL.paint.iron);
-    add('paint', new THREE.ConeGeometry(0.27, 0.18, 4), M4(0, ly + 0.26, 0.38, Math.PI / 4), PAL.paint.iron);
-    add('paint', new THREE.SphereGeometry(0.038, 6, 5), M4(0, ly + 0.37, 0.38), PAL.paint.iron);
+    add('paint', boxUV(0.055, 0.055, 0.42, 1), M4(0, h - 0.05, 0.2), IRON);                  // the bracket arm
+    add('paint', wrapUV(new THREE.CylinderGeometry(0.014, 0.014, 0.12, 5), 1, 1), M4(0, h - 0.14, 0.38), IRON);
+    const ly = h - 0.42, D = 0.38;
+    // the glass box, then the flame inside it — both unshaded, both visible from every side
+    add('glow', new THREE.BoxGeometry(0.30, 0.34, 0.30), M4(0, ly, D), GLASS);
+    add('glow', new THREE.BoxGeometry(0.10, 0.17, 0.10), M4(0, ly - 0.03, D), FLAME);
+    add('glow', new THREE.ConeGeometry(0.052, 0.13, 6), M4(0, ly + 0.11, D), FLAME);
+    // the cage: four corner uprights (0.05 square) — NOT panels. The glass shows between them from any bearing.
+    for (const [dx, dz] of [[-0.14, -0.14], [0.14, -0.14], [-0.14, 0.14], [0.14, 0.14]]) {
+      add('paint', new THREE.BoxGeometry(0.05, 0.40, 0.05), M4(dx, ly, D + dz), IRON_LIT);
+    }
+    add('paint', new THREE.BoxGeometry(0.36, 0.045, 0.36), M4(0, ly - 0.20, D), IRON);       // the tray it stands on
+    add('paint', new THREE.BoxGeometry(0.34, 0.035, 0.34), M4(0, ly + 0.20, D), IRON_LIT);   // the eave under the cap
+    add('paint', new THREE.ConeGeometry(0.27, 0.19, 4), M4(0, ly + 0.30, D, Math.PI / 4), IRON);
+    add('paint', new THREE.TorusGeometry(0.045, 0.014, 4, 8), M4(0, ly + 0.44, D, 0, Math.PI / 2), IRON);
     ao.disc(x, z, 0.6, 0.5); kit.contact(x, z, 0.34, 0.75); kit.footDisc(x, z, 0.32);
-    if (glow) HALOS.push({ x: x + Math.sin(rot) * 0.38, y: y + ly, z: z + Math.cos(rot) * 0.38, r: 1.55 });
+    if (glow) HALOS.push({ x: x + Math.sin(rot) * D, y: y + ly, z: z + Math.cos(rot) * D, r: 1.35 });
     return { x, y: y + ly, z };
   };
 
@@ -1505,7 +2085,7 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
         }
       }
     }
-    ao.box(x, z, w, d, rot, 0.45, 0.4); kit.contact(x, z, 0, 0.42, { rx: w * 0.55, rz: d * 0.55, rot }); kit.footBox(x, z, w, d, rot);
+    ao.box(x, z, w, d, rot, 0.45, 0.4); kit.contact(x, z, 0, 0.42, { rx: w * 0.55, rz: d * 0.55, rot, spread: 1.2 }); kit.footBox(x, z, w, d, rot);
   };
 
   /** A ladder leaning against something (the orchard's, at picking height). */
@@ -1785,66 +2365,152 @@ export function createPropsKit({ scene, heightAt, ao, low = false }) {
   };
 
   /**
-   * See-through: every registered tree (and forest card) whose canopy sits between the lens and the hero — or
-   * around the lens itself — dissolves to 25% instead of the camera zooming in. Eased both ways.
+   * ══ THE SEE-THROUGH ══ A canopy that covers the hero fades to a CLEAN 40% with its ink line kept, eased over
+   * 150 ms out / 220 ms back, and only while it is REALLY in the way. The old pass discarded pixels through an
+   * ordered Bayer matrix — a screen-door dither across a fifth of the frame — and it fired on anything that merely
+   * loomed near the lens, hero or no hero. Both are gone:
+   *
+   *   WHAT COUNTS AS IN THE WAY (all three must survive the cheap depth reject: nearer the lens than the hero)
+   *     1. the lens is inside the leaves           -> the tree goes entirely (you can never be stuck in a canopy)
+   *     2. three rays, lens -> the hero's knees / chest / head, pass through the canopy sphere
+   *     3. the canopy's screen disc overlaps the hero's own screen ellipse
+   *   and nothing else. A big tree off to one side of the frame stays solid.
+   *
+   *   HOW IT IS DRAWN            grove.update + ensureGhost: depth pre-pass, ink rim, one translucent surface.
+   *   WHO OWNS IT                kit.seeMode('auto'|'ghost'|'off'). 'auto' (the default) stands down while the
+   *                              field camera's own occluder fade is running (__DQ.cameraFade().on), so the two
+   *                              never ghost the same tree twice; in a demo, or with the camera pass off, this
+   *                              one runs.  __DQ readout: kit.seeState.
    */
   const seeSeg = (ax, ay, az, bx, by, bz, cx, cy, cz) => {
     const vx = bx - ax, vy = by - ay, vz = bz - az, L2 = vx * vx + vy * vy + vz * vz || 1e-9;
     const u = Math.max(0, Math.min(1, ((cx - ax) * vx + (cy - ay) * vy + (cz - az) * vz) / L2));
     return { u, d: Math.hypot(ax + vx * u - cx, ay + vy * u - cy, az + vz * u - cz) };
   };
-  kit.seeState = { fading: 0, occluding: 0 };
+  kit.seeState = { mode: 'auto', owner: null, alpha: SEE.alpha, occluding: 0, fading: 0, ghosts: 0, gone: 0 };
+  kit.seeMode = (m) => { if (m === 'auto' || m === 'ghost' || m === 'off') kit.seeState.mode = m; return kit.seeState.mode; };
+  /** Tune the see-through live (a demo control): {alpha, outMs, inMs, hold}. */
+  kit.seeTune = (o = {}) => { for (const k of ['alpha', 'outMs', 'inMs', 'hold', 'max']) if (Number.isFinite(+o[k])) SEE[k] = +o[k]; kit.seeState.alpha = SEE.alpha; return Object.assign({}, SEE); };
   const seeV = new THREE.Vector3(), seeH = new THREE.Vector3();
+  let ownerT = 0;
+  /** Is the field camera's own occluder fade running? (its published state, checked twice a second, never trusted) */
+  function externalOwner(dt) {
+    ownerT -= dt;
+    if (ownerT > 0) return kit.seeState.owner;
+    ownerT = 0.45;
+    let owner = null;
+    try {
+      const D = typeof window !== 'undefined' ? window.__DQ : null;
+      if (D && typeof D.cameraFade === 'function') { const f = D.cameraFade(); if (f && f.on) owner = 'camera'; }
+    } catch (_) { owner = null; }
+    kit.seeState.owner = owner;
+    return owner;
+  }
+  /**
+   * Park Toon.see's own two dither rules while THIS pass owns the see-through: the hero window (anything nearer
+   * the lens than the hero, inside an ellipse round him, keeps 22% of its pixels) and the near dissolve (anything
+   * within 3.2 units of the lens). Both are ordered-Bayer discards — the screen door the ledger complained about.
+   * The ghost pass covers both cases properly (a canopy the lens is inside goes out entirely). Restored the moment
+   * the field camera's own occluder pass takes over, exactly as camera.js parks them for its own pass.
+   */
+  function parkDither() {
+    try {
+      const U = See.uniforms;
+      // every frame, because field.js sets the hero window again on every render; the near dissolve is a constant
+      U.uDqHero.value.w = 0;
+      if (U.uDqNear.value.x > -1) U.uDqNear.value.set(-2, -1);
+    } catch (e) { reportError('props see dither park', e); }
+  }
+  /** Everything solid again, in one frame (mode changes, map unload, an owner taking over). */
+  function clearGhosts() {
+    for (const S of grove.species.values()) for (const it of S.items) it.ghost = 1;
+    for (const f of FADE) { f.keep = 1; f.p = 0; f.hit = 0; }
+    kit.seeState.occluding = kit.seeState.fading = kit.seeState.ghosts = kit.seeState.gone = 0;
+    See.setFades([]);
+  }
+  kit.clearSee = clearGhosts;
   kit.updateSee = (dt, camera, focus) => {
-    if (!camera || !focus) { See.setFades([]); return; }
+    const mode = kit.seeState.mode;
+    const owned = mode === 'auto' ? !externalOwner(dt) : mode === 'ghost';
+    // The dither is RETIRED, whoever owns the pass. Both live owners handle the two cases it existed for —
+    // the field camera's occluder pass melts a surface right against the lens, and the ghost below drops a
+    // canopy the lens is standing inside — so no frame in this game has a screen door in it any more.
+    parkDither();
+    if (!owned || !camera || !focus) {
+      if (kit.seeState.fading || kit.seeState.ghosts) clearGhosts();
+      return;
+    }
     camera.updateMatrixWorld();
     const A = camera.position, fx = focus.x, fy = focus.y, fz = focus.z;
-    const tanH = Math.tan((camera.fov * Math.PI / 180) / 2), aspect = camera.aspect || 16 / 9;
-    // the hero on screen (NDC, y up; x scaled by aspect so distances are round) and his depth
-    seeH.set(fx, fy + 0.9, fz).applyMatrix4(camera.matrixWorldInverse);
+    const tanH = Math.tan((camera.fov * Math.PI / 180) / 2);
+    const aspect = camera.aspect || 16 / 9;
+    // the hero on screen (NDC-ish, y up, x scaled by aspect so distances are round) and his view depth
+    seeH.set(fx, fy + 0.8, fz).applyMatrix4(camera.matrixWorldInverse);
     const heroDepth = -seeH.z;
-    const hx = (seeH.x / (heroDepth * tanH)), hy = seeH.y / (heroDepth * tanH);
-    const heroR = 0.95 / (heroDepth * tanH);                    // a circle just around a 1.6-unit hero
-    const pts = [[fx, fy + 0.3], [fx, fy + 0.95], [fx, fy + 1.6]];
-    const list = [];
-    let occluding = 0;
-    const kDown = 1 - Math.exp(-dt * 12), kUp = 1 - Math.exp(-dt * 5);
+    const hx = seeH.x / (heroDepth * tanH), hy = seeH.y / (heroDepth * tanH);
+    const heroRX = 0.52 / (heroDepth * tanH), heroRY = 1.05 / (heroDepth * tanH);   // a 1.35-unit child, not a disc
+    const pts = [fy + 0.34, fy + 0.8, fy + 1.3];
+    let occluding = 0, fading = 0, gone = 0, big0 = 0;
+    const kOut = dt / Math.max(0.016, SEE.outMs / 1000), kIn = dt / Math.max(0.016, SEE.inMs / 1000);
     for (const f of FADE) {
-      let occ = false, deep = 0;
-      // cheap reject: behind the lens or further away than the hero
+      if (f.p === undefined) { f.p = 0; f.hit = 0; }
+      let occ = false, inside = false;
       seeV.set(f.x, f.cy, f.z).applyMatrix4(camera.matrixWorldInverse);
       const depth = -seeV.z;
-      if (depth > -f.R && depth < heroDepth + f.R * 0.5) {
-        if (Math.hypot(A.x - f.x, A.y - f.cy, A.z - f.z) < f.R + 0.9 || (f.trunk && Math.hypot(A.x - f.x, A.z - f.z) < f.R * 0.7 && A.y < f.cy + f.R)) { occ = true; deep = 1; }  // the lens is in the leaves
-        else if (depth > 0.3 && depth < heroDepth - 0.6) {
-          // nearer than the hero AND (its canopy disc overlaps the circle around him on screen, OR it is a giant
-          // right in front of the lens that would fill a third of the frame)
-          const cx = seeV.x / (depth * tanH), cy = seeV.y / (depth * tanH), cr = (f.R * 0.92) / (depth * tanH);
-          const onScreen = Math.abs(cx) < 1.78 + cr && Math.abs(cy) < 1 + cr;
-          if (Math.hypot(cx - hx, cy - hy) < cr + heroR) occ = true;
-          else if (onScreen && cr > 0.62 && depth < heroDepth * 0.75) occ = true;
-          deep = smooth(0.5, 1.1, cr);
-        }
-        if (!occ) for (const [py] of pts) {
-          const r = seeSeg(A.x, A.y, A.z, fx, py, fz, f.x, f.cy, f.z);
-          if (r.u < 0.97 && r.d < f.R * 0.95) { occ = true; break; }
+      // how much of the frame this canopy owns (1.0 = half the frame height). A tree four metres from the lens
+      // fills the screen, and a 40% ghost of it is a flat grey-green wedge over a fifth of the frame with the
+      // ink hull drawn round it — uglier than the dither it replaced. A canopy that big goes nearly all the way
+      // out instead, the way DQV takes a tree out of your way.
+      f.screen = depth > 0.25 ? (f.R * 0.92) / (depth * tanH) : (depth > -f.R ? 9 : 0);
+      if (depth > -f.R && depth < heroDepth - 0.5) {
+        // "the lens is IN the leaves" has to mean exactly that. At f.R + 0.8 any tree standing near the boy with
+        // the camera pulled in close counted as inside and VANISHED instead of ghosting, which is its own kind of
+        // wrong. f.R is the canopy's bounding radius; the leaves themselves stop short of it.
+        if (Math.hypot(A.x - f.x, A.y - f.cy, A.z - f.z) < f.R * 0.92
+          || (f.trunk && Math.hypot(A.x - f.x, A.z - f.z) < f.R * 0.5 && A.y < f.cy + f.R * 0.8)) { occ = inside = true; }
+        else if (depth > 0.25) {
+          for (const py of pts) {                                    // 2. does a ray lens -> hero go through it?
+            const r = seeSeg(A.x, A.y, A.z, fx, py, fz, f.x, f.cy, f.z);
+            if (r.u < 0.97 && r.d < f.R * 0.95) { occ = true; break; }
+          }
+          if (!occ) {                                                // 3. does its screen disc cover him?
+            const cx = seeV.x / (depth * tanH), cy = seeV.y / (depth * tanH), cr = (f.R * 0.92) / (depth * tanH);
+            const dx = Math.max(0, Math.abs(cx - hx) - heroRX), dy = Math.max(0, Math.abs(cy - hy) - heroRY);
+            if (Math.hypot(dx, dy) < cr) occ = true;
+          }
         }
       }
-      if (occ) occluding++;
-      const target = occ ? (deep >= 1 ? 0 : 0.25 - 0.15 * deep) : 1;   // the bigger it looms, the more it dissolves; lens inside = gone
-      f.keep += (target - f.keep) * (target < f.keep ? kDown : kUp);
-      if (f.keep > 0.995) f.keep = 1;
-      if (f.keep < 1) list.push(f);
+      if (occ) { occluding++; f.hit = SEE.hold; } else f.hit = Math.max(0, f.hit - dt);
+      const want = f.hit > 0;
+      f.p = Math.max(0, Math.min(1, f.p + (want ? kOut : -kIn)));
+      // eased, and a tree the lens is standing inside goes all the way out instead of stopping at 40%
+      const k = smooth(0, 1, f.p);
+      // ...and so does a canopy big enough on screen that a 40% ghost of it would be a grey-green pane of glass
+      const big = smooth(0.50, 1.4, f.screen ?? 0);
+      const target = inside ? 0.06 : lerp(SEE.alpha, 0.10, big);
+      const alpha = inside && f.p > 0.98 ? 0 : lerp(1, target, k);
+      f.keep = alpha;
+      // NEGATIVE alpha = draw the ghost but NOT its ink line. A canopy more than about half the frame across is
+      // mostly off screen, so its hull reduces to one long black arc with a dirty translucent wash inside it.
+      // The tree still fades; it just stops drawing a ring round the frame while it does.
+      if (f.item) f.item.ghost = (f.screen > 0.46 || alpha <= INK_MIN) ? -alpha : alpha;
+      if (alpha < 0.995) { fading++; if (alpha <= 0.02) gone++; if (f.screen > big0) big0 = f.screen; }
     }
+    kit.seeState.widest = +big0.toFixed(2);
     void aspect;
-    kit.seeState.fading = See.setFades(list);
     kit.seeState.occluding = occluding;
+    kit.seeState.fading = fading;
+    kit.seeState.gone = gone;
+    kit.seeState.ghosts = grove.stats.ghosts || 0;
+    See.setFades([]);                       // the dither stays switched off: the ghost meshes do the fading now
   };
   kit.update = (t, dt, camera, focus) => {
     kit.focus = focus || kit.focus;
+    // the see-through decides FIRST: grove.update packs the ghosts it chose in the same frame
+    try { kit.updateSee(dt, camera, focus); } catch (e) { reportError('scenery see-through', e); }
     try { grove.update(camera, focus); } catch (e) { reportError('scenery grove', e); }
     for (const fn of animators) { try { fn(t, dt, camera); } catch (e) { reportError('scenery animator', e); } }
-    try { if (focus) kit.updateSee(dt, camera, focus); } catch (e) { reportError('scenery see-through', e); }
+    kit.seeState.ghosts = grove.stats.ghosts || 0;
   };
 
   // ── merge ──

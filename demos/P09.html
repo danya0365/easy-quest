@@ -37,7 +37,9 @@
 // W runs the scripted walk through the trees and the cottage.
 //
 // For a critic (__DQ): cameraOrbit cameraZoom cameraAuto cameraRig cameraMode cameraShot cameraRelease cameraFade
-// cameraOccluders — plus this page's p09stand / p09walk / p09objects / p09talk / p09panel.
+// cameraFrame cameraOccluders — plus this page's p09cover (stand behind something and WAIT for the camera to
+// report a clean 42% ghost), p09fade (what is ghosting, in numbers), p09stand, p09walk, p09objects, p09talk,
+// p09panel. The panel's top line is the whole point of the piece: the boy as a percentage of frame height.
 import { App } from '/src/engine/app.js';
 import { Scenes } from '/src/engine/states.js';
 import { Bus } from '/src/engine/events.js';
@@ -103,68 +105,166 @@ const objects = (n = 40) => {
   return w && w.cameraRig.fade ? w.cameraRig.fade.objects(n) : [];
 };
 /**
- * Where to stand so an occluder really covers Bram AND the lens stays clear of it. The field camera is a DQV
- * SHORT boom now (~4.5 units, the boy at 28% of frame height), and geometry says a 7-unit-wide cottage cannot
- * sit BETWEEN a 4.5-unit lens and the boy without the lens being inside it — which is the near-melt case, not
- * the ghost case. So a stance also reports the boom length the ghost needs, and p09stand zooms there itself.
+ * Where to stand so an occluder really covers Bram AND the lens stays clear of it. The field camera is the DQV
+ * boom the map's composition solves (≈6 units at 26°, the boy 20% of frame height), so the flat run between the
+ * lens and the boy is only ~5.4 units: a 1.5-unit-wide signpost or hedge fits between them and GHOSTS at 42%,
+ * while a 7-unit cottage cannot — the lens would be inside it, which is the near-melt case (it goes entirely,
+ * on purpose: you can never be shut inside a roof). So a stance states both numbers:
+ *   `back` how far past the thing he stands, and `need` the boom a 42% ghost of it wants.
+ * p09stand keeps the map's own boom when the thing fits inside it, and only zooms out when it does not.
+ *   'prop'  a signpost / fence / hedge / small tree: fades at 42% WITH the map's own framing
  *   'tree'  a canopy: he stands past it, the crown crosses the sight line
  *   'house' a building-sized merged cluster
  *   'reset' put the boom back where the map's composition wants it
  * Solved from the camera's own geometry, so it keeps working while P23 and P04 rebuild the map underneath.
  */
 const CLEAR = 2.6;                        // the lens must stay this far off the surface (camera.js FADE.near)
-function stancesFor(kind = 'tree') {
+function stancesFor(kind = 'tree', orbit = 0) {
   const cam = window.__DQ.state().field.camera || {};
   const w = Field.world();
   const p = w ? w.player.p : { x: 0, y: 0, z: 0 };
-  const pitch = (cam.pitch || 12) * Math.PI / 180;
+  const pitch = (cam.pitch || 26) * Math.PI / 180;
+  const flatNow = (cam.dist || 6) * Math.max(0.3, Math.cos(pitch));     // the flat run the lens has right now
+  const yaw = (Number(orbit) || 0) * Math.PI / 180;
   const list = objects(900).filter((o) => Math.hypot(o.x, o.z) < 34);
   const out = [];
   for (const o of list) {
     const solid = o.kind === 'solid';
-    if (kind === 'house' || kind === 'solid' ? !solid : solid) continue;
-    // a "house" is a cluster that is actually BUILDING-sized: a 2.8-tall fence post is not a cottage
-    if (solid && !(o.h > 2.4 && (o.w || 0) > 3)) continue;
-    if (!solid && !(o.r > 0.9)) continue;
-    const half = solid ? (o.w || o.r) * 0.5 : o.r;
+    const half = solid ? Math.max(o.w || 0, o.r) * 0.5 : o.r;
     const up = Math.max(0.5, o.y - p.y);
+    if (kind === 'prop') {
+      // it must fit between the lens and the boy at the map's OWN boom, and still be tall enough to cover him
+      if (!(half * 2 + CLEAR < flatNow) || o.h < 1.1) continue;
+    } else if (kind === 'house' || kind === 'solid') {
+      // a "house" is a cluster that is actually BUILDING-sized: a 2.8-tall fence post is not a cottage
+      if (!solid || !(o.h > 3.2 && (o.w || 0) > 4)) continue;
+    } else if (solid || !(o.r > 0.9)) continue;
     // he stands `back` past it; the lens then sits (flat - back) beyond it and must clear its surface
-    const back = half + 0.8;
+    const back = half + 1.6;
     const flat = back + half + CLEAR;                          // the flat run the lens needs
     const need = +(flat / Math.max(0.3, Math.cos(pitch))).toFixed(2);
-    out.push({ o, back: +back.toFixed(2), need, up: +up.toFixed(2), size: solid ? o.h : o.r,
-      score: (solid ? o.h + (o.w || 0) * 0.3 : o.r) - need * 0.08 });
+    // ... and the LENS must land in the open. A stance with a fruit tree where the camera will sit shows that
+    // canopy melting at the lens instead of the thing he is hiding behind, which is not the shot we are after.
+    const boom = Math.max(need, cam.dist || 6) * Math.max(0.3, Math.cos(pitch));
+    const lx = o.x - Math.sin(yaw) * (back - boom), lz = o.z - Math.cos(yaw) * (back - boom);
+    let clearLens = true;
+    for (const q of list) {
+      // instanced only: a tree's sphere is a real volume, while a merged row of fence panels reports one huge
+      // box whose "radius" would rule out every stance in the village
+      if (q === o || q.kind !== 'inst') continue;
+      if (Math.hypot(q.x - lx, q.z - lz) < q.r + 1.1) { clearLens = false; break; }
+    }
+    if (!clearLens) continue;
+    out.push({ o, back: +back.toFixed(2), need, up: +up.toFixed(2), size: solid ? o.h : o.r, fits: need <= (cam.dist || 6) * 1.02,
+      score: (kind === 'prop' ? o.h / (half + 0.35) + o.h * 0.25 : (solid ? o.h + (o.w || 0) * 0.3 : o.r)) - need * 0.08 });
   }
   out.sort((a, b) => b.score - a.score);
   return out;
 }
 const stanceFor = (kind) => stancesFor(kind)[0] || null;
-let standAt = 0, standKind = null;
+let standAt = 0, standKind = null, standExtra = 0, standName = null;
 
 // ── __DQ controls ─────────────────────────────────────────────────────────────────────────────────────────────
-/** Stand behind an occluder so the fade is in frame: __DQ.p09stand('tree'|'house'|'reset', orbitDeg). */
+/**
+ * Stand behind an occluder so the fade is in frame: __DQ.p09stand('prop'|'tree'|'house'|'reset', orbitDeg).
+ * Call it again and it CORRECTS itself from what the camera actually reports: nothing covering him -> the next
+ * candidate; the thing melted at the lens (alpha under 0.15) -> step another 1.4 units clear of it. So the shot
+ * a critic sees is a measured 42% ghost, not a guess.
+ */
 Debug.expose('p09stand', (kind = 'tree', orbit = 0, index) => {
   if (kind === 'reset') { window.__DQ.cameraMode(window.__DQ.state().field.camera.mode); window.__DQ.cameraAuto(true); return { ok: true, reset: true }; }
-  const cand = stancesFor(kind);
+  const cand = stancesFor(kind, orbit);
   if (!cand.length) return { ok: false, reason: 'nothing to stand behind yet' };
-  // called again while nothing is actually covering him? try the next candidate — the map changes under this demo
   const covering = ((window.__DQ.state().field.camera.fade || {}).occluding) || 0;
-  if (index !== undefined) standAt = Math.max(0, +index || 0) % cand.length;
-  else if (standKind !== kind) standAt = 0;
-  else if (!covering) standAt = (standAt + 1) % cand.length;
+  const mine = standName ? (window.__DQ.cameraOccluders() || []).find((o) => o.name === standName) : null;
+  // The candidate list is re-sorted every call (instance bounds refresh as the camera moves), so a stance is
+  // remembered by NAME, not by index: "stay behind the tree you chose" has to mean the same tree.
+  const held = standKind === kind && standName ? cand.findIndex((c2) => c2.o.name === standName) : -1;
+  if (index !== undefined) { standAt = Math.max(0, +index || 0) % cand.length; standExtra = 0; }
+  else if (standKind !== kind || held < 0) { standAt = held < 0 ? 0 : held; standExtra = 0; }
+  else if (mine && mine.alpha < 0.15 && standExtra < 4.3) { standAt = held; standExtra += 1.4; }  // melted: back off
+  else if (mine && mine.alpha < 0.62) standAt = held;                     // it IS ghosting: stay put
+  else { standAt = (held + 1) % cand.length; standExtra = 0; }            // nothing covering him: the next one
   standKind = kind;
-  const st = cand[Math.min(standAt, cand.length - 1)];
-  const o = st.o;
   const yaw = (Number(orbit) || 0) * Math.PI / 180;
-  const x = o.x - Math.sin(yaw) * st.back, z = o.z - Math.cos(yaw) * st.back;
+  // Stand him somewhere he can actually STAND: inside a wall or a stream the collision slides him off the stance
+  // over the next second and the shot becomes the camera following him away from the thing. He must also stay
+  // INSIDE the flat run between the lens and himself, or the thing he is hiding behind ends up behind the lens.
+  const camNow = window.__DQ.state().field.camera;
+  const flatNow = (camNow.dist || 6) * Math.max(0.3, Math.cos((camNow.pitch || 26) * Math.PI / 180));
+  const w2 = Field.world();
+  const mp = w2 ? w2.map : null;
+  const standable = (tx, tz) => !mp || typeof mp.clear !== 'function' || mp.clear(tx, tz, 0.5);
+  let st = null, back = 0;
+  for (let t = 0; t < Math.min(6, cand.length); t++) {
+    const c2 = cand[(standAt + t) % cand.length];
+    const room = Math.max(c2.back, Math.min(c2.need > (camNow.dist || 6) * 1.02 ? 99 : flatNow - 1.0, c2.back + 4.2));
+    for (let b = c2.back + standExtra; b <= room + 0.01; b += 0.7) {
+      if (standable(c2.o.x - Math.sin(yaw) * b, c2.o.z - Math.cos(yaw) * b)) { st = c2; back = b; break; }
+    }
+    if (st) { standAt = (standAt + t) % cand.length; break; }
+  }
+  if (!st) { st = cand[Math.min(standAt, cand.length - 1)]; back = st.back + standExtra; }
+  const o = st.o;
+  standName = o.name;
+  const x = o.x - Math.sin(yaw) * back, z = o.z - Math.cos(yaw) * back;
   const here = Field.map ? Field.map.id : 'meadow';
   const r = Field.teleport(here, +x.toFixed(2), +z.toFixed(2), Number(orbit) || 0);
-  // ... and pull the boom back far enough that the thing between us GHOSTS instead of melting at the lens
   window.__DQ.cameraOrbit(Number(orbit) || 0, true);
   window.__DQ.cameraAuto(false);
-  window.__DQ.cameraZoom(st.need);
-  return { ok: !!(r && r.ok), behind: o, candidate: standAt, of: cand.length, back: st.back,
-    boom: st.need, player: r && r.player };
+  // the map's own framing first — then pull the boom back ONLY if the thing cannot fit inside it
+  window.__DQ.cameraMode(window.__DQ.state().field.camera.mode);
+  const boom = window.__DQ.cameraZoom();
+  if (st.need > boom * 1.02) window.__DQ.cameraZoom(st.need + standExtra);
+  return { ok: !!(r && r.ok), behind: o, candidate: standAt, of: cand.length, back: +back.toFixed(2),
+    boom: window.__DQ.cameraZoom(), fits: !!st.fits, stepped: standExtra, player: r && r.player };
+});
+/** What the fade is doing right now, in one line a scenario can assert on: the ghost nearest the lens. */
+Debug.expose('p09fade', () => {
+  const list = window.__DQ.cameraOccluders() || [];
+  const f = (window.__DQ.state().field.camera.fade) || {};
+  const top = list[0] || null;
+  const ghosting = list.filter((o) => o.alpha > 0.2 && o.alpha < 0.62);
+  const one = (o) => ({ name: o.name, alpha: o.alpha, inside: o.inside, surf: o.surf });
+  return { occluding: f.occluding || 0, fading: f.fading || 0, ghosts: f.ghosts || 0, ms: f.ms,
+    top: top ? one(top) : null, ghosting: ghosting.slice(0, 3).map(one), stance: standName,
+    ghost: ghosting.length ? 'alpha-ghost' : (top ? (top.alpha <= 0.2 ? 'gone-at-the-lens' : 'solid') : 'nothing') };
+});
+/**
+ * THE SELF-VERIFYING STANCE: __DQ.p09cover('prop'|'tree'|'house', orbitDeg) -> Promise
+ * Tries candidate stances and WAITS for the camera to report what happened, so it only comes back when the
+ * thing he is hiding behind is measurably a clean alpha ghost (0.2-0.62) — a critic's screenshot is then never
+ * of a stance that happened not to work. Returns every attempt it made, with the numbers.
+ */
+Debug.expose('p09cover', async (kind = 'tree', orbit = 0, tries = 7) => {
+  const cand = stancesFor(kind, orbit);
+  if (!cand.length) return { ok: false, reason: 'nothing to stand behind yet' };
+  const log = [];
+  // Judge only once the springs have ARRIVED: a boom still easing out reads as a 42% ghost one moment and a
+  // melted one the next, and the screenshot would catch whichever the wait happened to land on.
+  const settle = async (name, steps = 16) => {
+    let f = window.__DQ.p09fade();
+    for (let w = 0; w < steps; w++) {
+      await new Promise((res) => setTimeout(res, 130));
+      f = window.__DQ.p09fade();
+      if (!window.__DQ.state().field.camera.settled) continue;
+      if (f.ghosting.some((o) => o.name === name)) return f;
+      if (w >= 5) return f;
+    }
+    return f;
+  };
+  for (let i = 0; i < Math.min(tries, cand.length); i++) {
+    const r = window.__DQ.p09stand(kind, orbit, i);
+    const name = r.behind && r.behind.name;
+    let f = await settle(name);
+    if (f.top && f.top.name === name && f.top.alpha < 0.15) {       // it melted at the lens: step further out
+      window.__DQ.p09stand(kind, orbit);
+      f = await settle(name);
+    }
+    log.push({ candidate: i, behind: name, ghost: f.ghost, alpha: f.top ? f.top.alpha : null, occluding: f.occluding });
+    if (f.ghosting.some((o) => o.name === name)) return { ok: true, behind: name, candidate: i, of: cand.length, fade: f, tried: log };
+  }
+  return { ok: false, reason: 'no stance in this map ghosted', of: cand.length, tried: log };
 });
 /** The scripted walk: 'trees' through the copse, 'village' past the cottage, 'stop'. */
 Debug.expose('p09walk', (name = 'trees') => {

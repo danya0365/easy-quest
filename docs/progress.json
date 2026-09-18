@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-17T19:58:10.407Z",
+  "updated": "2026-09-18T00:38:48.455Z",
   "wave": 1,
   "waveTitle": "Smooth + Wave B (camera, sky/terrain, props, buildings+Puddlewick, dialogue+NPCs, battle scene, menus+HUD, title)",
   "pieces": {
@@ -94,16 +94,21 @@
     "P02": {
       "id": "P02",
       "status": "iterating",
-      "score": 74,
+      "score": 64,
       "best": 74,
-      "rounds": 1,
-      "gap": "Sky is gorgeous in the demo but in-game it is a 15% strip: horizon sits 17% down the frame behind a closed tree ring, clouds clump into one white ribbon on the treeline, haze is milky-grey not blue, and timeOfDay never advances (320s of 16x sim = still 9.00), so dusk/night/moon are console-only.",
-      "note": "first build done",
+      "rounds": 2,
+      "gap": "landmarks 77pct hidden by the tree ring (castle 100pct); sky only 4pct of frame",
+      "note": "Sky opened: cloud wall lifted off the skyline (64.9%->6.1% cloud in the band above it), two painted range tiers, four places on the skyline now fitted so none is clipped; sun travels through the day",
       "history": [
         {
           "at": "2026-09-17T19:14:46.210Z",
           "score": 74,
           "gap": "Sky is gorgeous in the demo but in-game it is a 15% strip: horizon sits 17% down the frame behind a closed tree ring, clouds clump into one white ribbon on the treeline, haze is milky-grey not blue, a"
+        },
+        {
+          "at": "2026-09-17T23:36:07.087Z",
+          "score": 64,
+          "gap": "landmarks 77pct hidden by the tree ring (castle 100pct); sky only 4pct of frame"
         }
       ],
       "name": "Sky, sun, clouds, day-night, weather"
@@ -111,16 +116,21 @@
     "P03": {
       "id": "P03",
       "status": "iterating",
-      "score": 67,
+      "score": 66,
       "best": 67,
-      "rounds": 1,
-      "gap": "Nothing to walk toward: horizon is a closed ring of identical trees in all four directions with no landmark on the land; the 1.45-unit rise over 35 units is invisible at a 26-degree camera, so the vale reads flat with no landform; river is flat blue paint with a hard cut shoreline.",
-      "note": "terrain ground shader: cobble channel, painterly tone, ruts, wet + snow, water edges (built with P02)",
+      "rounds": 2,
+      "gap": "water is a flat blue fill (SD 3.94) the hero wades through with no ripple",
+      "note": "Ground: water now ends in a wandering wet bank instead of a pale rim (sheet skirted + depth-faded), cobble read as setts not eggs, stronger contact shadows",
       "history": [
         {
           "at": "2026-09-17T19:14:46.333Z",
           "score": 67,
           "gap": "Nothing to walk toward: horizon is a closed ring of identical trees in all four directions with no landmark on the land; the 1.45-unit rise over 35 units is invisible at a 26-degree camera, so the val"
+        },
+        {
+          "at": "2026-09-17T23:36:07.126Z",
+          "score": 66,
+          "gap": "water is a flat blue fill (SD 3.94) the hero wades through with no ripple"
         }
       ],
       "name": "Terrain — hills, grass, paths, water"
@@ -128,16 +138,21 @@
     "P04": {
       "id": "P04",
       "status": "iterating",
-      "score": 65,
-      "best": 65,
-      "rounds": 1,
-      "gap": "Nothing in the field is planted: 112 bush/hedge instances cast no shadow at all, fence runs stay dead level over rolling ground so pickets hang in air and the rails impale two sheep, a flat yellow flower blob floats a metre up by the well, a well roof post ends in mid-air; give every standing prop a soft contact-shadow blob and conform it to terrain height",
-      "note": "first build done: mixed woodland (10 species, per-instance LOD, hedgerow rim + hills beyond), farm props (well/hay/stile/scarecrow/veg/lanterns/orchard), life (wind, butterflies, birds that take off, motes, ripples); meadow 246 -> 97 draw calls",
+      "score": 68,
+      "best": 68,
+      "rounds": 2,
+      "gap": "The neighbouring towns float in the sky: the four landmark cards have their bottom edge at world y 17-19 with the vale floor at 0 and the tallest hill at 13.78, so from every edge you look out at a village hanging in clear sky above the horizon with a razor-straight card edge, and Coddleston Castle stands on a cloud. Ground each card on the ring-hill crest at its bearing (skylineDeg, not a fixed height), let the hills occlude its foot, alpha-ramp the edges and haze it like hill-far. Gaps 1 and 2 re-checked and both genuinely fixed.",
+      "note": "Props planted: contact pools rebuilt (multiply, 1.8x footprint, sun lean, stack cap) + clean alpha see-through ghost replacing the dither",
       "history": [
         {
           "at": "2026-09-17T19:22:01.948Z",
           "score": 65,
           "gap": "Nothing in the field is planted: 112 bush/hedge instances cast no shadow at all, fence runs stay dead level over rolling ground so pickets hang in air and the rails impale two sheep, a flat yellow flo"
+        },
+        {
+          "at": "2026-09-18T00:05:48.317Z",
+          "score": 68,
+          "gap": "The neighbouring towns float in the sky: the four landmark cards have their bottom edge at world y 17-19 with the vale floor at 0 and the tallest hill at 13.78, so from every edge you look out at a vi"
         }
       ],
       "name": "Props & set dressing"
@@ -146,11 +161,17 @@
       "id": "P05",
       "status": "building",
       "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "Building kit (cottages, inn, church+bell tower, shop+awnings, bakery+oven, barn, mill with turning wheel, stone bridge, well, stalls, bunting, signs, doors that open) + Puddlewick: 10 buildings, green+well+chestnut, the Beck+bridge, pen/paddock, shrine, festival dressing; every door is an exit; lane out to the vale works",
-      "history": [],
+      "best": 70,
+      "rounds": 1,
+      "gap": "The see-through pass still dismembers buildings (walls at alpha 0, the door left floating solid), and an open doorway is a flat card with daylight behind it",
+      "note": "Doorways are real: lined reveal, threshold, full-depth room behind, no daylight through the back; plus an INTERIOR kit (roomShell, hearth, table, chairs, bed, loft, chest, counter, kegs, lamps)",
+      "history": [
+        {
+          "at": "2026-09-17T23:29:40.939Z",
+          "score": 70,
+          "gap": "The see-through pass still dismembers buildings (walls at alpha 0, the door left floating solid), and an open doorway is a flat card with daylight behind it"
+        }
+      ],
       "name": "Buildings — houses, inn, church, castle"
     },
     "P06": {
@@ -221,16 +242,21 @@
     "P09": {
       "id": "P09",
       "status": "iterating",
-      "score": 63,
+      "score": 62,
       "best": 63,
-      "rounds": 1,
-      "gap": "Lens surveys instead of follows: boy is 18% of frame, horizon at the top edge, and one interior round trip kills the sky for good",
-      "note": "Camera: spring follow + lead, 360 orbit, ease-behind with a latched walk frame (path stays straight), auto-recentre, ground/sight-line lift, field/town/world/interior/dungeon modes, camera.shot() cutscene API, and the CLEAN 42% occluder fade (depth pre-pass, outline kept, 150ms) replacing the dither — live in /index.html",
+      "rounds": 2,
+      "gap": "In a town the lens goes through the walls: the boy is fully hidden 20.5% of a Puddlewick walk and 26.9% of an orbit at the square (0% in the meadow)",
+      "note": "Camera re-framed to DQV PS2 scale: boy 20% of frame at the map's own 26 deg ground angle, boom 5.97, horizon 17% (was 13% at 9.03 / a flat 11 deg shot); cameraMode re-reads the live map so an interior round trip restores the map's framing exactly; occluder ghost ramp now 35-45% for real occluders and measured only from the part on the sight line",
       "history": [
         {
           "at": "2026-09-17T19:28:16.908Z",
           "score": 63,
           "gap": "Lens surveys instead of follows: boy is 18% of frame, horizon at the top edge, and one interior round trip kills the sky for good"
+        },
+        {
+          "at": "2026-09-17T23:42:42.643Z",
+          "score": 62,
+          "gap": "In a town the lens goes through the walls: the boy is fully hidden 20.5% of a Puddlewick walk and 26.9% of an orbit at the square (0% in the meadow)"
         }
       ],
       "name": "Camera"
@@ -248,24 +274,36 @@
     },
     "P11": {
       "id": "P11",
-      "status": "todo",
+      "status": "building",
       "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "best": 64,
+      "rounds": 1,
+      "gap": "every human in Puddlewick walked 0.00 units in 36s and the idle clip is a frozen frame (amp 0, phase never advances)",
+      "note": "Nobody is a statue: the self-collider bug that froze every wanderer is fixed, standers/sellers/leaners/chatters/fishers spend their radius, everyone breathes, blinks and shifts their weight, Old Hob leans on the actual well, and a per-instance clothes dye makes 21 villagers 21 people on 9 bodies",
+      "history": [
+        {
+          "at": "2026-09-17T23:43:21.427Z",
+          "score": 64,
+          "gap": "every human in Puddlewick walked 0.00 units in 36s and the idle clip is a frozen frame (amp 0, phase never advances)"
+        }
+      ],
       "name": "NPC life"
     },
     "P12": {
       "id": "P12",
       "status": "building",
       "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "P12 dialogue + P11 NPC life live in /index.html: name tab, per-speaker glyph voices, choices + Yes/No, %HERO% tokens, flag/Act-dependent scripts; 10 alive in the vale (sweeper, fisher, child, chat pair, cat, dog, 3 hens) + the whole Puddlewick cast layer on P23's spots; both scenarios green",
-      "history": [],
+      "best": 73,
+      "rounds": 1,
+      "gap": "camera never frames the speaker: 13 of 15 conversations leave the lens where it was, Nib Tolley is entirely off screen while his nameplate is up",
+      "note": "Every conversation swings the lens into a real two-shot (21/21 speakers measured on screen), nobody stands in front of the speaker, and no script can ever open a window with no words in it",
+      "history": [
+        {
+          "at": "2026-09-17T23:43:21.389Z",
+          "score": 73,
+          "gap": "camera never frames the speaker: 13 of 15 conversations leave the lens where it was, Nib Tolley is entirely off screen while his nameplate is up"
+        }
+      ],
       "name": "Dialogue & the writing voice"
     },
     "P13": {
@@ -313,13 +351,19 @@
     },
     "P15": {
       "id": "P15",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 74,
+      "best": 74,
+      "rounds": 1,
+      "gap": "Victory is not a moment: no tally window; +EXP clips off-screen under the party panel; 5.0s of bare grass after every fight",
+      "note": "first build done",
+      "history": [
+        {
+          "at": "2026-09-18T00:30:45.023Z",
+          "score": 74,
+          "gap": "Victory is not a moment: no tally window; +EXP clips off-screen under the party panel; 5.0s of bare grass after every fight"
+        }
+      ],
       "name": "Battle presentation"
     },
     "P16": {
@@ -433,13 +477,19 @@
     },
     "P23": {
       "id": "P23",
-      "status": "todo",
+      "status": "building",
       "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "best": 66,
+      "rounds": 1,
+      "gap": "Ten building doors, ten flavour lines promising a room, and zero interiors: listMaps() is only meadow+puddlewick, chests 0, and arriving is an instant cut with a guard blocking the frame",
+      "note": "Hollybank Cottage and the Puddlewick inn are real maps you walk into and out of on foot; Puddlewick has 5 searchable containers and its plots are flat",
+      "history": [
+        {
+          "at": "2026-09-17T23:29:40.980Z",
+          "score": 66,
+          "gap": "Ten building doors, ten flavour lines promising a room, and zero interiors: listMaps() is only meadow+puddlewick, chests 0, and arriving is an instant cut with a guard blocking the frame"
+        }
+      ],
       "name": "World maps"
     },
     "P24": {
@@ -551,13 +601,19 @@
     },
     "P29": {
       "id": "P29",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 76,
+      "best": 76,
+      "rounds": 1,
+      "gap": "Arrival card prints the place name twice and the arrival gets no beat",
+      "note": "transitions live: swirl, fades, flash, iris, white, boot fade-in",
+      "history": [
+        {
+          "at": "2026-09-18T00:30:45.068Z",
+          "score": 76,
+          "gap": "Arrival card prints the place name twice and the arrival gets no beat"
+        }
+      ],
       "name": "Transitions & screen FX"
     },
     "P30": {
@@ -573,13 +629,19 @@
     },
     "P31": {
       "id": "P31",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 68,
+      "best": 68,
+      "rounds": 1,
+      "gap": "Safe zones swallow a finished step counter: 182s of walking gave one fight",
+      "note": "encounters live: step counter, terrain tables, grace, gate rule, boss doors, gentle defeat",
+      "history": [
+        {
+          "at": "2026-09-18T00:30:45.109Z",
+          "score": 68,
+          "gap": "Safe zones swallow a finished step counter: 182s of walking gave one fight"
+        }
+      ],
       "name": "Encounters"
     },
     "P32": {
@@ -724,6 +786,14 @@
     {
       "at": "2026-09-17T19:58:10.407Z",
       "t": "Iteration method upgraded: per-piece cumulative gap ledger (tools/gaps.mjs). Critics must re-verify every past gap before naming a new one; no score above 80 while a gap is open; regressions cap at 65."
+    },
+    {
+      "at": "2026-09-17T23:08:39.275Z",
+      "t": "P05/P23: Puddlewick reachable on foot in the real game (maps/index.js + meadow lane exit); chapel moved 2.2 out of the Beck; no second Puddlewick on its own horizon; signpost reach 2.2->3.6; vale plays overworld so arriving home plays village. Gap ledger seeded: P05 #1,#3 and P23 #1-#5 claimed-fixed; P05 #2 (see-through ghosting) still open and belongs to P09/P04."
+    },
+    {
+      "at": "2026-09-17T23:41:31.448Z",
+      "t": "P15+P29+P31: battles, transitions and encounters are live in /index.html — walk the lane and something draws near"
     }
   ]
 }

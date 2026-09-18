@@ -31,11 +31,18 @@
  *   {cycle: [steps, steps, ...]}            a different one each time you talk (by talk count)
  *   {act: {1: steps, 2: steps, 3: steps}}   by story Act (ch2.start / ch3.start)
  *   {set: {'flag': value}}  {emote: 'happy', who?}  {anim: 'nod', who?}  {sfx: 'id'}  {wait: ms}
+ *   {look: 'npcId' | false, who?}           turn the speaker's head to look at somebody named (or back to work)
+ *   {nod: true}                             the hero nods twice, fast, to agree (CANON §1: he never speaks).
+ *                                           A {yesNo} nods on Yes by itself; pass nod: false to stop it, and
+ *                                           nod: true on a {choice} (or on one of its options) to nod there too.
  *   {do: fn(api)} / fn(api)                 may return more steps
  * api = {flag(k, v?), gold(), act(), hour(), talks, npc, vars, who(id)}.
  *
  * Bus: dialogue.start {speaker, npc, name} · dialogue.say {who, name, voice} · dialogue.typing {who, on} ·
- *      dialogue.choice {items} · dialogue.cue {who, emote?, anim?} · dialogue.end {speaker, npc}
+ *      dialogue.choice {items} · dialogue.chose {index, label, of} · dialogue.cue {who, emote?, anim?, look?} ·
+ *      dialogue.end {speaker, npc}
+ * npc.js listens to say/typing/cue/end: the named speaker stops what they are doing, turns to the hero and talks,
+ * the hero turns to them, and a cue aimed at 'hero' reaches player.js instead (that is how the nod happens).
  * __DQ.state().dialogue = {open, text, full, page, pages, typing, waitingForConfirm, speaker, name, voice, npc, choice,
  *                          steps, closing} | null.        __DQ.say(script, opts) pushes a conversation.
  *
@@ -47,6 +54,7 @@ import { Debug, reportError } from '../engine/debug.js';
 import { UI } from './window.js';
 import { Text } from './text.js';
 import { Sfx } from '../audio/sfx.js';
+import { STR } from '../data/strings.js';
 
 const DEFAULT_VARS = { HERO: 'Bram' };
 const FALLBACK_TEXT = 'The wind says nothing in particular.\nIt says it nicely, though.';
@@ -166,7 +174,7 @@ function setName(box, name) {
 // the scene
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 export function dialogueScene(baseVars = DEFAULT_VARS) {
-  let box = null, c = null, closing = false, gen = 0, menu = null, choice = null, steps = 0;
+  let box = null, c = null, closing = false, gen = 0, menu = null, choice = null, steps = 0, said = 0;
   let cur = { name: null, voice: 'narrator', who: null };   // the current speaker
   let lastTyping = false, done = false;
 
@@ -189,7 +197,7 @@ export function dialogueScene(baseVars = DEFAULT_VARS) {
     return {
       open: !closing && (d.open || box.state === 'opening'), text: d.text, full: d.full, page: d.page, pages: d.pages, typing: d.typing,
       waitingForConfirm: d.waitingForConfirm, speaker: (c && c.speaker) || null, name: cur.name, voice: cur.voice, npc: (c && c.npc) || null,
-      choice: choice ? { items: choice.items.slice(), index: menu && !menu.destroyed ? menu.index : 0 } : null, steps, closing,
+      choice: choice ? { items: choice.items.slice(), index: menu && !menu.destroyed ? menu.index : 0 } : null, steps, said, closing,
     };
   };
 
@@ -197,11 +205,15 @@ export function dialogueScene(baseVars = DEFAULT_VARS) {
   async function say(markup, g, beforeChoice = false) {
     if (g !== gen || closing) return false;
     steps++;
+    said++;
     setName(box, cur.name);
     Bus.emit('dialogue.say', { who: cur.who, name: cur.name, voice: cur.voice });
     const ok = await box.say(markup, { voice: cur.voice || 'narrator', vars: vars(), wait: !beforeChoice });
     return ok && g === gen && !closing;
   }
+
+  /** The hero is silent: he answers by nodding twice, fast (CANON §1). npc.js hands the cue to player.js. */
+  function heroNods() { Bus.emit('dialogue.cue', { who: 'hero', anim: 'nod' }); }
 
   async function choose(labels, cancelIndex, g) {
     if (g !== gen || closing) return -1;
@@ -267,7 +279,10 @@ export function dialogueScene(baseVars = DEFAULT_VARS) {
           if (!(await run(pick, g, depth + 1))) return false; continue;
         }
         if (s.set && typeof s.set === 'object') { for (const [k, v] of Object.entries(s.set)) flag(k, v); }
-        if (s.emote || s.anim) Bus.emit('dialogue.cue', { who: s.who || cur.who || api.npc, emote: s.emote || null, anim: s.anim || null });
+        if (s.emote || s.anim || s.look !== undefined) {
+          Bus.emit('dialogue.cue', { who: s.who || cur.who || api.npc, emote: s.emote || null, anim: s.anim || null, look: s.look });
+        }
+        if (s.nod === true && !s.choice && !s.yesNo) heroNods();   // a stage beat: %HERO% nods.
         if (s.sfx) { try { Sfx.play(s.sfx); } catch (e) { reportError('dialogue sfx', e); } }
         if (Number.isFinite(+s.wait) && s.wait > 0) { await UI.wait(+s.wait / 1000); if (g !== gen || closing) return false; }
         if (typeof s.do === 'function') { const more = s.do(api); if (more != null && !(await run(more, g, depth + 1))) return false; }
@@ -283,6 +298,8 @@ export function dialogueScene(baseVars = DEFAULT_VARS) {
           if (k < 0) return false;
           const branch = opts[k].then ?? (Array.isArray(s.then) ? s.then[k] : null);
           if (s.flag) flag(s.flag, opts[k].value ?? k);
+          Bus.emit('dialogue.chose', { index: k, label: opts[k].label, of: opts.length });
+          if (opts[k].nod !== false && opts[k].nod !== undefined ? opts[k].nod : s.nod) heroNods();
           if (!(await run(branch, g, depth + 1))) return false;
           continue;
         }
@@ -290,6 +307,8 @@ export function dialogueScene(baseVars = DEFAULT_VARS) {
           const labels = Array.isArray(s.yesNo) ? s.yesNo : ['Yes', 'No'];
           const k = await choose(labels, 1, g);
           if (k < 0) return false;
+          Bus.emit('dialogue.chose', { index: k, label: labels[k], of: 2 });
+          if (k === 0 && s.nod !== false) heroNods();     // he nods twice, fast, to agree
           if (!(await run(k === 0 ? s.yes : s.no, g, depth + 1))) return false;
           continue;
         }
@@ -310,7 +329,7 @@ export function dialogueScene(baseVars = DEFAULT_VARS) {
     opaque: false,
     updateBelow: true,     // the field keeps rendering and its camera stays alive underneath (it holds the player still)
     enter(ctx = {}) {
-      c = ctx; closing = false; done = false; steps = 0; lastTyping = false; sceneObj.alive = true;
+      c = ctx; closing = false; done = false; steps = 0; said = 0; lastTyping = false; sceneObj.alive = true;
       const g = ++gen;
       Debug.provide('dialogue', describe);
       cur = { name: displayName(ctx), voice: ctx.voice || 'narrator', who: ctx.npc || null };
@@ -318,7 +337,15 @@ export function dialogueScene(baseVars = DEFAULT_VARS) {
       setName(box, null);
       const script = ctx.script ?? ctx.pages ?? ctx.text ?? FALLBACK_TEXT;
       Bus.emit('dialogue.start', { speaker: ctx.speaker || null, npc: ctx.npc || null, name: cur.name });
-      run(script, g).then((ok) => { done = true; if (ok) finish(g); }, (e) => { reportError('dialogue run', e); finish(g); });
+      run(script, g).then(async (ok) => {
+        // A CONVERSATION ALWAYS HAS WORDS IN IT. A script whose turn is only a stage direction — an {emote} on its
+        // own inside a {cycle}, a {set} that flipped a flag, an {if} that matched nothing — used to open the window
+        // and shut it again in the same frame, so the third time you spoke to Dimity Rowe you got a silent flicker
+        // and no text at all. If a run said nothing, it says something now.
+        if (ok && !said && !closing) ok = await say(STR['talk.nothing'] || FALLBACK_TEXT, g);
+        done = true;
+        if (ok) finish(g);
+      }, (e) => { reportError('dialogue run', e); finish(g); });
     },
     exit() {
       gen++;

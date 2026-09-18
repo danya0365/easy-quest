@@ -1,1409 +1,496 @@
 {
- "name": "critic-P12 round 1 \u2014 dialogue + NPC life in the real game",
+ "name": "critic P12 dialogue + P11 npc life - round 1 (harsh, real game)",
  "steps": [
+  {
+   "note": "critic P12 dialogue + P11 npc life, round 1 - judged in the REAL game, index.html"
+  },
   {
    "waitFor": "window.__DQ && __DQ.ready",
    "timeout": 60000
   },
   {
-   "note": "=== P12/P11 critic round 1 \u2014 REAL GAME /index.html ==="
+   "wait": 3000
+  },
+  {
+   "shot": "00-first-frame-a-child-sees"
+  },
+  {
+   "eval": "JSON.stringify({scene:__DQ.state().scene,map:(__DQ.state().map||{}).id,npcs:(__DQ.state().npcs||[]).length,fps:__DQ.state().fps})"
+  },
+  {
+   "note": "P11 gap 1 evidence part A: does a standing villager animate at all? 40 samples over 8s"
+  },
+  {
+   "eval": "(async () => { const s=ms=>new Promise(r=>setTimeout(r,ms)); const out={}; for (const id of ['wat','dimity','gudgeon','budge','nib']) out[id]=[]; for (let k=0;k<40;k++){ for (const id of Object.keys(out)) { const m=__DQ.npcModel(id); const p=m.pose||{}; out[id].push([+m.y.toFixed(4), +(p.amp||0).toFixed(3), +(p.phase||0).toFixed(3), p.blinking?1:0, p.clip]); } await s(200); } const sum={}; for (const id of Object.keys(out)) { const A=out[id]; const ys=A.map(a=>a[0]); sum[id]={rootYrange:+(Math.max(...ys)-Math.min(...ys)).toFixed(4), ampMax:Math.max(...A.map(a=>a[1])), distinctPhases:new Set(A.map(a=>a[2])).size, blinkFrames:A.filter(a=>a[3]).length, clip:A[0][4]}; } return JSON.stringify(sum); })()"
+  },
+  {
+   "assert": "false",
+   "msg": "P11 #1 - a standing villager must breathe: pose.amp>0 and pose.phase must advance (measured amp 0, 1 distinct phase, root Y range 0.0000)"
+  },
+  {
+   "note": "P12: every word every meadow NPC says, three talks deep, with the framing measured"
+  },
+  {
+   "eval": "__DQ.talkTo('pell')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-pell"
+  },
+  {
+   "eval": "JSON.stringify({id:'pell',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.talkTo('hen1')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-hen1"
+  },
+  {
+   "eval": "JSON.stringify({id:'hen1',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.talkTo('hen2')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-hen2"
+  },
+  {
+   "eval": "JSON.stringify({id:'hen2',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.talkTo('hen3')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-hen3"
+  },
+  {
+   "eval": "JSON.stringify({id:'hen3',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.talkTo('tansy')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-tansy"
+  },
+  {
+   "eval": "JSON.stringify({id:'tansy',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.talkTo('sausage')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-sausage"
+  },
+  {
+   "eval": "JSON.stringify({id:'sausage',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.talkTo('gudgeon')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-gudgeon"
+  },
+  {
+   "eval": "JSON.stringify({id:'gudgeon',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.talkTo('quiddle')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-quiddle"
+  },
+  {
+   "eval": "JSON.stringify({id:'quiddle',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.talkTo('budge')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-budge"
+  },
+  {
+   "eval": "JSON.stringify({id:'budge',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.talkTo('crumpet')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-crumpet"
+  },
+  {
+   "eval": "JSON.stringify({id:'crumpet',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.talkTo('nib')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-nib"
+  },
+  {
+   "eval": "JSON.stringify({id:'nib',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.talkTo('marigold')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-marigold"
+  },
+  {
+   "eval": "JSON.stringify({id:'marigold',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.talkTo('thurl')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-thurl"
+  },
+  {
+   "eval": "JSON.stringify({id:'thurl',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.talkTo('wat')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-wat"
+  },
+  {
+   "eval": "JSON.stringify({id:'wat',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "__DQ.talkTo('dimity')"
+  },
+  {
+   "wait": 1900
+  },
+  {
+   "shot": "m-dimity"
+  },
+  {
+   "eval": "JSON.stringify({id:'dimity',dialogue:__DQ.state().dialogue&&{name:__DQ.state().dialogue.name,full:__DQ.state().dialogue.full},orbit:(__DQ.state().field||{}).camera.current,talkFraming:(__DQ.state().field||{}).camera.talkFraming,heroFacing:__DQ.state().player.facing,occluders:__DQ.cameraOccluders()})"
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "assert": "false",
+   "msg": "P12 #1 - the camera must swing to frame the speaker: camera.current stayed 4.0 deg in 13 of 15 talks while heroFacing swung 23-326, and talkFraming is 0"
+  },
+  {
+   "note": "P12 gap 2: the third talk to Dimity Rowe opens nothing at all"
+  },
+  {
+   "eval": "__DQ.talkTo('dimity')"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "eval": "JSON.stringify(__DQ.talkTo('dimity'))"
   },
   {
    "wait": 1600
   },
   {
-   "eval": "__DQ.state().map.id + ' | maps=' + JSON.stringify(__DQ.listMaps())"
+   "shot": "dimity-third-talk-no-words"
   },
   {
-   "eval": "JSON.stringify(__DQ.teleport('puddlewick'))"
+   "eval": "JSON.stringify({talkToSaidOk:true, dialogue:__DQ.state().dialogue, scene:__DQ.state().scene})"
   },
   {
-   "wait": 600
+   "assert": "__DQ.state().dialogue !== null",
+   "msg": "P12 #2 - talking to somebody must produce words (Dimity's 3rd talk leaves dialogue null)"
   },
   {
-   "shot": "00-field-open"
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
   },
   {
-   "note": "--- P11 NPC LIFE: sample every 5s, 3 times, with bursts ---"
+   "note": "P11 gap 2: Mrs Thurl and Mr Budge are the same body"
   },
   {
-   "eval": "window.__snap=(t)=>__DQ.npcs().map(n=>n.id+' @'+n.x.toFixed(2)+','+n.z.toFixed(2)+' f'+Math.round(n.facing)+' '+n.mode+' moved'+(n.moved||0).toFixed(1)).join(' // '); __snap(0)"
-  },
-  {
-   "eval": "__DQ.cameraOrbit(0)"
-  },
-  {
-   "burst": {
-    "name": "life-a",
-    "count": 8,
-    "interval": 250
-   }
-  },
-  {
-   "wait": 5000
-  },
-  {
-   "eval": "__snap(1)"
-  },
-  {
-   "burst": {
-    "name": "life-b",
-    "count": 8,
-    "interval": 250
-   }
-  },
-  {
-   "wait": 8000
-  },
-  {
-   "eval": "__snap(2)"
-  },
-  {
-   "burst": {
-    "name": "life-c",
-    "count": 8,
-    "interval": 250
-   }
-  },
-  {
-   "wait": 8000
-  },
-  {
-   "eval": "__snap(3)"
-  },
-  {
-   "shot": "01-life-after-21s"
-  },
-  {
-   "note": "--- does an NPC turn to face the player? facing before vs after walking up ---"
-  },
-  {
-   "eval": "JSON.stringify(__DQ.npcs().filter(n=>n.id==='gudgeon').map(n=>({f:n.facing,mode:n.mode})))"
-  },
-  {
-   "eval": "__DQ.walkTo ? __DQ.walkTo(__DQ.npcs().find(n=>n.id==='gudgeon').x+1.4, __DQ.npcs().find(n=>n.id==='gudgeon').z+1.4) : 'no walkTo'"
+   "eval": "__DQ.npcGo('thurl', -5.0, 4.6, true)"
   },
   {
    "wait": 2500
   },
   {
-   "eval": "JSON.stringify(__DQ.npcs().filter(n=>n.id==='gudgeon').map(n=>({f:n.facing,mode:n.mode})))"
+   "eval": "__DQ.walkTo(-6.4, 6.6)"
   },
   {
-   "shot": "02-stood-next-to-gudgeon"
+   "wait": 2000
   },
   {
-   "note": "--- real input path: press confirm while stood beside him (no debug hook) ---"
-  },
-  {
-   "press": "Enter"
+   "eval": "__DQ.cameraZoom(6.5)"
   },
   {
    "wait": 1200
   },
   {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {open:__DQ.state().dialogue.open,npc:__DQ.state().dialogue.npc,name:__DQ.state().dialogue.name})"
+   "shot": "cast-thurl-and-budge-side-by-side"
   },
   {
-   "shot": "03-real-confirm-talk"
+   "eval": "JSON.stringify(['thurl','budge','pottle','hammond','tansy','dimity','nib'].map(id=>{try{const p=__DQ.npcModel(id).pose;return [id,p.variant,p.label,p.height];}catch(e){return [id,'not on this map'];}}))"
   },
   {
-   "eval": "JSON.stringify(__DQ.npcs().filter(n=>n.id==='gudgeon').map(n=>({f:n.facing,mode:n.mode,talking:n.talking})))"
+   "assert": "false",
+   "msg": "P11 #2 - Budge/Thurl/Hammond/Pottle all report variant innkeeper, label Innkeeper, height 1.467; tansy/nib/dimity/dot/bel/bernard all child/1.062"
   },
   {
-   "press": "Escape",
-   "times": 6,
-   "delay": 300
+   "eval": "__DQ.cameraZoom(10.5)"
   },
   {
-   "wait": 800
+   "note": "P12 #1 second half: a villager can never fade as a camera occluder"
   },
   {
-   "note": "=== TALK 1/10: pell (first conversation) ==="
+   "eval": "__DQ.walkTo(-6.2, 3.6)"
   },
   {
-   "eval": "JSON.stringify(__DQ.talkTo('pell'))"
+   "wait": 1500
   },
   {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
+   "eval": "__DQ.cameraAuto(false)"
   },
   {
-   "wait": 250
+   "eval": "__DQ.cameraZoom(4.5)"
   },
   {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
+   "eval": "__DQ.cameraOrbit(250)"
   },
   {
-   "shot": "pell-a1"
+   "wait": 1600
   },
   {
-   "press": "Enter"
+   "shot": "occluder-a-villager-fills-the-lens"
   },
   {
-   "wait": 350
+   "eval": "JSON.stringify(__DQ.cameraOccluders(true))"
   },
   {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
+   "assert": "false",
+   "msg": "P12 #1 - Mr Budge covers ~20% of the frame and cameraOccluders reports tested:[] and nearest:[stone, wood, butterflies, robins] - no person is ever a fade candidate"
   },
   {
-   "wait": 200
+   "eval": "__DQ.cameraAuto(true)"
   },
   {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
+   "note": "PUDDLEWICK - the real village, teleported to as a child would walk in"
   },
   {
-   "shot": "pell-a2"
+   "eval": "__DQ.teleport('puddlewick')"
   },
   {
-   "press": "Enter"
+   "wait": 7000
   },
   {
-   "wait": 350
+   "eval": "JSON.stringify({map:(__DQ.state().map||{}).id, t:__DQ.state().timeOfDay, cast:(__DQ.state().npcs||[]).map(n=>[n.id,n.name,n.look,n.behaviour,n.moved])})"
   },
   {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
+   "note": "P11 gap 1 evidence part B: 36 seconds of village life with nobody spoken to"
   },
   {
-   "wait": 200
+   "eval": "(async () => { const s=ms=>new Promise(r=>setTimeout(r,ms)); const T=[]; for(let k=0;k<24;k++){ const r={}; for(const n of __DQ.state().npcs||[]) r[n.id]=[+n.x.toFixed(3),+n.z.toFixed(3),n.behaviour]; T.push(r); await s(1500);} const out={}; for(const id of Object.keys(T[0])){ let d=0; for(let k=1;k<T.length;k++) d+=Math.hypot(T[k][id][0]-T[k-1][id][0], T[k][id][1]-T[k-1][id][1]); out[id]=[+d.toFixed(2), T[0][id][2]];} return JSON.stringify(out); })()"
   },
   {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
+   "assert": "false",
+   "msg": "P11 #1 - all 12 humans in Puddlewick walked 0.00 units in 36s; only Candlewick and the animals moved"
   },
   {
-   "shot": "pell-a3"
+   "eval": "JSON.stringify(__DQ.npcLook())"
   },
   {
-   "press": "Enter"
+   "eval": "__DQ.cameraZoom(12)"
   },
   {
-   "wait": 350
+   "wait": 1500
   },
   {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
+   "shot": "puddlewick-nobody-is-moving"
   },
   {
-   "wait": 200
+   "note": "every villager in Puddlewick, and what they say"
   },
   {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
+   "eval": "(async () => { const s=ms=>new Promise(r=>setTimeout(r,ms)); const out=[]; for (const n of __DQ.state().npcs||[]) { __DQ.talkTo(n.id); await s(600); const d=__DQ.state().dialogue; out.push([n.id, n.name, d ? (d.name + ' || ' + String(d.full||'').replace(/\\n/g,' / ')) : 'NO DIALOGUE AT ALL']); let k=0; while(__DQ.state().dialogue && k++<24){ __DQ.press('confirm'); await s(200);} await s(200);} return JSON.stringify(out); })()"
   },
   {
-   "shot": "pell-a4"
+   "eval": "__DQ.cameraZoom(9)"
   },
   {
-   "press": "Enter",
-   "times": 4,
-   "delay": 300
+   "eval": "__DQ.talkTo('pottle')"
   },
   {
-   "wait": 500
+   "wait": 2000
   },
   {
-   "note": "=== TALK 2/10: tansy (first conversation) ==="
+   "shot": "v-pottle-is-a-bald-man"
   },
   {
-   "eval": "JSON.stringify(__DQ.talkTo('tansy'))"
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
   },
   {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
+   "eval": "__DQ.talkTo('dot')"
   },
   {
-   "wait": 250
+   "wait": 2000
   },
   {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
+   "shot": "v-dot-and-bel-playing-tag-standing-still"
   },
   {
-   "shot": "tansy-a1"
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
   },
   {
-   "press": "Enter"
+   "eval": "__DQ.talkTo('barty')"
   },
   {
-   "wait": 350
+   "wait": 2000
   },
   {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
+   "shot": "v-barty"
   },
   {
-   "wait": 200
+   "eval": "(async()=>{for(let k=0;k<20&&__DQ.state().dialogue;k++){__DQ.press('confirm');await new Promise(r=>setTimeout(r,220));}return __DQ.state().dialogue===null;})()"
   },
   {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
+   "eval": "JSON.stringify({fps:__DQ.state().fps, errors:__DQ.errors.slice(0,8)})"
   },
   {
-   "shot": "tansy-a2"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "tansy-a3"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "tansy-a4"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 300
-  },
-  {
-   "wait": 500
-  },
-  {
-   "note": "=== TALK 3/10: gudgeon (first conversation) ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('gudgeon'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "gudgeon-a1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "gudgeon-a2"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "gudgeon-a3"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "gudgeon-a4"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 300
-  },
-  {
-   "wait": 500
-  },
-  {
-   "note": "=== TALK 4/10: quiddle (first conversation) ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('quiddle'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "quiddle-a1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "quiddle-a2"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "quiddle-a3"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "quiddle-a4"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 300
-  },
-  {
-   "wait": 500
-  },
-  {
-   "note": "=== TALK 5/10: budge (first conversation) ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('budge'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "budge-a1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "budge-a2"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "budge-a3"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "budge-a4"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 300
-  },
-  {
-   "wait": 500
-  },
-  {
-   "note": "=== TALK 6/10: sausage (first conversation) ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('sausage'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "sausage-a1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "sausage-a2"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "sausage-a3"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "sausage-a4"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 300
-  },
-  {
-   "wait": 500
-  },
-  {
-   "note": "=== TALK 7/10: crumpet (first conversation) ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('crumpet'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "crumpet-a1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "crumpet-a2"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "crumpet-a3"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "crumpet-a4"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 300
-  },
-  {
-   "wait": 500
-  },
-  {
-   "note": "=== TALK 8/10: hen1 (first conversation) ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('hen1'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "hen1-a1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "hen1-a2"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "hen1-a3"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "hen1-a4"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 300
-  },
-  {
-   "wait": 500
-  },
-  {
-   "note": "=== TALK 9/10: hen2 (first conversation) ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('hen2'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "hen2-a1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "hen2-a2"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "hen2-a3"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "hen2-a4"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 300
-  },
-  {
-   "wait": 500
-  },
-  {
-   "note": "=== TALK 10/10: hen3 (first conversation) ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('hen3'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "hen3-a1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "hen3-a2"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "hen3-a3"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 200
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {page:__DQ.state().dialogue.page,pages:__DQ.state().dialogue.pages,text:__DQ.state().dialogue.text,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "hen3-a4"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 300
-  },
-  {
-   "wait": 500
-  },
-  {
-   "note": "=== REPEAT talk #2: pell ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('pell'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,text:__DQ.state().dialogue.text,pages:__DQ.state().dialogue.pages,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "pell-r2-p1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {text:__DQ.state().dialogue.text})"
-  },
-  {
-   "shot": "pell-r2-p2"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 250
-  },
-  {
-   "wait": 400
-  },
-  {
-   "note": "=== REPEAT talk #3: pell ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('pell'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,text:__DQ.state().dialogue.text,pages:__DQ.state().dialogue.pages,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "pell-r3-p1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {text:__DQ.state().dialogue.text})"
-  },
-  {
-   "shot": "pell-r3-p2"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 250
-  },
-  {
-   "wait": 400
-  },
-  {
-   "note": "=== REPEAT talk #2: tansy ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('tansy'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,text:__DQ.state().dialogue.text,pages:__DQ.state().dialogue.pages,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "tansy-r2-p1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {text:__DQ.state().dialogue.text})"
-  },
-  {
-   "shot": "tansy-r2-p2"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 250
-  },
-  {
-   "wait": 400
-  },
-  {
-   "note": "=== REPEAT talk #3: tansy ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('tansy'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,text:__DQ.state().dialogue.text,pages:__DQ.state().dialogue.pages,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "tansy-r3-p1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {text:__DQ.state().dialogue.text})"
-  },
-  {
-   "shot": "tansy-r3-p2"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 250
-  },
-  {
-   "wait": 400
-  },
-  {
-   "note": "=== REPEAT talk #2: gudgeon ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('gudgeon'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,text:__DQ.state().dialogue.text,pages:__DQ.state().dialogue.pages,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "gudgeon-r2-p1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {text:__DQ.state().dialogue.text})"
-  },
-  {
-   "shot": "gudgeon-r2-p2"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 250
-  },
-  {
-   "wait": 400
-  },
-  {
-   "note": "=== REPEAT talk #3: gudgeon ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('gudgeon'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,text:__DQ.state().dialogue.text,pages:__DQ.state().dialogue.pages,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "gudgeon-r3-p1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {text:__DQ.state().dialogue.text})"
-  },
-  {
-   "shot": "gudgeon-r3-p2"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 250
-  },
-  {
-   "wait": 400
-  },
-  {
-   "note": "=== REPEAT talk #2: quiddle ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('quiddle'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,text:__DQ.state().dialogue.text,pages:__DQ.state().dialogue.pages,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "quiddle-r2-p1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {text:__DQ.state().dialogue.text})"
-  },
-  {
-   "shot": "quiddle-r2-p2"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 250
-  },
-  {
-   "wait": 400
-  },
-  {
-   "note": "=== REPEAT talk #3: quiddle ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('quiddle'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,text:__DQ.state().dialogue.text,pages:__DQ.state().dialogue.pages,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "quiddle-r3-p1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {text:__DQ.state().dialogue.text})"
-  },
-  {
-   "shot": "quiddle-r3-p2"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 250
-  },
-  {
-   "wait": 400
-  },
-  {
-   "note": "=== REPEAT talk #2: budge ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('budge'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,text:__DQ.state().dialogue.text,pages:__DQ.state().dialogue.pages,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "budge-r2-p1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {text:__DQ.state().dialogue.text})"
-  },
-  {
-   "shot": "budge-r2-p2"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 250
-  },
-  {
-   "wait": 400
-  },
-  {
-   "note": "=== REPEAT talk #3: budge ==="
-  },
-  {
-   "eval": "JSON.stringify(__DQ.talkTo('budge'))"
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "wait": 250
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {name:__DQ.state().dialogue.name,text:__DQ.state().dialogue.text,pages:__DQ.state().dialogue.pages,choice:__DQ.state().dialogue.choice})"
-  },
-  {
-   "shot": "budge-r3-p1"
-  },
-  {
-   "press": "Enter"
-  },
-  {
-   "wait": 350
-  },
-  {
-   "waitFor": "!__DQ.state().dialogue || !__DQ.state().dialogue.typing",
-   "timeout": 10000
-  },
-  {
-   "eval": "JSON.stringify(__DQ.state().dialogue && {text:__DQ.state().dialogue.text})"
-  },
-  {
-   "shot": "budge-r3-p2"
-  },
-  {
-   "press": "Enter",
-   "times": 4,
-   "delay": 250
-  },
-  {
-   "wait": 400
-  },
-  {
-   "note": "--- talk counts and final NPC state ---"
-  },
-  {
-   "eval": "JSON.stringify(__DQ.npcs().map(n=>[n.id,n.talks,n.moved,n.mode]))"
-  },
-  {
-   "eval": "JSON.stringify(__DQ.errors||[]).slice(0,2000)"
-  },
-  {
-   "assert": "(__DQ.errors||[]).length===0",
-   "msg": "no runtime errors"
-  },
-  {
-   "assert": "__DQ.listMaps().indexOf('puddlewick')>=0",
-   "msg": "Puddlewick is reachable in the real game"
+   "assert": "__DQ.errors.length===0",
+   "msg": "no runtime errors anywhere in the visit"
   }
  ]
 }

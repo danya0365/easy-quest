@@ -1,0 +1,13 @@
+{
+  "id": "P31",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Safe zones swallow a finished step counter: 182 s of walking, one fight",
+      "detail": "Measured in /index.html, no cheats. Held the arrow keys and walked Puddlewick Vale continuously for 182.4 s: exactly ONE encounter fired, at 31.4 s. At the end of that walk state().encounter read paces 73.4, threshold 57, stepsToNext 0, grace 0, inSafeZone true, battlesOnMap 2. So the counter had been finished and pegged at zero for over a minute and the fight was being suppressed indefinitely because the player was inside one of the meadow's four safeZones - which cover the ground around the spawn point, exactly where a child wanders first. A separate clean run measured 25.1 s of unbroken walking before the very first fight (grace 80 paces on arrival plus a 22-62 pace threshold = 102-142 paces before anything ever happens). DQV PS2 gives you a fight every 15-40 s on the overworld and a safe patch is a town doorstep, not a field. BUILD: shrink safe zones to door aprons and shop/inn thresholds only, so the walkable meadow is never covered; when stepsToNext hits 0 inside a safe zone, arm the encounter and fire it on the first pace outside instead of re-rolling or idling; cut the arrival grace from 80 paces to about 25 so the first fight of a session finds a child inside ten seconds. Expose stepsToNext<=0 && inSafeZone in state() as a named 'held' reason so it can be verified by measurement next round.",
+      "state": "open",
+      "opened": "2026-09-18T00:30:38.340Z",
+      "events": []
+    }
+  ]
+}

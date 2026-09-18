@@ -13,12 +13,18 @@
  * Out here, a mile from the village: Mrs Pell sweeping her step with her husband singing to the kettle indoors, her
  * three hens, Tansy chasing a cat who is not running away, Mr Gudgeon and the boot he has caught four times, and
  * Fennick Quiddle selling Mr Budge a pan he has already bought, with Mr Budge's dog deciding to come with you.
+ *
+ * And on the near band of the Long Lane — inside twelve paces of where the game starts, because a child's first
+ * ninety seconds must not be an empty valley — Nib Tolley sitting on the bank with a newt in a jar, Marigold the
+ * hen who has left home, Mrs Thurl walking the men's tea out to the field and back, Nib's father Wat on his
+ * fence counting sheep he is not worried about, and Dimity Rowe selling flowers out of Mrs Pell's garden.
+ * Fifteen souls, none of them further than twelve units from the spawn's camera, the nearest five at 4-8.
  */
 export default {
   npcs: [
     // ── the cottage: Mrs Pell, her hens, and the kettle singing indoors ─────────────────────────────────────
     {
-      id: 'pell', name: 'Mrs Pell', char: 'villager', variant: 'granny', voice: 'high:0.92',
+      id: 'pell', name: 'Mrs Pell', char: 'villager', variant: 'granny', voice: 'high:0.92', wear: 'sky', scale: 0.97,
       x: -9.7, z: 0.95, facing: 100, idle: 'sweep', radius: 1.0, when: '!ch2.start',
       schedule: [
         { from: 6, to: 11, at: [-9.7, 0.95], idle: 'sweep', facing: 100 },
@@ -28,15 +34,15 @@ export default {
       home: [-10.4, 0.8],
       script: [
         { if: ['hour>=11', 'hour<15'], then: [
-          'Nine shirts on the line, and the\nwind has gone and sat down.',
+          'Nine shirts on the line.{p}The wind has gone and sat down.',
         ], else: [
           { first: [
-            'Mind the wet step.\nOr don\'t, and I\'ll sweep you off\nit with everything else.',
+            'Mind the wet step.\nOr don\'t, and I will sweep you\noff it with everything else.',
             { if: '!ch1.left_home', say: 'Off to the village, is it?\nUp the lane and over the bridge.\nYou can smell the bread from here.' },
           ], again: [
             { cycle: [
               'My husband is in there singing\nto the kettle.{p}He says it boils quicker for it.\nIt does not.',
-              'You have grown. Stand still and\nlet me be wrong about it.',
+              'You have grown. Stand still\nand let me be wrong about it.',
               'I have swept this step since I\nwas your size.{p}It has never once thanked me.',
             ] },
           ] },
@@ -48,11 +54,11 @@ export default {
     { id: 'hen2', name: 'a hen', animal: 'hen', voice: 'monster:1.35', x: -7.7, z: -2.2, radius: 1.5, idle: 'hen', when: '!ch2.start',
       script: 'Buk buk.\n(This is her grass. All of it.)' },
     { id: 'hen3', name: 'a hen', animal: 'hen', tint: 'speckled', voice: 'monster:1.15', x: -8.9, z: -0.5, radius: 1.4, idle: 'hen', when: '!ch2.start',
-      script: 'Buk.\n(This one is thinking about a\nworm. Only the one worm.)' },
+      script: 'Buk.\n(This one is thinking about\na worm. Only the one worm.)' },
 
     // ── the lane: a child, and a cat who is going somewhere fast ───────────────────────────────────────────
     {
-      id: 'tansy', name: 'Tansy', char: 'villager', variant: 'child', voice: 'high:1.42',
+      id: 'tansy', name: 'Tansy', char: 'villager', variant: 'child', voice: 'high:1.42', wear: 'teal', scale: 0.98,
       x: 4.2, z: 14.2, facing: 240, idle: 'chase', with: 'sausage', radius: 5.5, when: '!ch2.start',
       schedule: [{ from: 7, to: 19, at: [4.2, 14.2], idle: 'chase' }],
       home: [-2.0, -15.5],                                  // up the lane towards the village, at bedtime
@@ -79,7 +85,7 @@ export default {
 
     // ── the pond: Mr Gudgeon and the same boot, four times ─────────────────────────────────────────────────
     {
-      id: 'gudgeon', name: 'Mr Gudgeon', char: 'villager', variant: 'farmer', voice: 'low:0.92',
+      id: 'gudgeon', name: 'Mr Gudgeon', char: 'villager', variant: 'farmer', voice: 'low:0.92', wear: 'slate', scale: 0.98,
       x: -20.4, z: -7.4, facing: 270, idle: 'fish', water: -0.4, radius: 0.6,
       script: [
         { if: 'ch2.start', then: [
@@ -101,7 +107,7 @@ export default {
 
     // ── the spur lane: a pan, a man who will not buy it, and a man who already has ─────────────────────────
     {
-      id: 'quiddle', name: 'Fennick Quiddle', char: 'villager', variant: 'merchant', voice: 'low:1.3',
+      id: 'quiddle', name: 'Fennick Quiddle', char: 'villager', variant: 'merchant', voice: 'low:1.3', scale: 1.03,
       x: -5.2, z: 2.3, facing: 250, idle: 'chat', with: 'budge', radius: 0.8, when: '!ch2.start',
       schedule: [
         { from: 6, to: 13, at: [-5.2, 2.3], idle: 'chat' },
@@ -128,7 +134,7 @@ export default {
       ],
     },
     {
-      id: 'budge', name: 'Mr Budge', char: 'villager', variant: 'innkeeper', voice: 'low:1.02',
+      id: 'budge', name: 'Mr Budge', char: 'villager', variant: 'innkeeper', voice: 'low:1.02', wear: 'moss', scale: 1.02,
       x: -6.7, z: 1.8, facing: 70, idle: 'chat', with: 'quiddle', radius: 0.8, when: '!ch2.start',
       schedule: [
         { from: 6, to: 14, at: [-6.7, 1.8], idle: 'chat' },
@@ -156,6 +162,126 @@ export default {
         '*A tail, going.*\n(You are the most interesting\nthing that has happened today.)',
       ] }],
     },
+
+    // ── the Long Lane, within twenty paces of the front door ────────────────────────────────────────────────
+    // A child boots the game here and gets ninety seconds to fall in love with the place. If the first frame is
+    // an empty valley, nobody falls in love with anything — so the near band of the lane has people in it, doing
+    // things, close enough to read a face: a boy on the bank, a hen who has left home, the washing going up to
+    // the village, a drover leaning on his fence, and a girl selling flowers she did not entirely buy.
+    {
+      id: 'nib', name: 'Nib Tolley', char: 'villager', variant: 'child', voice: 'high:1.38', wear: 'clay', scale: 1.02,
+      x: -2.6, z: 15.4, facing: 74, idle: 'sit', radius: 0.5, when: '!ch2.start',
+      schedule: [{ from: 7, to: 19, at: [-2.6, 15.4], idle: 'sit', facing: 74 }],
+      home: [-1.2, -14.0],
+      script: [
+        { first: [
+          'I have got a newt.',
+          'His name is Sir Newt.\nHe does not know that yet.',
+        ], again: [
+          { cycle: [
+            'Dad says a newt is not a pet.\nDad says that about everything\nthat lives in a jar.',
+            'I am going to be a knight.\nI have done the sitting-still bit.\nThat is the hard bit.',
+            'There is a big one in the pond.\nA big NEWT, not a fish.{p}Fish are only wet birds.',
+            { emote: 'love', say: 'You can hold him.{p}Two hands. He is mostly tail\nand he knows it.' },
+          ] },
+        ] },
+      ],
+    },
+    { id: 'marigold', name: 'Marigold', animal: 'hen', tint: 'brown', voice: 'monster:1.28',
+      x: 3.2, z: 14.6, facing: 200, radius: 2.4, idle: 'hen', when: '!ch2.start',
+      script: [{ cycle: [
+        'Buk.\n(She has left home. She will be\nback by supper, and not sorry.)',
+        'Buk buk buk.\n(She knows the way to the village.\nShe is going the other way.)',
+        '*Marigold looks at your boots.*\n(She has decided they are not\nfood. It took her a while.)',
+      ] }] },
+    {
+      id: 'thurl', name: 'Mrs Thurl', char: 'villager', variant: 'baker', voice: 'high:0.94', wear: 'sky', scale: 0.99,
+      x: 5.4, z: 12.4, facing: 200, idle: 'wander', radius: 3.4,      // east of the lane: never in front of the signpost
+      schedule: [
+        { from: 6, to: 12, at: [5.4, 12.4], idle: 'wander' },
+        { from: 12, to: 19, at: [-6.0, 12.6], idle: 'stand', facing: 120 },   // pegging out on the far bank
+      ],
+      home: [-1.4, -14.6],
+      script: [
+        { act: {
+          1: [
+            { first: [
+              'Mind the lane, love. I have got\nthe jug and I am not stopping.',
+            ], again: [
+              { cycle: [
+                'Out at six with the jug, back\nat eight with the jug.{p}That jug has seen more of this\nvalley than I have.',
+                'I wash for this whole village.{p}I know every one of them\nby their collars.',
+                'Tell your father the big shirt\nis done.{p}Tell him it was not easy.',
+                'That boy on the bank has a newt\nin a jar.{p}I have said nothing. I am\nsaying nothing beautifully.',
+              ] },
+            ] },
+          ],
+          2: [
+            'You are the big shirt.{p}Well. You were.',
+            'Go on up.{p}Barty has kept the fire in.\nHe always did.',
+          ],
+          3: [
+            'Two of them now.{p}Both of them muddy.',
+            'Send them down the lane to me.{p}I have thirty years of collars\nand nothing left to be told.',
+          ],
+        } },
+      ],
+    },
+    {
+      id: 'wat', name: 'Wat Tolley', char: 'villager', variant: 'farmer', voice: 'low:0.88', wear: 'moss', scale: 1.03,
+      x: 5.6, z: 8.0, facing: 290, idle: 'lean', radius: 0.6, look: [1.6, 9.0],
+      schedule: [
+        { from: 6, to: 16, at: [5.6, 8.0], idle: 'lean', facing: 290 },
+        { from: 16, to: 20, at: [8.2, 10.4], idle: 'stand', facing: 340 },
+      ],
+      home: [-1.8, -13.4],
+      script: [
+        { act: {
+          1: [
+            { first: [
+              'Sheep in the lane again.\nMine.',
+              'Every last one of them\nis somebody else\'s idea.',
+            ], again: [
+              { cycle: [
+                'You cannot hurry a sheep.{p}You can walk behind one\nand think about your life.',
+                'That is my boy on the bank\nwith the jar.{p}He will be a knight, he says.\nI have said worse.',
+                'Forty sheep this morning.\nThirty-nine now.{p}I am not worried. I am counting\nagain, but I am not worried.',
+                'Your father carried a ewe up\nthis lane once.{p}She bit him. He said it was\nfair enough.',
+              ] },
+            ] },
+          ],
+          2: [
+            'Ten years of sheep, lad.{p}Same lane. Same sheep, near\nenough. You got taller.',
+          ],
+          3: [
+            'Your girl counted my sheep\nfor me.{p}She got forty-one. I have only\ngot thirty-nine sheep.',
+          ],
+        } },
+      ],
+    },
+    {
+      id: 'dimity', name: 'Dimity Rowe', char: 'villager', variant: 'child', voice: 'high:1.12', wear: 'plum',
+      x: -0.9, z: 7.4, facing: 20, idle: 'stand', radius: 0.8, when: '!ch2.start',
+      look: [2.9, 10.8],                                  // watching the signpost for somebody with a penny
+      schedule: [
+        { from: 7, to: 14, at: [-0.9, 7.4], idle: 'stand', facing: 20 },
+        { from: 14, to: 19, at: [-4.0, 7.6], idle: 'wander', radius: 2.6 },
+      ],
+      home: [-2.2, -14.2],
+      script: [
+        { first: [
+          'Flowers, a penny a bunch.',
+          'They are free.{p}The penny is what makes them\nspecial.',
+        ], again: [
+          { cycle: [
+            'I picked these out of Mrs Pell\'s\ngarden.{p}She says I may. She has not\nsaid it out loud.',
+            'This one is a dandelion.\nI call it a small sun.{p}It sells much better.',
+            { emote: 'question', say: 'Who are they for?{p}Say a name and I will pick\nthe right colour.' },
+            'Nobody has bought one yet.{p}I have made four pennies\nin compliments.',
+          ] },
+        ] },
+      ],
+    },
   ],
 
   lines: {
@@ -165,7 +291,7 @@ export default {
       '{gold}Saltmarrow{/gold} — along the Beck,\na morning\'s walk. A whole day,\nif you stop for every frog.',
       'Somebody has carved a very small\ndragon into the post.\nIt is smiling.',
     ],
-    'cottage-door': 'Somebody inside is singing to\na kettle. The kettle is winning.',
+    'cottage-door': 'Somebody inside is singing\nto a kettle.\nThe kettle is winning.',
     'rain-barrel': 'Barrel of rainwater. And one boot.\nJust the one.',
     sheep: 'Baa.\n(She has had a very long morning.)',
     duck: 'Quack.\n(This is his pond. You may look.)',
@@ -179,9 +305,9 @@ export default {
     search: [
       '%HERO% searches the grass.{wait:350}{n}A beetle searches him back.',
       '%HERO% looks under a dandelion.{n}Nothing, unless you are counting\nthe dandelion.',
-      '%HERO% finds a very good stick.{wait:300}{n}He has one. He leaves it\nfor somebody else.',
+      '%HERO% finds a very good stick.{wait:300}{n}He has one already. He leaves\nit for somebody else.',
       '%HERO% checks the hedge.{n}The hedge is full of hedge.',
-      'A feather, a snail shell and\nhalf an acorn.{wait:250}{n}He puts the snail back.',
+      'A feather, a snail shell,\nand half an acorn.{wait:250}{n}He puts the snail back.',
     ],
   },
 };

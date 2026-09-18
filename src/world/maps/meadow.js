@@ -26,7 +26,7 @@ import { PAL, C3, lerp, smooth } from '../../art/palette.js';
 import { Tex, mulberry, vnoise } from '../../art/tex.js';
 import { makeAOMask } from '../../art/toon.js';
 import { createKit, buildSky, ringHill, buildGround, paintMasks, distanceGrid, curvePoints, bridgeFrame, prep,
-  ringPlacements, speciesBounds, SPECIES } from '../scenery.js';
+  ringPlacements, speciesBounds, SPECIES, LANDMARK_SETS } from '../scenery.js';
 
 /**
  * The woodland rim: a hedgerow on the boundary, then THREE staggered rows of mixed tree clumps with gaps you can
@@ -34,13 +34,30 @@ import { createKit, buildSky, ringHill, buildGround, paintMasks, distanceGrid, c
  * edge is BOUND = 33.5.) `clump` breaks each row into clumps, and every row's noise is offset so they stagger.
  */
 const WOOD_ROWS = [
-  { kind: 'tree', e: 35.3, spacing: 2.3, jitter: 0.45, size: [0.95, 1.35], mouth: 4.0 },
-  { kind: 'tree', e: 38.8, spacing: 3.5, jitter: 1.2, size: [0.95, 1.4], mouth: 3.4, clump: { freq: 15, threshold: 0.42, seed: 91 } },
-  { kind: 'tree', e: 43.4, spacing: 4.2, jitter: 1.6, size: [1.0, 1.5], mouth: 2.6, clump: { freq: 11, threshold: 0.47, seed: 57 } },
-  { kind: 'tree', e: 48.6, spacing: 5.6, jitter: 2.2, size: [1.05, 1.6], mouth: 1.6, clump: { freq: 8, threshold: 0.60, seed: 23 } },
-  { kind: 'card', e: 57.5, spacing: 6.0, jitter: 3.0, size: [6.4, 8.2], haze: 0.14, clump: { freq: 7, threshold: 0.50, seed: 131 } },
-  { kind: 'card', e: 69.0, spacing: 7.5, jitter: 4.5, size: [7.2, 9.4], haze: 0.26, clump: { freq: 6, threshold: 0.56, seed: 167 } },
-  { kind: 'card', e: 84.0, spacing: 9.5, jitter: 6.0, size: [8.0, 10.6], haze: 0.38, clump: { freq: 5, threshold: 0.60, seed: 199 } },
+  { kind: 'tree', e: 36.0, spacing: 2.3, jitter: 0.45, size: [0.72, 1.5], mouth: 4.0, clump: { freq: 17, threshold: 0.28, seed: 5 } },
+  { kind: 'tree', e: 38.8, spacing: 3.5, jitter: 1.2, size: [0.95, 1.4], mouth: 3.4, view: 0.115, clump: { freq: 15, threshold: 0.42, seed: 91 } },
+  { kind: 'tree', e: 43.4, spacing: 4.2, jitter: 1.6, size: [1.0, 1.5], mouth: 2.6, view: 0.135, clump: { freq: 11, threshold: 0.47, seed: 57 } },
+  { kind: 'tree', e: 48.6, spacing: 5.6, jitter: 2.2, size: [1.05, 1.6], mouth: 1.6, view: 0.155, clump: { freq: 8, threshold: 0.60, seed: 23 } },
+  { kind: 'card', e: 57.5, spacing: 6.0, jitter: 3.0, size: [6.4, 8.2], haze: 0.14, view: 0.20, clump: { freq: 7, threshold: 0.50, seed: 131 } },
+  { kind: 'card', e: 69.0, spacing: 7.5, jitter: 4.5, size: [7.2, 9.4], haze: 0.26, view: 0.22, clump: { freq: 6, threshold: 0.56, seed: 167 } },
+  { kind: 'card', e: 84.0, spacing: 9.5, jitter: 6.0, size: [8.0, 10.6], haze: 0.38, view: 0.24, clump: { freq: 5, threshold: 0.60, seed: 199 } },
+];
+
+/**
+ * THE VIEW CORRIDORS. A vale ringed by four unbroken rows of trees and three more of painted hills has no
+ * horizon: the next town has to be hung in the sky above the treeline to be seen at all, which is exactly why it
+ * floated. Every bearing a signpost points down — the Puddlewick lane, the Beck lane east to Saltmarrow, the
+ * Long Lane south to Coddleston, and a narrower window west over the Whispering Wood — now gets a WEDGE cut
+ * clean through rows 1-6, so from the lane's end a child sees the hills roll across the distance with the place
+ * standing ON them. `az` is the world bearing atan2(z, x); `half` the half-angle of the wedge in radians.
+ * They match LANDMARK_SETS.vale exactly, so the pass in the hills, the gap in the wood and the painted place
+ * are all on the same line.
+ */
+const VIEW_CORRIDORS = [
+  { id: 'puddlewick', az: -1.166, half: 1.00 },
+  { id: 'saltmarrow', az: -0.129, half: 1.00 },
+  { id: 'coddleston', az: 1.326, half: 1.00 },
+  { id: 'whispering_wood', az: 2.950, half: 0.62 },
 ];
 
 /**
@@ -48,12 +65,21 @@ const WOOD_ROWS = [
  * The boundary row alternates TWO hedgerow shapes and two bush shapes, so a run of it is never the same blob
  * twice over — the old single-shape hedge read as a chain of identical spheres round the whole vale.
  */
+/** Is (x, z) inside one of the view corridors? `k` scales every wedge (rows widen theirs as they go out). */
+function inCorridor(x, z, k = 1) {
+  const a = Math.atan2(z, x);
+  for (const c of VIEW_CORRIDORS) { let d = (a - c.az) % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; if (Math.abs(d) < c.half * k) return c; }
+  return null;
+}
+
 function woodPick(x, z, rnd, ri) {
   const g = vnoise(x * 0.042 + 3.1, z * 0.042 + 7.7, 43);
   let kind = g < 0.33 ? 'birch' : g > 0.79 ? 'pine' : g > 0.62 ? 'round' : 'oak';
   const k = rnd();
   if (ri === 0) {                                                             // the boundary: hedgerow + the odd tree
     const h = vnoise(x * 0.09 + 17.3, z * 0.09 + 4.1, 67);
+    // inside a view corridor the boundary stays LOW — hedge and bush only, never a tree that would close the gap
+    if (inCorridor(x, z, 0.72)) return k < 0.55 ? (h < 0.5 ? 'hedge' : 'hedgeb') : (h < 0.45 ? 'bushb' : 'bush');
     if (k < 0.72) return h < 0.5 ? 'hedge' : 'hedgeb';
     if (k < 0.9) return h < 0.45 ? 'bushb' : 'bush';
     return kind;
@@ -215,6 +241,42 @@ function layout() {
     veg: [{ x: 16.6, z: 21.4, w: 3.0, d: 2.0, rot: -0.28 }],
     laundry: null,
   };
+  // ── THE FOUR PLACES ─────────────────────────────────────────────────────────────────────────────────────
+  // The cottage yard proved the kit could dress a corner; the rest of the vale was sixty metres of one green
+  // with about five tufts in it. Each corner away from the cottage now has ONE thing worth walking to, and each
+  // brings a hue the meadow does not otherwise own: bark and toadstool red at the fallen oak, cut stone at the
+  // drystone fold, ochre stubble at the hayfield, bare rock at the boulder field.
+  L.places = [
+    { id: 'fallen-oak', x: -20.2, z: -22.6, r: 5.2,
+      stumps: [{ x: -20.5, z: -22.8, rot: 0.6, s: 1.15, seed: 3 }, { x: -17.2, z: -25.4, rot: 2.1, s: 0.72, seed: 8 }],
+      logs: [{ x: -19.0, z: -21.0, rot: 0.75, len: 3.6, rad: 0.32, seed: 7 },
+        { x: -22.6, z: -24.6, rot: 2.35, len: 2.4, rad: 0.24, seed: 12 }],
+      brambles: [{ x: -22.9, z: -21.2, s: 1.15, seed: 11 }, { x: -17.9, z: -23.2, s: 0.9, seed: 14 }],
+      shrooms: [{ x: -21.6, z: -20.2, n: 6, seed: 21, spread: 0.8 }, { x: -18.4, z: -26.2, n: 5, seed: 23, spread: 0.7 }],
+      rocks: [{ x: -23.6, z: -19.4, s: 0.62, seed: 41 }] },
+    { id: 'drystone-fold', x: -17.8, z: 23.6, r: 6.4,
+      walls: [[[-22.0, 20.5], [-19.2, 22.9]], [[-16.4, 25.1], [-13.0, 26.4]]],
+      gates: [{ x: -17.85, z: 24.05, rot: -0.72, w: 2.9 }],
+      rocks: [{ x: -21.4, z: 25.6, s: 1.45, seed: 51 }, { x: -20.0, z: 27.2, s: 0.85, seed: 52 },
+        { x: -14.8, z: 22.4, s: 1.1, seed: 53 }, { x: -22.8, z: 23.4, s: 0.7, seed: 54 }],
+      brambles: [{ x: -20.2, z: 21.2, s: 0.95, seed: 16 }],
+      shrooms: [{ x: -19.4, z: 26.4, n: 4, seed: 25, spread: 0.6 }] },
+    { id: 'cut-hayfield', x: 12.6, z: 27.0, r: 6.2,
+      stooks: [{ x: 11.4, z: 25.4, rot: 0.3, s: 1.05, seed: 5 }, { x: 13.7, z: 27.1, rot: 1.1, s: 0.95, seed: 6 },
+        { x: 10.3, z: 28.7, rot: 2.2, s: 1.0, seed: 7 }, { x: 14.3, z: 24.1, rot: 0.8, s: 0.9, seed: 9 },
+        { x: 16.0, z: 26.6, rot: 2.9, s: 1.08, seed: 13 }],
+      carts: [{ x: 15.6, z: 29.6, rot: -0.55 }],
+      walls: [], gates: [], rocks: [], brambles: [], shrooms: [{ x: 9.2, z: 26.0, n: 4, seed: 27, spread: 0.6 }] },
+    { id: 'boulder-field', x: 25.0, z: -10.4, r: 5.6,
+      rocks: [{ x: 25.2, z: -10.6, s: 1.7, seed: 61 }, { x: 23.4, z: -12.4, s: 1.05, seed: 62 },
+        { x: 26.8, z: -8.4, s: 0.9, seed: 63 }, { x: 22.6, z: -8.6, s: 1.25, seed: 64 },
+        { x: 27.2, z: -12.8, s: 0.66, seed: 65 }],
+      stumps: [{ x: 21.6, z: -11.6, rot: 1.2, s: 0.9, seed: 15 }],
+      brambles: [{ x: 26.4, z: -13.6, s: 1.05, seed: 18 }, { x: 24.0, z: -7.2, s: 0.8, seed: 19 }],
+      logs: [], walls: [], gates: [], stooks: [], carts: [],
+      shrooms: [{ x: 22.4, z: -12.8, n: 4, seed: 29, spread: 0.5 }] },
+  ].map(p => Object.assign({ stumps: [], logs: [], brambles: [], shrooms: [], rocks: [], walls: [], gates: [], stooks: [], carts: [] }, p));
+
   L.keepOut = [{ x: L.well.x, z: L.well.z, r: 2.2 }, { x: L.scarecrow.x, z: L.scarecrow.z, r: 2.2 },
     { x: L.veg.x, z: L.veg.z, r: 3.0 }, { x: L.signLane.x, z: L.signLane.z, r: 3.0 },
     ...L.hay.map(h => ({ x: h.x, z: h.z, r: 1.8 })), ...L.orchard.crates.map(c => ({ x: c.x, z: c.z, r: 1.4 })),
@@ -227,7 +289,9 @@ function layout() {
     ...L.outfield.lanterns.map(l => ({ x: l.x, z: l.z, r: 1.4 })),
     ...L.outfield.scarecrows.map(s => ({ x: s.x, z: s.z, r: 2.2 })),
     ...L.outfield.veg.map(v => ({ x: v.x, z: v.z, r: 2.8 })),
-    ...L.outfield.stiles.map(s => ({ x: s.x, z: s.z, r: 2.0 }))];
+    ...L.outfield.stiles.map(s => ({ x: s.x, z: s.z, r: 2.0 })),
+    // the four places keep the seeded tree fill out of themselves, so a stook never grows an oak through it
+    ...L.places.map(p => ({ x: p.x, z: p.z, r: p.r }))];
 
   // ── trees: the hand-placed ones that compose the view, then a seeded MIXED fill ──
   //    Species (src/art/props.js SPECIES): oak · birch (white stems by the Beck) · pine (the north-west shoulder) ·
@@ -304,6 +368,8 @@ function layout() {
     rows: WOOD_ROWS.map((row, ri) => Object.assign({}, row, { pick: (x, z, rnd) => woodPick(x, z, rnd, ri) })),
     clear: (x, z, ri, row) => {
       if (Math.hypot((x - VILLAGE_CLEARING.x) / VILLAGE_CLEARING.rx, (z - VILLAGE_CLEARING.z) / VILLAGE_CLEARING.rz) < 1) return true;
+      // the view corridors: a wedge cut clean through every row past the boundary, on each signposted bearing
+      if ((row.view ?? 0) > 0 && inCorridor(x, z, row.view)) return true;
       const mouth = row.mouth ?? 0;
       return mouth > 0 && L.laneNear(x, z) < mouth;
     },
@@ -338,6 +404,24 @@ function layout() {
   for (const b of L.outfield.benches) C.push({ type: 'box', x: b.x, z: b.z, w: 1.8, d: 0.55, rot: b.rot, tag: 'bench' });
   for (const l of L.outfield.lanterns) C.push({ type: 'circle', x: l.x, z: l.z, r: 0.16, tag: 'lantern' });
   for (const s of L.outfield.scarecrows) C.push({ type: 'circle', x: s.x, z: s.z, r: 0.3, tag: 'scarecrow' });
+  // the four places: everything solid in them stops the hero, so he can never stand buried inside a bramble,
+  // a stump, a drystone wall or a stook the way he could stand inside the hedgerow
+  for (const p of L.places) {
+    for (const s of p.stumps) C.push({ type: 'circle', x: s.x, z: s.z, r: 0.42 * (s.s ?? 1), tag: 'stump' });
+    for (const g of p.logs) {
+      const c = Math.cos(g.rot), si = Math.sin(g.rot), h = (g.len ?? 3) / 2;
+      C.push({ type: 'capsule', pts: [[g.x - si * h, g.z - c * h], [g.x + si * h, g.z + c * h]], r: (g.rad ?? 0.3) * 1.1, tag: 'log' });
+    }
+    for (const b of p.brambles) C.push({ type: 'circle', x: b.x, z: b.z, r: 0.66 * (b.s ?? 1), tag: 'bramble' });
+    for (const k of p.rocks) C.push({ type: 'circle', x: k.x, z: k.z, r: 0.58 * k.s, tag: 'rock' });
+    for (const run of p.walls) C.push({ type: 'capsule', pts: run, r: 0.3, tag: 'wall' });
+    for (const g of p.gates) {
+      const c = Math.cos(g.rot), si = Math.sin(g.rot), h = (g.w ?? 2.6) / 2;
+      for (const e of [-1, 1]) C.push({ type: 'circle', x: g.x + c * e * h, z: g.z - si * e * h, r: 0.2, tag: 'gatepost' });
+    }
+    for (const s of p.stooks) C.push({ type: 'circle', x: s.x, z: s.z, r: 0.44 * (s.s ?? 1), tag: 'stook' });
+    for (const k of p.carts) C.push({ type: 'box', x: k.x, z: k.z, w: 1.9, d: 2.4, rot: k.rot, tag: 'cart' });
+  }
   L.colliders = C;
   // what the follow camera must not hide behind: canopies (trees scale their blob layout) and the cottage roofs
   L.occluders = [
@@ -359,23 +443,31 @@ function layout() {
   // ── interactables ──
   const door = (() => { const o = L.cottage, c = Math.cos(o.rot), s = Math.sin(o.rot), lx = o.doorX, lz = o.D / 2 + 0.2; return { x: o.x + lx * c + lz * s, z: o.z - lx * s + lz * c }; })();
   L.props = [
-    { type: 'sign', name: 'signpost', x: L.sign.x, z: L.sign.z, line: 'signpost', reach: 2.2, height: 2.55 },
+    // the signposts. A child who stops *beside* a post on the lane — not nose to it — must still be able to read
+    // it, so the reach is the width of the lane (3.6) rather than arm's length (2.2).
+    { type: 'sign', name: 'signpost', x: L.sign.x, z: L.sign.z, line: 'signpost', reach: 3.6, height: 2.55 },
+    { type: 'sign', name: 'the Long Lane signpost', x: L.signLane.x, z: L.signLane.z, line: 'lane-south', reach: 3.6, height: 1.9 },
     { type: 'door', name: 'cottage door', x: door.x, z: door.z, line: 'cottage-door', reach: 2.2, height: 2.7 },
     { type: 'barrel', name: 'rain barrel', x: L.barrels[0].x, z: L.barrels[0].z, line: 'rain-barrel', reach: 1.6, height: 1.55 },
     ...L.sheep.map((s, i) => ({ type: 'sheep', name: 'sheep ' + (i + 1), x: s.x, z: s.z, line: 'sheep', reach: 4.6, height: 1.75, animal: i })),
     ...L.ducks.map((d, i) => ({ type: 'duck', name: 'duck ' + (i + 1), x: PONDS[d.pond].x, z: PONDS[d.pond].z, line: 'duck', reach: 3.4, height: 1.0, animal: i })),
   ];
 
-  // ── exits: the lanes run on to places that are not built yet; each ends with somebody (or some sheep) saying so
-  //    (the words are lines 'lane-sheep' / 'lane-east' / 'lane-south' in meadow.npcs.js) ──
-  const exitOn = (pts, line, name) => {
+  // ── exits: the village lane now really arrives in Puddlewick (`to: 'puddlewick'`, landing on the village's own
+  //    gate lane at its spawn). The other two lanes still run on to places that are not built yet, and each ends
+  //    with somebody saying so (lines 'lane-east' / 'lane-south' in meadow.npcs.js). ──
+  const exitOn = (pts, line, name, extra = {}) => {
     let k = pts.length - 1;
     while (k > 0 && superR(pts[k][0], pts[k][1]) > BOUND - 1.6) k--;
     const kb = Math.max(0, k - 8);
     const back = pts[k] && pts[kb] ? { x: pts[kb][0], z: pts[kb][1] } : null;
-    return { x: pts[k][0], z: pts[k][1], w: 4.2, h: 4.2, to: null, line, name, back, kind: 'edge' };
+    return Object.assign({ x: pts[k][0], z: pts[k][1], w: 4.2, h: 4.2, to: null, line, name, back, kind: 'edge' }, extra);
   };
-  L.exits = [exitOn(L.lane, 'lane-sheep', 'the lane into Puddlewick'), exitOn(L.east, 'lane-east', 'the lane to Saltmarrow'),
+  L.exits = [
+    // Puddlewick's own lane-out lands at (14.5, -25.6) here, and we land on its gate lane at (14.8, 23.4): each
+    // landing spot is ~3 units clear of the other map's trigger box, so walking out never walks straight back in.
+    exitOn(L.lane, 'lane-sheep', 'the lane into Puddlewick', { to: 'puddlewick', tx: 14.8, tz: 23.4 }),
+    exitOn(L.east, 'lane-east', 'the lane to Saltmarrow'),
     exitOn([...L.lane].reverse(), 'lane-south', 'the Long Lane')];
 
   LAYOUT = L;
@@ -461,7 +553,9 @@ const meadow = {
   origin: [-HALF, -HALF],
   res: 4,
   theme: 'grass',
-  music: 'village',
+  // CANON §9: `village` is Puddlewick's own theme and nowhere else's. The vale is outside the village, so it plays
+  // the travelling theme — and walking up the lane into Puddlewick is then an ARRIVAL you can hear.
+  music: 'overworld',
   ambience: 'amb_meadow',
   hours: 9,
   light: { preset: 'day' },
@@ -501,14 +595,120 @@ const meadow = {
     const L = layout();
     const ao = makeAOMask({ span: MASK_SPAN, size: 1024, center: [0, 0] });
     const kit = createKit({ scene, heightAt, ao, low });
-    const sky = buildSky(scene, rig);
-    ringHill(scene, 'mid', 118, 150, 205, 5, 21, 71, PAL.hill.midLow, PAL.hill.mid, 0.2);
-    ringHill(scene, 'far', 240, 300, 380, 12, 78, 81, PAL.hill.farLow, PAL.hill.far, 0.25, { fogged: false, peaky: 1.8 });
+    // ── THE SKYLINE ────────────────────────────────────────────────────────────────────────────────────────
+    // The painted places stand on their own bearings (LANDMARK_SETS.vale) but the vale asks for three changes.
+    // (1) A narrower card. The stock card is a 5.5:1 panorama; the PLACE inside it is painted at its own aspect,
+    //     so trimming the country either side keeps the town exactly as big and stops the card spreading 40
+    //     degrees of hard-edged slab across the horizon once it is hung big enough to read.
+    // (2) More haze, to sit with hill-far rather than in front of it.
+    // (3) Never closer than 216 units: hill-mid's outer lip is at 205, and a card inside it cannot be grounded
+    //     on it. The Whispering Wood used to stand at exactly 205.
+    const VALE_MARKS = LANDMARK_SETS.vale.map(L => Object.assign({}, L, {
+      width: Math.round(L.height * 3.6), dist: Math.max(216, L.dist), haze: Math.min(0.44, L.haze + 0.13),
+    }));
+    const sky = buildSky(scene, rig, { landmarks: VALE_MARKS });
+    // The hill rings sag into a PASS on every landmark bearing so the lane can run out of the vale. At full
+    // strength the pass took the crest from y 13.8 down to y 2.4 — a hole in the skyline with nothing in it, and
+    // the reason every painted place ended up hung in clear blue air. A pass is a dip, not a hole: `gates` at
+    // 0.45 leaves a real crest for the town to stand on and still opens the distance over the lane.
+    const hillMid = ringHill(scene, 'mid', 118, 150, 205, 5, 21, 71, PAL.hill.midLow, PAL.hill.mid, 0.2, { gates: 0.45 });
+    ringHill(scene, 'far', 240, 300, 380, 12, 78, 81, PAL.hill.farLow, PAL.hill.far, 0.25, { fogged: false, peaky: 1.8, gates: 0.3 });
+
+    // ── GROUNDING THE SKYLINE ──────────────────────────────────────────────────────────────────────────────
+    // The generic fit in sky.js hangs each card so its FOOT clears whatever stands on the horizon — measured as
+    // an angle from the eye, capped by the top of the frame. In this vale that arithmetic collapses: the rim
+    // wood reads as an 11-degree wall, the frame only has 7 degrees of sky in it, so every card was clamped to
+    // the same footDeg (4.74) and ended up with its bottom edge at world y 17-19, three to five units above the
+    // tallest hill it could have stood on. A village hung in clear blue air.
+    //
+    // This grounds them instead. For each place: put it back on its signposted bearing (the fit's nudge walks it
+    // up to 13 degrees off the pass in the hills and the gap in the wood), measure the REAL hill crest along
+    // that bearing straight off hill-mid's vertices, and re-hang the card so its own painted horizon line
+    // (spec `crest`) sits SINK_DEG under that crest. The hill then cuts across the card's lower edge, which is
+    // what makes a painted place stand on the land instead of over it.
+    const R2D = 180 / Math.PI, D2R = Math.PI / 180;
+    const TOWN_DEG = 2.15;        // how tall the place itself stands above its painted horizon, in degrees
+    const SINK_DEG = 0.62;        // how far that painted horizon is pushed UNDER the real hill crest
+    const CAP_DEG = 6.1;          // the highest spire stays well under the top of the frame
+    const MAX_W = 124;            // world units: a flat card wider than this starts to read as a wall
+    const CANON_AZ = new Map(LANDMARK_SETS.vale.map(m => [m.id, m.az]));
+    /** The highest elevation (radians, from `eyeY` at the vale centre) that a hill ring reaches on this bearing. */
+    const crestRad = (mesh, az, half, minR, eyeY) => {
+      const p = mesh && mesh.geometry && mesh.geometry.attributes.position;
+      if (!p) return 0;
+      let best = -9;
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i), y = p.getY(i), z = p.getZ(i), rr = Math.hypot(x, z);
+        if (rr < minR) continue;
+        if (Math.abs(angDiff(Math.atan2(z, x), az)) > half) continue;
+        const e = Math.atan2(y - eyeY, rr);
+        if (e > best) best = e;
+      }
+      return best > -9 ? best : 0;
+    };
+    const lmState = [];
+    let lastFit;
+    function groundLandmarks(camera) {
+      const M = sky && sky.landmarks;
+      if (!M || !M.list || !M.list.length) return;
+      const eyeY = camera ? Math.max(1.6, Math.min(9, camera.position.y)) : 3.05;
+      lmState.length = 0;
+      for (const m of M.list) {
+        const az = CANON_AZ.has(m.id) ? CANON_AZ.get(m.id) : m.az;
+        m.az = az;
+        const D = m.dist;
+        const crest = crestRad(hillMid, az, 0.21, 140, eyeY);
+        const cf = m.crest ?? 0.24, pt = m.paintTop ?? 0.25;
+        const townFrac = Math.max(0.14, 1 - pt - cf);
+        let hW = Math.max(6, (D * Math.tan(TOWN_DEG * D2R)) / townFrac);
+        hW = Math.min(hW, MAX_W / Math.max(1e-3, m.aspect));
+        const capY = eyeY + D * Math.tan(CAP_DEG * D2R);
+        const Ycrest = eyeY + D * Math.tan(crest);
+        const target = Ycrest - D * Math.tan(SINK_DEG * D2R);        // where the card's painted horizon must land
+        let footY = target - cf * hW;
+        if (footY + (1 - pt) * hW > capY) {                          // too tall for the sky band: shrink, keep the foot
+          hW = Math.max(6, (capY - target) / Math.max(0.05, 1 - pt - cf));
+          footY = target - cf * hW;
+        }
+        const wW = hW * m.aspect;
+        try {
+          const old = m.mesh.geometry;
+          m.mesh.geometry = new THREE.PlaneGeometry(wW, hW);
+          if (old && old.dispose) old.dispose();
+        } catch (e) { void e; }
+        const cy = footY + hW / 2;
+        m.mesh.position.set(Math.cos(az) * D, cy, Math.sin(az) * D);
+        m.mesh.lookAt(0, cy, 0);
+        m.mesh.updateMatrixWorld();
+        m.size = [+wW.toFixed(1), +hW.toFixed(1)];
+        m.y0 = +footY.toFixed(2);
+        m.footDeg = +(Math.atan2(footY, D) * R2D).toFixed(2);
+        m.topDeg = +(Math.atan2(footY + (1 - pt) * hW, D) * R2D).toFixed(2);
+        m.skylineDeg = +(crest * R2D).toFixed(2);
+        m.orbit = Math.round(((Math.atan2(-Math.cos(az), -Math.sin(az)) * R2D + 360) % 360) * 10) / 10;
+        lmState.push({ id: m.id, bearing: +(az * R2D).toFixed(1), dist: D, eyeY: +eyeY.toFixed(2),
+          hillCrestDeg: +(crest * R2D).toFixed(2), hillCrestY: +Ycrest.toFixed(2),
+          paintedHorizonY: +(footY + cf * hW).toFixed(2), footY: +footY.toFixed(2),
+          topY: +(footY + (1 - pt) * hW).toFixed(2), size: m.size,
+          // the one number that says GROUNDED: how far the card's painted horizon sits below the hill crest
+          sunkBelowCrest: +(Ycrest - (footY + cf * hW)).toFixed(2) });
+        try { if (m.mesh.material.uniforms && m.mesh.material.uniforms.uHaze) m.mesh.material.uniforms.uHaze.value = Math.min(0.46, (m.mesh.material.uniforms.uHaze.value || 0.3) + 0.0); } catch (e) { void e; }
+      }
+    }
+
+    // the contact pools lean away from THIS map's sun, so the shade under every prop agrees with the cast shadows
+    kit.setSun(rig.dir);
 
     // ── buildings ──
+    // The building recipes (P05) paint their AO into the mask but register no contact pool, so a cottage met the
+    // grass with a hard bright seam exactly the way the crates did. The vale gives its own houses one: a pool a
+    // third wider than the footprint, which is the band of shade a thatched wall throws at its own feet.
     const cot = kit.cottage(L.cottage);
     const chimneys = [cot.chimneyTop];
     for (const o of L.village) { const b = kit.cottage(o); chimneys.push(b.chimneyTop); }
+    for (const o of [L.cottage, ...L.village]) {
+      kit.contact(o.x, o.z, 0, 0.95, { rx: o.W * 0.5, rz: o.D * 0.5, rot: o.rot, spread: 1.32, lift: 0.06 });
+    }
     // ── the garden: picket fence, flower bed, bench, barrels, crate, woodpile, washing line ──
     kit.picket(L.picket);
     for (const b of L.beds) kit.flowerBed(b.x, b.z, b.w, b.d, b.rot, 17);
@@ -548,6 +748,19 @@ const meadow = {
     for (const l of OF.lanterns) kit.lantern(l.x, l.z, l.rot, { h: l.h ?? 2.0 });
     for (const s of OF.scarecrows) kit.scarecrow(s.x, s.z, s.rot);
     for (const v of OF.veg) kit.vegPatch(v.x, v.z, v.w, v.d, v.rot, 33);
+    // ── THE FOUR PLACES: a fallen oak in the north wood, a drystone fold on the west rise, a cut hayfield at
+    //    the south lane mouth, a boulder field over the water meadow. Each one brings a hue the green does not.
+    for (const p of L.places) {
+      for (const s of p.stumps) kit.stump(s.x, s.z, s.rot, { s: s.s ?? 1, seed: s.seed ?? 3 });
+      for (const g of p.logs) kit.fallenLog(g.x, g.z, g.rot, { len: g.len ?? 3.2, rad: g.rad ?? 0.3, seed: g.seed ?? 7 });
+      for (const run of p.walls) kit.drystoneWall(run, { seed: 17 + run.length });
+      for (const g of p.gates) kit.fieldGate(g.x, g.z, g.rot, { w: g.w ?? 2.6 });
+      for (const k of p.rocks) kit.rock(k.x, k.z, k.s, k.seed);
+      for (const b of p.brambles) kit.brambles(b.x, b.z, { s: b.s ?? 1, seed: b.seed ?? 11 });
+      for (const s of p.stooks) kit.stook(s.x, s.z, s.rot, { s: s.s ?? 1, seed: s.seed ?? 5 });
+      for (const k of p.carts) kit.handcart(k.x, k.z, k.rot);
+      for (const m of p.shrooms) kit.mushrooms(m.x, m.z, m.n ?? 4, m.seed ?? 9, m.spread ?? 0.6);
+    }
     // ── the signposts: the fork by the lane, and the one that points down the Long Lane ──
     const atlas = kit.useSignAtlas(kit.signAtlas(['Puddlewick', 'Saltmarrow', 'The Long Lane']));
     kit.signpost(atlas, L.sign.x, L.sign.z, [
@@ -613,7 +826,9 @@ const meadow = {
 
     // ── the sky's small stories: birds over the vale, and Highfeather, faint, for anyone who looks up ──
     kit.birds(4, { centre: [4, -2], height: 11, radius: 16, seed: 91 });
-    kit.skyCastle({ azimuth: -1.12, elevation: 0.12, distance: 720, size: 112, opacity: 0.86, tintFrom: sky.clouds.material });
+    // Highfeather, up among the clouds where a castle in the sky belongs. At elevation 0.12 it stood a couple of
+    // degrees over the horizon and read as a solid white tower parked on the far hills — one more thing floating.
+    kit.skyCastle({ azimuth: -1.12, elevation: 0.205, distance: 720, size: 112, opacity: 0.72, tintFrom: sky.clouds.material });
 
     // ── life: smoke, butterflies, sheep, ducks ──
     kit.smoke(chimneys.filter(Boolean));
@@ -658,6 +873,9 @@ const meadow = {
         const cam = c && c.camera;
         if (cam) sky.sky.position.copy(cam.position);
         sky.clouds.rotation.y = t * 0.0035;
+        // the skyline fit in sky.js runs itself a few frames after the map builds, and a critic may re-run it:
+        // every time it does, put the painted places back down on the hills (see GROUNDING THE SKYLINE above)
+        if (sky.landmarks && sky.landmarks.fitted !== lastFit) { lastFit = sky.landmarks.fitted; groundLandmarks(cam); }
         kit.update(t, dt, cam, c && c.player);
         // sheep: graze, look up, amble somewhere nicer, graze again
         for (const s of S) {
@@ -700,7 +918,15 @@ const meadow = {
         ducks.commit();
         void tmp;
       },
-      state() { return { buildMs, counts: Object.assign({}, kit.counts), grove: kit.groveState(), bridge: { x: +L.bridge.cx.toFixed(2), z: +L.bridge.cz.toFixed(2) }, sign: L.sign, see: Object.assign({}, kit.seeState) }; },
+      state() {
+        return { buildMs, counts: Object.assign({}, kit.counts), grove: kit.groveState(),
+          bridge: { x: +L.bridge.cx.toFixed(2), z: +L.bridge.cz.toFixed(2) }, sign: L.sign,
+          see: Object.assign({}, kit.seeState),
+          // every painted place on the skyline, with the number that says it is standing on the land:
+          // sunkBelowCrest > 0 means the ring-hill crest cuts across the card's own painted horizon
+          landmarks: lmState.map(o => Object.assign({}, o)),
+          places: L.places.map(p => ({ id: p.id, x: p.x, z: p.z })) };
+      },
       dispose() {},
     };
   },

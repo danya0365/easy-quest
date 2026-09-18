@@ -18,6 +18,12 @@
 //     drifting pollen motes, pond ripples, lily pads, reeds
 // Controls (critics drive these): __DQ.view(name) · __DQ.views() · __DQ.walk(x, z) · __DQ.orbit(on, degPerSec)
 //                                __DQ.wind(n) · __DQ.outline(bool) · __DQ.budget() · __DQ.state().demo
+// GROUNDING  __DQ.contacts(false)  hides every contact pool — the A/B for "is any of this planted?"
+//            __DQ.pools()          how far a pool reaches past its prop, how it leans, how it stacks
+// SEE-THROUGH __DQ.underTree(i)    stand the hero behind tree i with the lens on the near side of it
+//            __DQ.behind(d, h, deg)  a gameplay-height shot behind the stand-in
+//            __DQ.see()            what is ghosted right now, and proof the old dither is switched off
+//            __DQ.see('off')       solid trees again (A/B) · __DQ.see({alpha: 0.6}) to tune the ghost
 import * as THREE from 'three';
 import { App } from '/src/engine/app.js';
 import { Scenes } from '/src/engine/states.js';
@@ -184,7 +190,8 @@ Scenes.register('demo', () => {
     kit.reeds(POND.x + 2.6, POND.z - 4.2, 12, 22, 1.3, shore);
     kit.lilyPads(POND.x - 1.2, POND.z + 0.6, WATER_Y, 7, 31, 2.4);
 
-    kit.flush();
+    const flushed = kit.flush() || [];
+    DEMO.contactMesh = flushed.find(m => m && m.name === 'contactShadows') || null;
     kit.water({ ponds: [{ x: POND.x, z: POND.z, r: POND.r + 2.2, sx: POND.sx, sz: POND.sz }], y: WATER_Y, shoreDepth: 0.42 });
 
     // ── grass, flowers, and the life ──
@@ -232,6 +239,7 @@ Scenes.register('demo', () => {
     opaque: true,
     enter() {
       offResize = App.onResize(() => { camera.aspect = App.aspect(); camera.updateProjectionMatrix(); });
+      Toon.see.clear();
       try { build(); } catch (e) { reportError('P04 demo build', e); }
       setView('wide');
       // hand the controls to __DQ (see the expose calls at the foot of this file)
@@ -240,6 +248,17 @@ Scenes.register('demo', () => {
       DEMO.walk = (x, z) => { focus.x = +x || 0; focus.z = +z || 0; focus.y = heightAt(focus.x, focus.z); return { x: focus.x, z: focus.z, y: +focus.y.toFixed(2) }; };
       DEMO.orbit = (on, rate) => { cam.rate = on ? (rate || 8) * Math.PI / 180 : 0; return { orbiting: !!cam.rate, degPerSec: (cam.rate * 180 / Math.PI) }; };
       DEMO.focus = focus;
+      DEMO.kit = kit;
+      // put the camera low and close BEHIND the stand-in, looking along the lens-to-hero line: the shot where a
+      // tree really does cover him, which is the only shot that proves the see-through
+      DEMO.behind = (dist = 5.2, height = 1.7, deg = null) => {
+        const a = deg == null ? cam.orbit : deg * Math.PI / 180;
+        cam.tgt.set(focus.x, heightAt(focus.x, focus.z) + 1.0, focus.z);
+        cam.pos.set(cam.tgt.x + Math.sin(a) * dist, cam.tgt.y + height, cam.tgt.z + Math.cos(a) * dist);
+        cam.r = dist; cam.h = height; cam.orbit = a;
+        camera.position.copy(cam.pos); camera.lookAt(cam.tgt);
+        return { dist, height, deg: +(a * 180 / Math.PI).toFixed(1), focus: { x: +focus.x.toFixed(2), z: +focus.z.toFixed(2) } };
+      };
     },
     exit() { if (offResize) offResize(); },
     update() {},
@@ -258,8 +277,11 @@ Scenes.register('demo', () => {
         if (rig) rig.follow(new THREE.Vector3(focus.x, focus.y, focus.z));
         if (sky && sky.sky) sky.sky.position.copy(camera.position);
         if (sky && sky.clouds) sky.clouds.rotation.y = t * 0.0035;
+        // NOTE: Toon.see.setHero() is deliberately NOT called. That was the old screen-door window — anything
+        // nearer the lens than the hero, inside an ellipse round him, lost 78% of its pixels to a Bayer dither.
+        // kit.update's see-through now ghosts the trees that really cover him, cleanly (see props.js "THE
+        // SEE-THROUGH"). Toon.see.clear() keeps the dither uniforms parked at zero for every see-patched material.
         if (kit) kit.update(t, 1 / 60, camera, focus);
-        Toon.see.setHero({ x: focus.x, y: focus.y, z: focus.z }, camera, App.renderer);
       } catch (e) { reportError('P04 demo frame', e); }
       App.render(scene, camera);
       void alpha;
@@ -271,8 +293,44 @@ Scenes.register('demo', () => {
 Scenes.push('demo');
 
 // ── critic controls ─────────────────────────────────────────────────────────────────────────────────────────
-Debug.provide('demo', () => ({ piece: 'P04', counts: DEMO.counts, grove: DEMO.grove, props: DEMO.props.length, species: DEMO.species, buildMs: DEMO.buildMs }));
+Debug.provide('demo', () => ({ piece: 'P04', counts: DEMO.counts, grove: DEMO.kit ? DEMO.kit.groveState() : DEMO.grove,
+  props: DEMO.props.length, species: DEMO.species, buildMs: DEMO.buildMs,
+  see: DEMO.kit ? Object.assign({}, DEMO.kit.seeState) : null,
+  pools: DEMO.kit ? DEMO.kit.pools() : null,
+  dither: Toon.see.state() }));
 Debug.expose('views', () => Object.keys(DEMO.views || {}));
+/** Stand behind the stand-in hero at gameplay distance — the only framing the see-through can be judged in. */
+Debug.expose('behind', (dist, height, deg) => (DEMO.behind ? DEMO.behind(dist, height, deg) : null));
+/** What the see-through is doing right now, and how to tune it: __DQ.see() / __DQ.see({alpha: 0.5}) / __DQ.see('off'). */
+Debug.expose('see', (o) => {
+  if (!DEMO.kit) return null;
+  if (typeof o === 'string') DEMO.kit.seeMode(o);
+  else if (o && typeof o === 'object') DEMO.kit.seeTune(o);
+  return Object.assign({}, DEMO.kit.seeState, { tuning: DEMO.kit.seeTune({}), dither: Toon.see.state() });
+});
+/**
+ * Put the stand-in on the far side of a tree and the lens on this side of it, so that tree really is between the
+ * two: the one framing in which the see-through can be judged. __DQ.underTree(i) picks the i-th tall candidate.
+ */
+Debug.expose('underTree', (i = 0, gap = 3.4, dist = 5.0) => {
+  if (!DEMO.kit || !DEMO.behind) return null;
+  const F = DEMO.kit.FADE.filter(f => f.trunk > 0);
+  if (!F.length) return null;
+  const f = F[Math.min(F.length - 1, Math.max(0, i | 0))];
+  // stand the hero `gap` south of the trunk and the lens `dist` beyond the trunk on the same line, so the canopy
+  // is squarely between them — nudged sideways so the TRUNK does not simply stand in front of him
+  DEMO.walk(f.x + 0.95, f.z - gap);
+  const r = DEMO.behind(dist + gap, 1.35, 0);
+  return { tree: { x: +f.x.toFixed(2), z: +f.z.toFixed(2), R: +f.R.toFixed(2), kind: f.kind }, candidates: F.length, cam: r };
+});
+/** Contact pools: __DQ.pools() / __DQ.pools({spread: 1}) — spread 1 is the old footprint-sized pool, for A/B. */
+Debug.expose('pools', (o) => (DEMO.kit ? DEMO.kit.pools(o || {}) : null));
+/** Hide every contact pool (the A/B for "is anything planted?"). */
+Debug.expose('contacts', (on = true) => {
+  if (!DEMO.contactMesh) return null;
+  DEMO.contactMesh.visible = !!on;
+  return { instances: DEMO.contactMesh.count, visible: !!on };
+});
 Debug.expose('where', () => (DEMO.focus ? { x: +DEMO.focus.x.toFixed(2), z: +DEMO.focus.z.toFixed(2) } : null));
 Debug.expose('view', (name) => (DEMO.setView ? DEMO.setView(name) : null));
 Debug.expose('walk', (x, z) => (DEMO.walk ? DEMO.walk(x, z) : null));

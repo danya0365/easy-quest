@@ -1,0 +1,20 @@
+{ "name": "critic-P05 demo — the kit, and gap 3 (church in the stream)", "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 40000},
+  {"wait": 2000},
+  {"eval": "JSON.stringify(Object.keys(__DQ))"},
+  {"eval": "__DQ.show('church')"},
+  {"eval": "__DQ.zoom(20)"}, {"eval": "__DQ.pitch(16)"}, {"eval": "__DQ.orbit(0)"},
+  {"wait": 2000},
+  {"eval": "JSON.stringify(__DQ.hero ? __DQ.hero() : 'n/a')"},
+  {"shot": "d01-church"},
+  {"eval": "JSON.stringify((()=>{const c=document.querySelector('canvas');const g=document.createElement('canvas');g.width=c.width;g.height=c.height;const x=g.getContext('2d');x.drawImage(c,0,0);const d=x.getImageData(0,0,g.width,g.height).data;let mag=0,n=0,hits=[];for(let i=0;i<d.length;i+=4){const r=d[i],gg=d[i+1],b=d[i+2];n++;if(r>150&&b>150&&gg<110&&Math.min(r,b)-gg>60){mag++;if(hits.length<5)hits.push([(i/4)%g.width,Math.floor((i/4)/g.width),r,gg,b]);}}return{px:n,magenta:mag,pct:+(100*mag/n).toFixed(4),hits};})())"},
+  {"eval": "__DQ.orbit(150)"}, {"wait": 1600}, {"shot": "d02-church-rear"},
+  {"eval": "__DQ.orbit(70)"}, {"eval": "__DQ.zoom(13)"}, {"eval": "__DQ.pitch(10)"}, {"wait": 1600}, {"shot": "d03-church-gable-close"},
+  {"eval": "JSON.stringify((()=>{const c=document.querySelector('canvas');const g=document.createElement('canvas');g.width=c.width;g.height=c.height;const x=g.getContext('2d');x.drawImage(c,0,0);const d=x.getImageData(0,0,g.width,g.height).data;let mag=0,n=0;for(let i=0;i<d.length;i+=4){const r=d[i],gg=d[i+1],b=d[i+2];n++;if(r>150&&b>150&&gg<110&&Math.min(r,b)-gg>60)mag++;}return{px:n,magenta:mag,pct:+(100*mag/n).toFixed(4)};})())"},
+  {"eval": "__DQ.zoom(34)"}, {"eval": "__DQ.pitch(28)"}, {"eval": "__DQ.orbit(6)"}, {"eval": "__DQ.show('inn')"}, {"wait": 2000}, {"shot": "d04-the-whole-kit"},
+  {"eval": "JSON.stringify((()=>{const c=document.querySelector('canvas');const g=document.createElement('canvas');g.width=c.width;g.height=c.height;const x=g.getContext('2d');x.drawImage(c,0,0);const d=x.getImageData(0,0,g.width,g.height).data;let mag=0,n=0;for(let i=0;i<d.length;i+=4){const r=d[i],gg=d[i+1],b=d[i+2];n++;if(r>150&&b>150&&gg<110&&Math.min(r,b)-gg>60)mag++;}return{px:n,magenta:mag,pct:+(100*mag/n).toFixed(4)};})())"},
+  {"eval": "JSON.stringify(__DQ.counts ? __DQ.counts() : 'n/a')"},
+  {"eval": "JSON.stringify(__DQ.state()).slice(0,900)"},
+  {"eval": "JSON.stringify(__DQ.errors)"},
+  {"assert": "__DQ.errors.length === 0", "msg": "demo has no runtime errors"}
+]}

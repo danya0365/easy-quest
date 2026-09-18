@@ -5,8 +5,28 @@
       "n": 1,
       "title": "Ground reads as assets on a cloth",
       "detail": "Terrain needs the mask-driven ground shader per ART-DIRECTION section 10: painterly tonal variation, crisp path edges, no visible tiling, props grounded into it.",
-      "state": "open",
+      "state": "still-open",
       "opened": "2026-09-17T22:30:08.013Z",
+      "events": [
+        {
+          "at": "2026-09-17T23:10:43.891Z",
+          "by": "builder",
+          "note": "The water was what read as an asset on a cloth: the sheet ended on a bright pale rim lying over the grass. kit.water now lays the sheet with a 1.9 m skirt and fades it by depth (alpha = smoothstep(-0.015, 0.085, depth)), so the shoreline is the carved bed's and the mesh edge is never seen; foam narrowed from 0.10 m at 0.62 strength to 0.055 m at 0.34; the ripple tile is pulled 44% toward PAL.water.mid so it stops reading as printed squiggles; the depth ramp widened (deep 1.15x-4.0x shoreDepth, mix 0.62 -> 0.78). The ground grows a real bank into it: damp lush grass to mask 0.26, wet earth with shingle 0.13-0.45, a dark damp seam 0.45-0.55, the band's width wandering on noise (+/-0.17 of mask, about +/-0.5 m). Verified in the real game at the Beck (shots/P02-w3-game/16-14-beck-edge.png) and top-down in the demo (shots/P02-w3-demo/38-23-high-read.png). Cobble: repeat 5.0 m -> 2.4 m with highlights compressed 34% toward PAL.stone.mid (setts, not eggs). Contact shadows: one flat r=1.5s disc at 0.32 -> a 1.02s core at 0.86 plus a 2.0s skirt at 0.32. Painterly variation measured against the approved frame: macro tonal SD over 40 px grass blocks 10.2-19.6 (approved 13.3), micro SD 9.3-13.1 (approved 12.8). 13 draw calls / 31.5k tris, 0 errors."
+        },
+        {
+          "at": "2026-09-17T23:35:34.380Z",
+          "by": "critic",
+          "pass": false,
+          "note": "FAIL where the builder said they verified it - the Beck in the real game. The ground itself is now largely fine: horizontal autocorrelation of the high-passed grass in /index.html finds NO tiling peak (max corr 0.36 at the boot frame, 0.85 broadband but no periodic peak at the lane edge, against 0.50 on docs/approved/field-opening.png), and the grass-to-dirt transition is 8-27 px median against 24 px on the approved frame, so crisp path edges and no visible tiling PASS. Painterly tonal variation is only PARTIAL: same screen box [794,432,1152,612] gives macro SD 15.1 and micro high-pass 3.36 in our boot frame against 21.2 and 4.95 on the approved frame, and at the closest play camera the foreground green falls to macro SD 8.3 and micro 1.17-2.27 - a large featureless slab (shots/P02-critic-c1/game/17-17-lane-edge.png, 15-15-ground-near.png). The sheet that still reads as an asset on a cloth is the WATER. Measured in-frame: the beck surface has luminance SD 3.94 and micro high-pass 1.11, against grass 19.4/3.16 and the mud bank 44.2/4.63 in the very same frames - it is the flattest surface in the game, a single blue fill with printed white squiggles, no sky in it, no reflection, no depth read. shots/P02-critic-c1/approach/10-c2-beck-from-above.png: the hero stands waist-deep with the water plane cutting straight through him, no ripple and no displacement; the banks are two parallel brown bands (boundary residual SD only 7.2-8.0 px over 79-237 columns after detrending). demos/P02.html 38-23-high-read.png shows the same beck from above as a rounded blue worm with a uniform thin brown outline."
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "title": "The water is a flat blue fill the hero wades through",
+      "detail": "The beck and the pond are the flattest surfaces in the game. Measured on the running build: the beck surface has luminance SD 3.94 and micro high-pass 1.11, against 19.44/3.16 for the grass and 44.23/4.63 for the mud bank in the very same frames (shots/P02-critic-c1/game/18-18-water-edge.png, shots/P02-critic-c1/approach/10-c2-beck-from-above.png). It is one blue fill with a few printed white squiggles: no sky in it, no reflection of the hero or the trees, no read of depth from shallow to deep, no glint path, and no motion you can see between frames. Worse, it is not a thing in the world - in 10-c2-beck-from-above the hero stands waist-deep in the beck with the water plane cutting straight through his body, and nothing happens: no ripple ring, no splash, no wading sound, no displacement, no refusal to enter. Both banks are a pair of parallel brown bands whose green-to-brown boundary has a residual SD of only 7.2 to 8.0 px over 79-237 sampled columns after the perspective trend is removed. Buildable: give the sheet a depth ramp that actually reads (pale shingle shallows to deep teal over the carved bed), a screen-space reflection or a cheap mirrored sky-colour term so the sky and the bank live in it, a slow scrolling normal that breaks the surface into moving highlights, a sun glint path that moves with the hour, and an interaction - either the hero cannot enter and a ripple wall says so, or he wades with a ring of ripples at his waist and a splash on entry. Make the bank wander in width by at least a metre so the two brown ribbons stop being ruled.",
+      "state": "open",
+      "opened": "2026-09-17T23:35:57.630Z",
       "events": []
     }
   ]

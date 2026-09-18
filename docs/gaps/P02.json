@@ -5,8 +5,28 @@
       "n": 1,
       "title": "Nothing worth walking to on the horizon",
       "detail": "Orbit through all four compass points from the vale and every view is a closed ring. Needs a distant landmark (a castle, a tower, a lit window, a road climbing a hill) that a child sees and wants to reach. Coordinate with P04 forestRing and P23 meadow WOOD_ROWS.",
-      "state": "open",
+      "state": "still-open",
       "opened": "2026-09-17T22:30:07.979Z",
+      "events": [
+        {
+          "at": "2026-09-17T23:10:43.853Z",
+          "by": "builder",
+          "note": "Four painted places now stand WHOLE on the four signposted bearings and the cloud wall that hid them is gone. Measured in /index.html: the landmark cards were being cut by the top of the frame (painted top at y=-142/-90/-61 px); every card is now fitted from its own painted extent to a target elevation, so paintTopPx = +12 (Coddleston), +8 (Saltmarrow), +24 (Puddlewick), clipped:false, 105-120 px of painted place, 280-330 px wide. Cloud in the 80 px just above the skyline across the four compass views plus the three landmark views: 49-78% before (mean 64.9%), 3.5-9.7% now (mean 6.1%); in demos/P02.html with identical cameras 25.9-54.8% (mean 38.6%) -> 20.4-28.9% (mean 23.8%), against 25.4% measured on the owner-approved docs/approved/field-opening.png. Cloud bases lifted from ~1.5 deg to ~6 deg elevation and the ring broken into 3 clumps + 6 low puffs with open lanes. The dome's painted ranges went from one 3.3 deg band to two tiers (6.6 deg massif + 3.6 deg nearer range). scenarios/P02.json asserts each of the four is on screen, unclipped and >60 px of paint; scenarios/P02-game.json asserts the castle is unclipped; both suites exit 0, 0 console/page errors, 120 fps demo / 114 fps game."
+        },
+        {
+          "at": "2026-09-17T23:35:22.812Z",
+          "by": "critic",
+          "pass": false,
+          "note": "FAIL in the real game. Ray-occlusion test against the live field scene, sampling a 16x10 grid inside each landmark's own reported screen rect and comparing the first hit to the card's distance. On the builder's OWN landmarkView cameras: Coddleston Castle 160/160 samples blocked = 100 percent (blockers forestCards 133, tree-oak-mid 27), Puddlewick 133/160 = 83.1, Saltmarrow 109/160 = 68.1, Whispering Wood 91/160 = 56.9; mean 77.0 percent hidden. At the plain gameplay camera (pitch 26) orbiting the compass: N 84.7, E 56.9, S 100, W 66.7 percent blocked, and at 45 deg NE landmarkScreen returns an empty list. shots/P02-critic-c1/game/06-06-s-180.png and .../10-10-approach-t0.png are a solid wall of trees with no castle in them while landmarkScreen reports coddleston onScreen, clipped:false, paintedPx 129 and 119. landmarkScreen does not test occlusion, so all 17 asserts in scenarios/P02.json pass in demos/P02.html (which has no forest ring and no props) while the real game shows nothing. Second failure: the destination recedes. Walking from spawn (1.4,19.2) 49 m toward Saltmarrow to (-36.65,34.35) took its painted height from 120 px to 99 px (-17.5 percent) and its width from 313 px to 260 px, while landmarks().dist stayed pinned at 196 m at every position - the cards are camera-locked skybox paint, so a child who walks at the horizon for a minute watches it get smaller."
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "title": "The sky is squeezed out of the playing frame",
+      "detail": "In the real game the sky is 2.7 to 6.9 percent of the frame (boot 6.84, looking south 2.68, east 6.12, west 4.97) against 15.29 percent on the owner-approved docs/approved/field-opening.png - less than half the approved reference. cameraRig() reports pitch 26 with frame.horizon = 17, i.e. the horizon line sits 17 px from the top of a 720 px frame, and the forest ring's crowns rise above that line, so the whole of P02 - the gradient, the cumulus, the sun disc, the moon, the star turn, the dusk rose - is delivered in a 40 px strip that trees mostly cover. Second measurement in the same place: the clouds do not travel. Best-fit horizontal shift of the cloud cluster between frames 15 s and 30 s apart is 0 px (search range plus/minus 150 px, mean per-pixel error 10.8 and 19.7), and it is still 0 px after __DQ.cloudDrift(40) has run for 8 s; the clouds mesh rotY advances 0.00098 rad/s at drift 1 and only 0.0011 rad/s at drift 40, so the drift control barely changes the rate. They billow in place and never cross the sky. Buildable: give the frame back to the horizon the way docs/approved/field-opening.png does - land the horizon roughly a third of the way down the frame in the field camera, hold the ring's silhouette below it except at the four signposted passes, and make cloud drift a real translation of a few degrees a minute that __DQ.cloudDrift(n) scales linearly, so a child who stops and looks up sees the sky move.",
+      "state": "open",
+      "opened": "2026-09-17T23:35:45.463Z",
       "events": []
     }
   ]

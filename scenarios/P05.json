@@ -1,4 +1,4 @@
-{ "name": "P05 buildings — the Puddlewick kit, piece by piece", "steps": [
+{ "name": "P05 buildings — the Puddlewick kit, piece by piece, inside and out", "steps": [
   {"waitFor": "window.__DQ && __DQ.ready", "timeout": 40000},
   {"wait": 1800},
   {"eval": "__DQ.counts()"},
@@ -21,9 +21,14 @@
   {"eval": "__DQ.state().buildings.doors.filter(d => d.open > 0.1).length"},
   {"eval": "__DQ.walk(-17.6, 6.6)"}, {"wait": 1200}, {"shot": "15-door-open"},
   {"assert": "__DQ.state().buildings.doors.some(d => d.open > 0.7)", "msg": "a door opens when the hero walks up to it"},
-  {"eval": "__DQ.doors(true)"}, {"wait": 900},
-  {"eval": "__DQ.show('barn')"}, {"eval": "__DQ.zoom(11)"}, {"wait": 1200}, {"shot": "16-barn-doors-open"},
-  {"eval": "__DQ.show('church')"}, {"eval": "__DQ.zoom(12)"}, {"eval": "__DQ.pitch(14)"}, {"wait": 1300}, {"shot": "17-church-doors-open"},
+  {"note": "P05 gap #4: the open doorway has a lined reveal, a threshold and a real room behind it — no daylight through the back"},
+  {"eval": "__DQ.doors(true)"}, {"eval": "__DQ.show('doorway')"}, {"eval": "__DQ.walk(-17.6, 7.2)"}, {"wait": 1400}, {"shot": "16-the-doorway-reveal"},
+  {"eval": "__DQ.show('barn')"}, {"eval": "__DQ.zoom(11)"}, {"eval": "__DQ.pitch(16)"}, {"wait": 1200}, {"shot": "17-barn-doors-open"},
+  {"eval": "__DQ.show('church')"}, {"eval": "__DQ.zoom(12)"}, {"eval": "__DQ.pitch(14)"}, {"wait": 1300}, {"shot": "18-church-doors-open"},
   {"eval": "__DQ.doors(null)"},
+  {"note": "the INTERIOR kit — what a door actually opens into (src/world/maps/hollybank.js builds with these)"},
+  {"eval": "__DQ.show('room')"}, {"wait": 1800}, {"shot": "19-the-room-behind-the-door"},
+  {"eval": "__DQ.orbit(24)"}, {"eval": "__DQ.zoom(9)"}, {"eval": "__DQ.pitch(44)"}, {"wait": 1400}, {"shot": "20-the-hearth-and-the-three-chairs"},
+  {"eval": "__DQ.orbit(-22)"}, {"eval": "__DQ.zoom(8.5)"}, {"eval": "__DQ.pitch(40)"}, {"eval": "__DQ.walk(-40, 3)"}, {"wait": 1400}, {"shot": "21-the-loft-the-bed-and-the-chest"},
   {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"}
 ]}

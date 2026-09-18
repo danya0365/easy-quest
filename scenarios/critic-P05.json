@@ -1,140 +1,787 @@
-{ "name": "critic-P05 — blind audit of BUILDINGS (P05) and PUDDLEWICK (P23), round 1",
-  "steps": [
-  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 40000},
-  {"wait": 2500},
-
-  {"note": "MODE. The demo drives named views; /index.html drives the hero + the game's OWN follow camera. No pitch overrides in the game: the rig solves its own composition, so a forced pitch is not a frame any child ever sees."},
-  {"eval": "(window.__C = { demo: typeof __DQ.show === 'function', loaded: false, at: function (name, x, z, deg, dist) { if (this.demo) { __DQ.show(name); if (deg !== undefined) __DQ.orbit(deg); if (dist !== undefined) __DQ.zoom(dist); return 'view:' + name; } if (!this.loaded) return 'UNREACHABLE'; __DQ.teleport('puddlewick', x, z); if (deg !== undefined) __DQ.cameraOrbit(deg, true); if (dist !== undefined) __DQ.cameraZoom(dist, true); return 'at ' + x + ',' + z + ' facing ' + deg; }, orbit: function (deg) { return this.demo ? __DQ.orbit(deg) : __DQ.cameraOrbit(deg); } }, window.__C.demo ? 'DEMO MODE' : 'GAME MODE')"},
-
-  {"note": "═══ A. THE ASSIGNMENT, EXACTLY AS GIVEN: can a child get to Puddlewick in the real game? ═══"},
-  {"shot": "01-the-game-as-it-opens"},
-  {"eval": "JSON.stringify({scene: __DQ.state().scene, map: __DQ.state().map && __DQ.state().map.id, maps: __DQ.listMaps()})"},
-  {"eval": "JSON.stringify(__DQ.teleport('puddlewick'))"},
-  {"wait": 1200},
-  {"eval": "JSON.stringify({mapAfterTeleport: __DQ.state().map && __DQ.state().map.id})"},
-  {"shot": "02-after-teleport-puddlewick"},
-
-  {"note": "A2. then try to WALK there — the signpost in the opening frame says Puddlewick is that way"},
-  {"eval": "window.__C.demo ? 'skip' : JSON.stringify(await (async () => { const m = await import('/src/world/maps/meadow.js'); return (m.default.exits || []).map(e => ({ name: e.name, to: e.to, x: +e.x.toFixed(1), z: +e.z.toFixed(1) })); })())"},
-  {"eval": "window.__C.demo ? 'skip' : JSON.stringify(await (async () => { const m = await import('/src/world/maps/meadow.js'); const ex = (m.default.exits || []); const lane = ex.find(e => /Puddlewick/i.test(e.name)) || ex[0]; __DQ.walkTo(lane.x, lane.z - 6); return { headingFor: lane.name, to: lane.to }; })())"},
-  {"wait": 1800},
-  {"shot": "03-on-the-lane-to-puddlewick"},
-  {"key": "ArrowUp", "hold": 2200},
-  {"wait": 2000},
-  {"eval": "window.__C.demo ? 'skip' : JSON.stringify({map: __DQ.state().map.id, pos: [+__DQ.state().player.x.toFixed(1), +__DQ.state().player.z.toFixed(1)], blocked: __DQ.state().player.blocked, dialogue: !!(__DQ.state().dialogue && __DQ.state().dialogue.open)})"},
-  {"shot": "04-walked-up-the-lane-where-am-i"},
-  {"press": "Enter", "times": 2, "delay": 600},
-  {"wait": 700},
-  {"shot": "05-what-the-lane-says"},
-
-  {"note": "A3. force the map in by hand (NOT how a child plays) so the ART can still be judged"},
-  {"eval": "window.__C.demo ? 'skip' : JSON.stringify(await (async () => { try { const M = await import('/src/world/map.js'); await M.Maps.loadModule({ id: 'puddlewick', layers: ['npcs'] }); const r = __DQ.teleport('puddlewick'); window.__C.loaded = !!(r && r.ok !== false); const m = await import('/src/world/maps/puddlewick.js'); window.__L = m.puddlewickLayout(); return { forced: window.__C.loaded, buildings: window.__L.buildings.length, doors: Object.keys(window.__L.doors).length }; } catch (e) { return { forced: false, error: String(e) }; } })())"},
-  {"wait": 3000},
-  {"eval": "JSON.stringify(__DQ.state().map).slice(0, 700)"},
-  {"eval": "window.__C.demo ? 'skip' : JSON.stringify((window.__L || {}).exits)"},
-  {"eval": "window.__C.demo ? 'skip' : JSON.stringify((window.__L || {}).buildings)"},
-
-  {"note": "═══ B. THE CENSUS — what actually got built ═══"},
-  {"eval": "JSON.stringify(__DQ.counts ? __DQ.counts() : ((((__DQ.state().field || {}).view) || {}).counts || null))"},
-  {"eval": "JSON.stringify((__DQ.state().buildings || (((__DQ.state().field || {}).view) || {}).buildings || null)).slice(0, 900)"},
-  {"eval": "JSON.stringify({npcs: (__DQ.state().map || {}).npcs, props: (__DQ.state().map || {}).props, inter: (__DQ.state().map || {}).interactables, exits: (__DQ.state().map || {}).exits, music: (__DQ.state().map || {}).music, chests: (__DQ.state().map || {}).chests, missing: (__DQ.state().map || {}).missingLines})"},
-
-  {"note": "═══ C. THE PLAN — is there a village plan, or a scatter of boxes? ═══"},
-  {"eval": "__C.at('inn', 0, 4, 0, 62)"}, {"eval": "window.__C.demo ? __DQ.pitch(78) : __DQ.cameraRig({pitch: 78})"}, {"wait": 2600}, {"shot": "06-the-plan-from-above"},
-  {"eval": "window.__C.demo ? __DQ.pitch(60) : __DQ.cameraRig({pitch: 62})"}, {"eval": "__C.orbit(45)"}, {"wait": 2400}, {"shot": "07-the-plan-from-the-south-west"},
-  {"eval": "__C.orbit(225)"}, {"wait": 2400}, {"shot": "08-the-plan-from-the-north-east"},
-  {"eval": "window.__C.demo ? __DQ.pitch(22) : __DQ.cameraRig({pitch: null})"},
-
-  {"note": "═══ D. ARRIVAL — the frame a child gets walking in the south-east gate, hero's own camera ═══"},
-  {"eval": "__C.at('inn', 14.0, 24.0, 20, 9)"}, {"wait": 2400}, {"shot": "09-in-at-the-south-east-gate"},
-  {"key": "ArrowUp", "hold": 1400}, {"wait": 1600}, {"shot": "10-walking-up-the-lane-into-the-village"},
-  {"key": "ArrowUp", "hold": 1400}, {"wait": 1600}, {"shot": "11-further-up-the-lane"},
-  {"eval": "__C.orbit(180)"}, {"wait": 1800}, {"shot": "12-looking-back-out-of-the-gate"},
-
-  {"note": "═══ E. THE GREEN — the well, the chestnut tree, the heart of the place. Four sides. ═══"},
-  {"eval": "__C.at('well', 0, 12.0, 0, 9)"}, {"wait": 2400}, {"shot": "13-the-green-from-the-south"},
-  {"eval": "__C.at('well', 0, 0.0, 180, 9)"}, {"wait": 2400}, {"shot": "14-the-green-from-the-north"},
-  {"eval": "__C.at('well', -9.0, 6.0, 90, 9)"}, {"wait": 2400}, {"shot": "15-the-green-from-the-west"},
-  {"eval": "__C.at('well', 9.0, 6.0, 270, 9)"}, {"wait": 2400}, {"shot": "16-the-green-from-the-east"},
-
-  {"note": "═══ F. EVERY BUILDING — front and side, hero's camera, the height a child stands at ═══"},
-  {"eval": "__C.at('cottage', -11.0, 2.0, 340, 8)"}, {"wait": 2400}, {"shot": "17-hollybank-cottage-front"},
-  {"eval": "__C.orbit(120)"}, {"wait": 2000}, {"shot": "18-hollybank-cottage-side"},
-  {"eval": "__C.orbit(210)"}, {"wait": 2000}, {"shot": "19-hollybank-cottage-back"},
-  {"eval": "__C.at('bakery', -5.0, -3.0, 10, 8)"}, {"wait": 2400}, {"shot": "20-the-bakery"},
-  {"eval": "__C.orbit(150)"}, {"wait": 2000}, {"shot": "21-the-bakery-side"},
-  {"eval": "__C.at('inn', 6.8, -1.6, 20, 8)"}, {"wait": 2400}, {"shot": "22-the-inn-and-its-sign"},
-  {"eval": "__C.orbit(160)"}, {"wait": 2000}, {"shot": "23-the-inn-side"},
-  {"eval": "__C.at('shop', 12.8, 5.0, 300, 8)"}, {"wait": 2400}, {"shot": "24-the-shop-and-its-awnings"},
-  {"eval": "__C.at('church', 2.0, -16.0, 0, 11)"}, {"wait": 2600}, {"shot": "25-the-chapel-of-saint-alden"},
-  {"eval": "__C.orbit(200)"}, {"wait": 2000}, {"shot": "26-the-chapel-from-behind"},
-  {"eval": "__C.at('mill', -16.5, -6.5, 250, 10)"}, {"wait": 2600}, {"shot": "27-the-mill-on-the-beck"},
-  {"eval": "__C.at('barn', -19.0, -1.2, 270, 9)"}, {"wait": 2400}, {"shot": "28-the-barn-and-the-paddock"},
-  {"eval": "__C.at('cottage', 12.2, 18.4, 0, 8)"}, {"wait": 2400}, {"shot": "29-dot-and-bels-house"},
-  {"eval": "__C.at('cottage', -1.6, 22.0, 0, 8)"}, {"wait": 2400}, {"shot": "30-old-hobs-house"},
-  {"eval": "__C.at('cottage', -11.8, 17.2, 0, 8)"}, {"wait": 2400}, {"shot": "31-the-seventh-house"},
-  {"eval": "__C.at('bridge', -0.6, -10.0, 0, 9)"}, {"wait": 2400}, {"shot": "32-the-beck-and-the-humpbacked-bridge"},
-  {"eval": "__C.at('shrine', 17.0, -19.0, 140, 8)"}, {"wait": 2400}, {"shot": "33-the-shrine-of-saint-alden"},
-  {"eval": "__C.at('market', -2.0, 11.0, 20, 10)"}, {"wait": 2400}, {"shot": "34-the-festival-green-market-maypole"},
-
-  {"note": "═══ G. WALK EVERY LANE — lanes between places, or gaps between boxes? ═══"},
-  {"eval": "__C.at('inn', 0.3, -2.6, 0, 9)"}, {"wait": 2200}, {"shot": "35-lane-north-toward-the-bridge"},
-  {"key": "ArrowUp", "hold": 1600}, {"wait": 1600}, {"shot": "36-lane-over-the-bridge"},
-  {"eval": "__C.at('inn', 8.0, -18.0, 90, 9)"}, {"wait": 2200}, {"shot": "37-lane-east-to-the-shrine"},
-  {"eval": "__C.at('inn', -16.6, -0.4, 270, 9)"}, {"wait": 2200}, {"shot": "38-lane-west-to-the-mill-and-barn"},
-  {"eval": "__C.at('inn', -20.2, 8.0, 200, 9)"}, {"wait": 2200}, {"shot": "39-the-sheep-pen"},
-  {"eval": "__C.at('inn', 15.0, 10.0, 250, 9)"}, {"wait": 2200}, {"shot": "40-the-east-side-behind-the-shop"},
-
-  {"note": "═══ H. THE DOORS — does a child believe they can go in? And what happens if they try? ═══"},
-  {"eval": "window.__C.demo ? __DQ.doors(false) : 'auto'"}, {"wait": 1200},
-  {"eval": "__C.at('inn', 6.8, 1.6, 20, 7)"}, {"wait": 2200}, {"shot": "41-the-inn-door-from-a-few-paces"},
-  {"eval": "window.__C.demo ? __DQ.doors(true) : JSON.stringify(await (async () => { const d = window.__L.doors.puddlewick_inn; __DQ.walkTo(d.x, d.z); __DQ.face(((d.facing || 0) + Math.PI) * 180 / Math.PI); return d; })())"},
-  {"wait": 2200}, {"shot": "42-standing-on-the-inn-doorstep"},
-  {"eval": "JSON.stringify(((__DQ.state().buildings || (((__DQ.state().field || {}).view) || {}).buildings || {}).doors || []).filter(d => d.open > 0.1).map(d => d.id + ':' + (+d.open).toFixed(2)))"},
-  {"eval": "window.__C.demo ? 'skip' : JSON.stringify(await (async () => { const d = window.__L.doors.puddlewick_inn; __DQ.walkTo(d.x, d.z - 0.6); return 'walking into the doorway'; })())"},
-  {"wait": 1800}, {"shot": "43-walking-into-the-doorway"},
-  {"eval": "JSON.stringify({dialogue: !!(__DQ.state().dialogue && __DQ.state().dialogue.open), map: __DQ.state().map && __DQ.state().map.id})"},
-  {"press": "Enter", "times": 2, "delay": 600},
-  {"wait": 800}, {"shot": "44-what-the-door-says"},
-  {"eval": "window.__C.demo ? 'skip' : JSON.stringify(await (async () => { const d = window.__L.doors.hollybank; __DQ.walkTo(d.x, d.z); __DQ.face(((d.facing || 0) + Math.PI) * 180 / Math.PI); return 'own front door'; })())"},
-  {"wait": 2000}, {"shot": "45-the-heros-own-front-door"},
-  {"press": "Enter", "times": 2, "delay": 600}, {"wait": 800}, {"shot": "46-going-home"},
-  {"eval": "JSON.stringify({map: __DQ.state().map && __DQ.state().map.id, dialogue: !!(__DQ.state().dialogue && __DQ.state().dialogue.open)})"},
-  {"eval": "window.__C.demo ? __DQ.doors(null) : 'auto'"},
-
-  {"note": "═══ I. THE PEOPLE AND THE THINGS — search a pot, talk to somebody ═══"},
-  {"eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.teleport('puddlewick', 0, 8))"},
-  {"wait": 2000},
-  {"eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.talkNear ? __DQ.talkNear() : 'no talkNear')"},
-  {"wait": 1200}, {"shot": "47-talking-to-somebody-on-the-green"},
-  {"press": "Enter", "times": 3, "delay": 700}, {"wait": 800}, {"shot": "48-more-of-the-conversation"},
-
-  {"note": "═══ J. IS ANYTHING ALIVE? camera and hero dead still ═══"},
-  {"eval": "__C.at('well', 0, 11.0, 0, 10)"}, {"wait": 2500},
-  {"burst": {"name": "49-motion-hold-green", "count": 7, "interval": 1000}},
-  {"eval": "__C.at('mill', -16.5, -6.5, 250, 10)"}, {"wait": 2200},
-  {"burst": {"name": "50-motion-hold-mill-wheel", "count": 6, "interval": 900}},
-
-  {"note": "═══ K. WARMTH AT DUSK AND NIGHT — lit windows, smoke, a place you want to be inside ═══"},
-  {"eval": "__C.at('well', 0, 12.0, 0, 10)"}, {"wait": 1800},
-  {"eval": "JSON.stringify(__DQ.timeOfDay(18.7))"}, {"wait": 2400}, {"shot": "51-dusk-on-the-green"},
-  {"eval": "__C.at('inn', 6.8, 1.6, 20, 8)"}, {"wait": 2200}, {"shot": "52-dusk-at-the-inn"},
-  {"eval": "JSON.stringify(__DQ.timeOfDay(21.6))"}, {"wait": 2400}, {"shot": "53-night-at-the-inn"},
-  {"eval": "__C.at('well', 0, 12.0, 0, 10)"}, {"wait": 2200}, {"shot": "54-night-on-the-green"},
-  {"eval": "__C.at('inn', 0, 4, 45, 46)"}, {"eval": "window.__C.demo ? __DQ.pitch(62) : __DQ.cameraRig({pitch: 62})"}, {"wait": 2400}, {"shot": "55-night-over-the-whole-village"},
-  {"eval": "window.__C.demo ? __DQ.pitch(22) : __DQ.cameraRig({pitch: null})"},
-  {"eval": "JSON.stringify(__DQ.timeOfDay(16.5))"}, {"wait": 2000},
-
-  {"note": "═══ L. CRAFT CHECKS — planted bases, roofs from above, repetition ═══"},
-  {"eval": "__C.at('inn', 0, 4, 0, 34)"}, {"eval": "window.__C.demo ? __DQ.pitch(84) : __DQ.cameraRig({pitch: 84})"}, {"wait": 2400}, {"shot": "56-topdown-roofs-and-ground"},
-  {"eval": "window.__C.demo ? __DQ.pitch(22) : __DQ.cameraRig({pitch: null})"},
-  {"eval": "JSON.stringify(__DQ.meshStats ? __DQ.meshStats(14) : (__DQ.meshes ? __DQ.meshes().slice(0, 14) : null)).slice(0, 900)"},
-
-  {"note": "═══ M. ONE LAST HONEST LOOK ═══"},
-  {"eval": "__C.at('inn', 2.0, 8.0, 330, 14)"}, {"wait": 2400}, {"shot": "57-the-village-hero-height"},
-  {"eval": "JSON.stringify({fps: __DQ.state().fps, errors: __DQ.errors.length, errs: __DQ.errors.slice(0, 4), render: __DQ.state().render && {calls: __DQ.state().render.calls, tris: __DQ.state().render.tris}})"},
-  {"shot": "58-final"},
-  {"assert": "__DQ.errors.length === 0", "msg": "no runtime errors"},
-  {"assert": "__DQ.state().fps >= 55", "msg": "fps >= 55"},
-  {"assert": "__DQ.screenshotReady() === true", "msg": "screenshotReady"}
-]}
+{
+ "name": "critic-P05/P23 round 1 — walk in, tour every lane, re-check every gap, repro the see-through break",
+ "steps": [
+  {
+   "waitFor": "window.__DQ && __DQ.ready",
+   "timeout": 40000
+  },
+  {
+   "wait": 2500
+  },
+  {
+   "eval": "(window.__C = { demo: typeof __DQ.show === 'function' }, window.__C.demo ? 'DEMO' : 'GAME')"
+  },
+  {
+   "note": "A. REACHABILITY — the child's own route: spawn in the meadow, walk up the lane, arrive."
+  },
+  {
+   "eval": "JSON.stringify({scene:__DQ.state().scene, map:(__DQ.state().map||{}).id, maps:__DQ.listMaps()})"
+  },
+  {
+   "shot": "01-game-opens"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(16.9, -24.0))"
+  },
+  {
+   "wait": 3500
+  },
+  {
+   "shot": "02-on-the-lane-out"
+  },
+  {
+   "key": "ArrowUp",
+   "hold": 3800
+  },
+  {
+   "wait": 400
+  },
+  {
+   "shot": "03-the-moment-of-arrival"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify({map:(__DQ.state().map||{}).id, x:+__DQ.state().player.x.toFixed(2), z:+__DQ.state().player.z.toFixed(2)})"
+  },
+  {
+   "shot": "04-first-look-at-puddlewick"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().map)"
+  },
+  {
+   "note": "A2. P23#5 — does the landing sit clear of Puddlewick's own way out? stand still on the landing and wait."
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.teleport('puddlewick', 14.8, 23.4))"
+  },
+  {
+   "wait": 2500
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify({map:(__DQ.state().map||{}).id, x:+__DQ.state().player.x.toFixed(2), z:+__DQ.state().player.z.toFixed(2), ground:__DQ.state().player.ground})"
+  },
+  {
+   "shot": "05-standing-on-the-landing"
+  },
+  {
+   "note": "A3. P23#2 — the signpost beside the lane: stop BESIDE it and press confirm."
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(14.6, 23.2))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify({near:__DQ.state().player.near, d:+Math.hypot(__DQ.state().player.x-14.6, __DQ.state().player.z-20.4).toFixed(2)})"
+  },
+  {
+   "press": "Enter",
+   "times": 1
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.state().dialogue)"
+  },
+  {
+   "shot": "06-signpost-from-beside-it"
+  },
+  {
+   "press": "Escape",
+   "times": 2,
+   "delay": 400
+  },
+  {
+   "wait": 700
+  },
+  {
+   "note": "B. THE TOUR — every lane and building, from the game's own follow camera."
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(8.0, 12.0))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "07-gate-lane-toward-the-green"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : __DQ.cameraOrbit(140)"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "08-green-other-angle"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(2.2, 8.2))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "09-the-well-and-the-chestnut"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : __DQ.cameraOrbit(250)"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "10-well-from-the-north"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(8.4, -1.0))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "shot": "11-the-inn"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(15.0, 7.4))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "shot": "12-the-shop"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(-5.8, -2.6))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "shot": "13-the-bakery"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(-12.7, 2.4))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "shot": "14-hollybank-cottage"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : __DQ.cameraOrbit(60)"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "15-hollybank-other-angle"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(-19.0, 2.4))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "shot": "16-the-barn-and-paddock"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(-19.5, -8.2))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "shot": "17-the-mill"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(-22.0, 9.8))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "shot": "18-the-sheep-pen"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(2.0, -11.0))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "shot": "19-the-beck-and-the-bridge"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(2.0, -17.0))"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "shot": "20-across-the-bridge-to-the-chapel"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify({ground:__DQ.state().player.ground, x:+__DQ.state().player.x.toFixed(2), z:+__DQ.state().player.z.toFixed(2)})"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(2.0, -16.6))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "shot": "21-the-chapel-front"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : __DQ.cameraOrbit(35)"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "22-chapel-gable-close"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(20.0, -19.0))"
+  },
+  {
+   "wait": 2000
+  },
+  {
+   "shot": "23-the-shrine-of-saint-alden"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.walkTo(11.0, 19.5))"
+  },
+  {
+   "wait": 2000
+  },
+  {
+   "shot": "24-the-low-wall-and-the-lane-out"
+  },
+  {
+   "note": "C. P23#3 — the chapel doorway: is the step-back spot dry land?"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(await (async()=>{const out={};for(const [x,z] of [[1.9,-15.9],[2.0,-16.5],[2.0,-18.0],[2.0,-14.0],[2.0,-13.7]]){__DQ.teleport('puddlewick',x,z);await new Promise(r=>setTimeout(r,260));out[x+','+z]=__DQ.state().player.ground;}return out;})())"
+  },
+  {
+   "note": "D. DOORS — the rubric's 'places a child wants to enter'. Walk into every door and see what happens."
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(await (async()=>{const m=await import('/src/world/maps/puddlewick.js');const L=m.default;return (L.interactables||[]).filter(i=>i.type==='door').map(d=>({name:d.name,x:+d.x.toFixed(1),z:+d.z.toFixed(1),line:d.line,to:d.to}))})())"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(await (async()=>{const m=await import('/src/world/maps/puddlewick.js');const L=m.default;return {exits:(L.exits||[]).map(e=>({name:e.name,to:e.to,x:+e.x.toFixed(1),z:+e.z.toFixed(1)})), inter:(L.interactables||[]).length, byType:(L.interactables||[]).reduce((a,i)=>(a[i.type]=(a[i.type]||0)+1,a),{})}})())"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(await (async()=>{__DQ.teleport('puddlewick',-12.2,2.6);await new Promise(r=>setTimeout(r,900));const before=__DQ.state().map.id;__DQ.press('up',2200);await new Promise(r=>setTimeout(r,2600));return {before,after:__DQ.state().map.id,near:__DQ.state().player.near,pos:[+__DQ.state().player.x.toFixed(1),+__DQ.state().player.z.toFixed(1)],dlg:__DQ.state().dialogue}})())"
+  },
+  {
+   "shot": "25-walked-into-hollybanks-door"
+  },
+  {
+   "press": "Enter",
+   "times": 1
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.state().dialogue)"
+  },
+  {
+   "shot": "26-hollybank-door-pressed"
+  },
+  {
+   "press": "Escape",
+   "times": 2,
+   "delay": 350
+  },
+  {
+   "wait": 600
+  },
+  {
+   "note": "E. P05#2 — the occluder fade: put a cottage between the lens and the hero and measure the ghost."
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.teleport('puddlewick', -12.7, -5.0))"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : __DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraOccluders ? __DQ.cameraOccluders() : 'no cameraOccluders')"
+  },
+  {
+   "shot": "27-occluder-fade-cottage"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.teleport('puddlewick', 8.4, -8.0))"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : __DQ.cameraOrbit(0)"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraOccluders ? __DQ.cameraOccluders() : 'no')"
+  },
+  {
+   "shot": "28-occluder-fade-inn"
+  },
+  {
+   "note": "F. the whole village from above — is there a PLAN?"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.teleport('puddlewick', 2.2, 6.0))"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.cameraShot ? __DQ.cameraShot({dist:46, pitch:46, yaw:0}) : 'no cameraShot')"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "29-the-plan-from-above"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : JSON.stringify(__DQ.cameraShot ? __DQ.cameraShot({dist:46, pitch:46, yaw:180}) : 'no')"
+  },
+  {
+   "wait": 2000
+  },
+  {
+   "shot": "30-the-plan-from-the-north"
+  },
+  {
+   "eval": "window.__C.demo ? 'skip' : (__DQ.cameraRelease ? __DQ.cameraRelease() : 0)"
+  },
+  {
+   "note": "G. census + errors"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().field).slice(0,1600)"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().npcs).slice(0,900)"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.budget())"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.errors)"
+  },
+  {
+   "assert": "__DQ.errors.length === 0",
+   "msg": "no runtime errors during the village tour"
+  },
+  {
+   "note": "══ PASS 2: gaps by measurement (was scenarios/critic-P05-b.json) ══"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', 8.0, 12.0))"
+  },
+  {
+   "wait": 2000
+  },
+  {
+   "note": "1. CAMERA — can a child ever see the village? pull back and look."
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().field.camera).slice(0,420)"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraZoom(24))"
+  },
+  {
+   "wait": 2000
+  },
+  {
+   "eval": "JSON.stringify({dist:__DQ.state().field.camera.dist, target:__DQ.state().field.camera.distTarget})"
+  },
+  {
+   "shot": "b01-camera-pulled-back"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraMode ? __DQ.cameraMode() : 'n/a')"
+  },
+  {
+   "note": "2. P23#4 — landmarks painted on Puddlewick's own skyline."
+  },
+  {
+   "eval": "JSON.stringify(__DQ.landmarks ? __DQ.landmarks() : 'n/a')"
+  },
+  {
+   "note": "3. DOORS — walk into every door in turn; does anything open?"
+  },
+  {
+   "eval": "JSON.stringify(await (async()=>{const outs=[];const doors=[['hollybank',-10.7,0.4],['bakery',-4.9,-3.9],['inn',6.8,-2.6],['shop',12.8,4.2],['twins',9.9,13.6],['hob',-1.6,15.9],['cottage',-9.5,12.4],['chapel',2,-18.2],['mill',-18,-8.2],['barn',-18.6,-1.2]];for(const [n,x,z] of doors){__DQ.teleport('puddlewick',x+0.05,z+0.05);await new Promise(r=>setTimeout(r,700));outs.push({door:n,mapNow:__DQ.state().map.id,pos:[+__DQ.state().player.x.toFixed(1),+__DQ.state().player.z.toFixed(1)],near:__DQ.state().player.near&&__DQ.state().player.near.name,dlg:!!(__DQ.state().dialogue&&__DQ.state().dialogue.open)});}return outs;})())"
+  },
+  {
+   "eval": "JSON.stringify({map:__DQ.state().map.id, maps:__DQ.listMaps(), dlg:__DQ.state().dialogue})"
+  },
+  {
+   "shot": "b02-at-the-barn-door"
+  },
+  {
+   "note": "3b. stand OUTSIDE hollybank's door and walk INTO it with real input, repeatedly"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', -10.7, 2.6))"
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "eval": "JSON.stringify(__DQ.face ? __DQ.face(0) : 'n/a')"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "shot": "b03-facing-hollybanks-door"
+  },
+  {
+   "key": "ArrowUp",
+   "hold": 2500
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "eval": "JSON.stringify({map:__DQ.state().map.id, pos:[+__DQ.state().player.x.toFixed(2),+__DQ.state().player.z.toFixed(2)], blocked:__DQ.state().player.blocked, near:__DQ.state().player.near, dlg:__DQ.state().dialogue})"
+  },
+  {
+   "shot": "b04-pressed-into-the-door"
+  },
+  {
+   "press": "Enter",
+   "times": 1
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "eval": "JSON.stringify({dlg:__DQ.state().dialogue, map:__DQ.state().map.id})"
+  },
+  {
+   "shot": "b05-confirm-at-the-door"
+  },
+  {
+   "press": "Enter",
+   "times": 3,
+   "delay": 500
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "eval": "JSON.stringify({dlg:__DQ.state().dialogue, map:__DQ.state().map.id})"
+  },
+  {
+   "shot": "b06-after-advancing"
+  },
+  {
+   "note": "4. P05#1 — the chapel gable: pixel census for placeholder magenta over a clean chapel frame."
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', 2.0, -12.5))"
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraShot ? __DQ.cameraShot({yaw:180, pitch:14, dist:22, ms:200}) : 'n/a')"
+  },
+  {
+   "wait": 2500
+  },
+  {
+   "shot": "b07-chapel-from-the-beck"
+  },
+  {
+   "eval": "JSON.stringify((()=>{const c=document.querySelector('canvas');const g=document.createElement('canvas');g.width=c.width;g.height=c.height;const x=g.getContext('2d');x.drawImage(c,0,0);const d=x.getImageData(0,0,g.width,g.height).data;let mag=0,sat=0,n=0;const hits=[];for(let i=0;i<d.length;i+=4){const r=d[i],gg=d[i+1],b=d[i+2];n++;if(r>150&&b>150&&gg<110&&Math.min(r,b)-gg>60){mag++;if(hits.length<6)hits.push([((i/4)%g.width),Math.floor((i/4)/g.width),r,gg,b]);}const mx=Math.max(r,gg,b),mn=Math.min(r,gg,b);if(mx>200&&mx-mn>170)sat++;}return{w:g.width,h:g.height,px:n,magenta:mag,magentaPct:+(100*mag/n).toFixed(4),hiSat:sat,hiSatPct:+(100*sat/n).toFixed(3),samples:hits};})())"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraShot ? __DQ.cameraShot({yaw:170, pitch:26, dist:16, ms:200}) : 'n/a')"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "shot": "b08-chapel-gable"
+  },
+  {
+   "eval": "JSON.stringify((()=>{const c=document.querySelector('canvas');const g=document.createElement('canvas');g.width=c.width;g.height=c.height;const x=g.getContext('2d');x.drawImage(c,0,0);const d=x.getImageData(0,0,g.width,g.height).data;let mag=0,n=0;for(let i=0;i<d.length;i+=4){const r=d[i],gg=d[i+1],b=d[i+2];n++;if(r>150&&b>150&&gg<110&&Math.min(r,b)-gg>60)mag++;}return{px:n,magenta:mag,pct:+(100*mag/n).toFixed(4)};})())"
+  },
+  {
+   "eval": "__DQ.cameraRelease ? __DQ.cameraRelease() : 0"
+  },
+  {
+   "note": "5. P05#2 — the occluder fade, with a building squarely between lens and hero."
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', 8.4, -8.6))"
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraOrbit(0, true))"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraOccluders())"
+  },
+  {
+   "shot": "b09-fade-inn-behind"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', -12.7, -6.2))"
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraOrbit(0, true))"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraOccluders())"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().field.camera.fade)"
+  },
+  {
+   "shot": "b10-fade-hollybank-behind"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', 2.0, -21.0))"
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraOrbit(0, true))"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraOccluders())"
+  },
+  {
+   "shot": "b11-fade-chapel-behind"
+  },
+  {
+   "note": "6. searchables / discovery: how many containers, and do any give anything?"
+  },
+  {
+   "eval": "JSON.stringify(await (async()=>{const m=await import('/src/world/maps/puddlewick.js');const L=m.default;const I=L.interactables||[];return {count:I.length, byType:I.reduce((a,i)=>(a[i.type]=(a[i.type]||0)+1,a),{}), chests:(L.chests||[]).length, lines:Object.keys(L.lines||{}).length};})())"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().map)"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().audio).slice(0,500)"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.errors)"
+  },
+  {
+   "note": "══ PASS 3: repro the leftover door, signpost reach, arrival ceremony (was critic-P05-c.json) ══"
+  },
+  {
+   "note": "P23#2b — the MEADOW signpost: stand 3.0 units BESIDE it on the lane and press confirm."
+  },
+  {
+   "eval": "JSON.stringify(await (async()=>{const m=await import('/src/world/maps/meadow.js');const L=m.meadowLayout();return {sign:L.sign, signLane:L.signLane};})())"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('meadow', 1.4, 19.2))"
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "eval": "JSON.stringify(await (async()=>{const m=await import('/src/world/maps/meadow.js');const L=m.meadowLayout();const s=L.sign;__DQ.teleport('meadow', s.x+3.0, s.z);await new Promise(r=>setTimeout(r,900));return {d:+Math.hypot(__DQ.state().player.x-s.x,__DQ.state().player.z-s.z).toFixed(2), near:__DQ.state().player.near};})())"
+  },
+  {
+   "press": "Enter",
+   "times": 1
+  },
+  {
+   "wait": 1100
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().dialogue)"
+  },
+  {
+   "shot": "c01-meadow-signpost-3-units-away"
+  },
+  {
+   "press": "Enter",
+   "times": 6,
+   "delay": 350
+  },
+  {
+   "wait": 800
+  },
+  {
+   "note": "ARRIVAL CEREMONY — is there a wipe/fade/place card when you cross into a town?"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().transitions || 'none')"
+  },
+  {
+   "eval": "window.__T=[]; Object.keys(window).length"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('meadow', 16.9, -28.5))"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "c02-about-to-cross"
+  },
+  {
+   "key": "ArrowUp",
+   "hold": 900
+  },
+  {
+   "wait": 120
+  },
+  {
+   "shot": "c03-crossing-frame-1"
+  },
+  {
+   "wait": 180
+  },
+  {
+   "shot": "c04-crossing-frame-2"
+  },
+  {
+   "wait": 250
+  },
+  {
+   "shot": "c05-crossing-frame-3"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "c06-crossing-frame-4"
+  },
+  {
+   "eval": "JSON.stringify({map:__DQ.state().map.id, transitions:__DQ.state().transitions, ui:(__DQ.state().ui&&__DQ.state().ui.windows)||null, audio:(__DQ.state().audio||{}).music})"
+  },
+  {
+   "note": "P05#2 REPRO — force the lens inside a cottage and see what is left standing."
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', 12.2, 11.6))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraOrbit(180, true))"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraOccluders())"
+  },
+  {
+   "shot": "c07-lens-inside-the-twins-house"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', 15.4, 5.6))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraOrbit(185, true))"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraOccluders())"
+  },
+  {
+   "shot": "c08-lens-inside-the-shop"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', -6.0, -4.4))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraOrbit(180, true))"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraOccluders())"
+  },
+  {
+   "shot": "c09-lens-inside-the-bakery"
+  },
+  {
+   "note": "the doorway backdrop: does daylight show through the back of a building?"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick', 2.0, -16.4))"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "eval": "JSON.stringify(__DQ.cameraShot ? __DQ.cameraShot({yaw:180, pitch:6, dist:7, ms:200}) : 'n/a')"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "shot": "c10-chapel-doorway-straight-on"
+  },
+  {
+   "eval": "__DQ.cameraRelease ? __DQ.cameraRelease() : 0"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.errors)"
+  }
+ ]
+}

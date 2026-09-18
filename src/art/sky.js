@@ -35,7 +35,7 @@ import { Debug, reportError } from '../engine/debug.js';
 import { ENV, installEnvDebug, createPrecipitation } from './weather.js';
 
 /** The live sky: the clouds a critic can speed up, the one precipitation slot, and the horizon's landmarks. */
-const CURRENT = { clouds: null, precip: null, landmarks: null };
+const CURRENT = { clouds: null, precip: null, landmarks: null, camera: null, scene: null };
 
 const TAU = Math.PI * 2;
 const angDiff = (a, b) => { let d = (a - b) % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; return d; };
@@ -75,18 +75,31 @@ const DOME_FRAG = /* glsl */`
     return (1.0 - smoothstep(rad * 0.3, rad, dist)) * tw * mix(0.35, 1.0, k) * bright;
   }
 
-  // the farthest hills: a painted silhouette band right on the horizon (the third landscape layer).
-  // It sags into a pass on each signposted bearing, so the lane out of the vale has open distance over it.
-  float ridgeAt(float az){
-    float u = az / 6.2831853;
-    float n = textureLod(tNoise, vec2(u * 3.0, 0.21), 0.0).r * 0.62 + textureLod(tNoise, vec2(u * 11.0, 0.63), 0.0).g * 0.38;
+  // the farthest hills: TWO painted silhouette tiers on the horizon (the third landscape layer) — a tall blue
+  // massif behind, a nearer, darker range in front of it, so the distance has depth instead of one thin smear.
+  // Both sag into a pass on each signposted bearing, so the lane out of the vale has open distance over it.
+  float gateSag(float az){
     float sag = 0.0;
     for (int i = 0; i < 4; i++) {
       float d = az - uGateAz[i];
       d = mod(d + 3.14159265, 6.2831853) - 3.14159265;
       sag = max(sag, uGateK[i] * exp(-(d * d) / 0.0784));
     }
-    return (0.006 + 0.052 * pow(clamp(n, 0.0, 1.0), 1.7)) * (1.0 - 0.72 * sag);
+    return sag;
+  }
+  // Heights are in sin(elevation): the great massif tops out at about 5.4 deg and the nearer range at 3.5, which
+  // is where the mountains sit on the owner-approved docs/approved/field-opening.png (their crest is ~5.2 deg
+  // under a frame whose whole sky band is 7.5). Taller than that and the ranges ARE the sky instead of standing
+  // under it — the frame loses its band of blue and its clouds.
+  float ridgeFar(float az){
+    float u = az / 6.2831853;
+    float n = textureLod(tNoise, vec2(u * 2.0 + 0.13, 0.41), 0.0).r * 0.58 + textureLod(tNoise, vec2(u * 7.0, 0.77), 0.0).g * 0.42;
+    return (0.013 + 0.098 * pow(clamp(n, 0.0, 1.0), 1.35)) * (1.0 - 0.74 * gateSag(az));
+  }
+  float ridgeNear(float az){
+    float u = az / 6.2831853;
+    float n = textureLod(tNoise, vec2(u * 3.0, 0.21), 0.0).r * 0.62 + textureLod(tNoise, vec2(u * 11.0, 0.63), 0.0).g * 0.38;
+    return (0.004 + 0.0705 * pow(clamp(n, 0.0, 1.0), 1.55)) * (1.0 - 0.80 * gateSag(az));
   }
 
   void main(){
@@ -165,14 +178,21 @@ const DOME_FRAG = /* glsl */`
     }
 
     // the farthest ranges, then the haze below the horizon (ART-DIRECTION §11)
-    if (uRanges > 0.5 && h < 0.07) {
+    if (uRanges > 0.5 && h < 0.15) {
       float az = atan(d.z, d.x);
-      float rh = ridgeAt(az);
       float a2 = px * 1.2;
-      float inR = 1.0 - smoothstep(rh - a2, rh + a2, h);
-      vec3 rc = mix(mix(uHorizon, uHaze, 0.5), uEnvRange, smoothstep(-0.02, rh, h) * 0.8);
-      rc = mix(rc, uEnvTwilightCol, low * pow(toward, 4.0) * uEnvTwilight * 0.25);
-      c = mix(c, rc, inR);
+      // tier 1: the great blue massif, hazy, its feet lost in aerial perspective
+      float rf = ridgeFar(az);
+      float inF = 1.0 - smoothstep(rf - a2, rf + a2, h);
+      vec3 fc = mix(mix(uHorizon, uHaze, 0.62), uEnvRange, smoothstep(-0.02, rf, h) * 0.92);
+      fc = mix(fc, uEnvTwilightCol, low * pow(toward, 4.0) * uEnvTwilight * 0.30);
+      c = mix(c, fc, inF * 0.94);
+      // tier 2: a nearer range standing in front of it, a shade darker and less hazed, so the two read apart
+      float rn = ridgeNear(az);
+      float inN = 1.0 - smoothstep(rn - a2, rn + a2, h);
+      vec3 nc = mix(mix(uEnvRange, uHaze, 0.18), uEnvRange * 0.86, smoothstep(-0.02, rn, h) * 0.75);
+      nc = mix(nc, uEnvTwilightCol, low * pow(toward, 3.0) * uEnvTwilight * 0.26);
+      c = mix(c, nc, inN);
     }
     c = mix(c, uHaze, smoothstep(0.02, -0.06, h));
 
@@ -204,6 +224,7 @@ export function buildSky(scene, rig, { clouds: withClouds = true, ranges = true,
       const k = ['x', 'y', 'z', 'w'][i];
       U.uGateAz.value[k] = m.az; U.uGateK.value[k] = Math.min(0.95, (m.gate ?? 0.6) * 0.8);
     });
+    GATE_UNIFORMS.add(U);
   }
   const mat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: U, vertexShader: DOME_VERT, fragmentShader: DOME_FRAG });
   mat.name = 'sky-dome';
@@ -212,11 +233,21 @@ export function buildSky(scene, rig, { clouds: withClouds = true, ranges = true,
   // one live precipitation slot: a new map's sky takes it over from the old one (no orphaned particles)
   if (CURRENT.precip) { try { CURRENT.precip.dispose(); } catch (e) { reportError('sky precip handover', e); } }
   const precip = CURRENT.precip = createPrecipitation();
+  let fitFrames = 0;
+  const FIT_AT = 8, REHANG_AT = 150;
   sky.onBeforeRender = (renderer, sc, camera) => {
     try {
       if (camera) { sky.position.copy(camera.position); sky.updateMatrixWorld(); CURRENT.camera = camera; }
+      CURRENT.scene = sc || scene;
       ENV.sync(rig, sc || scene);
       precip.update(sc || scene);
+      // THE SKYLINE FIT (see fitLandmarks): once the map has finished building its wood and its hills, every
+      // painted place is re-hung so its whole silhouette stands clear ABOVE whatever the map put on the horizon.
+      if (marks && camera) {
+        fitFrames++;
+        if (fitFrames === FIT_AT) fitLandmarks(marks, sc || scene, camera);
+        else if (fitFrames === REHANG_AT) rehangLandmarks(marks, camera);      // the camera has settled by now
+      }
     } catch (e) { reportError('sky frame', e); }
   };
   scene.add(sky);
@@ -232,8 +263,11 @@ export function buildSky(scene, rig, { clouds: withClouds = true, ranges = true,
     state: () => ENV.describe(),
     /** Cloud drift multiplier (1 = the gentle default; big values are a time-lapse for demos and critics). */
     drift(n) { if (clouds && Number.isFinite(+n)) clouds.material.uniforms.uDrift.value = +n; return clouds ? clouds.material.uniforms.uDrift.value : 0; },
+    /** Re-measure the skyline and re-hang every painted place above it (the field calls this after a map builds). */
+    fit(opts) { return marks ? fitLandmarks(marks, CURRENT.scene || scene, CURRENT.camera, opts) : null; },
     dispose() {
       precip.dispose(); if (CURRENT.precip === precip) CURRENT.precip = null;
+      GATE_UNIFORMS.delete(U);
       if (marks && CURRENT.landmarks === marks) CURRENT.landmarks = null;
     },
   };
@@ -262,8 +296,12 @@ function installCloudDebug() {
     Debug.expose('cloudDrift', (n) => {
       const c = CURRENT.clouds;
       if (!c) return null;
-      if (Number.isFinite(+n)) c.material.uniforms.uDrift.value = +n;
-      return { drift: c.material.uniforms.uDrift.value, cards: c.userData.cards };
+      const U = c.material.uniforms;
+      if (Number.isFinite(+n)) U.uDrift.value = Math.max(0, +n);
+      const rate = (c.userData.rate || 0) * U.uDrift.value;
+      return { drift: U.uDrift.value, cards: c.userData.cards,
+        // how far the flock has travelled, and how fast — both measurable, so "do the clouds move?" has an answer
+        phaseRad: +U.uPhase.value.toFixed(5), degPerMin: +(rate * 60 * 180 / Math.PI).toFixed(2) };
     });
   } catch (e) { reportError('sky debug', e); }
 }
@@ -303,16 +341,20 @@ function cloudData() {
 const lumOf = (hex) => { const n = parseInt(hex.slice(1), 16); return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255; };
 
 const CLOUD_VERT = /* glsl */`
-  attribute vec4 aCard;    // azimuth, elevation (rad), width, drift (rad/s)
+  attribute vec4 aCard;    // azimuth, elevation (rad), width, drift (relative rate, 1 = the flock's mean)
   attribute vec4 aVar;     // atlas cell u, v, phase, -
-  uniform float uEnvTime, uDrift, uRadius;
+  uniform float uEnvTime, uDrift, uRadius, uPhase;
   uniform vec3 uEnvSunDir, uEnvMoonDir; uniform float uEnvNight;
   varying vec2 vUv; varying vec2 vCell; varying vec3 vWDir; varying float vSide; varying float vPh;
   void main(){
-    float az = aCard.x + aCard.w * uEnvTime * uDrift;
+    // uPhase is INTEGRATED on the CPU (radians travelled so far, drift-scaled), so a critic turning the drift up
+    // speeds the sky up from where it is instead of teleporting it: the cards really cross the sky.
+    float az = aCard.x + aCard.w * uPhase;
     float w = aCard.z * (1.0 + 0.03 * sin(uEnvTime * 0.043 + aVar.z * 6.2831));
     float hh = aCard.z * 0.5 * (1.0 + 0.06 * sin(uEnvTime * 0.061 + aVar.z * 17.0));     // billows upward; the base stays level
-    vec3 centre = vec3(cos(az) * uRadius, sin(aCard.y) * uRadius + aCard.z * 0.18 - aCard.z * 0.25, sin(az) * uRadius);
+    // the card's flat base sits AT its elevation (it used to be dragged 7% of its width downward, which pulled
+    // every big cumulus down onto the skyline and walled off the distance)
+    vec3 centre = vec3(cos(az) * uRadius, sin(aCard.y) * uRadius - aCard.z * 0.02, sin(az) * uRadius);
     vec3 f = normalize(vec3(centre.x, 0.0, centre.z));
     vec3 right = vec3(-f.z, 0.0, f.x);
     vec3 p = centre + right * position.x * w + vec3(0.0, (position.y + 0.5) * hh, 0.0);
@@ -365,13 +407,45 @@ const CLOUD_FRAG = /* glsl */`
     #include <colorspace_fragment>
   }`;
 
+/**
+ * A cumulus FIELD, not a fence.
+ *
+ * The first version ringed the horizon with 22 wide cards starting at 4 degrees of elevation, and each card's base
+ * was pulled a further 7% of its width down: from the gameplay camera (whose whole visible sky is the band from the
+ * treetops up to about 12 degrees) that was a solid white wall across every view, hiding the hills, the far ranges
+ * and the places on the skyline. So now:
+ *   - every cumulus base is lifted clear of the horizon (>= ~7.5 degrees), leaving the band where the distance
+ *     lives — ranges, hill rings, Puddlewick's roofs, Coddleston's spires — open blue;
+ *   - the low deck is gathered into three clumps with wide LANES of clear sky between them, the way a real
+ *     summer sky is, so turning the camera finds sky as often as it finds cloud;
+ *   - the rest of the cards go high overhead, where they only show when the camera tips up.
+ */
 function buildClouds(scene) {
   const rnd = mulberry(1301), cards = [];
-  for (let i = 0; i < 22; i++) cards.push({ az: i / 22 * 6.283 + (rnd() - 0.5) * 0.25, el: 0.07 + Math.pow(rnd(), 1.5) * 0.3, w: 260 + rnd() * 260, v: [0, 1, 0, 1, 2][rnd() * 5 | 0] });
-  for (let i = 0; i < 8; i++) cards.push({ az: rnd() * 6.283, el: 0.31 + rnd() * 0.24, w: 210 + rnd() * 120, v: rnd() * 4 | 0 });
+  const CLUMPS = [3, 3, 4];                                     // 10 big cumulus in three clumps
+  CLUMPS.forEach((n, c) => {
+    const a0 = (c / CLUMPS.length) * TAU + (rnd() - 0.5) * 0.34;
+    for (let i = 0; i < n; i++) cards.push({
+      az: a0 + (i - (n - 1) / 2) * (0.34 + rnd() * 0.14),
+      // 5.7 - 16 deg. The gameplay frame only shows about 7.5 degrees of sky, so a cumulus based at 7 deg is a
+      // cumulus nobody ever sees: on the owner-approved opening frame the cloud bank fills the top 70 px of the
+      // sky band. Based here, the clumps read as weather over the far country, and the painted places (which are
+      // 200 m away against a 760 m cloud radius) are drawn IN FRONT of them, so nothing on the skyline is hidden.
+      el: 0.100 + Math.pow(rnd(), 1.2) * 0.18,
+      w: 250 + rnd() * 220,
+      v: [0, 1, 0, 1, 2][rnd() * 5 | 0],
+    });
+  });
+  // seven SMALL low puffs, dropped into the lanes between the clumps: from a low gameplay camera these are the
+  // cloud you actually see, and they are narrow enough that the ranges still read between and under them
+  for (let i = 0; i < 7; i++) cards.push({
+    az: ((i + 0.5) / 7) * TAU + (rnd() - 0.5) * 0.5,
+    el: 0.075 + rnd() * 0.030, w: 150 + rnd() * 95, v: [0, 1, 2, 3][rnd() * 4 | 0],
+  });
+  for (let i = 0; i < 14; i++) cards.push({ az: rnd() * TAU, el: 0.34 + Math.pow(rnd(), 0.8) * 0.56, w: 150 + rnd() * 170, v: rnd() * 4 | 0 });
   const n = cards.length, pos = new Float32Array(n * 4 * 3), card = new Float32Array(n * 4 * 4), vr = new Float32Array(n * 4 * 4), idx = [];
   cards.forEach((c, i) => {
-    const drift = (0.0016 + rnd() * 0.0022) * (c.v === 3 ? 1.35 : 1), ph = rnd();
+    const drift = (0.78 + rnd() * 0.5) * (c.v === 3 ? 1.28 : 1), ph = rnd();     // relative to the flock's mean rate
     [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]].forEach(([x, y], k) => {
       const o = i * 4 + k;
       pos.set([x, y, 0], o * 3); card.set([c.az, c.el, c.w, drift], o * 4); vr.set([(c.v % 2) * 0.5, (c.v >> 1) ? 0.0 : 0.5, ph, 0], o * 4);
@@ -385,7 +459,7 @@ function buildClouds(scene) {
   g.setIndex(idx);
   const E = ENV.u;
   const U = {
-    tClouds: { value: Tex.clouds() }, tCloudData: { value: cloudData() }, uDrift: { value: 1 }, uRadius: { value: 760 },
+    tClouds: { value: Tex.clouds() }, tCloudData: { value: cloudData() }, uDrift: { value: 1 }, uPhase: { value: 0 }, uRadius: { value: 760 },
     uEnvTime: E.uEnvTime, uEnvSunDir: E.uEnvSunDir, uEnvMoonDir: E.uEnvMoonDir, uEnvDay: E.uEnvDay, uEnvNight: E.uEnvNight, uEnvTwilight: E.uEnvTwilight,
     uEnvOvercast: E.uEnvOvercast, uEnvSunVis: E.uEnvSunVis, uEnvMoonVis: E.uEnvMoonVis,
     uEnvCloudLit: E.uEnvCloudLit, uEnvCloudMid: E.uEnvCloudMid, uEnvCloudShade: E.uEnvCloudShade, uEnvCloudBase: E.uEnvCloudBase,
@@ -397,6 +471,20 @@ function buildClouds(scene) {
   const mesh = new THREE.Mesh(g, mat);
   mesh.renderOrder = -9; mesh.frustumCulled = false; mesh.name = 'clouds';
   mesh.userData.cards = n;
+  // The flock CROSSES the sky. RATE is the mean angular speed of a cloud: 0.0042 rad/s = 14.5 deg/min, about
+  // 5 minutes to carry a cumulus from one side of a 50-degree frame to the other — a child who stops and looks
+  // up sees it move. The phase is integrated per frame, so uDrift scales the SPEED (linearly) and never jumps.
+  const RATE = 0.0042;
+  let last = -1;
+  mesh.onBeforeRender = () => {
+    try {
+      const t = ENV.u.uEnvTime.value;
+      const dt = last < 0 ? 0 : Math.max(0, Math.min(0.25, t - last));
+      last = t;
+      U.uPhase.value = (U.uPhase.value + dt * RATE * U.uDrift.value) % TAU;
+    } catch (e) { reportError('cloud drift', e); }
+  };
+  mesh.userData.rate = RATE;
   scene.add(mesh);
   return mesh;
 }
@@ -406,8 +494,14 @@ function buildClouds(scene) {
 // its own ridge on the bearing its signpost points down, pre-hazed so it reads bluer and farther than the near
 // land. This is what turns a pretty clearing into a world: somewhere to point at, and somewhere to walk to.
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
-/** Aerial perspective, baked into the paint: everything on a far card is mixed toward the horizon's colour. */
-const hz = (hex, k) => mixHex(hex, PAL.sky.horizon, k);
+/**
+ * Aerial perspective, baked into the paint: everything on a far card is mixed toward the horizon's colour.
+ * The 0.62 is deliberate. The card is hazed TWICE — once here in the paint and again in the fragment shader
+ * against the hour's live haze — and at full strength the two together washed a castle down to a pale smear you
+ * could not pick out of the sky. On the approved opening frame the far mountains are still plainly blue-grey
+ * objects, not fog. So the baked half is pulled back and the live half does the rest.
+ */
+const hz = (hex, k) => mixHex(hex, PAL.sky.horizon, k * 0.62);
 const INK = (k) => hz(PAL.outline.prop, 0.42 + k * 0.3);
 
 /** A rolling crest across the whole card: [x, y] points, y in px, crest at `crestY`, +/- `amp`. */
@@ -436,7 +530,7 @@ const crestAt = (pts, x) => {
 };
 
 /** Puddlewick: the home village on its rise — thatched roofs, the church tower, the great chestnut, smoke. */
-function paintVillage({ g, wg, W, H, rnd }) {
+function paintVillage({ g, wg, W, H, rnd, S, UX }) {
   const back = crestLine(W, H * 0.52, H * 0.075, 12.3);
   fillCrest(g, W, H, back, hz(PAL.hill.mid, 0.62), hz(PAL.hill.midLow, 0.56));
   const front = crestLine(W, H * 0.70, H * 0.055, 31.7, -H * 0.05);
@@ -444,9 +538,9 @@ function paintVillage({ g, wg, W, H, rnd }) {
   g.strokeStyle = INK(0.55); g.lineWidth = 3; g.lineJoin = 'round';
   g.beginPath(); front.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
   // the lane climbing out of the vale to the village gate
-  const gx = W * 0.5;
-  g.strokeStyle = hz(PAL.dirt.light, 0.42); g.lineWidth = W * 0.014; g.lineCap = 'round';
-  g.beginPath(); g.moveTo(W * 0.40, H); g.quadraticCurveTo(W * 0.42, H * 0.88, gx - W * 0.03, crestAt(front, gx) + 4); g.stroke();
+  const gx = UX(0.5);
+  g.strokeStyle = hz(PAL.dirt.light, 0.42); g.lineWidth = S * 0.014; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(UX(0.40), H); g.quadraticCurveTo(UX(0.42), H * 0.88, gx - S * 0.03, crestAt(front, gx) + 4); g.stroke();
   const wall = hz(PAL.plaster.light, 0.36), wallS = hz(PAL.plaster.dark, 0.40), thatchL = hz(PAL.thatch.light, 0.36), thatchD = hz(PAL.thatch.dark, 0.40);
   const win = (x, y, w, h) => { g.fillStyle = hz(PAL.paint.glass, 0.34); g.fillRect(x, y, w, h); wg.fillStyle = PAL.mask.on; wg.fillRect(x, y, w, h); };
   const clear = (x, y, w, h) => { wg.fillStyle = PAL.mask.off; wg.fillRect(x, y, w, h); };
@@ -471,12 +565,12 @@ function paintVillage({ g, wg, W, H, rnd }) {
   // a straggle of cottages either side of the tower, small ones farthest out
   for (const [u, w, h, lit] of [[0.20, 0.052, 0.085, false], [0.28, 0.062, 0.10, true], [0.355, 0.055, 0.09, true],
     [0.62, 0.068, 0.11, true], [0.70, 0.058, 0.095, false], [0.775, 0.05, 0.08, false], [0.845, 0.044, 0.07, true]]) {
-    const s = cottage(W * u, W * w, H * h * (W / H) * 0.42 + H * h * 0.55, lit);
+    const s = cottage(UX(u), S * w, H * h * (S / H) * 0.42 + H * h * 0.55, lit);
     if (rnd() > 0.45) smokes.push(s);
   }
   // the church: a square tower with a pyramid spire, a bell arch and a gilt weather-lark
   {
-    const cx = W * 0.475, tw = W * 0.05, th = H * 0.30, gy = crestAt(front, cx) + 2, y0 = gy - th;
+    const cx = UX(0.475), tw = S * 0.05, th = H * 0.30, gy = crestAt(front, cx) + 2, y0 = gy - th;
     clear(cx - tw, y0 - th, tw * 2.6, th * 2.4);
     g.fillStyle = hz(PAL.stone.light, 0.36); g.fillRect(cx - tw / 2, y0, tw, th);
     g.fillStyle = hz(PAL.stone.mid, 0.40); g.globalAlpha = 0.65; g.fillRect(cx + tw * 0.08, y0, tw * 0.42, th); g.globalAlpha = 1;
@@ -494,7 +588,7 @@ function paintVillage({ g, wg, W, H, rnd }) {
     wg.fillStyle = PAL.mask.on;
     wg.beginPath(); wg.moveTo(cx - tw * 0.2, y0 + th * 0.36); wg.lineTo(cx - tw * 0.2, y0 + th * 0.2); wg.arc(cx, y0 + th * 0.2, tw * 0.2, Math.PI, 0); wg.lineTo(cx + tw * 0.2, y0 + th * 0.36); wg.closePath(); wg.fill();
     // the nave beside it
-    const nw = W * 0.075, nh = H * 0.11, ny = gy - nh;
+    const nw = S * 0.075, nh = H * 0.11, ny = gy - nh;
     g.fillStyle = hz(PAL.plaster.light, 0.38); g.fillRect(cx + tw * 0.5, ny, nw, nh);
     g.beginPath(); g.moveTo(cx + tw * 0.4, ny + 1); g.lineTo(cx + tw * 0.5 + nw * 0.45, ny - nh * 0.6); g.lineTo(cx + tw * 0.5 + nw + 4, ny + 1); g.closePath();
     g.fillStyle = hz(PAL.tile.mid, 0.44); g.fill();
@@ -511,8 +605,15 @@ function paintVillage({ g, wg, W, H, rnd }) {
     g.fillStyle = dark ? hz(PAL.foliage.mid, 0.46) : hz(PAL.foliage.light, 0.44);
     g.beginPath(); g.arc(cx - r * 0.35, gy - r * 2.1, r * 0.5, 0, Math.PI * 2); g.fill();
   };
-  tree(W * 0.555, H * 0.075, false);
-  tree(W * 0.13, H * 0.055, true); tree(W * 0.905, H * 0.05, true); tree(W * 0.415, H * 0.045, true);
+  tree(UX(0.555), H * 0.075, false);
+  tree(UX(0.13), H * 0.055, true); tree(UX(0.905), H * 0.05, true); tree(UX(0.415), H * 0.045, true);
+  // a hedgerow of far trees along the rest of the ridge, so the wide card is a stretch of country and not a
+  // village floating in a blank green band
+  for (let i = 0; i < 26; i++) {
+    const u = (i + 0.5) / 26, cx = u * W;
+    if (Math.abs(cx - UX(0.5)) < S * 0.52) continue;
+    tree(cx + (vnoise(u * 31, 5.5, 3) - 0.5) * W * 0.02, H * (0.030 + 0.026 * vnoise(u * 17, 2.2, 7)), true);
+  }
   // chimney smoke, thin and pale, leaning on the wind
   g.strokeStyle = css(PAL.cloud.lit, 0.5); g.lineCap = 'round';
   for (const s of smokes) {
@@ -529,15 +630,15 @@ function paintVillage({ g, wg, W, H, rnd }) {
  * open sea with a hazy horizon of its own, and the little town standing on the near shore of the bay — roofs, a
  * quay, gulls, and the tide-mill with its great wheel in the millrace (CANON §2).
  */
-function paintSeaTown({ g, wg, W, H }) {
+function paintSeaTown({ g, wg, W, H, S, UX }) {
   const seaY = H * 0.315;
   // the saddle: the crest of the near ridge, dipping to the shore of the bay in the middle of the card
   const crest = (x) => {
-    const u = clamp01((x - W * 0.14) / (W * 0.72));
+    const u = clamp01((x - UX(0.14)) / (S * 0.72));
     const dip = Math.pow(Math.sin(Math.PI * u), 1.25);
     return H * 0.245 + H * 0.40 * dip + H * 0.016 * vnoise(u * 8 + 3, 1.9, 5);
   };
-  const BAY0 = W * 0.255, BAY1 = W * 0.745;
+  const BAY0 = UX(0.255), BAY1 = UX(0.745);
   // ── the open sea in the gap ──
   const sea = g.createLinearGradient(0, seaY, 0, H * 0.70);
   sea.addColorStop(0, hz(PAL.water.mid, 0.56)); sea.addColorStop(0.3, hz(PAL.water.mid, 0.34));
@@ -546,15 +647,15 @@ function paintSeaTown({ g, wg, W, H }) {
   g.fillStyle = css(PAL.cloud.lit, 0.34); g.fillRect(0, seaY, W, Math.max(2, H * 0.012));
   // a far blue headland out at sea on the left, so the water has depth in it
   g.fillStyle = hz(PAL.hill.farLow, 0.42);
-  g.beginPath(); g.moveTo(W * 0.24, seaY + H * 0.004); g.quadraticCurveTo(W * 0.33, seaY - H * 0.055, W * 0.42, seaY + H * 0.004); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(UX(0.24), seaY + H * 0.004); g.quadraticCurveTo(UX(0.33), seaY - H * 0.055, UX(0.42), seaY + H * 0.004); g.closePath(); g.fill();
   // a pale glint down the middle of the water, and long slow swells
-  const glint = g.createLinearGradient(W * 0.40, 0, W * 0.64, 0);
+  const glint = g.createLinearGradient(UX(0.40), 0, UX(0.64), 0);
   glint.addColorStop(0, css(PAL.water.foam, 0)); glint.addColorStop(0.5, css(PAL.water.foam, 0.36)); glint.addColorStop(1, css(PAL.water.foam, 0));
-  g.fillStyle = glint; g.fillRect(W * 0.40, seaY, W * 0.24, H * 0.40);
+  g.fillStyle = glint; g.fillRect(UX(0.40), seaY, S * 0.24, H * 0.40);
   g.strokeStyle = css(PAL.water.foam, 0.42); g.lineCap = 'round';
   for (let i = 0; i < 20; i++) {
     const y = seaY + H * (0.03 + 0.34 * Math.pow(i / 20, 1.4));
-    const x = BAY0 + (BAY1 - BAY0) * ((i * 0.149) % 0.88), w = W * (0.03 + 0.065 * ((i * 7) % 5) / 5);
+    const x = BAY0 + (BAY1 - BAY0) * ((i * 0.149) % 0.88), w = S * (0.03 + 0.065 * ((i * 7) % 5) / 5);
     g.lineWidth = 1.3 + i * 0.16;
     g.beginPath(); g.moveTo(x, y); g.lineTo(x + w, y); g.stroke();
   }
@@ -568,7 +669,7 @@ function paintSeaTown({ g, wg, W, H }) {
     g.strokeStyle = INK(0.3); g.lineWidth = 2.2;
     g.beginPath(); g.moveTo(bx + (flip ? -s * 0.2 : s * 0.2), by - s * 2.1); g.lineTo(bx + (flip ? -s * 0.2 : s * 0.2), by + s * 0.12); g.stroke();
   };
-  boat(W * 0.475, H * 0.50, H * 0.042, false); boat(W * 0.375, H * 0.415, H * 0.028, true); boat(W * 0.600, H * 0.385, H * 0.022, false);
+  boat(UX(0.475), H * 0.50, H * 0.042, false); boat(UX(0.375), H * 0.415, H * 0.028, true); boat(UX(0.600), H * 0.385, H * 0.022, false);
   // ── the ridge: one solid green mass across the whole card, saddling down to the bay ──
   g.beginPath(); g.moveTo(0, H);
   for (let x = 0; x <= W + 1; x += W / 128) g.lineTo(x, crest(x));
@@ -578,30 +679,30 @@ function paintSeaTown({ g, wg, W, H }) {
   g.fillStyle = rg; g.fill();
   // the waterline along the saddle: pale surf, then the ink of the shore
   g.save();
-  g.beginPath(); g.rect(BAY0 - W * 0.01, 0, BAY1 - BAY0 + W * 0.02, H); g.clip();
+  g.beginPath(); g.rect(BAY0 - S * 0.01, 0, BAY1 - BAY0 + S * 0.02, H); g.clip();
   g.strokeStyle = css(PAL.water.foam, 0.66); g.lineWidth = H * 0.017;
-  g.beginPath(); for (let x = BAY0 - W * 0.02; x <= BAY1 + W * 0.02; x += W / 128) { const y = crest(x) + H * 0.008; x === BAY0 - W * 0.02 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke();
+  g.beginPath(); for (let x = BAY0 - S * 0.02; x <= BAY1 + S * 0.02; x += S / 128) { const y = crest(x) + H * 0.008; x === BAY0 - S * 0.02 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke();
   g.restore();
   g.strokeStyle = INK(0.38); g.lineWidth = 3.2; g.lineJoin = 'round';
   g.beginPath(); for (let x = 0; x <= W + 1; x += W / 128) { const y = crest(x); x === 0 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke();
   // bare rock on the ridge shoulders where it drops into the tide
   for (const sx of [-1, 1]) {
-    const bx = sx < 0 ? BAY0 + W * 0.035 : BAY1 - W * 0.035, by = crest(bx);
+    const bx = sx < 0 ? BAY0 + S * 0.035 : BAY1 - S * 0.035, by = crest(bx);
     g.fillStyle = hz(PAL.stone.mid, 0.30);
-    g.beginPath(); g.moveTo(bx - sx * W * 0.03, by + H * 0.006); g.lineTo(bx + sx * W * 0.022, by + H * 0.055);
-    g.lineTo(bx - sx * W * 0.006, by + H * 0.10); g.lineTo(bx - sx * W * 0.042, by + H * 0.055); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(bx - sx * S * 0.03, by + H * 0.006); g.lineTo(bx + sx * S * 0.022, by + H * 0.055);
+    g.lineTo(bx - sx * S * 0.006, by + H * 0.10); g.lineTo(bx - sx * S * 0.042, by + H * 0.055); g.closePath(); g.fill();
     g.strokeStyle = INK(0.3); g.lineWidth = 2; g.stroke();
   }
   const win = (x, y, w, h) => { g.fillStyle = hz(PAL.paint.glass, 0.22); g.fillRect(x, y, w, h); wg.fillStyle = PAL.mask.on; wg.fillRect(x, y, w, h); };
   const clear = (x, y, w, h) => { wg.fillStyle = PAL.mask.off; wg.fillRect(x, y, w, h); wg.fillStyle = PAL.mask.on; };
   // ── the quay: a stone jetty running out into the bay ──
   g.fillStyle = hz(PAL.stone.mid, 0.26);
-  g.beginPath(); g.moveTo(W * 0.345, crest(W * 0.345) + H * 0.012); g.lineTo(W * 0.455, crest(W * 0.455) - H * 0.048);
-  g.lineTo(W * 0.462, crest(W * 0.462) - H * 0.012); g.lineTo(W * 0.352, crest(W * 0.352) + H * 0.048); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(UX(0.345), crest(UX(0.345)) + H * 0.012); g.lineTo(UX(0.455), crest(UX(0.455)) - H * 0.048);
+  g.lineTo(UX(0.462), crest(UX(0.462)) - H * 0.012); g.lineTo(UX(0.352), crest(UX(0.352)) + H * 0.048); g.closePath(); g.fill();
   g.strokeStyle = INK(0.3); g.lineWidth = 2.4; g.stroke();
   // ── the tide-mill: a tall gabled house at the water with a great wheel in the millrace ──
   {
-    const cx = W * 0.565, w = W * 0.072, h = H * 0.20, gy = crest(cx) + H * 0.012, y0 = gy - h;
+    const cx = UX(0.565), w = S * 0.072, h = H * 0.20, gy = crest(cx) + H * 0.012, y0 = gy - h;
     clear(cx - w, y0 - h, w * 2.6, h * 2.2);
     g.fillStyle = hz(PAL.plaster.light, 0.20); g.fillRect(cx - w / 2, y0, w, h);
     g.fillStyle = hz(PAL.plaster.dark, 0.28); g.globalAlpha = 0.6; g.fillRect(cx + w * 0.1, y0, w * 0.4, h); g.globalAlpha = 1;
@@ -635,9 +736,9 @@ function paintSeaTown({ g, wg, W, H }) {
   };
   for (const [u, w, h, lit] of [[0.295, 0.040, 0.062, true], [0.345, 0.032, 0.048, false], [0.400, 0.044, 0.070, true],
     [0.450, 0.034, 0.052, false], [0.495, 0.038, 0.058, true], [0.645, 0.036, 0.056, false], [0.685, 0.042, 0.066, true],
-    [0.725, 0.032, 0.048, false]]) roof(W * u, W * w, H * h, lit);
+    [0.725, 0.032, 0.048, false]]) roof(UX(u), S * w, H * h, lit);
   {
-    const cx = W * 0.775, tw = W * 0.030, th = H * 0.155, gy = crest(cx) + H * 0.006, y0 = gy - th;
+    const cx = UX(0.775), tw = S * 0.030, th = H * 0.155, gy = crest(cx) + H * 0.006, y0 = gy - th;
     clear(cx - tw, y0 - th, tw * 2.6, th * 2.2);
     g.fillStyle = hz(PAL.stone.light, 0.22); g.fillRect(cx - tw / 2, y0, tw, th);
     g.strokeStyle = INK(0.16); g.lineWidth = 2.8; g.strokeRect(cx - tw / 2, y0, tw, th);
@@ -647,12 +748,12 @@ function paintSeaTown({ g, wg, W, H }) {
   }
   // ── gulls over the bay ──
   g.strokeStyle = css(PAL.char.white, 0.80); g.lineWidth = 3; g.lineCap = 'round';
-  for (const [x, y, s] of [[W * 0.39, H * 0.225, H * 0.026], [W * 0.455, H * 0.175, H * 0.020], [W * 0.565, H * 0.245, H * 0.022], [W * 0.635, H * 0.19, H * 0.017]]) {
+  for (const [x, y, s] of [[UX(0.39), H * 0.225, H * 0.026], [UX(0.455), H * 0.175, H * 0.020], [UX(0.565), H * 0.245, H * 0.022], [UX(0.635), H * 0.19, H * 0.017]]) {
     g.beginPath(); g.moveTo(x - s, y + s * 0.5); g.quadraticCurveTo(x, y - s * 0.45, x + s, y + s * 0.5); g.stroke();
   }
 }
 /** Coddleston Castle: four green copper spires on a far ridge, with a pale road climbing to the gate. */
-function paintCastle({ g, wg, W, H }) {
+function paintCastle({ g, wg, W, H, S, UX }) {
   const back = crestLine(W, H * 0.66, H * 0.07, 71.1);
   fillCrest(g, W, H, back, hz(PAL.hill.farLow, 0.30), hz(PAL.hill.mid, 0.56));
   const ridge = crestLine(W, H * 0.80, H * 0.045, 19.7, -H * 0.10);
@@ -660,28 +761,28 @@ function paintCastle({ g, wg, W, H }) {
   g.strokeStyle = INK(0.54); g.lineWidth = 3; g.lineJoin = 'round';
   g.beginPath(); ridge.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
   // the road, a thin pale thread climbing the ridge in two switchbacks
-  g.strokeStyle = hz(PAL.dirt.light, 0.44); g.lineCap = 'round'; g.lineWidth = W * 0.011;
-  g.beginPath(); g.moveTo(W * 0.30, H);
-  g.bezierCurveTo(W * 0.36, H * 0.93, W * 0.60, H * 0.93, W * 0.56, H * 0.86);
-  g.bezierCurveTo(W * 0.52, H * 0.82, W * 0.42, H * 0.83, W * 0.46, H * 0.79);
+  g.strokeStyle = hz(PAL.dirt.light, 0.44); g.lineCap = 'round'; g.lineWidth = S * 0.011;
+  g.beginPath(); g.moveTo(UX(0.30), H);
+  g.bezierCurveTo(UX(0.36), H * 0.93, UX(0.60), H * 0.93, UX(0.56), H * 0.86);
+  g.bezierCurveTo(UX(0.52), H * 0.82, UX(0.42), H * 0.83, UX(0.46), H * 0.79);
   g.stroke();
   const stone = hz(PAL.stone.light, 0.34), stoneS = hz(PAL.stone.mid, 0.40), stoneD = hz(PAL.stone.dark, 0.44);
   const copper = hz(mixHex(PAL.paint.shutterGreen, PAL.stone.light, 0.14), 0.22), copperD = hz(mixHex(PAL.paint.shutterGreen, PAL.foliage.dark, 0.3), 0.26);
   const ink = INK(0.24);
   const win = (x, y, w, h) => { g.fillStyle = hz(PAL.paint.glass, 0.3); g.fillRect(x, y, w, h); wg.fillStyle = PAL.mask.on; wg.fillRect(x, y, w, h); };
   const clear = (x, y, w, h) => { wg.fillStyle = PAL.mask.off; wg.fillRect(x, y, w, h); };
-  const baseY = crestAt(ridge, W * 0.5) + 3;
+  const baseY = crestAt(ridge, UX(0.5)) + 3;
   // the curtain wall with crenellations and a gatehouse arch
-  const wx0 = W * 0.325, wx1 = W * 0.675, wh = H * 0.115, wy = baseY - wh;
+  const wx0 = UX(0.325), wx1 = UX(0.675), wh = H * 0.115, wy = baseY - wh;
   clear(wx0 - 10, wy - 14, wx1 - wx0 + 20, wh + 24);
   g.fillStyle = stone; g.fillRect(wx0, wy, wx1 - wx0, wh);
-  g.fillStyle = stoneS; g.globalAlpha = 0.5; g.fillRect(W * 0.53, wy, W * 0.145, wh); g.globalAlpha = 1;
-  for (let x = wx0; x < wx1 - 4; x += W * 0.024) { g.fillStyle = stone; g.fillRect(x, wy - H * 0.022, W * 0.014, H * 0.024); g.strokeStyle = ink; g.lineWidth = 2; g.strokeRect(x, wy - H * 0.022, W * 0.014, H * 0.024); }
+  g.fillStyle = stoneS; g.globalAlpha = 0.5; g.fillRect(UX(0.53), wy, S * 0.145, wh); g.globalAlpha = 1;
+  for (let x = wx0; x < wx1 - 4; x += S * 0.024) { g.fillStyle = stone; g.fillRect(x, wy - H * 0.022, S * 0.014, H * 0.024); g.strokeStyle = ink; g.lineWidth = 2; g.strokeRect(x, wy - H * 0.022, S * 0.014, H * 0.024); }
   g.strokeStyle = ink; g.lineWidth = 3; g.strokeRect(wx0, wy, wx1 - wx0, wh);
   g.fillStyle = hz(PAL.paint.glass, 0.26);
-  g.beginPath(); g.moveTo(W * 0.475, baseY); g.lineTo(W * 0.475, wy + wh * 0.42); g.arc(W * 0.5, wy + wh * 0.42, W * 0.025, Math.PI, 0); g.lineTo(W * 0.525, baseY); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(UX(0.475), baseY); g.lineTo(UX(0.475), wy + wh * 0.42); g.arc(UX(0.5), wy + wh * 0.42, S * 0.025, Math.PI, 0); g.lineTo(UX(0.525), baseY); g.closePath(); g.fill();
   // the keep, and four spired towers
-  const keepW = W * 0.13, keepH = H * 0.30, kx = W * 0.5, ky = baseY - keepH;
+  const keepW = S * 0.13, keepH = H * 0.30, kx = UX(0.5), ky = baseY - keepH;
   clear(kx - keepW, ky - keepH * 0.9, keepW * 2, keepH * 2);
   g.fillStyle = stone; g.fillRect(kx - keepW / 2, ky, keepW, keepH);
   g.fillStyle = stoneS; g.globalAlpha = 0.55; g.fillRect(kx + keepW * 0.08, ky, keepW * 0.42, keepH); g.globalAlpha = 1;
@@ -706,31 +807,40 @@ function paintCastle({ g, wg, W, H }) {
     if (banner) {
       g.strokeStyle = ink; g.lineWidth = 2.2; g.beginPath(); g.moveTo(cx, y0 - sh); g.lineTo(cx, y0 - sh - H * 0.05); g.stroke();
       g.fillStyle = hz(PAL.flower.red, 0.26);
-      g.beginPath(); g.moveTo(cx, y0 - sh - H * 0.05); g.quadraticCurveTo(cx + W * 0.028, y0 - sh - H * 0.038, cx + W * 0.045, y0 - sh - H * 0.05);
-      g.quadraticCurveTo(cx + W * 0.026, y0 - sh - H * 0.006, cx, y0 - sh - H * 0.004); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(cx, y0 - sh - H * 0.05); g.quadraticCurveTo(cx + S * 0.028, y0 - sh - H * 0.038, cx + S * 0.045, y0 - sh - H * 0.05);
+      g.quadraticCurveTo(cx + S * 0.026, y0 - sh - H * 0.006, cx, y0 - sh - H * 0.004); g.closePath(); g.fill();
     }
   };
-  tower(W * 0.355, W * 0.036, H * 0.245, true, false);
-  tower(W * 0.645, W * 0.036, H * 0.235, false, false);
-  tower(W * 0.432, W * 0.030, H * 0.315, true, true);
-  tower(W * 0.568, W * 0.030, H * 0.305, false, true);
+  tower(UX(0.355), S * 0.036, H * 0.245, true, false);
+  tower(UX(0.645), S * 0.036, H * 0.235, false, false);
+  tower(UX(0.432), S * 0.030, H * 0.315, true, true);
+  tower(UX(0.568), S * 0.030, H * 0.305, false, true);
   // a dark copse at the ridge foot, so the castle reads as standing above a wood
   for (const [u, r] of [[0.19, 0.030], [0.235, 0.024], [0.80, 0.028], [0.855, 0.022], [0.90, 0.026], [0.14, 0.022]]) {
-    const cx = W * u, gy = crestAt(ridge, cx) + H * 0.02, rr = H * r;
+    const cx = UX(u), gy = crestAt(ridge, cx) + H * 0.02, rr = H * r;
     g.fillStyle = hz(PAL.foliage.dark, 0.48);
     g.beginPath(); g.arc(cx, gy - rr, rr, 0, Math.PI * 2); g.arc(cx + rr * 0.8, gy - rr * 0.7, rr * 0.7, 0, Math.PI * 2); g.fill();
+  }
+  // copses running away along the rest of the downs, so a wide card is Coddleston Downs and not a castle on a lawn
+  for (let i = 0; i < 30; i++) {
+    const u = (i + 0.5) / 30, cx = u * W;
+    if (Math.abs(cx - UX(0.5)) < S * 0.45) continue;
+    const gy = crestAt(ridge, cx) + H * 0.02, rr = H * (0.016 + 0.020 * vnoise(u * 19, 4.4, 11));
+    g.fillStyle = hz(PAL.foliage.dark, 0.44 + 0.10 * vnoise(u * 27, 1.3, 5));
+    g.beginPath(); g.arc(cx, gy - rr, rr, 0, Math.PI * 2); g.arc(cx + rr * 0.85, gy - rr * 0.66, rr * 0.66, 0, Math.PI * 2); g.fill();
   }
 }
 
 /** The Whispering Wood, with Cobwell Manor's crooked gable in a clearing and one window already lit. */
-function paintWood({ g, wg, W, H }) {
+function paintWood({ g, wg, W, H, S, UX }) {
   const back = crestLine(W, H * 0.50, H * 0.06, 91.3);
   fillCrest(g, W, H, back, hz(PAL.hill.farLow, 0.34), hz(PAL.hill.midLow, 0.5));
   const ridge = crestLine(W, H * 0.70, H * 0.04, 23.9);
   fillCrest(g, W, H, ridge, hz(PAL.foliage.dark, 0.40), hz(PAL.foliage.dark, 0.30));
   // a wooded crest: clumps of canopy along the ridge line
-  for (let i = 0; i < 110; i++) {
-    const u = (i * 0.0091 + 0.004) % 1, cx = u * W, r = H * (0.034 + 0.030 * vnoise(u * 21, 3.3, 5));
+  const CLUMPS = Math.round(110 * W / Math.max(1, S));
+  for (let i = 0; i < CLUMPS; i++) {
+    const u = (i + 0.4) / CLUMPS, cx = u * W, r = H * (0.034 + 0.030 * vnoise(u * 21 * S / W, 3.3, 5));
     const gy = crestAt(ridge, cx) + H * 0.012;
     g.fillStyle = hz(PAL.foliage.dark, 0.34 + 0.12 * vnoise(u * 13, 7.1, 9));
     g.beginPath(); g.arc(cx, gy - r * 0.8, r, 0, Math.PI * 2); g.fill();
@@ -738,7 +848,7 @@ function paintWood({ g, wg, W, H }) {
     g.beginPath(); g.arc(cx - r * 0.3, gy - r * 1.25, r * 0.45, 0, Math.PI * 2); g.fill();
   }
   // Cobwell Manor: a tall crooked gable in a clearing, two chimneys at odd angles, one lit window
-  const cx = W * 0.52, w = W * 0.105, h = H * 0.36, gy = crestAt(ridge, cx) + H * 0.015, y0 = gy - h;
+  const cx = UX(0.52), w = S * 0.105, h = H * 0.36, gy = crestAt(ridge, cx) + H * 0.015, y0 = gy - h;
   wg.fillStyle = PAL.mask.off; wg.fillRect(cx - w, y0 - h, w * 2.4, h * 2.2); wg.fillStyle = PAL.mask.on;
   g.save(); g.translate(cx, gy); g.rotate(0.035); g.translate(-cx, -gy);
   g.fillStyle = hz(PAL.plaster.grime, 0.36); g.fillRect(cx - w / 2, y0, w, h);
@@ -774,12 +884,22 @@ function paintWood({ g, wg, W, H }) {
  */
 export const LANDMARK_SETS = {
   vale: [
-    // y0 / height are chosen so the RIDGE sits at ~2-3 degrees of elevation (down among the far treetops, which
-    // grounds it) and the town or castle on it rises to ~12-14 degrees, clear against the sky from the field camera.
-    { id: 'puddlewick', name: 'Puddlewick', az: -1.360, dist: 178, width: 88, height: 37, y0: 5, crest: 0.30, haze: 0.30, gate: 0.62, paint: paintVillage },
-    { id: 'saltmarrow', name: 'Saltmarrow', az: -0.135, dist: 196, width: 106, height: 43, y0: 5, crest: 0.20, haze: 0.30, gate: 0.80, paint: paintSeaTown },
-    { id: 'coddleston', name: 'Coddleston Castle', az: 1.330, dist: 190, width: 92, height: 48, y0: 3, crest: 0.20, haze: 0.34, gate: 0.72, paint: paintCastle },
-    { id: 'whispering_wood', name: 'the Whispering Wood', az: 2.950, dist: 172, width: 76, height: 32, y0: 4, crest: 0.30, haze: 0.36, gate: 0.42, paint: paintWood },
+    // `width`/`height` are now only the card's ASPECT: the world size is fitted at build time so the highest
+    // PAINTED point (a spire, a roof ridge, a treetop) lands at `topDeg` degrees of elevation from the vale, and
+    // the card's foot at `footDeg` — just above the horizon, where it dissolves into the aerial haze.
+    // Fixed world heights used to put the spires at 13-15 degrees, well above the top of the frame, so the field
+    // camera cut every castle and town in half; the fit keeps the whole silhouette inside the sky band instead.
+    // The bearings are the LANE MOUTHS of the opening vale, not decoration: -66.8 deg is the village clearing the
+    // Puddlewick lane runs out through, -7.4 deg the east lane down the Beck to Saltmarrow, +76 deg the Long Lane
+    // south to Coddleston. A place standing where the wood already opens is a place you can see.
+    // They stand BEYOND the mid hill ring (r 118-205) rather than inside it, so the ring is a foreground they rise
+    // over — and so walking the 70 m to the lane's end really closes 30-40% of the distance to them.
+    // `width : height` is the CARD (a panorama, ~5.5 : 1); `town` is the aspect the place itself is painted at,
+    // so widening the card spreads country round the village instead of stretching the village.
+    { id: 'puddlewick', name: 'Puddlewick', az: -1.166, dist: 215, width: 205, height: 37, town: 2.4, topDeg: 7.8, footDeg: 1.6, crest: 0.30, haze: 0.19, gate: 0.88, paint: paintVillage },
+    { id: 'saltmarrow', name: 'Saltmarrow', az: -0.129, dist: 228, width: 240, height: 43, town: 2.5, topDeg: 8.1, footDeg: 1.6, crest: 0.20, haze: 0.19, gate: 0.88, paint: paintSeaTown },
+    { id: 'coddleston', name: 'Coddleston Castle', az: 1.326, dist: 232, width: 265, height: 48, town: 1.95, topDeg: 7.1, footDeg: 1.5, crest: 0.20, haze: 0.22, gate: 0.88, paint: paintCastle },
+    { id: 'whispering_wood', name: 'the Whispering Wood', az: 2.950, dist: 205, width: 180, height: 32, town: 2.4, topDeg: 6.4, footDeg: 1.6, crest: 0.30, haze: 0.24, gate: 0.72, paint: paintWood },
   ],
 };
 
@@ -822,13 +942,20 @@ export function buildLandmarks(scene, list = 'vale') {
   const E = ENV.u;
   for (const L of specs) {
     try {
-      const RES = 896;
+      // A PANORAMA, not a postcard. The card runs `width : height`, but the PLACE inside it is painted at its own
+      // design aspect (`town`) and the rest of the card is the country either side of it — ridge, copses,
+      // hedgerow trees, sea. That is what the approved opening frame does with its mountains: they run the whole
+      // width, so a scattering of trees can never hide them, only interrupt them. S is the place's own span in
+      // pixels; UX(u) puts a design coordinate on the card.
+      const RES = 1280;
       const W = RES, H = Math.max(96, Math.round(RES * L.height / L.width));
+      const S = Math.min(W, H * (L.town ?? L.width / L.height));
+      const UX = (u) => W * 0.5 + (u - 0.5) * S;
       const c = mkCanvas(W, H), g = ctx2(c);
       const wc = mkCanvas(W, H), wg = ctx2(wc);
       wg.fillStyle = PAL.mask.off; wg.fillRect(0, 0, W, H);
       g.lineJoin = 'round'; g.lineCap = 'round';
-      L.paint({ g, wg, W, H, rnd: mulberry(((L.id.charCodeAt(0) * 7919) | 0) + 13) });
+      L.paint({ g, wg, W, H, S, UX, rnd: mulberry(((L.id.charCodeAt(0) * 7919) | 0) + 13) });
       // Every edge of the card dissolves into the haze, so a painted landscape never ends on a straight line —
       // the one thing that would give away that the skyline is painted at all.
       g.globalCompositeOperation = 'destination-out';
@@ -837,11 +964,29 @@ export function buildLandmarks(scene, list = 'vale') {
         gr.addColorStop(0, css(PAL.mask.on, 1)); gr.addColorStop(0.55, css(PAL.mask.on, 0.55)); gr.addColorStop(1, css(PAL.mask.on, 0));
         g.fillStyle = gr; g.fillRect(...rect);
       };
-      ramp(0, H, 0, H * 0.80, [0, H * 0.80, W, H * 0.20]);                 // the foot
-      ramp(0, 0, W * 0.11, 0, [0, 0, W * 0.11, H]);                        // the left edge
-      ramp(W, 0, W * 0.89, 0, [W * 0.89, 0, W * 0.11, H]);                 // the right edge
-      ramp(0, 0, 0, H * 0.05, [0, 0, W, H * 0.05]);                        // the top edge
+      // The foot. A place hung clear of the treeline has open sky under it, so the bottom of the card must melt
+      // into the haze over a long way — a third of its height — or the card reads as a green shelf floating in
+      // the air with a ruled edge along the bottom.
+      ramp(0, H, 0, H * 0.64, [0, H * 0.64, W, H * 0.36]);                 // the foot
+      ramp(0, 0, W * 0.17, 0, [0, 0, W * 0.17, H]);                        // the left edge
+      ramp(W, 0, W * 0.83, 0, [W * 0.83, 0, W * 0.17, H]);                 // the right edge
+      ramp(0, 0, 0, H * 0.04, [0, 0, W, H * 0.04]);                        // the top edge
       g.globalCompositeOperation = 'source-over';
+      // Where does the PAINT actually reach? (the card is mostly empty sky above a town, and the ramps have just
+      // eaten its edges) — the answer sets the card's world size, so the silhouette lands in the sky band.
+      let pTop = H - 1;
+      try {
+        const px = g.getImageData(0, 0, W, H).data;
+        for (let y = 0; y < H; y++) {
+          for (let x = 2; x < W - 2; x += 2) if (px[(y * W + x) * 4 + 3] > 76) { pTop = y; break; }
+          if (pTop < H - 1) break;
+        }
+      } catch (e) { reportError('landmark paint extent ' + L.id, e); }
+      const D2R = Math.PI / 180;
+      const footY = L.dist * Math.tan((L.footDeg ?? 0.5) * D2R);
+      const topY = L.dist * Math.tan((L.topDeg ?? 6.5) * D2R);
+      const hW = Math.max(4, (topY - footY) / Math.max(0.15, 1 - pTop / H));
+      const wW = hW * (L.width / L.height);
       const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
       const wtex = new THREE.CanvasTexture(wc);
@@ -856,28 +1001,281 @@ export function buildLandmarks(scene, list = 'vale') {
       const mat = new THREE.ShaderMaterial({ uniforms: U, vertexShader: LANDMARK_VERT, fragmentShader: LANDMARK_FRAG,
         transparent: true, depthWrite: false, depthTest: true, fog: false, side: THREE.DoubleSide });
       mat.name = 'landmark-' + L.id;
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(L.width, L.height), mat);
-      const cy = L.y0 + L.height / 2;
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(wW, hW), mat);
+      const cy = footY + hW / 2;
       mesh.position.set(Math.cos(L.az) * L.dist, cy, Math.sin(L.az) * L.dist);
       mesh.lookAt(0, cy, 0);
       mesh.renderOrder = -8.5; mesh.frustumCulled = false; mesh.name = 'landmark-' + L.id;
       group.add(mesh);
       // the camera orbit that puts this place in the middle of the frame (camera sits opposite the bearing)
       const orbit = (Math.atan2(-Math.cos(L.az), -Math.sin(L.az)) * 180 / Math.PI + 360) % 360;
-      out.push({ id: L.id, name: L.name, az: L.az, dist: L.dist, size: [L.width, L.height], y0: L.y0, crest: L.crest ?? 0.24,
-        gate: L.gate ?? 0.6, orbit: Math.round(orbit * 10) / 10, mesh });
+      out.push({ id: L.id, name: L.name, az: L.az, dist: L.dist, size: [+wW.toFixed(1), +hW.toFixed(1)], y0: +footY.toFixed(2),
+        paintTop: +(pTop / H).toFixed(3), aspect: L.width / L.height, topDeg: L.topDeg ?? 6.5, footDeg: L.footDeg ?? 0.5,
+        crest: L.crest ?? 0.24, gate: L.gate ?? 0.6, orbit: Math.round(orbit * 10) / 10, mesh });
     } catch (e) { reportError('landmark ' + (L && L.id), e); }
   }
   scene.add(group);
   const api = {
-    group, list: out,
+    group, list: out, fitted: null,
     get(id) { return out.find(m => m.id === id) || null; },
-    describe: () => out.map(m => ({ id: m.id, name: m.name, bearing: Math.round(m.az * 1800 / Math.PI) / 10, dist: m.dist, orbit: m.orbit })),
+    /** `dist` is how far away the place is FROM THE PLAYER right now — it has to come down as a child walks at it. */
+    describe: () => {
+      const cam = CURRENT.camera;
+      return out.map((m) => {
+        const wx = Math.cos(m.az) * m.dist, wz = Math.sin(m.az) * m.dist;
+        const dist = cam ? Math.round(Math.hypot(wx - cam.position.x, wz - cam.position.z)) : m.dist;
+        // how big the place LOOKS from here, in degrees: pure geometry, so "does it grow as I walk at it?" is a
+        // number that does not depend on where in the frame it happens to land
+        const angDeg = +(2 * Math.atan(m.size[1] * 0.5 / Math.max(1, dist)) * R2D).toFixed(3);
+        return { id: m.id, name: m.name, bearing: Math.round(m.az * 1800 / Math.PI) / 10, dist, home: m.dist, angDeg,
+          orbit: m.orbit, size: m.size, footDeg: m.footDeg, topDeg: m.topDeg, skylineDeg: m.skylineDeg ?? null };
+      });
+    },
   };
   CURRENT.landmarks = api;
   installLandmarkDebug();
   return api;
 }
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// THE SKYLINE — measuring what actually stands between the lens and a painted place, and hanging the places
+// above it. A landmark that reports "onScreen, unclipped, 120 px of paint" while a wall of oaks renders in front
+// of it is a lie: these are the tools that stop the assertion measuring anything but what a child can see.
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+/** Never a blocker: the backdrop itself, the weather, the shadows under things, the UI. */
+const NOT_A_BLOCKER = /^(sky|clouds|highfeather|birds|weather-|landmark|blobShadow|contactShadow|talk-prompt|rig:|outline|smoke|motes|pollen|butterfl|dust|spark|glow|prompt|ghost)/;
+const _v = new THREE.Vector3(), _m4 = new THREE.Matrix4(), _box = new THREE.Box3();
+
+/**
+ * THE SKYLINE PROFILE — how the world's silhouette is measured, and why it is not a raycast.
+ *
+ * The honest question is "is this patch of painted castle behind the world's silhouette?", and the first version
+ * answered it with THREE.Raycaster against the live scene. That is exact and unusably slow: 1980 rays against 83
+ * meshes (several of them InstancedMeshes with a thousand trees each) took 16.3 SECONDS in one frame at map load
+ * — a freeze a child would notice long before they noticed the castle.
+ *
+ * So the world is reduced ONCE, per eye, to a silhouette: 720 bins of azimuth, each holding the highest elevation
+ * anything reaches there and how far away that thing is. Everything that stands (trees, hedges, buildings, the
+ * painted treetop cards, props) becomes a vertical cylinder from its world bounding box — which is also the only
+ * honest proxy for the tree cards, since they turn to face the lens in their vertex shader and a geometry raycast
+ * against them is meaningless. The few very wide meshes (the ground, the hill rings, the water) are too big to be
+ * a cylinder, so their own vertices are dropped straight into the bins.
+ *
+ * Reading the profile is then a lookup: ~0.15 ms to build, microseconds to ask. Being a silhouette it cannot see
+ * a gap UNDER a canopy, which is exactly right for a place on the horizon.
+ */
+const NBIN = 720, BIN = NBIN / TAU;
+
+/** Every blocker in the scene, as vertical cylinders plus the handful of meshes too wide to be one. */
+function occluders(scene) {
+  const cyl = [], big = [];
+  if (!scene || !scene.traverse) return { cyl, big };
+  scene.traverse((o) => {
+    if (!o.visible || (!o.isMesh && !o.isInstancedMesh)) return;
+    const n = o.name || ((o.material && o.material.name) ? 'mat:' + o.material.name : o.type + '#' + o.id);
+    if (NOT_A_BLOCKER.test(n) || n.endsWith(':outline') || o.renderOrder <= -8) return;
+    if (o.userData && o.userData.isOutline) return;
+    // Anything drawn transparent is something you can see through: a ghosted tree, a see-through cottage, a
+    // sprite. It cannot hide a place on the horizon, and counting it as a blocker was reporting a 17.7-degree
+    // wall at 35 m on the Puddlewick bearing that nothing in the frame actually contains.
+    const mat = o.material;
+    if (mat && !Array.isArray(mat) && mat.transparent && (mat.opacity ?? 1) < 0.92) return;
+    const g = o.geometry;
+    if (!g || !g.attributes || !g.attributes.position) return;
+    if (!g.boundingBox) g.computeBoundingBox();
+    const bb = g.boundingBox;
+    o.updateMatrixWorld();
+    const push = (m, cap) => {
+      _box.copy(bb).applyMatrix4(m);
+      const w = _box.max.x - _box.min.x, d = _box.max.z - _box.min.z;
+      const r = Math.min(cap, Math.max(0.05, Math.sqrt(Math.max(0.01, w * d)) * 0.42));
+      cyl.push({ x: (_box.min.x + _box.max.x) * 0.5, z: (_box.min.z + _box.max.z) * 0.5, r,
+        y0: _box.min.y, y1: _box.max.y, name: n });
+    };
+    if (o.isInstancedMesh) {
+      // every instance is one prop: a tree, a bush, a painted treetop. Each gets its own cylinder.
+      for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, _m4); push(_m4.premultiply(o.matrixWorld), 14); }
+    } else {
+      // A MERGED mesh is not a thing: src/art/props.js kit.flush() merges every thatched roof in the map into one
+      // `bucket-thatch`, and the ground and the hill rings are whole landscapes. One cylinder round those would
+      // black out half the compass (it did: bucket-thatch reported a 22-degree skyline from -100 to -40), so
+      // anything wider than about 20 m across goes in by its own vertices instead.
+      _box.copy(bb).applyMatrix4(o.matrixWorld);
+      const w = _box.max.x - _box.min.x, d = _box.max.z - _box.min.z;
+      if (Math.sqrt(Math.max(0.01, w * d)) * 0.42 > 9) big.push(o); else push(o.matrixWorld, 14);
+    }
+  });
+  return { cyl, big };
+}
+
+/** The silhouette of the whole world from one eye: max elevation per azimuth bin, and its distance. */
+function skylineProfile(O, eye) {
+  const el = new Float32Array(NBIN).fill(-90), di = new Float32Array(NBIN).fill(1e9), who = new Array(NBIN).fill(null);
+  const put = (b, e, d, name) => { const i = ((b % NBIN) + NBIN) % NBIN; if (e > el[i]) { el[i] = e; di[i] = d; who[i] = name; } };
+  for (const c of O.cyl) {
+    const dx = c.x - eye.x, dz = c.z - eye.z, d = Math.hypot(dx, dz);
+    if (d < 0.3) continue;
+    const top = Math.atan2(c.y1 - eye.y, Math.max(0.5, d - c.r)) * R2D;
+    if (top < -20) continue;
+    const half = d <= c.r ? Math.PI : Math.asin(Math.min(0.999, c.r / d));
+    const a0 = Math.atan2(dz, dx) * BIN, hb = Math.max(0.5, half * BIN);
+    for (let b = Math.floor(a0 - hb); b <= Math.ceil(a0 + hb); b++) {
+      // the silhouette of a cylinder sags at its edges; near the middle it is the full height
+      const t = Math.min(1, Math.abs(b - a0) / hb);
+      put(b, top - (top + 2) * t * t * 0.18, d, c.name);
+    }
+  }
+  // the wide meshes (ground, hill rings, water): their own vertices straight into the bins
+  for (const o of O.big) {
+    const p = o.geometry.attributes.position, m = o.matrixWorld, n = o.name || 'mesh';
+    const step = p.count > 24000 ? 2 : 1;
+    for (let i = 0; i < p.count; i += step) {
+      _v.fromBufferAttribute(p, i).applyMatrix4(m);
+      const dx = _v.x - eye.x, dz = _v.z - eye.z, d = Math.hypot(dx, dz);
+      if (d < 2) continue;
+      put(Math.round(Math.atan2(dz, dx) * BIN), Math.atan2(_v.y - eye.y, d) * R2D, d, n);
+    }
+  }
+  // a coarse ring mesh leaves holes between its vertices: close them with a 3-bin dilation
+  const el2 = el.slice(), di2 = di.slice(), who2 = who.slice();
+  for (let i = 0; i < NBIN; i++) {
+    for (const k of [-2, -1, 1, 2]) {
+      const j = ((i + k) % NBIN + NBIN) % NBIN;
+      if (el[j] > el2[i]) { el2[i] = el[j]; di2[i] = di[j]; who2[i] = who[j]; }
+    }
+  }
+  return { el: el2, di: di2, who: who2,
+    /** Is a ray at this bearing and elevation stopped by something nearer than `maxDist`? */
+    blocked(az, elDeg, maxDist = 1e9) {
+      const i = ((Math.round(az * BIN) % NBIN) + NBIN) % NBIN;
+      return elDeg < el2[i] && di2[i] < maxDist ? { t: di2[i], name: who2[i] } : null;
+    },
+    at(az) {
+      const i = ((Math.round(az * BIN) % NBIN) + NBIN) % NBIN;
+      return { deg: el2[i], dist: di2[i], name: who2[i] };
+    } };
+}
+
+/** How high the world stands on this bearing, in degrees, as seen from `eye` — treetops, rim, hills, everything. */
+function skylineDeg(prof, az, who = null) {
+  const r = prof.at(az);
+  if (who) { who.name = r.name; who.dist = Number.isFinite(r.dist) && r.dist < 1e8 ? Math.round(r.dist) : null; }
+  return Math.max(-3, Math.min(22, r.deg));
+}
+
+/** The elevation of the very top of the frame for this camera: the ceiling a painted place has to fit under. */
+function frameTopDeg(camera) {
+  try {
+    const d = new THREE.Vector3(0, 1, 0.5).unproject(camera).sub(camera.position).normalize();
+    return Math.asin(Math.max(-1, Math.min(1, d.y))) * R2D;
+  } catch (e) { reportError('frameTop', e); return 8; }
+}
+
+/** Re-hang one card so its painted extent spans footDeg..topDeg of elevation at its own distance. */
+function hangCard(m, footDeg, topDeg) {
+  const footY = m.dist * Math.tan(footDeg * D2R), topY = m.dist * Math.tan(topDeg * D2R);
+  const hW = Math.max(4, (topY - footY) / Math.max(0.15, 1 - m.paintTop));
+  const wW = hW * m.aspect;
+  const old = m.mesh.geometry;
+  m.mesh.geometry = new THREE.PlaneGeometry(wW, hW);
+  try { old.dispose(); } catch (e) { void e; }
+  const cy = footY + hW / 2;
+  m.mesh.position.set(Math.cos(m.az) * m.dist, cy, Math.sin(m.az) * m.dist);
+  m.mesh.lookAt(0, cy, 0);
+  m.mesh.updateMatrixWorld();
+  m.size = [+wW.toFixed(1), +hW.toFixed(1)];
+  m.y0 = +footY.toFixed(2); m.footDeg = +footDeg.toFixed(2); m.topDeg = +topDeg.toFixed(2);
+  m.orbit = Math.round(((Math.atan2(-Math.cos(m.az), -Math.sin(m.az)) * R2D + 360) % 360) * 10) / 10;
+}
+
+/**
+ * THE FIT. Run a few frames after a map is built, when its wood, its rim and its hill rings exist.
+ * For each painted place: measure the real skyline across the bearings it covers, nudge it (a little) toward the
+ * clearest bearing near its signposted one, then re-hang it so its FOOT sits just above the treeline and its
+ * highest spire just under the top of the frame. A castle you can see beats a castle in the right place.
+ */
+export function fitLandmarks(marks, scene, camera, opts = {}) {
+  if (!marks || !marks.list.length || !scene || !camera) return null;
+  const t0 = (typeof performance !== 'undefined' ? performance.now() : 0);
+  const O = occluders(scene);
+  // Measured from the MIDDLE of the vale at the camera's own eye height, not from wherever the hero happens to
+  // be standing: a place has to read from the whole meadow, not only from the spawn tile.
+  const eye = opts.eye ? new THREE.Vector3(...opts.eye) : new THREE.Vector3(0, camera.position.y, 0);
+  const eyes = opts.eye ? [eye] : [eye, camera.position.clone()];
+  const profs = eyes.map(e => skylineProfile(O, e));
+  // THE CEILING. It should be the top of the frame — but the fit runs a few frames after a map is built, and in
+  // those frames the camera is still swinging into place behind the hero, so reading it raw once hung every
+  // place at 4.4 degrees instead of 7.1 and left them half the size for the rest of the session. So: use the
+  // frame only when it reports a sane gameplay sky band, and otherwise fall back to the measured one (7.49 deg
+  // at the meadow's opening camera). A deterministic ceiling also means walking at a place really grows it.
+  const camTop = frameTopDeg(camera);
+  const cap = opts.capDeg ?? ((camTop >= 6.4 && camTop <= 9.5) ? camTop - 0.35 : 7.14);
+  const out = [];
+  for (const m of marks.list) {
+    try {
+      const halfAz = Math.atan2(m.size[0] * 0.5, m.dist);
+      // The skyline that matters is the WORST of the two places a child looks from: where the hero is standing
+      // now, and the middle of the vale. A place hung above both is a place you can see from anywhere in it.
+      const sky = (az, all) => {
+        let k = -99;
+        for (const P of (all ? profs : [profs[0]])) for (let i = 0; i < 9; i++) k = Math.max(k, skylineDeg(P, az + (i / 4 - 1) * halfAz * 0.9));
+        return k;
+      };
+      // a nudge toward the clearest bearing near the one the signpost points down (never more than 12 deg, and
+      // a tie always goes to the signposted bearing)
+      let bestAz = m.az, bestK = sky(m.az, false);
+      if (opts.nudge !== false) {
+        for (const d of [-12, -8, -4, 4, 8, 12]) {
+          const az = m.az + d * D2R, k = sky(az, false) + Math.abs(d) * 0.030;
+          if (k < bestK - 0.05) { bestK = k; bestAz = az; }
+        }
+      }
+      bestK = Math.max(bestK, sky(bestAz, true));
+      m.az = bestAz;
+      const skyDeg = Math.max(0.2, bestK);
+      // The card's bottom fifth is ramped away to nothing (see buildLandmarks), so letting the FOOT sink a little
+      // into the treeline costs no visible paint and buys the place real height. The spires still stand clear.
+      let foot = skyDeg - 0.85, top = cap;
+      if (top - foot < 2.4) foot = Math.max(0.2, top - 2.4);          // never a smear: keep 2.4 deg of place
+      foot = Math.max(0.2, Math.min(foot, top - 1.2));
+      hangCard(m, foot, top);
+      m.skylineDeg = +skyDeg.toFixed(2);
+      out.push({ id: m.id, bearing: +(m.az * R2D).toFixed(1), skylineDeg: m.skylineDeg, footDeg: m.footDeg, topDeg: m.topDeg, size: m.size });
+    } catch (e) { reportError('landmark fit ' + m.id, e); }
+  }
+  // the hill rings' saddles follow the nudged bearings (the dome reads uGateAz every frame)
+  try {
+    for (const U of GATE_UNIFORMS) {
+      marks.list.slice(0, 4).forEach((m, i) => { U.uGateAz.value[['x', 'y', 'z', 'w'][i]] = m.az; });
+    }
+  } catch (e) { reportError('landmark gates', e); }
+  marks.fitted = { at: Date.now(), ms: Math.round((typeof performance !== 'undefined' ? performance.now() : 0) - t0),
+    capDeg: +cap.toFixed(2), eye: [+eye.x.toFixed(1), +eye.y.toFixed(1), +eye.z.toFixed(1)], places: out };
+  return marks.fitted;
+}
+
+/**
+ * Re-hang the places against a (now settled) camera WITHOUT re-measuring the skyline: the wood has not moved,
+ * only the lens has. Cheap enough to run a second time a few seconds after a map loads.
+ */
+export function rehangLandmarks(marks, camera) {
+  if (!marks || !camera) return null;
+  const camTop = frameTopDeg(camera);
+  const cap = (camTop >= 6.4 && camTop <= 9.5) ? camTop - 0.35 : 7.14;
+  for (const m of marks.list) {
+    if (m.skylineDeg == null) continue;
+    let foot = m.skylineDeg - 0.85, top = cap;
+    if (top - foot < 2.4) foot = Math.max(0.2, top - 2.4);
+    foot = Math.max(0.2, Math.min(foot, top - 1.2));
+    try { hangCard(m, foot, top); } catch (e) { reportError('landmark rehang ' + m.id, e); }
+  }
+  if (marks.fitted) marks.fitted.capDeg = +cap.toFixed(2);
+  return cap;
+}
+
+/** Every live sky dome's gate uniforms, so a re-fit can move the passes in the hills with the places. */
+const GATE_UNIFORMS = new Set();
 
 let landmarkDebug = false;
 function installLandmarkDebug() {
@@ -890,25 +1288,126 @@ function installLandmarkDebug() {
      * "is there anything on the skyline?" is a measurement, not an opinion. `crest` is the painted ridge line,
      * `top` the highest painted point: both must sit clear of the treeline for the landmark to read.
      */
-    Debug.expose('landmarkScreen', () => {
+    Debug.expose('landmarkScreen', (opts) => {
       const M = CURRENT.landmarks, cam = CURRENT.camera;
       if (!M || !cam) return { ok: false, reason: 'no landmarks or no frame drawn yet' };
       const W = App.width || 1280, H = App.height || 720;
       const v = new THREE.Vector3();
+      cam.updateMatrixWorld();
+      const inv = new THREE.Matrix4().copy(cam.matrixWorld).invert();
+      // THE OCCLUSION TERM. A card that projects onto the frame is not the same thing as a card a child can see:
+      // sample a grid inside its own painted rect and fire a ray per sample at the LIVE scene. `hiddenPct` is how
+      // much of the place is behind something, `visiblePx` the painted height that really renders.
+      const wantRays = !(opts && opts.rays === false) && !!CURRENT.scene;
+      const PROF = wantRays ? skylineProfile(occluders(CURRENT.scene), cam.position) : null;
+      const GX = (opts && opts.gx) || 16, GY = (opts && opts.gy) || 10;
+      // The bottom fifth of every card is ramped away to nothing so it can melt into the haze (buildLandmarks),
+      // so the rays stop at the last row that really renders: hiding something that draws no pixels hides nothing.
+      const measure = (m, box, paintTopPx, solidFootPx) => {
+        if (!PROF) return null;
+        const x0 = Math.max(0, box.x0), x1 = Math.min(W, box.x1), y0 = Math.max(0, paintTopPx), y1 = Math.min(H, solidFootPx);
+        if (!(x1 > x0 && y1 > y0)) return { samples: 0, hiddenPct: 100, blockers: {} };
+        const card = m.mesh.position.distanceTo(cam.position);
+        const blockers = {};
+        let hit = 0, n = 0;
+        const d = new THREE.Vector3();
+        for (let j = 0; j < GY; j++) for (let i = 0; i < GX; i++) {
+          const px = x0 + (i + 0.5) / GX * (x1 - x0), py = y0 + (j + 0.5) / GY * (y1 - y0);
+          d.set((px / W) * 2 - 1, 1 - (py / H) * 2, 0.5).unproject(cam).sub(cam.position).normalize();
+          n++;
+          const az = Math.atan2(d.z, d.x), el = Math.asin(Math.max(-1, Math.min(1, d.y))) * R2D;
+          const f = PROF.blocked(az, el, card - 1.5);
+          if (f) { hit++; blockers[f.name || '?'] = (blockers[f.name || '?'] || 0) + 1; }
+        }
+        return { samples: n, hiddenPct: n ? Math.round(hit / n * 1000) / 10 : 100,
+          blockers: Object.fromEntries(Object.entries(blockers).sort((a, b) => b[1] - a[1]).slice(0, 3)) };
+      };
       return M.list.map((m) => {
         const box = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity };
-        for (const [sx, sy] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]) {
+        let front = 0;
+        // A PANORAMA is wide enough that one corner can be past the lens while the place itself is in frame, so
+        // the box is built from the corners that are really in front and `behind` means the whole card is.
+        for (const [sx, sy] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [0, -0.5], [0, 0.5]]) {
+          if (v.set(sx * m.size[0], sy * m.size[1], 0).applyMatrix4(m.mesh.matrixWorld).applyMatrix4(inv).z > -0.5) continue;
+          front++;
           v.set(sx * m.size[0], sy * m.size[1], 0).applyMatrix4(m.mesh.matrixWorld).project(cam);
           const px = (v.x * 0.5 + 0.5) * W, py = (1 - (v.y * 0.5 + 0.5)) * H;
           box.x0 = Math.min(box.x0, px); box.x1 = Math.max(box.x1, px);
           box.y0 = Math.min(box.y0, py); box.y1 = Math.max(box.y1, py);
         }
+        if (!front) return { id: m.id, behind: true, onScreen: false, clipped: false, hiddenPct: 100, visiblePx: 0, visible: false };
         const r = (n) => Math.round(n);
-        const crest = m.crest ?? 0.24;
-        return { id: m.id, x: [r(box.x0), r(box.x1)], top: r(box.y0), foot: r(box.y1),
-          crestPx: r(box.y1 - (box.y1 - box.y0) * crest), heightPx: r(box.y1 - box.y0),
-          onScreen: box.x1 > 0 && box.x0 < W && box.y1 > 0 && box.y0 < H };
+        const crest = m.crest ?? 0.24, hp = box.y1 - box.y0;
+        // paintTopPx is the highest PAINTED pixel (a spire, a roof), not the empty top of the card: if it is
+        // below 0 the place is clipped by the top of the frame, which is what a child would notice first.
+        const paintTop = r(box.y1 - hp * (1 - (m.paintTop ?? 0)));
+        const solidFoot = r(box.y0 + hp * 0.80);
+        const occ = measure(m, box, paintTop, solidFoot);
+        const painted = r(box.y1 - paintTop);
+        const onScreen = box.x1 > 0 && box.x0 < W && box.y1 > 0 && box.y0 < H;
+        const out = { id: m.id, x: [r(box.x0), r(box.x1)], top: r(box.y0), paintTopPx: paintTop, foot: r(box.y1),
+          solidFootPx: solidFoot, crestPx: r(box.y1 - hp * crest), heightPx: r(hp), paintedPx: painted,
+          clipped: paintTop < 0, onScreen };
+        if (occ) {
+          out.hiddenPct = occ.hiddenPct; out.rays = occ.samples; out.blockers = occ.blockers;
+          // what a child actually sees: the painted height that is on screen AND not behind anything
+          out.visiblePx = onScreen ? Math.round(Math.max(0, Math.min(H, solidFoot) - Math.max(0, paintTop)) * (1 - occ.hiddenPct / 100)) : 0;
+          out.visible = out.visiblePx > 22 && occ.hiddenPct < 55;
+        }
+        return out;
       });
+    });
+    /** The height of the world on the horizon, bearing by bearing — the wall a painted place has to clear. */
+    Debug.expose('skyline', (fromDeg = 0, toDeg = 360, stepDeg = 15) => {
+      const cam = CURRENT.camera, scene = CURRENT.scene;
+      if (!cam || !scene) return { ok: false, reason: 'no frame drawn yet' };
+      const t0 = (typeof performance !== 'undefined' ? performance.now() : 0);
+      const O = occluders(scene), P = skylineProfile(O, cam.position), rows = [];
+      for (let d = fromDeg; d < toDeg; d += stepDeg) {
+        const az = d * D2R, who = {};
+        rows.push({ bearing: Math.round(d), skylineDeg: +skylineDeg(P, az, who).toFixed(2), by: who.name, at: who.dist });
+      }
+      return { eye: [+cam.position.x.toFixed(1), +cam.position.y.toFixed(1), +cam.position.z.toFixed(1)],
+        frameTopDeg: +frameTopDeg(cam).toFixed(2), standing: O.cyl.length, wideMeshes: O.big.map(m => m.name),
+        buildMs: Math.round((typeof performance !== 'undefined' ? performance.now() : 0) - t0), rows };
+    });
+    /**
+     * What stands on the horizon, and a switch to take it away for a measurement: __DQ.blockers() lists every
+     * mesh that can hide a painted place; __DQ.blockers('forestCards') hides those and re-fits; __DQ.blockers('')
+     * puts them all back. It is how "would opening the lane mouths help, and by how much?" gets a number.
+     */
+    Debug.expose('blockers', (pattern) => {
+      const scene = CURRENT.scene;
+      if (!scene) return { ok: false, reason: 'no frame drawn yet' };
+      const seen = {};
+      const re = pattern === undefined ? null : new RegExp(String(pattern) || '(?!)');
+      scene.traverse((o) => {
+        if ((!o.isMesh && !o.isInstancedMesh) || NOT_A_BLOCKER.test(o.name || '')) return;
+        const n = o.name || 'mesh';
+        seen[n] = (seen[n] || 0) + (o.isInstancedMesh ? o.count : 1);
+        if (re) { if (!('dqWasVisible' in o.userData)) o.userData.dqWasVisible = o.visible; o.visible = re.test(n) ? false : o.userData.dqWasVisible; }
+      });
+      if (re && CURRENT.landmarks && CURRENT.camera) fitLandmarks(CURRENT.landmarks, scene, CURRENT.camera);
+      // the tallest things on the horizon from here, so an unexpected wall can be named and chased down
+      let tall = [];
+      if (CURRENT.camera) {
+        const eye = CURRENT.camera.position;
+        tall = occluders(scene).cyl.map((c) => {
+          const d = Math.hypot(c.x - eye.x, c.z - eye.z);
+          return { name: c.name, deg: +(Math.atan2(c.y1 - eye.y, Math.max(0.5, d - c.r)) * R2D).toFixed(1),
+            at: Math.round(d), r: +c.r.toFixed(1), y: [+c.y0.toFixed(1), +c.y1.toFixed(1)] };
+        }).filter(c => c.at > 6).sort((a, b) => b.deg - a.deg).slice(0, 8);
+      }
+      return { hidden: pattern === undefined ? null : String(pattern), meshes: seen, tallest: tall };
+
+    });
+    /** What the skyline fit decided (and how long it took). __DQ.landmarkFit({refit: true}) runs it again. */
+    Debug.expose('landmarkFit', (o) => {
+      const M = CURRENT.landmarks;
+      if (!M) return { ok: false, reason: 'no landmarks' };
+      if (!o || !o.refit) return M.fitted || { ok: false, reason: 'not fitted yet' };
+      if (!CURRENT.scene || !CURRENT.camera) return { ok: false, reason: 'no frame drawn yet' };
+      return fitLandmarks(M, CURRENT.scene, CURRENT.camera, o);
     });
     /** Swing the camera round until the named place is in the middle of the frame. */
     Debug.expose('landmarkView', (id) => {
@@ -968,8 +1467,19 @@ function hillPatch({ haze, top, patches }) {
   return fn;
 }
 
-export function ringHill(scene, id, r0, r1, r2, baseH, amp, seed, low, high, haze, { fogged = true, peaky = 1, patches = null, gates = null } = {}) {
+export function ringHill(scene, id, r0, r1, r2, baseH, amp, seed, low, high, haze,
+  { fogged = true, peaky = 1, patches = null, gates = null, capDeg = null, eyeY = 3.2 } = {}) {
   const SEG = 180, rp = r2 - (r2 - r1) * 0.35, RR = 7;
+  // A CEILING ON THE SKYLINE. A ring whose peaks stand higher than the top of the frame is not a distant hill,
+  // it is a wall: on the approved opening frame the whole sky band is 7.5 degrees and the mountains crest at 5.2,
+  // leaving blue and cloud above them. So every ring is soft-kneed down to a target elevation seen from the vale
+  // (the far ring a little higher than the mid one, so the layers still stack). Pass capDeg:false to opt out.
+  const CAP = capDeg === false ? null : ((capDeg ?? (peaky > 1.2 ? 5.3 : 3.6)) * Math.PI / 180);
+  const ceil = (y, r) => {
+    if (CAP == null) return y;
+    const top = eyeY + r * Math.tan(CAP), knee = eyeY + (top - eyeY) * 0.55;
+    return y <= knee ? y : knee + (top - knee) * (1 - Math.exp(-(y - knee) / Math.max(0.5, top - knee)));
+  };
   // a pass in the hills on every landmark's bearing: the ring sags so the lane runs out of the vale and the
   // place it is signposted to is visible over the gap (the far ranges only sag a little, so they stay a wall)
   const gateK = gates === false ? 0 : (gates ?? (peaky > 1.2 ? 0.45 : 1));
@@ -987,7 +1497,8 @@ export function ringHill(scene, id, r0, r1, r2, baseH, amp, seed, low, high, haz
       const r = k === RR - 1 ? r2 : lerp(r0, rp, k / (RR - 2));
       let y = prof(r, t);
       if (k > 0 && k < RR - 1) y += (vnoise(a * 14 + k * 3.1, k * 1.7, seed + 5) - 0.5) * amp * 0.12;
-      if (sag > 0) y -= (y + 2) * sag * 0.72;                 // the inner lip (-2) stays put; the crest comes down
+      y = ceil(y, r);
+      if (sag > 0) y -= (y + 2) * sag * 0.82;                 // the inner lip (-2) stays put; the crest comes down
       pos.push(Math.cos(a) * r, y, Math.sin(a) * r);
       tmp.copy(cl).lerp(chh, smooth(-1, baseH + amp * 0.9, y));
       col.push(tmp.r, tmp.g, tmp.b);

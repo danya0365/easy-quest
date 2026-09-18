@@ -1,0 +1,179 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>DEMO — P13 menus &amp; P32 field HUD</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:var(--pal-sky-page)}
+#game-canvas{display:block;width:100vw;height:100vh}
+#ui-root{position:fixed;inset:0;pointer-events:none;font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif}
+.dqnote{position:absolute;background:linear-gradient(var(--pal-ui-win-top),var(--pal-ui-win-bottom));
+  border:3px solid var(--pal-ui-border);border-radius:12px;color:var(--pal-ui-text);
+  box-shadow:0 0 0 2px var(--pal-ui-border-shade),0 6px 18px var(--p13-shadow)}
+.dqnote::after{content:"";position:absolute;inset:4px;border:1px solid var(--p13-inner);border-radius:8px;pointer-events:none}
+#title{left:16px;bottom:14px;padding:8px 16px 10px;max-width:520px}
+#title h1{margin:0;font-size:18px;font-weight:800;letter-spacing:.3px;text-shadow:0 2px 0 var(--pal-ui-border-shade)}
+#title h1 b{color:var(--pal-ui-gold)}
+#title p{margin:3px 0 0;font-size:12px;color:var(--pal-ui-text-dim);font-weight:600;line-height:1.45}
+#keys{right:16px;bottom:14px;padding:8px 14px;font-size:12px;font-weight:700;line-height:1.55;color:var(--pal-ui-text-dim);text-align:right}
+#keys b{color:var(--pal-ui-cursor)}
+.hide{display:none}
+</style>
+</head><body>
+<canvas id="game-canvas"></canvas>
+<div id="ui-root">
+  <div id="title" class="dqnote"><h1>P13 <b>menus</b> &middot; P32 <b>field HUD</b></h1>
+    <p id="sub">booting&hellip;</p></div>
+  <div id="keys" class="dqnote"><b>C</b> or <b>Tab</b> the menu &middot; <b>M</b> the little map<br/>
+    <b>arrows</b> move the cursor &middot; <b>Z</b> choose &middot; <b>X</b> back<br/>
+    <b>1</b> Act I party &middot; <b>2</b> Act II &middot; <b>3</b> Act III &middot; <b>0</b> a full bag<br/>
+    <b>H</b> hide the demo captions</p>
+</div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// P13 + P32 — the field command menu and the field HUD, installed into the REAL field exactly as src/main.js does
+// it, so what you see here is what /index.html does. Everything below the install(ctx) calls is demo scaffolding:
+// it only stocks the party, the bag and the purse so every window has something worth showing.
+import { App } from '/src/engine/app.js';
+import { Loop } from '/src/engine/loop.js';
+import { Scenes } from '/src/engine/states.js';
+import { Bus } from '/src/engine/events.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { Save } from '/src/engine/save.js';
+import { applyCssVars, css, PAL } from '/src/art/palette.js';
+import { UI } from '/src/ui/window.js';
+import { Text } from '/src/ui/text.js';
+import { Audio } from '/src/audio/audio.js';
+import { Sfx } from '/src/audio/sfx.js';
+import { Maps } from '/src/world/map.js';
+import { Field } from '/src/world/field.js';
+import { preloadHero } from '/src/world/player.js';
+import { Roster } from '/src/battle/scene.js';
+import { AREA_BY_ID } from '/tests/battle/areas.js';
+
+applyCssVars();
+document.documentElement.style.setProperty('--p13-shadow', css(PAL.ui.shadow, 0.45));
+document.documentElement.style.setProperty('--p13-inner', css(PAL.ui.border, 0.35));
+Input.init();
+App.start({ canvas: document.getElementById('game-canvas'), version: '0.3.0-P13', beforeUpdate: Input.update });
+Audio.init();
+Audio.bindEvents(Bus);
+
+const ctx = {
+  version: '0.3.0-P13', App, Loop, Scenes, Bus, Debug, reportError, Input, UI, Text, Save, Audio, Sfx, Field, Maps,
+  Music: () => Promise.resolve(null),
+  vars: { HERO: 'Bram' },
+  boot: { scene: 'field', ctx: { map: 'meadow' }, newGame: false },
+};
+
+await Maps.loadAll();
+await preloadHero().catch(() => false);
+Field.install();
+for (const [name, path] of [
+  ['transitions', '/src/ui/transitions.js'],
+  ['dialogue', '/src/ui/dialogue.js'],
+  ['menu', '/src/ui/menu.js'],
+  ['hud', '/src/ui/hud.js'],
+  ['npc', '/src/world/npc.js'],
+  ['battle.present', '/src/battle/present.js'],
+  ['battle.scene', '/src/battle/scene.js'],
+]) {
+  try { (await import(path)).install(ctx); } catch (e) { reportError('demo install ' + name, e); }
+}
+
+// ── stocking the tale ────────────────────────────────────────────────────────────────────────────────────────
+// The menu has no party of its own: it reads the one the battle keeps (src/battle/scene.js Roster). So the demo
+// stocks THAT, the way ten hours of play would have, and every window fills itself in.
+const ACTS = {
+  1: { area: 'long_lane', lvl: 3, gold: 30,
+       bag: { herb: 3, antidote_drop: 1, cypress_stick: 1, straw_hat: 1, pot_lid: 1 },
+       pockets: { hero: ['herb'] },
+       words: 'Act I. A boy, his father and a Gloop on the Long Lane.' },
+  2: { area: 'marbleford_downs', lvl: 16, gold: 1480,
+       bag: { herb: 6, strong_herb: 4, nutcake: 2, antidote_drop: 2, wake_me_up: 1, homing_feather: 2,
+              retreat_bell: 1, copper_sword: 1, iron_lance: 1, leather_jerkin: 1, chain_mail: 1, iron_shield: 1,
+              leather_cap: 1, lucky_acorn: 1, osrics_wooden_bird: 1, sunbottle: 1 },
+       pockets: { hero: ['herb', 'strong_herb'], barty: ['herb'], pip: ['nutcake'] },
+       equip: { hero: { weapon: 'iron_lance', armour: 'chain_mail', shield: 'iron_shield', helm: 'leather_cap' },
+                barty: { weapon: 'kitchen_cleaver', armour: 'cooks_apron' } },
+       words: 'Act II. Bram grown, Barty cooking, Pip enormous, and a purse with something in it.' },
+  3: { area: 'highfeather', lvl: 24, gold: 9240,
+       bag: { strong_herb: 6, fresh_herb: 3, honeycake: 2, angels_kiss: 1, homing_feather: 3, retreat_bell: 1,
+              seed_of_life: 1, steel_sword: 1, ash_staff: 1, silk_robe: 1, iron_armour: 1, fur_cloak: 1,
+              mirror_shield: 1, iron_helm: 1, wide_awake_crown: 1, swiftfoot_anklet: 1, pips_bell: 1,
+              sock_of_considerable_power: 1, larksteel_sword: 1, larksteel_helm: 1 },
+       pockets: { hero: ['fresh_herb', 'strong_herb'], rowan: ['strong_herb'], linnet: ['honeycake'] },
+       equip: { hero: { weapon: 'steel_sword', armour: 'iron_armour', shield: 'mirror_shield', helm: 'iron_helm',
+                        accessory: 'sock_of_considerable_power' },
+                rowan: { weapon: 'larksteel_sword', armour: 'fur_cloak', helm: 'larksteel_helm' },
+                linnet: { weapon: 'ash_staff', armour: 'silk_robe', accessory: 'swiftfoot_anklet' } },
+       words: 'Act III. Rowan with the Larksteel Sword, Linnet with a staff, and the cloud road above you.' },
+};
+
+function stock(act = 2) {
+  const A = ACTS[act] || ACTS[2];
+  try {
+    Roster.party = AREA_BY_ID[A.area].party(A.lvl);
+    Roster.wagon = [];
+    Roster.gold = A.gold;
+    Roster.bag = Object.assign({}, A.bag);
+    for (const m of Roster.party) {
+      m.pockets = [];
+      if (A.equip && A.equip[m.id]) m.equip = Object.assign({}, m.equip, A.equip[m.id]);
+      const p = A.pockets && A.pockets[m.id];
+      if (p) for (const id of p) m.pockets.push({ id, n: 1 });
+    }
+  } catch (e) { reportError('demo stock', e); }
+  caption(A.words);
+  return { act, party: Roster.party.map(m => `${m.name} Lv${m.lvl}`), gold: Roster.gold };
+}
+
+function fillBag() {
+  try {
+    for (const id of ['herb', 'strong_herb', 'fresh_herb', 'nutcake', 'honeycake', 'antidote_drop', 'wake_me_up',
+      'angels_kiss', 'sunbottle', 'whiff_powder', 'homing_feather', 'retreat_bell', 'seed_of_life']) {
+      Roster.bag[id] = (Roster.bag[id] || 0) + 2;
+    }
+  } catch (e) { reportError('demo fill', e); }
+  return Object.keys(Roster.bag).length;
+}
+
+const sub = document.getElementById('sub');
+let captionWords = '';
+function caption(words) {
+  captionWords = words || captionWords;
+  const p = (Roster.party || []).map(m => m.name).join(', ');
+  sub.textContent = `${captionWords}  —  ${p}, ${Roster.gold} gold coins.`;
+}
+
+stock(2);
+Scenes.push('field', { map: 'meadow' });
+caption();
+
+// demo-only keys (the game's own buttons all go through F2 as usual)
+addEventListener('keydown', (e) => {
+  if (e.code === 'Digit1') stock(1);
+  else if (e.code === 'Digit2') stock(2);
+  else if (e.code === 'Digit3') stock(3);
+  else if (e.code === 'Digit0') { fillBag(); caption(); }
+  else if (e.code === 'KeyH') for (const el of document.querySelectorAll('.dqnote')) el.classList.toggle('hide');
+  else return;
+  e.preventDefault();
+});
+
+Debug.provide('demo', () => ({ piece: 'P13+P32', party: (Roster.party || []).map(m => `${m.name} Lv${m.lvl}`),
+  gold: Roster.gold, bag: Object.keys(Roster.bag || {}).length }));
+Debug.expose('demoAct', (n) => stock(Number(n) || 2));
+/** Knock everybody about a bit, so healing has something to heal. */
+Debug.expose('demoHurt', (frac = 0.35) => {
+  for (const m of (Roster.party || [])) { m.hp = Math.max(1, Math.round((m.hp || 1) * frac)); m.mp = Math.round((m.mp || 0) * 0.5); }
+  caption();
+  return (Roster.party || []).map(m => `${m.name} ${m.hp}`);
+});
+Debug.expose('demoFillBag', () => fillBag());
+Debug.expose('demoCaptions', (on) => {
+  for (const el of document.querySelectorAll('.dqnote')) el.classList.toggle('hide', on === false);
+  return on !== false;
+});
+</script></body></html>

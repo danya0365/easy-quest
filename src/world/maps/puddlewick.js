@@ -43,6 +43,7 @@ import { makeAOMask } from '../../art/toon.js';
 import { Sfx } from '../../audio/sfx.js';
 import { reportError } from '../../engine/debug.js';
 import { createKit, buildSky, ringHill, buildGround, paintMasks, distanceGrid, curvePoints, bridgeFrame, prep } from '../scenery.js';
+import { LANDMARK_SETS } from '../../art/sky.js';
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // shape constants
@@ -55,8 +56,8 @@ const TAU = Math.PI * 2;
 const GREEN = { x: 0, z: 6, rx: 9.5, rz: 8 };
 
 const BECK = [[-42, -5], [-30, -9], [-22, -11.2], [-14, -12.6], [-6, -13.4], [2, -13.7], [10, -14.8], [18, -16.6], [26, -18.8], [38, -21.8]];
-const NORTH_LANE = [[0.3, -2.6], [-0.2, -7.0], [-0.6, -10.6], [-0.6, -13.8], [0.3, -15.6], [1.9, -16.3]];
-const SHRINE_PATH = [[2.7, -17.4], [8, -18.4], [13.5, -19.4], [18.6, -20.4]];
+const NORTH_LANE = [[0.3, -2.6], [-0.2, -7.0], [-0.6, -10.6], [-0.6, -13.8], [0.3, -15.6], [1.4, -16.6], [2.0, -18.1]];
+const SHRINE_PATH = [[4.8, -17.2], [9.2, -18.0], [13.5, -19.4], [18.6, -20.4]];
 const WEST_LANE = [[-8.8, 2.2], [-12.6, 0.4], [-16.6, -0.4], [-20.4, 0.6], [-23.2, 3.2], [-22.6, 7.0], [-20.2, 9.4]];
 const MILL_LANE = [[-16.6, -1.4], [-17.4, -4.4], [-17.8, -7.2], [-17.9, -8.4]];
 const GATE_LANE = [[4.6, 13.6], [8.4, 15.6], [11.6, 18.6], [13.6, 22.0], [15.4, 25.4], [16.6, 30.5]];
@@ -103,6 +104,9 @@ function doorOf(o) {
   const nx = out.x - doorway.x, nz = out.z - doorway.z;
   return { kind, dx, dz, dw, doorway, out, far, spur, nx, nz, face: Math.atan2(-nx, -nz), size: (SIZE[kind] || SIZE.cottage)(o) };
 }
+
+/** The doors whose rooms are built (src/world/maps/<id>.js + an entry in maps/index.js). */
+const BUILT_INTERIORS = new Set(['hollybank', 'puddlewick_inn']);
 
 const bump = (x, z, cx, cz, r) => Math.exp(-((x - cx) * (x - cx) + (z - cz) * (z - cz)) / (r * r));
 const edgeR = (x, z) => Math.pow(Math.pow(Math.abs(x) / AX, 4) + Math.pow(Math.abs(z) / AZ, 4), 0.25);
@@ -152,7 +156,10 @@ function layout() {
     bakery: plot({ id: 'puddlewick_bakery', x: -6.0, z: -6.2, name: "Nan Puddifoot's bakery" }),
     inn: plot({ id: 'puddlewick_inn', x: 8.4, z: -4.6, name: 'the inn' }),
     shop: plot({ id: 'puddlewick_shop', x: 15.4, z: 3.8, name: 'the shop' }),
-    twins: plot({ id: 'puddlewick_twins', kind: 'cottage', x: 12.2, z: 14.8, W: 5.2, D: 4.2, H: 2.4, roof: 'tile', pitch: 0.62, barge: true,
+    // Moved 2026-09-18 from (12.2, 14.8): its blank gable filled the right third of the frame a child ARRIVES
+    // in, and the green, the well and the chestnut were behind it. Here it sits properly on the ring lane and
+    // the lane out of the gate opens on the village instead of on one wall.
+    twins: plot({ id: 'puddlewick_twins', kind: 'cottage', x: 12.6, z: 11.6, W: 5.2, D: 4.2, H: 2.4, roof: 'tile', pitch: 0.62, barge: true,
       doorX: 0.4, doorColor: PAL.paint.shutterBlue, frontWindows: [-1.5], sideWindows: [0], shutter: PAL.paint.shutterBlue,
       chimney: 'brick', chimneyX: 1.6, name: "Dot and Bel's house" }),
     hob: plot({ id: 'puddlewick_hob', kind: 'cottage', x: -1.6, z: 18.4, W: 5.0, D: 4.0, H: 2.3, roof: 'thatch', pitch: 0.78,
@@ -161,7 +168,11 @@ function layout() {
     cottage: plot({ id: 'puddlewick_cottage', kind: 'cottage', x: -11.8, z: 13.6, W: 5.4, D: 4.3, H: 2.4, roof: 'tile', pitch: 0.6, barge: true,
       doorX: -0.3, doorColor: PAL.paint.doorRed, frontWindows: [1.4], sideWindows: [0], shutter: PAL.paint.shutterGreen,
       chimney: 'brick', chimneyX: -1.6, name: 'a cottage on the green' }),
-    chapel: { id: 'puddlewick_chapel', kind: 'church', x: 2.0, z: -21.0, rot: 0, W: 6.0, D: 9.2, H: 3.4, towerSide: 1, name: 'the chapel of Saint Alden' },
+        // The chapel stands back from the Beck ON PURPOSE. Its door faces south, and doorOf() puts the spot you step
+    // back to 2.1 units out in front of it: at z = -21 that spot landed IN THE RIVER, so walking into the chapel
+    // door dropped a child in the water. At z = -23.2 the front face is -18.6 and the step-back is -16.5, which is
+    // 1.5 clear of the water's edge (the Beck is centred z = -13.7 here, half-width 1.3).
+    chapel: { id: 'puddlewick_chapel', kind: 'church', x: 2.0, z: -23.2, rot: 0, W: 6.0, D: 9.2, H: 3.4, towerSide: 1, name: 'the chapel of Saint Alden' },
     mill: { id: 'puddlewick_mill', kind: 'mill', x: -21.0, z: -8.2, rot: Math.PI / 2, name: 'the mill' },
     barn: { id: 'hollybank_barn', kind: 'barn', x: -21.6, z: -1.2, rot: Math.PI / 2, name: "Hollybank's barn" },
   };
@@ -201,9 +212,15 @@ function layout() {
   L.bridge = bridgeFrame({ cx: best.x, cz: best.z, dir: Math.atan2(b[0] - a[0], b[1] - a[1]), L: 7.6, W: 2.9, arch: 0.9, y0: VALLEY + 0.1 });
 
   // ── pads: the terrain flattens under every building ──
-  L.pads = L.plotList.map(o => ({ x: o.x, z: o.z, r: (o.kind === 'church' ? 7.0 : Math.max(o.W || 6, o.D || 5) * 0.62), y: heightRaw(o.x, o.z) }));
-  L.pads.push({ x: 2.2, z: 5.0, r: 2.2, y: heightRaw(2.2, 5.0) });                       // the well stands level
-  L.pads.push({ x: 13.0, z: 20.0, r: 2.0, y: heightRaw(13.0, 20.0) });                   // the signpost at the gate
+  // Measured 2026-09-18: with the pads applied BEFORE the Beck's valley, the valley re-cut the chapel's plot
+  // afterwards and the ground ran 0.10 at its door to 1.51 at its altar end — a 1.4 m hillside INSIDE a 9.2 m
+  // building, which is the grass a critic could see through the chapel doorway (P05 gap #4). Each pad is now the
+  // building's own footprint (half-diagonal + a margin) and `groundNoPads` is what it levels TO, applied last.
+  L.pads = L.plotList.map(o => {
+    const [bw, bd] = (SIZE[o.kind || 'cottage'] || SIZE.cottage)(o);
+    return { x: o.x, z: o.z, r: Math.hypot(bw, bd) / 2 + 0.55, f: 3.0, y: groundNoPads(L, o.x, o.z) };
+  });
+  L.pads.push({ x: 2.2, z: 5.0, r: 2.2, f: 3.0, y: groundNoPads(L, 2.2, 5.0) });          // the well stands level
 
   // ── fields, fences, festival dressing ──
   L.pen = [[-29, 6.5], [-20.5, 5.4], [-19.6, 13.4], [-28.6, 15.0], [-29, 6.5]];
@@ -214,7 +231,12 @@ function layout() {
   L.picket = [[-17.2, -0.2], [-13.0, -1.6], [-10.6, -3.6]];
   L.wall = [[9.9, 18.2], [11.0, 21.2]];                                                  // the low wall the hero waits on
   L.stile = { x: 11.3, z: 22.4, rot: -0.35 };
-  L.sign = { x: 13.2, z: 19.8 };
+  // The signpost stands on open grass beside the gate lane, not against Dot and Bel's front wall: in the frame a
+  // child actually arrives on, the post and the cottage were overlapping and neither one read.
+  // 1.9 off the lane centre put the signpost dead in the middle of the frame a child arrives in. At 15.6/20.0 it
+  // is 3 units clear on the east verge: you read it on your way past instead of walking into it.
+  L.sign = { x: 15.6, z: 20.0 };
+  L.pads.push({ x: L.sign.x, z: L.sign.z, r: 2.0, f: 3.0, y: groundNoPads(L, L.sign.x, L.sign.z) });   // level ground
   L.stalls = [{ x: 6.0, z: 1.6, rot: -1.0, color: PAL.cloth.mustard, goods: ['apple', 'cabbage', 'loaf'], seed: 41 },
     { x: 6.8, z: 9.8, rot: 0.7, color: PAL.cloth.blue, goods: ['pot', 'loaf', 'apple'], seed: 42 }];
   L.trestle = { x: -4.8, z: 10.2, rot: 0.15 };
@@ -222,13 +244,16 @@ function layout() {
   L.well = { x: 2.2, z: 5.0, rot: 0.34 };
   L.chestnut = { x: -2.4, z: 2.6, s: 2.5 };
   L.shrine = [{ x: 18.4, z: -20.4, h: 2.1, seed: 3 }, { x: 20.3, z: -21.4, h: 2.5, seed: 4 }, { x: 22.0, z: -20.3, h: 1.9, seed: 5 }];
-  L.shrineBench = { x: 20.2, z: -18.3, rot: 0.1 };
+  L.shrineBench = { x: 21.0, z: -22.6, rot: 0.1 };          // north of the stones, looking back at them (the Beck's edge is at -18.5)
   L.benches = [{ x: 1.6, z: 8.6, rot: 0.25 }, { x: 14.0, z: 18.4, rot: -1.0 }];
   L.notice = { x: 4.4, z: -15.9, rot: 0.1 };
   L.barrels = [{ x: 12.3, z: -2.2, s: 1 }, { x: 12.9, z: -1.3, s: 0.85 }, { x: -9.6, z: -4.8, s: 1 }, { x: -20.0, z: -11.4, s: 0.9 }];
   L.crates = [{ x: 18.9, z: 6.3, rot: 0.4 }, { x: 18.3, z: 7.2, rot: -0.2 }, { x: -18.6, z: -8.6, rot: 0.2 }];
   L.woodpile = { x: -16.8, z: -4.6, rot: Math.PI / 2 };
-  L.laundry = [[-15.6, -5.6], [-11.4, -4.6]];
+  // The washing line used to be strung a metre off Hollybank's north wall, which merged it into the cottage's
+  // see-through cluster and inflated that cluster's box to 10.0 x 6.7 — so the fade pass called the lens "inside
+  // the cottage" while it was still out on the grass. It hangs in the orchard now, clear of every wall.
+  L.laundry = [[-18.4, -7.6], [-14.2, -6.8]];
   L.beds = [{ x: -11.4, z: -0.4, w: 2.2, d: 1.2, rot: 0.9 }, { x: 4.4, z: 3.2, w: 2.6, d: 1.3, rot: 0.1 }, { x: 11.0, z: -2.6, w: 2.0, d: 1.1, rot: -0.6 }];
   L.vegPatches = [{ x: -9.4, z: -10.4, w: 4.4, d: 3.0, rot: 0.45, seed: 9 }, { x: 1.4, z: 23.6, w: 4.0, d: 2.8, rot: 0.1, seed: 11 },
     { x: -15.8, z: 18.4, w: 3.6, d: 2.6, rot: 2.1, seed: 13 }];
@@ -247,7 +272,7 @@ function layout() {
     { kind: 'oak', x: 11.2, z: -23.4, s: 1.2 }, { kind: 'oak', x: -26.8, z: -14.8, s: 1.1 }, { kind: 'oak', x: 25.4, z: 22.6, s: 1.2 },
     { kind: 'fruit', x: -9.8, z: -12.6, s: 1.0 }, { kind: 'fruit', x: -12.8, z: -11.4, s: 1.05 }, { kind: 'fruit', x: -15.6, z: -12.4, s: 1.0 },
     { kind: 'fruit', x: -13.0, z: -8.6, s: 0.95 }, { kind: 'blossom', x: 6.4, z: -25.0, s: 1.1 }, { kind: 'blossom', x: -2.6, z: -24.4, s: 1.0 },
-    { kind: 'poplar', x: -13.4, z: -15.6, s: 1.15 }, { kind: 'poplar', x: 5.6, z: -17.6, s: 1.1 }, { kind: 'poplar', x: 14.4, z: -13.0, s: 1.05 },
+    { kind: 'poplar', x: -13.4, z: -15.6, s: 1.15 }, { kind: 'poplar', x: -4.6, z: -17.8, s: 1.1 }, { kind: 'poplar', x: 14.4, z: -13.0, s: 1.05 },
     { kind: 'poplar', x: -22.6, z: -12.8, s: 1.1 }, { kind: 'birch', x: 25.0, z: -17.0, s: 1.0 }, { kind: 'birch', x: 26.2, z: -14.6, s: 1.05 },
     { kind: 'round', x: -19.4, z: 16.4, s: 1.1 }, { kind: 'round', x: 18.6, z: 24.4, s: 1.05 },
   ];
@@ -268,10 +293,9 @@ function layout() {
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // terrain
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
-function heightAt(x, z) {
-  const L = layout();
+/** The land before any building levelled it: the bowl, the Beck's valley, the worn lanes and the bridge ramps. */
+function groundNoPads(L, x, z) {
   let h = heightRaw(x, z);
-  for (const p of L.pads) { const d = Math.hypot(x - p.x, z - p.z); if (d < p.r + 3.6) h = lerp(h, p.y, 1 - smooth(p.r, p.r + 3.6, d)); }
   const dW = L.water.sample(x, z);
   h = lerp(VALLEY + (h - VALLEY) * 0.3, h, smooth(2.2, 10, dW));            // the Beck's shallow valley
   h -= 0.07 * smooth(0.45, 0.92, L.masks.sample(0, x, z));                  // lanes worn a little lower
@@ -281,7 +305,19 @@ function heightAt(x, z) {
     const k = (1 - smooth(br.L / 2 - 0.4, br.L / 2 + 3.2, Math.abs(loc.u))) * (1 - smooth(br.W * 0.55, br.W * 0.9 + 1.0, Math.abs(loc.v)));
     h = lerp(h, br.y0 - 0.06, k);
   }
-  if (dW < HW + BANK) h = lerp(BED, h, smooth(HW - 0.55, HW + BANK, dW));   // the channel and its banks
+  return h;
+}
+
+function heightAt(x, z) {
+  const L = layout();
+  let h = groundNoPads(L, x, z);
+  // the building plots LAST, so nothing re-cuts a floor after it has been levelled
+  for (const p of L.pads) {
+    const d = Math.hypot(x - p.x, z - p.z), f = p.f ?? 3.0;
+    if (d < p.r + f) h = lerp(h, p.y, 1 - smooth(p.r, p.r + f, d));
+  }
+  const dW = L.water.sample(x, z);
+  if (dW < HW + BANK) h = lerp(BED, h, smooth(HW - 0.55, HW + BANK, dW));   // the channel and its banks, last of all
   return h;
 }
 
@@ -334,7 +370,9 @@ const puddlewick = {
   light: { preset: 'day' },
   weather: 'clear',
   encounters: null,                       // nothing ambushes you at home
-  spawn: { x: 16.2, z: 25.2, facing: Math.atan2(-2.6, -3.4) },
+  // You arrive on the gate lane, 2.6 units clear of the lane-out trigger (which starts at z = 26.0) — so a child
+  // who arrives and takes one step backwards does NOT fall straight back out into the vale.
+  spawn: { x: 14.8, z: 23.4, facing: Math.atan2(-2.6, -3.4) },
   camera: { orbit: 36, pitch: 28, dist: 11, fov: 49, lookUp: 2.2 },
 
   tiles: {
@@ -363,6 +401,7 @@ const puddlewick = {
   get exits() { return furnish().exits; },
   get occluders() { return furnish().occluders; },
   get spots() { return furnish().spots; },
+  get chests() { return furnish().chests; },
   npcs: [],
 
   /**
@@ -408,6 +447,12 @@ const puddlewick = {
     'door-puddlewick_hob': "One chair, worn exactly to the\nshape of Old Hob.",
     'door-puddlewick_cottage': 'Somebody is having a nap, loudly.',
     'lane-out': 'The lane runs down to the vale,\nand the vale runs on for ever.',
+    'search-crate-shop': ['Bram gets the lid off the crate.{wait:320}{n}Straw, and something wrapped in\nstraw, and under THAT: nothing.',
+      'Whoever packed this was making\na point.'],
+    'search-crate-mill': 'Bram tips the crate over.{n}Three nails and a very startled\nspider.',
+    'search-sacks': ['Bram puts an arm into the flour\nsack up to the elbow.{wait:350}{n}Flour.', 'He is going to be found out\nabout this.'],
+    'search-hay': ['Bram searches the hay, the way\nyou are meant to.{n}A hen has beaten him to it, and\nleft the evidence.'],
+    'search-barrel-mill': ['Bram lifts the lid of the barrel.{n}Rainwater, and the sky in it,\nupside down.'],
     search: [
       'Bram looks under the trestle.{wait:350}{n}A pie has been counted twice.{n}By him.',
       'Bram searches the green.{n}Three chestnuts in their shells.{n}He puts two back.',
@@ -429,7 +474,20 @@ const puddlewick = {
     // every stage is guarded: a recipe module mid-edit in another piece must never cost this map its art
     const safe = (name, fn) => { try { return fn(); } catch (e) { reportError(`puddlewick: ${name}`, e); return null; } };
     let sky = null;
-    safe('sky', () => { sky = buildSky(scene, rig); });
+    // The skyline, re-aimed for home. P02's default 'vale' set paints PUDDLEWICK on the horizon — which is wrong
+    // when you are standing in it (you could see your own village two miles away). So: drop that card, and point
+    // the other three down the bearings Puddlewick's own signpost points (WORLD-BIBLE §1: Saltmarrow south-east
+    // down the Beck, Coddleston east along the Long Lane, the Whispering Wood north beyond the chapel).
+    const HOME_AZ = { saltmarrow: 1.02, coddleston: 0.16, whispering_wood: -1.47 };
+    const homeMarks = (() => {
+      try {
+        const vale = LANDMARK_SETS && LANDMARK_SETS.vale;
+        if (!Array.isArray(vale) || !vale.length) return 'vale';
+        const kept = vale.filter(m => m && m.id !== 'puddlewick').map(m => Object.assign({}, m, { az: HOME_AZ[m.id] ?? m.az }));
+        return kept.length ? kept : 'vale';
+      } catch (e) { reportError('puddlewick: skyline', e); return 'vale'; }
+    })();
+    safe('sky', () => { sky = buildSky(scene, rig, { landmarks: homeMarks }); });
     safe('hills', () => {
       ringHill(scene, 'mid', 120, 155, 205, 5, 21, 53, PAL.hill.midLow, PAL.hill.mid, 0.2);
       ringHill(scene, 'far', 245, 305, 385, 12, 78, 61, PAL.hill.farLow, PAL.hill.far, 0.25, { fogged: false, peaky: 1.8 });
@@ -460,8 +518,8 @@ const puddlewick = {
     try {
       const atlas = kit.useSignAtlas(kit.signAtlas(['Puddlewick', 'Saltmarrow', 'Long Lane']));
       kit.signpost(atlas, L.sign.x, L.sign.z, [
-        { label: 'Puddlewick', dir: Math.atan2(-13.2, -19.8) },
-        { label: 'Saltmarrow', dir: Math.atan2(3.4, 5.6) },
+        { label: 'Puddlewick', dir: Math.atan2(GREEN.x - L.sign.x, GREEN.z - L.sign.z) },   // up the lane, into the village
+        { label: 'Saltmarrow', dir: Math.atan2(3.4, 5.6) },                                 // out of the gate and down the Beck
         { label: 'Long Lane', dir: Math.atan2(4.2, 8.0) },
       ]);
     } catch (e) { reportError('puddlewick: signpost', e); }
@@ -550,8 +608,11 @@ const puddlewick = {
         { kind: 'card', e: 1.8, spacing: 7.5, jitter: 4.5, size: [7.2, 9.4], haze: 0.26, clump: { freq: 6, threshold: 0.56, seed: 167 } },
         { kind: 'card', e: 2.2, spacing: 9.5, jitter: 6.0, size: [8.0, 10.6], haze: 0.38, clump: { freq: 5, threshold: 0.6, seed: 199 } },
       ];
+      // On the low tier the third real-tree row and the farthest card row go: the rim still reads as 2 staggered
+      // rows of mixed clumps in front of 2 hazed card layers, for ~40 fewer trees (ARCHITECTURE rule 4, P34).
+      const useRows = low ? rows.filter((r, i) => i !== 2 && i !== 5) : rows;
       kit.forestRing({
-        rows, seed: 5150, shade, sunDir: rig.dir, low,
+        rows: useRows, seed: 5150, shade, sunDir: rig.dir, low,
         pointAt: (ang, e) => {
           const c = Math.cos(ang), s = Math.sin(ang);
           const k = Math.pow(Math.pow(Math.abs(c / AX), 4) + Math.pow(Math.abs(s / AZ), 4), -0.25);
@@ -561,6 +622,10 @@ const puddlewick = {
           const mouth = row.mouth ?? 0;
           if (mouth > 0 && nearLane(x, z) < mouth) return true;
           if (beckMouth(x, z)) return true;
+          // the chapel stands on its knoll at the very edge of the village: keep the hedge and the first tree rows
+          // out of its back wall and out of its tower, so the landmark reads as a building and not as a thicket
+          const c = P.chapel, [cw, cd] = SIZE.church(c);
+          if (Math.abs(x - c.x) < cw / 2 + 3.4 && z < c.z + cd / 2 + 0.5 && z > c.z - cd / 2 - 3.6) return true;
           return false;
         },
       });
@@ -679,14 +744,27 @@ function furnish() {
   const C = [], props = [], exits = [], occ = [];
 
   L.spots = { doors: {}, containers: [] };
+  const chests = [];
 
   for (const o of L.plotList) {
     const d = doorOf(o), kind = d.kind, [bw, bd] = d.size;
     C.push({ type: 'box', x: o.x, z: o.z, w: bw + 0.3, d: bd + 0.3, rot: o.rot, tag: kind });
-    occ.push({ type: 'sphere', x: o.x, y: heightRaw(o.x, o.z) + (kind === 'inn' ? 4.2 : kind === 'church' ? 4.0 : 2.4), z: o.z, r: Math.max(bw, bd) * 0.6 });
-    exits.push({ x: d.doorway.x + d.nx * 0.45, z: d.doorway.z + d.nz * 0.45, w: Math.max(1.0, d.dw * 0.8), h: Math.max(1.0, d.dw * 0.8),
-      to: o.id, tx: d.far.x, tz: d.far.z, kind: 'door', name: o.name || o.id, line: 'door-' + o.id,
-      back: { x: d.far.x, z: d.far.z } });
+    // Two spheres, not one: a single ball at eaves height leaves the lens free to slide in at ground level
+    // through the corners of the footprint, which is how the camera kept ending up INSIDE a cottage.
+    {
+      const gy = heightAt(o.x, o.z), rad = Math.hypot(bw, bd) / 2;
+      const topY = gy + (kind === 'inn' ? 5.6 : kind === 'church' ? 6.4 : kind === 'barn' ? 4.4 : 4.0);
+      occ.push({ type: 'sphere', x: o.x, y: gy + (topY - gy) * 0.34, z: o.z, r: rad });
+      occ.push({ type: 'sphere', x: o.x, y: gy + (topY - gy) * 0.78, z: o.z, r: rad * 0.92 });
+    }
+    // A door whose interior EXISTS (src/world/maps/<id>.js, listed in maps/index.js) carries no tx/tz, so the
+    // room's own spawn decides where you land — the interior owns its doorstep. A door whose room is not built
+    // yet keeps tx/tz and `back`, so it speaks its line and steps you back out (src/world/field.js onExit).
+    const built = BUILT_INTERIORS.has(o.id);
+    exits.push(Object.assign({ x: d.doorway.x + d.nx * 0.45, z: d.doorway.z + d.nz * 0.45,
+      w: Math.max(1.0, d.dw * 0.8), h: Math.max(1.0, d.dw * 0.8),
+      to: o.id, kind: 'door', name: o.name || o.id, line: 'door-' + o.id, back: { x: d.far.x, z: d.far.z } },
+    built ? {} : { tx: d.far.x, tz: d.far.z }));
     L.spots.doors[o.id] = { x: d.far.x, z: d.far.z, facing: d.face };
   }
   // the chapel's tower is its own block, and the bakery's oven sticks out
@@ -733,7 +811,9 @@ function furnish() {
 
   // ── interactables (the words are the `lines` above, or the people layer's) ──
   const prop = (type, name, x, z, line, o = {}) => props.push(Object.assign({ type, name, x, z, line }, o));
-  prop('sign', 'signpost', L.sign.x, L.sign.z, 'signpost', { reach: 2.4, height: 2.55 });
+  // the signpost at the gate: a child who stops BESIDE it on the lane, not nose to it, must still be able to read
+  // it, so its reach is the width of the lane (3.6) rather than arm's length (2.4).
+  prop('sign', 'signpost', L.sign.x, L.sign.z, 'signpost', { reach: 3.6, height: 2.55 });
   prop('well', 'the well', L.well.x, L.well.z, 'well', { reach: 2.4, height: 2.6 });
   prop('tree', 'the chestnut tree', L.chestnut.x, L.chestnut.z, 'chestnut', { reach: 3.0, height: 4.2 });
   prop('sign', 'the noticeboard', L.notice.x, L.notice.z, 'notice', { reach: 2.2, height: 2.3 });
@@ -764,10 +844,11 @@ function furnish() {
   }
 
   // ── the way out: down the lane to Puddlewick Vale (the meadow) ──
-  // The meadow's own village-lane exit sits at about (17.2, -31.6); we land 5 units back down its lane so walking
-  // out of Puddlewick does not immediately walk back into it. (NEEDS: meadow.js should point that exit here.)
-  exits.push({ x: 16.6, z: 27.6, w: 6.0, h: 3.2, to: 'meadow', tx: 15.4, tz: -27.0, kind: 'edge',
-    name: 'the lane out of Puddlewick', line: 'lane-out', back: { x: 15.4, z: 25.0 } });
+  // The meadow's own village-lane exit triggers over z = -33.1..-28.9 at x = 14.8..19.0, so we land at (14.5, -25.6)
+  // — 3.3 units back down its lane — and the meadow's exit lands us at this map's spawn (14.8, 23.4), 2.6 clear of
+  // the trigger below. Walking out and walking back in are therefore both one clean step, never a bounce.
+  exits.push({ x: 16.6, z: 27.6, w: 6.0, h: 3.2, to: 'meadow', tx: 14.5, tz: -25.6, kind: 'edge',
+    name: 'the lane out of Puddlewick', line: 'lane-out', back: { x: 14.8, z: 23.4 } });
 
   // ── spots: where the people, the animals and the wagon go (P11 / P16 / P18 read these) ──
   const s = L.spots;
@@ -782,7 +863,10 @@ function furnish() {
   s.innkeeper = { x: s.doors.puddlewick_inn.x - 1.2, z: s.doors.puddlewick_inn.z + 0.4, facing: s.doors.puddlewick_inn.facing };
   s.shopkeeper = { x: s.doors.puddlewick_shop.x + 0.4, z: s.doors.puddlewick_shop.z + 1.4, facing: s.doors.puddlewick_shop.facing };
   s.smithBoy = { x: L.crates[0].x - 1.2, z: L.crates[0].z + 0.6, facing: -1.4 };
-  s.gateGuard = { x: 14.8, z: 22.6, facing: Math.atan2(-1.2, 2.8) };
+  // Watchman Nodd used to stand at (14.8, 22.6) — dead centre of the gate lane, four metres in front of a child
+  // the instant they arrive, filling the middle third of the very first frame of the village. He now leans on
+  // the grass on the east verge and watches the lane, so the first thing you see is Puddlewick.
+  s.gateGuard = { x: 18.2, z: 21.8, facing: Math.atan2(13.6 - 18.2, 22.0 - 21.8) };
   s.deacon = { x: s.doors.puddlewick_chapel.x - 1.0, z: s.doors.puddlewick_chapel.z + 0.6, facing: s.doors.puddlewick_chapel.facing };
   s.cat = { x: at(P.bakery, 5.6 / 2 + 0.85, -0.2).x, y: heightRaw(P.bakery.x, P.bakery.z) + 1.15, z: at(P.bakery, 5.6 / 2 + 0.85, -0.2).z };
   s.duck = { x: L.well.x + 1.6, z: L.well.z + 1.2 };
@@ -795,11 +879,34 @@ function furnish() {
     ...L.barrels.map(b => ({ x: b.x, z: b.z, kind: 'barrel' })), ...L.crates.map(c => ({ x: c.x, z: c.z, kind: 'crate' })),
     { x: L.well.x, z: L.well.z, kind: 'well' }, { x: L.woodpile.x, z: L.woodpile.z, kind: 'woodpile' }];
 
+  // ── things worth searching (DISCOVERY): the village reported 0 containers with 51 interactables, so a child
+  // could talk to Puddlewick but never FIND anything in it. Five to start with, each somewhere a child would
+  // actually poke. P30 may replace or extend these from src/world/maps/puddlewick.chests.js.
+  chests.push(
+    { id: 'pw_crate_shop', x: L.crates[0].x, z: L.crates[0].z, kind: 'crate', name: 'a crate behind the shop', line: 'search-crate-shop', reach: 1.6 },
+    { id: 'pw_crate_mill', x: L.crates[2].x, z: L.crates[2].z, kind: 'crate', name: 'a crate by the mill', line: 'search-crate-mill', reach: 1.6 },
+    { id: 'pw_sacks', x: L.sacks[0].x, z: L.sacks[0].z, kind: 'sacks', name: 'the flour sacks', line: 'search-sacks', reach: 1.7 },
+    { id: 'pw_hay', x: L.hay[0].x, z: L.hay[0].z, kind: 'hay', name: 'the hay', line: 'search-hay', reach: 1.7 },
+    { id: 'pw_barrel_mill', x: L.barrels[3].x, z: L.barrels[3].z, kind: 'barrel', name: 'a barrel at the mill', line: 'search-barrel-mill', reach: 1.6 },
+  );
+  L.chests = chests;
   L.colliders = C;
   L.props = props;
   L.exits = exits;
   L.occluders = occ;
   return L;
+}
+
+/**
+ * Where an interior's door puts you back down in the village. The interiors (src/world/maps/hollybank.js,
+ * puddlewick_inn.js) read this instead of copying numbers, so a plot that moves takes its doorstep with it.
+ */
+export function puddlewickDoorstep(id) {
+  try {
+    const d = furnish().spots.doors[id];
+    if (d && Number.isFinite(+d.x)) return { x: +d.x, z: +d.z, facing: +d.facing || 0 };
+  } catch (e) { reportError('puddlewickDoorstep', e); }
+  return { x: puddlewick.spawn.x, z: puddlewick.spawn.z, facing: puddlewick.spawn.facing || 0 };
 }
 
 /** Where everything is, for scenarios, critics and the people who fill this map (read-only). */

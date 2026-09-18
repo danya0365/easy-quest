@@ -56,6 +56,24 @@ function moonDirAt(t, out) {
   return out.set(Math.cos(az) * ch, Math.sin(el), Math.sin(az) * ch).normalize();
 }
 
+/**
+ * The sun TRAVELS. The light-rig presets give three fixed directions, so every hour of the long day plateau
+ * (08:00-16:30) used to put the disc, the glow, the cloud silver lining and the glitter on the water in exactly
+ * the same place: 09:00 and 12:00 were the same sky. Now it climbs out of the east, stands highest at NOON —
+ * where it is exactly the art-directed 'day' key light, so the approved opening frame is untouched — and sinks
+ * west into the tuned dusk bearing. Only the day weight uses it; dusk and night keep their composed directions.
+ */
+const SUN_NOON_EL = Math.asin(DIR.day.y);                          // 46.1 deg: the tuned day light
+const SUN_NOON_AZ = Math.atan2(DIR.day.z, DIR.day.x);
+const SUN_RISE = 5.75, SUN_SET = 18.25, SUN_SWEEP = 0.60;          // midpoint 12:00; sweep chosen to land on DIR.dusk
+function sunDirAt(h, out) {
+  const t = clamp01((h - SUN_RISE) / (SUN_SET - SUN_RISE));
+  const el = SUN_NOON_EL * Math.sin(Math.PI * t);                  // grazing at both ends, full at noon
+  const az = SUN_NOON_AZ - (t - 0.5) * SUN_SWEEP;
+  const ch = Math.cos(el);
+  return out.set(Math.cos(az) * ch, Math.sin(el), Math.sin(az) * ch).normalize();
+}
+
 // ── palette sets per time of day (linear colours, built once) ────────────────────────────────────────────────
 /**
  * AERIAL PERSPECTIVE, not fog. The haze a far layer fades into is pushed off milky white-grey toward the blue of
@@ -111,7 +129,7 @@ const RATE = { overcast: 4, precip: 3, wetUp: 9, wetDown: 25, snowUp: 16, snowDo
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // ENV — the shared environment
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
-const tmpC = new THREE.Color(), tmpV = new THREE.Vector3();
+const tmpC = new THREE.Color(), tmpV = new THREE.Vector3(), tmpSun = new THREE.Vector3();
 /** The celestial pole the stars turn about — tilted, so they rise and set instead of sliding sideways. */
 const SKY_AXIS = V3(0.34, 0.90, -0.27), SKY_AXIS_M4 = new THREE.Matrix4();
 
@@ -171,7 +189,7 @@ export const ENV = {
   preset: 'day',
   weather: { kind: 'clear', overcast: 0, precip: 0, wet: 0, snow: 0 },
   scene: null,
-  _sets: null, _lastPreset: undefined, _lastTime: null, _mods: new WeakMap(), _pendingHours: null,
+  _sets: null, _lastPreset: undefined, _lastTime: null, _mods: new WeakMap(), _pendingHours: null, _rig: null,
 
   /** Per-frame: time-of-day weights from the rig, weather easing, shared uniforms, rig/fog modulation. */
   sync(rig, scene) {
@@ -182,6 +200,7 @@ export const ENV = {
       this._lastTime = t;
       this.u.uEnvTime.value = t;
       if (scene) this.scene = scene;
+      if (rig) this._rig = rig;              // so __DQ.timeOfDay can blend the same rig the field does
 
       // ── time of day from the rig ──
       const preset = rig ? rig.preset : this.preset;
@@ -279,7 +298,10 @@ export const ENV = {
     const at = (p, other) => (p === 'day' ? DIR.day : p === 'dusk' ? DIR.dusk : (other === 'day' && (a === 'night' && b === 'day') ? DIR.rise : DIR.set));
     tmpV.copy(at(a, b)).multiplyScalar(1 - k).addScaledVector(at(b, a), k);
     if (tmpV.lengthSq() < 1e-6) tmpV.copy(DIR.day);
-    U.uEnvSunDir.value.copy(tmpV.normalize());
+    tmpV.normalize();
+    // ...and inside the day it follows the hour's own arc, so no two hours share a sun
+    if (this.hours != null && w.day > 0.001) tmpV.lerp(sunDirAt(this.hours, tmpSun), w.day).normalize();
+    U.uEnvSunDir.value.copy(tmpV);
     // the moon TRAVELS: it rises, crosses low and big, and sets — so no two hours of the night look the same.
     // With no clock (a rig-driven preset only) it falls back to climbing in as night falls.
     if (this.hours != null) moonDirAt(((this.hours + 6) % 24) / 12, U.uEnvMoonDir.value);
@@ -348,7 +370,8 @@ export const ENV = {
     return {
       preset: this.preset, hours: this.hours, weights: { day: r(this.weights.day), dusk: r(this.weights.dusk), night: r(this.weights.night) },
       twilight: r(this.twilight), dawn: r(this.dawn), skyTurn: r((((this.hours ?? 22) / 24) * 360) % 360),
-      sunDir: U.uEnvSunDir.value.toArray().map(r), moonDir: U.uEnvMoonDir.value.toArray().map(r),
+      sunDir: U.uEnvSunDir.value.toArray().map(r), sunEl: r(Math.asin(clamp01(U.uEnvSunDir.value.y)) * 180 / Math.PI),
+      sunAz: r(Math.atan2(U.uEnvSunDir.value.z, U.uEnvSunDir.value.x) * 180 / Math.PI), moonDir: U.uEnvMoonDir.value.toArray().map(r),
       sunVisible: r(U.uEnvSunVis.value), moonVisible: r(U.uEnvMoonVis.value), stars: r(U.uEnvNight.value),
       weather: { kind: W.kind, overcast: r(W.overcast), precip: r(W.precip), wet: r(W.wet), snow: r(W.snow) },
       particles: PARTICLES.size ? Array.from(PARTICLES).map(p => ({ kind: p.kind, count: p.count })) : [],
@@ -392,6 +415,19 @@ export function installEnvDebug() {
     Debug.provide('sky', () => ENV.describe());
     // anyone who announces the clock (the F1 default timeOfDay, a future field / story clock) sets the sky's hour
     Bus.on('time.set', (e) => { if (e && Number.isFinite(+e.hours)) { ENV.hours = ((+e.hours % 24) + 24) % 24; ENV._pendingHours = ENV.hours; } });
+    /**
+     * __DQ.timeOfDay(h) — ART-DIRECTION gives the sky the clock (docs/INTEGRATION-NEEDS: P02 implements timeOfDay).
+     * The field's version only leaves a light-rig PRESET behind, and 'day' covers 08:00-16:30, so 09:00 and 12:00
+     * were indistinguishable: the same sun in the same place, the same stars, the same moon. This implementation
+     * keeps the exact hour, blends the rig on the same schedule the field used (ENV.setHours), and announces it on
+     * the bus, so the sun's arc, the moon's crossing and the turning star field all know what time it really is.
+     */
+    Debug.implement('timeOfDay', (h) => {
+      if (h === undefined || h === null || !Number.isFinite(+h)) return ENV.hours;
+      const H = ENV.setHours(h, ENV._rig);
+      try { Bus.emit('time.set', { hours: H }); } catch (e) { reportError('time.set', e); }
+      return H;
+    });
   } catch (e) { reportError('ENV debug', e); }
 }
 

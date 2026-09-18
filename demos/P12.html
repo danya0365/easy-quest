@@ -21,11 +21,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--pal-sky-page)}
 <canvas id="game-canvas"></canvas>
 <div id="ui-root">
   <div id="title" class="dqwin"><h1>P12 <b>dialogue</b> &middot; P11 <b>NPC life</b></h1>
-    <p id="sub">Puddlewick Vale, nine in the morning: a sweeper, a fisherman, a child, a cat, a dog, three hens,
-      and two men arguing about a pan.</p></div>
+    <p id="sub">booting the vale&hellip;</p></div>
   <div id="keys" class="dqwin"><b>Z</b> talk &middot; <b>arrows</b> walk &middot; <b>Q/E</b> orbit<br/>
     <b>1</b> choices &middot; <b>2</b> two speakers &middot; <b>3</b> flags &middot; <b>4</b> tokens<br/>
-    <b>5</b> the Puddlewick cast &middot; <b>8</b> the village itself<br/><b>6</b> evening &middot; <b>7</b> morning</div>
+    <b>5</b> the Puddlewick cast &middot; <b>8</b> the village itself<br/>
+    <b>6</b> evening &middot; <b>7</b> morning &middot; <b>9</b> who has moved</div>
   <div id="live" class="dqwin">booting…</div>
 </div>
 <script type="importmap">
@@ -67,6 +67,15 @@ const ctx = {
 
 const sub = document.getElementById('sub');
 const live = document.getElementById('live');
+/** The caption, read off the live clock, so it never claims it is nine in the morning at half past six. */
+function vale() {
+  let h = 9;
+  try { h = window.__DQ.timeOfDay(); } catch (_) {}
+  const when = h < 11 ? 'morning' : h < 14 ? 'midday' : h < 17 ? 'afternoon' : h < 20 ? 'evening' : 'night';
+  return `Puddlewick Vale, ${String(Math.floor(h)).padStart(2, '0')}:00 \u2014 ${when} on the Long Lane. `
+    + 'Fifteen souls: a boy with a newt, a hen who has left home, the jug going out to the field, a drover, '
+    + 'a flower girl, a sweeper, a fisherman, a child chasing a cat, a dog, hens, and two men arguing about a pan.';
+}
 
 await Maps.loadAll();
 await preloadHero().catch(() => false);
@@ -75,11 +84,15 @@ for (const [name, path] of [['dialogue', '/src/ui/dialogue.js'], ['npc', '/src/w
   try { (await import(path)).install(ctx); } catch (e) { reportError('demo install ' + name, e); }
 }
 Scenes.push('field', { map: 'meadow' });
+sub.textContent = vale();
 
 // ── the dialogue showcases (every feature of src/ui/dialogue.js, in one place) ───────────────────────────────
+// Every show is ANCHORED on somebody who is really standing in the vale (`at`). The demo walks the hero up to
+// them with __DQ.npcFace first, so the name on the box always belongs to the body on the screen — a nameplate
+// that says "Mr Budge" over the fisherman is worse than no nameplate at all.
 const SHOWS = {
   choices: {
-    name: 'Fennick Quiddle', voice: 'low:1.3',
+    at: 'quiddle', name: 'Fennick Quiddle', voice: 'low:1.3',
     script: [
       'Pots, pans, potions and portable\npity! What will it be, squire?',
       'The lantern. Take the lantern.\nGuaranteed unbreakable.{p}Guaranteed-ish.',
@@ -93,46 +106,71 @@ const SHOWS = {
     ],
   },
   pair: {
-    name: 'Mrs Pell', voice: 'high:0.92',
+    at: 'pell', name: 'Mrs Pell', voice: 'high:0.92',
+    // `as:` names the real people: each one stops, turns to the hero and talks in turn, and whoever just
+    // finished turns to LOOK at whoever has the floor. Nobody's words come out of a stranger.
     script: [
-      { as: 'pell', name: 'Mrs Pell', voice: 'high:0.92', say: 'Mind the wet step.' },
-      { name: 'Mr Budge', voice: 'low:1.02', say: 'I minded it.{p}I minded it sitting down,\nbut I minded it.' },
-      { name: 'Mrs Pell', voice: 'high:0.92', emote: 'happy', say: 'You have been minding that step\nsince breakfast.' },
+      { as: 'pell', say: 'Mind the wet step.' },
+      { as: 'budge', say: 'I minded it.{p}I minded it sitting down,\nbut I minded it.' },
+      { as: 'pell', emote: 'surprised', say: 'You have been minding that step\nsince breakfast.' },
       { narrate: 'Somewhere indoors, a kettle is\nbeing sung to.' },
-      { name: 'Crumpet', voice: 'monster:1.05', say: 'Whuff.\n(He agrees with whoever spoke\nlast.)' },
+      { as: 'crumpet', say: 'Whuff.\n(He agrees with whoever spoke\nlast.)' },
+      { as: 'pell', look: 'budge', say: 'Don\u2019t encourage him. Either\nof them.' },
     ],
   },
   flags: {
-    name: 'Old Hob', voice: 'low:0.74',
+    at: 'thurl', name: 'Mrs Thurl', voice: 'high:0.94',
+    // Her Act I / II / III lines are the REAL ones out of meadow.npcs.js — the demo only flips the flag and
+    // asks her again, so what you read is what the game says. (Old Hob's own three Acts are in Puddlewick: key 8.)
     script: [
-      { act: {
-        1: ['Off up the hill again with your\nfather?{p}Take a coat. He never takes\na coat.'],
-        2: ['Well. You came back, and he\ndidn\'t.{p}Barty has kept the fire in.\nGo on.'],
-        3: ['Bring the little ones here.\nI will tell them lies about\ntheir grandad.'],
+      { do: (api) => {
+        const L = {
+          1: ['Out at six with the jug, back\nat eight with the jug.{p}That jug has seen more of this\nvalley than I have.'],
+          2: ['You are the big shirt.{p}Well. You were.'],
+          3: ['Two of them now.{p}Both of them muddy.'],
+        };
+        return L[api.act()] || L[1];
       } },
-      { narrate: 'The same man, three Acts apart.\nPress {gold}3{/gold} again after a flag\nchanges, and he changes with it.' },
-      { yesNo: ['Set the Act on', 'Leave it'], yes: [
+      { narrate: 'The same woman, three Acts\napart. Turn the Act on and ask\nher again.' },
+      { yesNo: ['Turn the Act on', 'Leave it be'], yes: [
         { do: (api) => { const a = api.act(); api.flag('ch2.start', a >= 2 ? null : true); api.flag('ch3.start', a === 2 ? true : null); } },
         'There. Ask me again.',
-      ], no: ['Suit yourself. The bench\noutside is free, and very\nhonest about it.'] },
+      ], no: ['Suit yourself.{p}The bench outside is free,\nand very honest about it.'] },
     ],
   },
   tokens: {
-    name: 'Barty Marrow', voice: 'barty',
+    at: 'nib', nameplate: false, voice: 'narrator',
+    // Barty is in Puddlewick, not the vale, so nobody here pretends to be him: his words arrive as a letter
+    // read out over the field, with no nameplate. Every CANON \u00a710 token is filled in from the live flags.
     script: [
-      'Little master! You are grown\nlike a marrow in a wet July.',
+      { narrate: 'A letter, in Barty Marrow\u2019s\nhandwriting, mostly in capitals.' },
+      { name: 'Barty\u2019s letter', voice: 'barty', say: 'Little master! You are grown\nlike a marrow in a wet July.' },
       '%HERO%. %WIFE%. %SON% and\n%DAUGHTER%. And %PIP%, who is\nsitting on the soup.',
       { narrate: '%HERO% looks at his boots.' },
+      { nod: true },
       'I am not weeping.\nIt is the onions.\nThere are always onions.',
     ],
   },
 };
+/** Resolve {name, voice} for any `as:`/`look:` id out of the people who are really on this map right now. */
+function liveWho(id) {
+  try {
+    const n = (window.__DQ.npcs() || []).find(x => x.id === id);
+    return n ? { name: n.name, voice: n.voice || 'high' } : null;
+  } catch (_) { return null; }
+}
 Debug.expose('demo', (which = 'choices') => {
   const s = SHOWS[which];
   if (!s) return { ok: false, shows: Object.keys(SHOWS) };
-  Scenes.push('dialogue', Object.assign({}, s, { who: (id) => (id === 'pell' ? { name: 'Mrs Pell', voice: 'high:0.92' } : null) }));
-  sub.textContent = 'Showing: ' + which;
-  return { ok: true, which };
+  const { at, ...show } = s;
+  let anchor = null;
+  if (at) {
+    anchor = window.__DQ.npcFace(at);
+    if (!anchor.ok) return { ok: false, reason: `${at} is not on this map`, shows: Object.keys(SHOWS) };
+  }
+  Scenes.push('dialogue', Object.assign({}, show, { npc: at || null, who: liveWho }));
+  sub.textContent = 'Showing: ' + which + (anchor ? ' \u2014 with ' + (anchor.name || at) + ', who is standing right there' : '');
+  return { ok: true, which, anchor: anchor && anchor.name };
 });
 
 // ── the Puddlewick cast, out on the meadow (until P23's puddlewick.js exists to hold them) ──────────────────
@@ -141,17 +179,15 @@ Debug.expose('cast', async (on = true) => {
   if (!on) {
     castOn = false;
     Field.teleport('meadow');
-    sub.textContent = 'Puddlewick Vale, nine in the morning.';
+    sub.textContent = vale();
     return { cast: false };
   }
   const [mod, dlg] = await Promise.all([import('/src/world/maps/puddlewick.npcs.js'), import('/src/ui/dialogue.js')]);
   const layer = mod.default;
-  // __DQ.cast('village') walks the whole cast into P23's real Puddlewick, once that map is in maps/index.js
-  let base = null;
-  if (on === 'village') { try { base = (await import('/src/world/maps/puddlewick.js')).default; } catch (e) { base = null; } }
-  if (base && base.id) {
-    Maps.register(base);
-    Maps.addLayer('puddlewick', 'npcs', layer);
+  // __DQ.cast('village') walks into P23's real Puddlewick. It is in maps/index.js with its npcs layer, so
+  // Maps.loadAll() has already built it — re-registering it here would throw its layout away and break it.
+  if (on === 'village') {
+    if (Maps.list().indexOf('puddlewick') < 0) return { cast: false, reason: 'puddlewick is not in maps/index.js yet' };
     castOn = true;
     const r = Field.teleport('puddlewick');
     sub.textContent = 'Puddlewick itself (P23\u2019s map), with everybody who lives in it.';
@@ -181,21 +217,35 @@ addEventListener('keydown', (e) => {
   else if (k === '3') window.__DQ.demo('flags');
   else if (k === '4') window.__DQ.demo('tokens');
   else if (k === '5') window.__DQ.cast(!castOn);
-  else if (k === '6') window.__DQ.timeOfDay(18.5);
-  else if (k === '7') window.__DQ.timeOfDay(9);
+  else if (k === '6') { window.__DQ.timeOfDay(18.5); sub.textContent = vale(); }
+  else if (k === '7') { window.__DQ.timeOfDay(9); sub.textContent = vale(); }
   else if (k === '8') window.__DQ.cast('village');
+  else if (k === '9') {
+    // NOBODY IS A STATUE, as a number: how far each person has walked since the map loaded, how far their head
+    // rises and falls with their breath, and how many times they have blinked.
+    const n = (window.__DQ.npcs() || []).filter(x => x.kind === 'person');
+    sub.textContent = 'Since the map loaded — ' + n.map(x => `${x.name || x.id} walked ${x.walked.toFixed(1)}u, breath ${x.breath.toFixed(3)}, ${x.blinks} blinks`).join(' \u00b7 ');
+  }
 });
 
 Debug.provide('demo', () => ({ piece: 'P12', cast: castOn, shows: Object.keys(SHOWS) }));
 
 // the live readout: who is out, who is speaking, what time it is
+let lastHour = -1;
 UI.onUpdate(() => {
   try {
     const s = window.__DQ.state();
+    // the caption follows the clock, however the clock was changed (a key, a scenario, or the day going by)
+    const h = Math.floor(s.timeOfDay);
+    if (h !== lastHour && !castOn) { lastHour = h; sub.textContent = vale(); }
     const npcs = s.npcs || [];
     const d = s.dialogue;
+    const people = npcs.filter(n => n.kind === 'person');
+    const walked = people.reduce((a, n) => a + n.walked, 0);
+    const still = people.filter(n => n.walked < 0.2).length;
     live.innerHTML = `<b>${npcs.length}</b> out · ${npcs.filter(n => n.talking).length ? 'talking to <b>' + npcs.filter(n => n.talking).map(n => n.name || n.id).join(', ') + '</b>' : 'nobody talking'}`
       + ` · ${Math.floor(s.timeOfDay)}:00 · fps <b>${Math.round(s.fps)}</b>`
+      + ` · walked <b>${walked.toFixed(0)}u</b>, statues <b>${still}</b>`
       + (d ? ` · box: ${d.name ? '<b>' + d.name + '</b> ' : ''}${d.choice ? 'choosing' : d.typing ? 'typing' : 'waiting'}` : '');
   } catch (_) {}
 });

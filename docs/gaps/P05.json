@@ -1,0 +1,74 @@
+{
+  "id": "P05",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Church gable renders bright magenta",
+      "detail": "shots/P05-r1/01-01-the-whole-kit.png (orchestrator eyes, 2026-09-18 01:21): the church's front gable is BRIGHT MAGENTA (#ff00ff-ish) — a missing-material colour, and the one thing in the frame that says 'unfinished tech demo'. It must be lime-washed PLASTER with a stone-framed ROSE WINDOW, per docs/ART-DIRECTION.md section 13 and the owner-approved look.",
+      "state": "verified-fixed",
+      "opened": "2026-09-17T23:07:12.338Z",
+      "events": [
+        {
+          "at": "2026-09-17T23:07:43.911Z",
+          "by": "builder",
+          "note": "Fixed and measured with a pixel census (playwright canvas readback) over every frame of both runs. Before: shots/P05-r1/01-01-the-whole-kit.png had 693 saturated-magenta pixels (0.075% of the frame) in the box x 793-867, y 153-194 — exactly the church's front gable. After: 0 magenta pixels in all 17 frames of shots/P05-final (demo) AND all 23 frames of shots/P23-final (/index.html), including two chapel close-ups. shots/P05-final/09-09-church.png and shots/P23-final/14-14-the-chapel-gable.png show lime-washed plaster with a stone-framed rose window (6 mullions, 6 coloured lights) under a tiled barge-boarded roof."
+        },
+        {
+          "at": "2026-09-17T23:29:00.491Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Pixel census (canvas readback, r>170 & b>170 & g<110) over all 55 frames I shot of the demo and the running game: 0 magenta pixels, 0 neon. demo shots/P05-critic-c1/demo/01-d01-church.png and game shots/P05-critic-c1/game2/11-b11-fade-chapel-behind.png both show a lime-plaster gable with a stone-framed rose window. Genuinely fixed."
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "title": "Buildings vanish instead of ghosting when the camera see-through fires",
+      "detail": "progress.json 2026-09-18: buildings vanish when P09's occluder-fade hides an object it then fails to ghost. A cottage or the chapel between the lens and the hero should fade to a clean 35-45% alpha with its ink outline kept, not disappear and not dither.",
+      "state": "still-open",
+      "opened": "2026-09-17T23:07:12.376Z",
+      "events": [
+        {
+          "at": "2026-09-17T23:29:00.568Z",
+          "by": "critic",
+          "pass": false,
+          "note": "STILL BROKEN, and worse than described. __DQ.cameraOccluders() in the running game: whenever the lens is inside a piece it reports alpha:0 inside:true ghost:true (fully invisible, not the 0.42 target) — measured at puddlewick (15.4,5.6) sign-SHOP alpha 0 dist 1.77; (-6.0,-4.4) stone alpha 0 dist 2.11; (2,-21) wood alpha 0 dist 1.68. Worse, the pass works per MATERIAL BUCKET, not per building, so a cottage is dismembered: shots/P05-critic-c1/game3/09-c09-lens-inside-the-bakery.png has the bakery's walls, thatch and BAKER sign gone while its red front door stands alone in the middle of the green and one plaster wall stays 100% opaque at the frame edge. Same leftover near-black floating door in shots/P05-critic-c1/game/07-07-gate-lane-toward-the-green.png. When the lens is OUTSIDE the object alpha does settle to 0.42, so the tuning is right and the granularity and the inside-the-lens case are wrong."
+        }
+      ]
+    },
+    {
+      "n": 3,
+      "title": "The demo's church stands in the stream",
+      "detail": "demos/P05.html put the church at z=-20 with the stand-in hero 7.6 units in front of it, which is inside the demo stream (near bank about z=-14.3): the church frame showed the hero wading, so the one shot that proves the church recipe also showed a bug.",
+      "state": "verified-fixed",
+      "opened": "2026-09-17T23:07:12.412Z",
+      "events": [
+        {
+          "at": "2026-09-17T23:07:43.960Z",
+          "by": "builder",
+          "note": "demos/P05.html: the church spot moved from z=-20 to z=-22 and the stand-in's church offset from 7.6 to 6.2, so he stands at z=-15.8 — 1.5 units clear of the stream's near bank (about z=-14.3) and 1.6 in front of the door. shots/P05-final/09-09-church.png: the stand-in is on grass in the forecourt, dry. Demo shoot exits 0, 17/17 frames, 116.9 fps avg, 0 errors."
+        },
+        {
+          "at": "2026-09-17T23:29:00.528Z",
+          "by": "critic",
+          "pass": true,
+          "note": "demos/P05.html show('church') puts the church at (12,-22) and the stand-in at z=-15.8; shots/P05-critic-c1/demo/01-d01-church.png shows him on dry grass with the stream's near bank about 2 units in front of him. No wading."
+        }
+      ]
+    },
+    {
+      "n": 4,
+      "title": "An open door is a flat painted card, and daylight shows through the back of the building",
+      "detail": "Every building the kit makes is a hollow shell with no threshold, no porch depth and no back wall behind the doorway, so the one moment a child looks hardest at a house — the door swinging open — is the moment it stops being a house. Crop shots/P05-critic-c1/game2/11-b11-fade-chapel-behind.png around the chapel's open doors: the opening is a single flat vertical plane with a grey-brown vertical gradient on it, and across the bottom of that plane sits a band of outdoor grass green. I sampled it: the pixel at (640,260) is rgb(71,100,38) against the terrain outside at rgb(95,140,42) and rgb(46,78,31) — that is the meadow behind the chapel showing through the opening, not an interior. The demo does the same thing more cleanly (shots/P05-critic-c1/demo/01-d01-church.png): the doorway is a brown gradient card with no jamb thickness, no step down, no darkness falloff, no hint of a floor. Fix it in the kit so every opens: door gets (1) a real reveal — jamb and head with wall thickness, so the opening has depth from an oblique angle; (2) a closed back: a dark interior box behind the opening that the outside world cannot be seen through from any camera angle; (3) something readable one metre in — a lit floor patch, a rug edge, a stair foot, a warm glow from a hearth — so the darkness reads as a room and not as a painted rectangle. The noticeboards beside the chapel and on the green are blank cream boards with no notices on them and should be dressed at the same time.",
+      "state": "claimed-fixed",
+      "opened": "2026-09-17T23:29:34.040Z",
+      "events": [
+        {
+          "at": "2026-09-18T00:38:37.706Z",
+          "by": "builder",
+          "note": "An open doorway is now a lined reveal with a threshold and a real room behind it. interiorRoom() in src/art/buildings.js builds the WHOLE inside of the shell (roomW = W-2T, depth = D-2T, top = the wall plate) instead of a 1.5 m card, and its floorboards sit at padTop() - the HIGHEST ground under the footprint - instead of padY + 0.09, which is the bug: a building stands on its lowest corner, so the hillside inside it was up to 1.46 m above the room floor. Measured before: the chapels ground ran 0.10 at the door to 1.51 at the altar end. Fixed at the source too - puddlewick.js now applies its building pads AFTER the Becks valley and the lane wear (groundNoPads + pads last), so a plot is actually flat. Pixel census of the chapel doorway opening (x 705-820, y 130-335, 23575 px) in shots/P05-r4/09-09-the-chapel-doorway.png: 0 pixels with g>r+18 and g>b+25, i.e. zero grass through the building (before: the opening was rgb 71,100,38 against outside grass 95,140,42). Every kit.cottage doorway also gained oak jamb linings, a head and a threshold board; the church gained stone ones."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "P15",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Victory is not a moment: no tally window, numbers land off-screen",
+      "detail": "Measured in /index.html over ~40 fights. The instant the last monster pops, the screen becomes empty grass with the three party panels still up, and the entire payoff is one line at a time typed into the same big mostly-empty blue box that carried the combat log: 'The party gains 9 experience poin...' then '...and 3 gold coins.' There is no victory window, no held frame, no change of composition, nothing that says the fight is WON. Two floating gold numbers try to carry it and both fail: '+5 G' pops in dead centre over empty dirt with nothing under it, and '+3 EXP' pops at the far left where it is clipped by the screen edge and overlapped by Bram's HP panel (shots/P15-critic-d1/d/30-levelup-f16.png). Measured cost: 5.0 s from battle.phase==='victory' to standing on the lane, most of it staring at bare ground. DQV PS2 holds the battle frame, cuts the music to the fanfare, and puts the whole tally in ONE framed window - 'You have defeated the Slime! / Bram gains 9 experience points. / Bram receives 5 gold coins.' - then the level-up jingle. BUILD: a real victory window (same blue/pale-double-border stock as the command window) that slides in centre-screen on the pop of the last monster, holds while it fills line by line with EXP, gold and each drop, with the monsters' spots left empty behind it; anchor the +EXP/+G pops to where each monster actually died and clamp them inside the safe area so nothing clips; hold the frame for a beat before the ink curtain starts. NOTE: the level-up panel that follows (shots/P15-critic-d1/d/37-levelup-f23.png - 'Bram Level 2' with Max HP 26 +6 star, one stat revealed at a time) is genuinely good; the victory tally that leads into it is the hole.",
+      "state": "open",
+      "opened": "2026-09-18T00:30:14.552Z",
+      "events": []
+    }
+  ]
+}

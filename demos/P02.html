@@ -37,13 +37,16 @@ import { makeToon, makeLightRig, makeAOMask } from '/src/art/toon.js';
 import { buildBackdrop, ringHill } from '/src/art/sky.js';
 import { paintMasks, distanceGrid, curvePoints, buildGround, terrainRecipes } from '/src/art/terrain.js';
 import { ENV } from '/src/art/weather.js';
+// P04's kit, used as a CUSTOMER, not edited: the demo has to be judged with the same wall of wood round it that
+// the real vale has, or it measures nothing. __DQ.mouths(false) closes the passes again to show the difference.
+import { createPropsKit, ringPlacements } from '/src/art/props.js';
 
 applyCssVars();
 Input.init();
 App.start({ canvas: document.getElementById('game-canvas'), version: '0.2.0-P02', beforeUpdate: Input.update });
 
 // ── the little vale this demo builds (all of it from P03's mask + height helpers) ────────────────────────────
-const SPAN = 96, WATER_Y = -0.55, BED = -1.25;
+const SPAN = 96, WATER_Y = -0.55, BED = -2.05;      // a bed deep enough that the pond has a deep middle
 const LANE = [[8, 46], [5.5, 34], [6.5, 24], [3.0, 15], [0.6, 7], [0, 0], [-1.5, -7], [-4.5, -14], [-4, -22], [-7, -31], [-9, -46]];
 const EAST = [[1.6, 1.2], [8, 2.6], [16, 1.0], [26, -2.5], [35, -4.5], [46, -8]];
 const SPUR = [[-0.8, -3.2], [-6, -4.6], [-11.5, -5.6], [-15.5, -7.5]];
@@ -53,6 +56,29 @@ const GREEN = { x: 0, z: 0, r: 5.4 };
 const STONES = [[-7.6, 5.4, 1.15, 3], [7.4, 6.6, 1.0, 5], [10.4, -4.2, 1.3, 7], [-9.4, -1.6, 0.9, 11], [13.5, 12.5, 1.45, 13],
   [-15.5, 9.5, 1.2, 17], [19, 4.5, 1.05, 19], [-19, -10.5, 1.35, 23], [22, -14, 1.1, 29], [-24, 3.5, 1.25, 31]];
 
+// The SAME woodland rim the opening meadow has (src/world/maps/meadow.js WOOD_ROWS): a hedgerow, three staggered
+// rows of mixed tree clumps, then three rows of painted treetops for the wooded hills behind. `mouth` is the width
+// of lane kept clear at a lane mouth — note the painted rows carry one here, which is the one change this piece is
+// asking the map for: without it the painted treetops close over every pass and hide the skyline.
+const WOOD_ROWS = [
+  { kind: 'tree', e: 35.3, spacing: 2.3, jitter: 0.45, size: [0.95, 1.35], mouth: 4.0 },
+  { kind: 'tree', e: 38.8, spacing: 3.5, jitter: 1.2, size: [0.95, 1.4], mouth: 3.4, clump: { freq: 15, threshold: 0.42, seed: 91 } },
+  { kind: 'tree', e: 43.4, spacing: 4.2, jitter: 1.6, size: [1.0, 1.5], mouth: 2.6, clump: { freq: 11, threshold: 0.47, seed: 57 } },
+  { kind: 'tree', e: 48.6, spacing: 5.6, jitter: 2.2, size: [1.05, 1.6], mouth: 1.6, clump: { freq: 8, threshold: 0.60, seed: 23 } },
+  { kind: 'card', e: 57.5, spacing: 6.0, jitter: 3.0, size: [6.4, 8.2], haze: 0.14, mouth: 7.5, clump: { freq: 7, threshold: 0.50, seed: 131 } },
+  { kind: 'card', e: 69.0, spacing: 7.5, jitter: 4.5, size: [7.2, 9.4], haze: 0.26, mouth: 8.5, clump: { freq: 6, threshold: 0.56, seed: 167 } },
+  { kind: 'card', e: 84.0, spacing: 9.5, jitter: 6.0, size: [8.0, 10.6], haze: 0.38, mouth: 9.5, clump: { freq: 5, threshold: 0.60, seed: 199 } },
+];
+function woodPick(x, z, rnd, ri) {
+  const g = vnoise(x * 0.042 + 3.1, z * 0.042 + 7.7, 43);
+  let kind = g < 0.33 ? 'birch' : g > 0.79 ? 'pine' : g > 0.62 ? 'round' : 'oak';
+  const k = rnd();
+  if (ri === 0) { const h = vnoise(x * 0.09 + 17.3, z * 0.09 + 4.1, 67); return k < 0.72 ? (h < 0.5 ? 'hedge' : 'hedgeb') : k < 0.9 ? (h < 0.45 ? 'bushb' : 'bush') : kind; }
+  if (k < 0.1) kind = 'round'; else if (k < 0.18) kind = kind === 'birch' ? 'oak' : 'birch';
+  else if (k < 0.23) kind = 'poplar'; else if (k < 0.26) kind = 'fruit'; else if (k < 0.3) kind = 'bushb';
+  return kind;
+}
+
 const lane = curvePoints(LANE, 0.35), east = curvePoints(EAST, 0.35), spur = curvePoints(SPUR, 0.3), beck = curvePoints(BECK, 0.35);
 const masks = paintMasks({
   N: 1024, span: SPAN,
@@ -60,11 +86,11 @@ const masks = paintMasks({
     { pts: lane, w: 2.4, falloff: 1.05, channel: 0 },
     { pts: east, w: 2.0, falloff: 1.0, channel: 0, widthAt: (t) => lerp(2.1, 1.6, t) },
     { pts: spur, w: 1.4, falloff: 0.85, channel: 0 },
-    { pts: beck, w: 4.0, falloff: 1.8, channel: 1 },
+    { pts: beck, w: 4.34, falloff: 1.6, channel: 1 },      // 0.5 on this channel = the carved waterline (dW 2.17)
     { pts: curvePoints([[0, 7.5], [0, 0], [-1, -7.5]], 0.3), w: 3.4, falloff: 0.9, channel: 2 },   // the cobbled lane over the green
   ],
   discs: [
-    ...PONDS.map(p => ({ x: p.x, z: p.z, r: p.r + 0.7, sx: p.sx, sz: p.sz, falloff: 1.8, channel: 1 })),
+    ...PONDS.map(p => ({ x: p.x, z: p.z, r: p.r + 2.17, sx: p.sx, sz: p.sz, falloff: 1.6, channel: 1 })),
     { x: GREEN.x, z: GREEN.z, r: GREEN.r, falloff: 1.1, channel: 2 },
   ],
 });
@@ -87,8 +113,8 @@ function heightAt(x, z) {
 }
 
 // ── the scene ────────────────────────────────────────────────────────────────────────────────────────────────
-const S = { view: 'field', hours: 9, weather: 'clear', buildMs: 0, stones: 0, fps: 0 };
-let scene, camera, rig, sky, ao, animators = [];
+const S = { view: 'field', hours: 9, weather: 'clear', buildMs: 0, stones: 0, fps: 0, mouths: true, hero: [4.5, 0, 19] };
+let scene, camera, rig, sky, ao, kit, mouthCards = null, hero = null, animators = [];
 
 const VIEWS = {
   field:   { target: [0, 0.9, 12], orbit: 0, pitch: 26, dist: 11, fov: 50, lookUp: 2.6 },
@@ -100,13 +126,17 @@ const VIEWS = {
   green:   { target: [0, 0.4, 5.5], orbit: 350, pitch: 22, dist: 8.5, fov: 46, lookUp: 1.2 },
   lane:    { target: [4.5, 0.3, 19], orbit: 8, pitch: 14, dist: 7, fov: 44, lookUp: 1.4 },
   water:   { target: [24.5, -0.2, -22], orbit: 205, pitch: 16, dist: 11, fov: 48, lookUp: 1.2 },
+  wading:  { target: [0, -0.1, -21], orbit: 250, pitch: 17, dist: 8.5, fov: 46, lookUp: 1.0 },
+  beck:    { target: [0, -0.2, -21], orbit: 90, pitch: 13, dist: 9, fov: 46, lookUp: 1.0 },
   hills:   { target: [0, 1, -8], orbit: 180, pitch: 9, dist: 26, fov: 52, lookUp: 6 },
   high:    { target: [0, 0, -4], orbit: 20, pitch: 52, dist: 40, fov: 48, lookUp: 0 },
-  // the four places on the skyline, each framed down its own bearing (P02 buildLandmarks)
-  puddlewick: { target: [0, 1, 2], orbit: 347.9, pitch: 10, dist: 15, fov: 48, lookUp: 5.0 },
-  saltmarrow: { target: [0, 1, 2], orbit: 277.7, pitch: 10, dist: 15, fov: 48, lookUp: 5.0 },
-  coddleston: { target: [0, 1, 2], orbit: 193.9, pitch: 10, dist: 15, fov: 48, lookUp: 5.4 },
-  wood:       { target: [0, 1, 2], orbit: 100.8, pitch: 10, dist: 15, fov: 48, lookUp: 4.6 },
+  // the four places on the skyline. The orbit is filled in from the live landmark list at setView time (the
+  // skyline fit may nudge a place a few degrees toward the clearest pass), and the camera is the FIELD camera's
+  // pitch and lens, so what the shot shows is what a child playing would see.
+  puddlewick: { target: [4.5, 0.9, 12], landmark: 'puddlewick', pitch: 24, dist: 11, fov: 50, lookUp: 2.9 },
+  saltmarrow: { target: [4.5, 0.9, 12], landmark: 'saltmarrow', pitch: 24, dist: 11, fov: 50, lookUp: 2.9 },
+  coddleston: { target: [4.5, 0.9, 12], landmark: 'coddleston', pitch: 24, dist: 11, fov: 50, lookUp: 2.9 },
+  wood:       { target: [4.5, 0.9, 12], landmark: 'whispering_wood', pitch: 24, dist: 11, fov: 50, lookUp: 2.9 },
 };
 let view = Object.assign({}, VIEWS.field);
 
@@ -140,7 +170,9 @@ function build() {
     const g = stoneGeometry(seed, s);
     g.translate(x, heightAt(x, z) + 0.16 * s, z);
     parts.push(g);
-    ao.disc(x, z, 1.5 * s, 0.7);
+    // a contact shadow is a dark core that hugs the stone plus a wide soft skirt — one flat disc reads as a decal
+    ao.disc(x, z, 2.0 * s, 0.32);
+    ao.disc(x, z, 1.02 * s, 0.86);
   }
   for (const p of PONDS) ao.disc(p.x, p.z, p.r * 1.25, 0.18);
   const stones = new THREE.Mesh(mergeGeometries(parts), stoneMat);
@@ -151,9 +183,51 @@ function build() {
   buildGround(scene, { heightAt, masks, ao, inner: 36, step: 0.9, outer: 120, rings: 9 });
 
   // water: the beck and its two ponds, one level sheet; the carved banks decide the shore
-  const kit = { scene, heightAt, animators };
+  kit = createPropsKit({ scene, heightAt, ao });
+  kit.animators = animators;                       // this demo drives its own animator list
   terrainRecipes(kit);
-  kit.water({ stream: beck, width: 4.6, ponds: PONDS.map(p => ({ x: p.x, z: p.z, r: p.r + 2.9, sx: p.sx, sz: p.sz })), y: WATER_Y, shoreDepth: 0.45 });
+  kit.water({ stream: beck, width: 4.34, ponds: PONDS.map(p => ({ x: p.x, z: p.z, r: p.r + 2.17, sx: p.sx, sz: p.sz })), y: WATER_Y, shoreDepth: 0.34 });
+
+  // ── the woodland rim: the same wall of wood the real vale has, so this demo measures the real problem ──
+  try {
+    const pointAt = (a, e) => { const c = Math.cos(a), si = Math.sin(a), rr = e / Math.pow(Math.pow(Math.abs(c), 4) + Math.pow(Math.abs(si), 4), 0.25); return [c * rr, si * rr]; };
+    // the lanes have to run PAST the card rows (e = 57 - 84) for a mouth to mean anything out there, so each end
+    // is extended along its own tangent the way a real road leaves a valley
+    const runOut = (P) => {
+      const out = P.slice();
+      for (const [a0, b0, push] of [[P[1], P[0], true], [P[P.length - 2], P[P.length - 1], false]]) {
+        const dx = b0[0] - a0[0], dz = b0[1] - a0[1], L = Math.hypot(dx, dz) || 1;
+        for (let k = 1; k <= 12; k++) { const q = [b0[0] + dx / L * k * 5, b0[1] + dz / L * k * 5]; push ? out.unshift(q) : out.push(q); }
+      }
+      return out;
+    };
+    const laneRuns = [runOut(lane), runOut(east)];
+    const laneNear = (x, z) => {
+      let d = 1e9;
+      for (const P of laneRuns) for (let i = 0; i < P.length - 1; i++) {
+        const [ax, az] = P[i], [bx, bz] = P[i + 1], vx = bx - ax, vz = bz - az;
+        const tt = Math.max(0, Math.min(1, ((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz || 1)));
+        d = Math.min(d, Math.hypot(x - ax - vx * tt, z - az - vz * tt));
+      }
+      return d;
+    };
+    const rows = WOOD_ROWS.map((row, ri) => Object.assign({}, row, { pick: (x, z, rnd) => woodPick(x, z, rnd, ri) }));
+    const inMouth = (x, z, row) => (row.mouth ?? 0) > 0 && laneNear(x, z) < row.mouth;
+    const all = ringPlacements({ seed: 4711, pointAt, rows, clear: () => false });
+    kit.trees(all.trees.filter(t => !inMouth(t.x, t.z, WOOD_ROWS[t.row])));
+    kit.cards(all.cards.filter(c => !inMouth(c.x, c.z, WOOD_ROWS[c.row])), { sunDir: rig && rig.dir });
+    // the painted treetops that WOULD close the lane mouths, in their own mesh, so __DQ.mouths(false) can put
+    // them back and a critic can measure exactly what the passes are worth
+    const shut = all.cards.filter(c => inMouth(c.x, c.z, WOOD_ROWS[c.row]));
+    mouthCards = shut.length ? kit.cards(shut, { sunDir: rig && rig.dir }) : null;
+    if (mouthCards) mouthCards.visible = !S.mouths;
+  } catch (e) { reportError('P02 demo wood', e); }
+
+  // a stand-in for the hero, so the water has somebody to ripple round (kit.focus is what the field passes in)
+  hero = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.9, 4, 10), makeToon({ color: PAL.cloth.green }, 'cloth'));
+  hero.name = 'hero-standin'; hero.castShadow = true; scene.add(hero);
+  setHero(S.hero[0], S.hero[2]);
+  try { kit.flush(); } catch (e) { reportError('P02 demo flush', e); }
 
   S.buildMs = Math.round(performance.now() - t0);
 }
@@ -179,14 +253,17 @@ Scenes.register('demo', () => ({
   enter() {
     try { build(); } catch (e) { reportError('P02 demo build', e); }
     try { setView('field'); } catch (e) { reportError('P02 demo view', e); }
+    // hang the painted places above whatever the wood actually leaves of the skyline, against the FIELD frame
+    try { placeCam(); if (sky && sky.fit) sky.fit({ capDeg: 7.2, eye: [0, 5.0, 0] }); } catch (e) { reportError('P02 demo skyline fit', e); }
     caption();
   },
   update() {},
   render(alpha) {
     try {
       const t = App.clock.time;
-      for (const fn of animators) { try { fn(t, App.clock.dt, camera); } catch (e) { reportError('P02 animator', e); } }
       placeCam();
+      if (kit && kit.update) kit.update(t, App.clock.dt, camera, { x: S.hero[0], y: S.hero[1], z: S.hero[2] });
+      else for (const fn of animators) { try { fn(t, App.clock.dt, camera); } catch (e) { reportError('P02 animator', e); } }
       if (rig) rig.follow(tgt);
       App.render(scene, camera);
     } catch (e) { reportError('P02 demo render', e); }
@@ -206,8 +283,19 @@ const HOURS = [9, 12, 15, 17.5, 18.5, 20, 22, 3, 6, 7.5];
 const WEATHERS = ['clear', 'cloudy', 'rain', 'snow'];
 function setView(name) {
   if (!VIEWS[name]) return { ok: false, views: Object.keys(VIEWS) };
-  view = Object.assign({}, VIEWS[name]); S.view = name; caption();
+  view = Object.assign({}, VIEWS[name]); S.view = name;
+  if (view.landmark && sky && sky.landmarks) {
+    const L = sky.landmarks.get(view.landmark);
+    if (L) view.orbit = L.orbit;
+  }
+  caption();
   return { ok: true, view: name, camera: { orbit: view.orbit, pitch: view.pitch, dist: view.dist, fov: view.fov } };
+}
+/** Put the stand-in hero somewhere: on the lane, or up to his chest in the beck. */
+function setHero(x, z) {
+  S.hero = [x, heightAt(x, z), z];
+  if (hero) hero.position.set(x, Math.max(heightAt(x, z), WATER_Y - 0.62) + 0.72, z);
+  return { x, z, ground: +heightAt(x, z).toFixed(2), inWater: heightAt(x, z) < WATER_Y - 0.03 };
 }
 function setHours(h) {
   S.hours = ((+h % 24) + 24) % 24;
@@ -228,8 +316,15 @@ Debug.expose('camera', (o = {}) => { for (const k of ['orbit', 'pitch', 'dist', 
 Debug.expose('nextTime', () => setHours(HOURS[(HOURS.indexOf(S.hours) + 1) % HOURS.length] ?? 9));
 Debug.expose('nextWeather', () => setWeather(WEATHERS[(WEATHERS.indexOf(S.weather) + 1) % WEATHERS.length]));
 Debug.expose('nextView', () => { const k = Object.keys(VIEWS); return setView(k[(k.indexOf(S.view) + 1) % k.length]); });
+Debug.expose('hero', (x, z) => (x === undefined ? { x: S.hero[0], z: S.hero[2] } : setHero(+x, +z)));
+/** Close the painted treetops back over the lane mouths (what the real map does today) and re-fit the skyline. */
+Debug.expose('mouths', (on) => {
+  if (on !== undefined) { S.mouths = !!on; if (mouthCards) mouthCards.visible = !S.mouths; if (sky && sky.fit) sky.fit({ capDeg: 7.2, eye: [0, 5.0, 0] }); }
+  return { mouths: S.mouths, cardsInTheMouths: mouthCards ? mouthCards.count : 0 };
+});
 Debug.expose('ground', (x = 0, z = 0) => ({ x, z, y: +heightAt(x, z).toFixed(3), path: +masks.sample(0, x, z).toFixed(3), water: +masks.sample(1, x, z).toFixed(3), cobble: +masks.sample(2, x, z).toFixed(3), ao: +ao.sample(x, z).toFixed(3) }));
 Debug.provide('demo', () => ({ piece: 'P02+P03', view: S.view, hours: S.hours, weather: S.weather, buildMs: S.buildMs, stones: S.stones,
+  mouths: S.mouths, hero: { x: +S.hero[0].toFixed(2), z: +S.hero[2].toFixed(2) }, trees: kit ? kit.counts : null,
   sky: sky ? sky.state() : null, rig: rig ? rig.state() : null,
   landmarks: sky && sky.landmarks ? sky.landmarks.describe() : [] }));
 Debug.implement('screenshotReady', () => true);
