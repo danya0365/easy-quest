@@ -168,6 +168,16 @@ addEventListener('keydown', (e) => {
 
 // ── controls a critic (and the harness) drives ───────────────────────────────────────────────────────────────
 Debug.expose('dsl', () => Story.play(DSL_DEMO, { id: 'dsl' }));
+/** __DQ.autoAdvance(true, 320) — a patient reader, so the harness can watch a whole scene without pressing keys. */
+let adv = null;
+Debug.expose('autoAdvance', (on = true, ms = 340) => {
+  if (adv) { clearInterval(adv); adv = null; }
+  // only while a scene is actually playing, or a box is up: a stray confirm on the open field starts a chat
+  if (on) adv = setInterval(() => {
+    try { if (Story.running() || Scenes.top() === 'dialogue') Input.inject('confirm', 90); } catch (_) {}
+  }, Math.max(120, ms | 0));
+  return { on: !!adv, ms };
+});
 Debug.expose('ledger', () => ({ act1: Chapter1.state(), quest: Quests.current(), flags: Flags.describe(), story: Story.state() }));
 Debug.expose('flagsClear', () => { Flags.clear(); Quests.refresh(); return Flags.describe(); });
 Debug.provide('demo', () => ({ piece: 'P26', beats: Chapter1.BEATS.length, scenes: Story.scenes() }));

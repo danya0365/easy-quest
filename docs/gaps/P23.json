@@ -144,6 +144,14 @@
       "state": "open",
       "opened": "2026-09-18T02:41:26.180Z",
       "events": []
+    },
+    {
+      "n": 10,
+      "title": "four Act I maps do not exist, so half the act plays by road",
+      "detail": "CANON section 4 B4 to B9 need saltmarrow, contented_herring, cobwell_manor, coddleston, grey_ruins and aldenmoor. Until they land, src/story/chapters/ch1.js plays those beats as a journey at the Long Lane signpost: fade, a place card with the name, the scene with its real actors and flags, then the road home. It is honest but it is not a place. The moment Maps.has(saltmarrow) is true that beat plays on its own map with no edit to the story - the beat table already names the map it wants.",
+      "state": "open",
+      "opened": "2026-09-18T03:03:09.440Z",
+      "events": []
     }
   ]
 }

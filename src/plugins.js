@@ -13,6 +13,7 @@ export const PLUGINS = [
   ['transitions', () => import('./ui/transitions.js')],
   ['dialogue', () => import('./ui/dialogue.js')],
   ['menu', () => import('./ui/menu.js')],
+  ['items', () => import('./data/items.js')],
   ['shop', () => import('./ui/shop.js')],
   ['hud', () => import('./ui/hud.js')],
   ['npc', () => import('./world/npc.js')],

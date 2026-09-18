@@ -40,6 +40,22 @@
       "state": "open",
       "opened": "2026-09-18T02:42:53.655Z",
       "events": []
+    },
+    {
+      "n": 6,
+      "title": "scripted battles never reach the rules engine",
+      "detail": "src/battle/battle.js already supports options.scripted {rounds, unlosable, untouchable, endText} - exactly what CANON B9 and B19 need (a fight you cannot lose or win, at most three turns, the window saying plainly You cannot reach him). But createBattleScene in src/battle/scene.js does not forward sctx.scripted into createBattle options, so Scenes.push(battle, {scripted:...}) is ignored. P26 had to play B9 as dialogue only. One line in scene.js enables every scripted story fight.",
+      "state": "open",
+      "opened": "2026-09-18T03:02:51.659Z",
+      "events": []
+    },
+    {
+      "n": 7,
+      "title": "the befriending gate cannot see the story",
+      "detail": "src/battle/scene.js storyPresent() looks for ctx.Story / ctx.Quests / ctx.Chapters on the plugin context, but src/main.js builds that object and does not carry them, and P26 may not edit main.js - so the check can never be true and befriending stays on in Act I against CANON B12. Reading window.__DQ.state().story (published by src/story/script.js) instead would make the gate work. NOTE: leaving it on is the better bug for now - P26 does not set ch2.wagon until Act II B12 exists, and recruiting is the signature DQV moment.",
+      "state": "open",
+      "opened": "2026-09-18T03:03:09.478Z",
+      "events": []
     }
   ]
 }

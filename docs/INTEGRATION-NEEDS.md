@@ -185,3 +185,15 @@ The smoothing agent works through ALL of these.
   hand-written counter-melodies and walking basses. Update it so builders and critics read current truth.
 - P27/P28: demos/P27.html (instruments not ready within 20s) and demos/P28.html (hitCheck envelope assertion)
   were failing at the end of the wave. Both must shoot clean again.
+
+# Orchestrator actions 2026-09-18 10:20
+- `src/plugins.js` now exists: the plugin manifest ANY piece may append its own line to. main.js reads it.
+  Installed and verified in /index.html: fx, transitions, dialogue, menu, items, shop, hud, npc, treasure,
+  party, encounter, battle.present, battle.scene, story, title. **If your piece is invisible in the real game,
+  add your line here.**
+- P17 #1 (party never installs) — CLOSED by the above; P17/P18 are live.
+- P30 #2 merged into P30 #1; P13 #8 merged into P13 #6.
+- P20 #2 reassigned to P15 (screen shake / hit-stop lives in present.js), plus a new P15 gap: present.js must
+  call FX.play instead of drawing its own sprites.
+- Orchestrator eyes on the cold-boot frame: the controlled character is an ADULT with a drawn sword, sunk into
+  the ground, filling a third of the frame (filed P07), and a Gloop follower is inside the wagon wheel (P18).

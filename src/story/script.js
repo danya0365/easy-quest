@@ -138,6 +138,12 @@ export const choice = (labels, thens = [], o = {}) => ({ op: 'choice', labels, t
 
 export const camera = {
   shot: (o = {}) => ({ op: 'camera', what: 'shot', ...o }),
+  /**
+   * camera.two(a, b) — the conversation shot, worked out at runtime from where the two of them are actually
+   * standing: the lens swings to the side of the line between them (whichever side it is already on) and frames
+   * both. A writer never types a camera position for a talk beat, and the framing is right on every map.
+   */
+  two: (a, b = 'hero', o = {}) => ({ op: 'camera', what: 'two', a, b, ...o }),
   release: (seconds = 0.9) => ({ op: 'camera', what: 'release', seconds }),
   follow: (seconds = 0.9) => ({ op: 'camera', what: 'release', seconds }),
   drop: () => ({ op: 'camera', what: 'drop' }),
@@ -180,12 +186,15 @@ function makeActor(id, look, at = {}, opts = {}) {
     body = guard('Chars.build', () => CharsLib.build(base, Object.assign({ variant }, opts.build || {})), null);
   }
   if (!body || !body.root) return null;
-  if (typeof at === 'string') at = pointOf(at) || {};
-  at = at || {};
-  const x = Number.isFinite(+at.x) ? +at.x : 0, z = Number.isFinite(+at.z) ? +at.z : 0;
+  const spot = pointOf(at) || {};
+  const x = Number.isFinite(+spot.x) ? +spot.x : 0, z = Number.isFinite(+spot.z) ? +spot.z : 0;
   const y = w.map ? w.map.walkY(x, z) : 0;
   body.root.position.set(x, y, z);
-  const yaw = Number.isFinite(+at.facing) ? +at.facing * DEG : (Number.isFinite(+opts.facing) ? +opts.facing * DEG : 0);
+  // an actor with nowhere to look faces the boy: a spawned body standing with its back to the hero reads as a bug
+  const face0 = Number.isFinite(+(at && at.facing)) ? +at.facing : (Number.isFinite(+opts.facing) ? +opts.facing : null);
+  let yaw;
+  if (face0 !== null) yaw = face0 * DEG;
+  else { const p = Field.player(); yaw = p ? Math.atan2(p.x - x, p.z - z) : 0; }
   if (kind === 'monster') body.root.rotation.y = yaw; else guard('setFacing', () => body.setFacing(yaw, true));
   if (Number.isFinite(+opts.scale)) body.root.scale.setScalar(+opts.scale);
   w.scene.add(body.root);
@@ -216,6 +225,20 @@ function killAllActors() { for (const id of Array.from(ACTORS.keys())) killActor
 function pointOf(target) {
   if (!target) return null;
   if (typeof target === 'object' && Number.isFinite(+target.x) && Number.isFinite(+target.z)) return { x: +target.x, z: +target.z };
+  // RELATIVE staging — {ahead, side} in the boy's own frame (+ahead = in front of him, +side = to his right).
+  // A scene written this way stages itself correctly on any map, which is what lets a beat whose own map is not
+  // built yet still play properly where the player is standing.
+  if (typeof target === 'object' && (target.ahead !== undefined || target.side !== undefined)) {
+    const p = Field.player();
+    if (!p) return null;
+    const yaw = (+p.facing || 0) * DEG;
+    const fx = Math.sin(yaw), fz = Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    const a = +target.ahead || 0, s = +target.side || 0;
+    let x = p.x + fx * a + rx * s, z = p.z + fz * a + rz * s;
+    const m = Field.world() && Field.world().map;
+    if (m && m.resolve) { const r = m.resolve(x, z, 0.4); x = r.x; z = r.z; }        // never inside a wall
+    return { x, z };
+  }
   const id = String(target);
   if (id === 'hero' || id === 'player') {
     const p = Field.player();
@@ -328,10 +351,11 @@ async function showCard(title, sub, ms) {
   if (sub) { const s = document.createElement('div'); s.className = 's'; s.textContent = String(sub); inn.appendChild(s); }
   el.appendChild(inn);
   el.classList.add('on');
-  await sleep(Math.max(400, ms | 0));
+  await holdFor(Math.max(400, ms | 0));
   el.classList.remove('on');
-  await sleep(520);
+  await sleep(R.skipReq ? 120 : 520);
 }
+function hideCard() { try { if (R.cardWin) R.cardWin.classList.remove('on'); } catch (_) {} }
 
 // ── the cutscene scene: it eats the controls and hands back Cancel = skip, Confirm = hurry ───────────────────
 const cutsceneScene = {
@@ -509,6 +533,8 @@ async function runStep(s) {
   switch (s.op) {
     case 'move': {
       if (s.actor === 'hero' || s.actor === 'player') {
+        // a held two-shot would watch him walk out of frame: hand the lens back to the follow camera first
+        if (s.keepShot !== true) guard('move release', () => { const w = Field.world(); if (w && w.cameraRig) w.cameraRig.release(0.45); });
         stage(false); lockPad(true);
         await walkHero(s.to, s);
         lockPad(false); stage(true);
@@ -565,7 +591,13 @@ async function runStep(s) {
     case 'flag': Flags.set(s.name, s.value); return;
     case 'join': {
       const q = dq();
-      if (q && q.party) guard('join', () => q.party(s.id));
+      // idempotent: the battle Roster already starts Act I with Bobble in it (P14's long_lane party), and a second
+      // Bobble in the wagon is the kind of thing a child notices immediately
+      const st = q ? guard('state', () => q.state(), null) : null;
+      const ros = st && st.roster;
+      const want = String(castName(s.id) || s.id).toLowerCase();
+      const there = ros && [].concat(ros.party || [], ros.wagon || []).some((m) => m && (m.id === s.id || String(m.name || '').toLowerCase() === want));
+      if (!there && q && q.party) guard('join', () => q.party(s.id));
       Flags.set('party.' + s.id, true);
       guard('party.join', () => Bus.emit('party.join', { id: s.id, name: castName(s.id) }));
       playSfx(s.sound || 'befriend');
@@ -577,7 +609,7 @@ async function runStep(s) {
       if (Number.isFinite(+s.facing)) guard('teleport facing', () => { const pl = Field.world() && Field.world().player; if (pl) pl.face(+s.facing); });
       return;
     }
-    case 'card': { stage(false); await showCard(s.title, s.sub, s.ms); stage(true); return; }
+    case 'card': { stage(true); await showCard(s.title, s.sub, s.ms); return; }
     case 'spawn': { loadLibs(); makeActor(s.id, s.look, s.at || s, s); return; }
     case 'despawn': killActor(s.id); return;
     case 'do': { const more = await guard('do', () => s.fn({ Flags, Quests, Story, Field, actors: ACTORS }), null); if (Array.isArray(more)) await runList(more); return; }
@@ -603,6 +635,34 @@ async function runStep(s) {
         else await holdFor((s.duration || 1) * 1000);
         return;
       }
+      if (s.what === 'two') {
+        const A = pointOf(s.a), B = pointOf(s.b);
+        if (!A || !B) return;
+        const m = w.map;
+        const mx = (A.x + B.x) / 2, mz = (A.z + B.z) / 2;
+        const dx = B.x - A.x, dz = B.z - A.z, d = Math.hypot(dx, dz) || 1;
+        let px = -dz / d, pz = dx / d;                                  // the line's perpendicular
+        const cam = w.camera;
+        if (cam) { const cx = cam.position.x - mx, cz = cam.position.z - mz; if (cx * px + cz * pz < 0) { px = -px; pz = -pz; } }
+        // A LENS INSIDE A WALL IS WORSE THAN NO SHOT. Hollybank is 14x12: the first version put the boom seven
+        // units out through the cottage wall and the whole frame was one plank of wood. So: try the near side,
+        // then the far side, then closer in, and only take the shot when the point is really in the room.
+        const want = Number.isFinite(+s.dist) ? +s.dist : Math.max(2.8, Math.min(5.6, d * 1.2 + 1.5));
+        let from = null;
+        for (const sign of [1, -1]) {
+          for (const k of [1, 0.8, 0.62, 0.48]) {
+            const x = mx + px * sign * want * k, z = mz + pz * sign * want * k;
+            if (!m || (m.inBounds(x, z) && m.clear(x, z, 0.45))) { from = { x, z }; break; }
+          }
+          if (from) break;
+        }
+        if (!from) return;                                              // nowhere honest to stand: keep the follow camera
+        const gy = m ? m.walkY(mx, mz) : 0;
+        const eye = { x: from.x, y: (m ? m.walkY(from.x, from.z) : 0) + (Number.isFinite(+s.height) ? +s.height : 1.45), z: from.z };
+        const p = guard('camera two', () => rig.shot({ from: eye, lookAt: { x: mx, y: gy + 1.0, z: mz }, duration: s.duration == null ? 1.1 : s.duration, fov: s.fov, hold: s.hold !== false }), null);
+        if (p && typeof p.then === 'function') await Promise.race([p, sleep(((s.duration == null ? 1.1 : s.duration) * 1000) + 700)]);
+        return;
+      }
       if (s.what === 'release') { guard('camera release', () => rig.release(s.seconds)); await holdFor((s.seconds || 0.9) * 1000); return; }
       if (s.what === 'drop') { guard('camera drop', () => rig.drop && rig.drop()); return; }
       if (s.what === 'orbit') { guard('camera orbit', () => rig.orbit(s.deg)); return; }
@@ -623,6 +683,17 @@ async function runStep(s) {
         const iv = setInterval(() => { if (Scenes.top() !== 'battle' && Scenes.stack().indexOf('battle') < 0) { clearInterval(iv); off(); finish(); } }, 180);
         setTimeout(() => { clearInterval(iv); off(); finish(); }, 240000);
       });
+      // `battle.end` fires while the fight is still SAYING things — the victory tally, and P17's "wants to join
+      // you" and naming windows. Walking straight on from here stacked our next line on top of theirs. Wait for
+      // the screen to be the player's again (up to six seconds) before the scene speaks.
+      for (let i = 0; i < 60; i++) {
+        const top = Scenes.top();
+        const st2 = q ? guard('state', () => q.state(), null) : null;
+        const focused = st2 && st2.ui ? st2.ui.focus : null;          // a modal window (the join Yes/No, the tally)
+        if (top !== 'battle' && top !== 'dialogue' && top !== 'menu' && !focused) break;
+        await sleep(150);
+      }
+      await sleep(250);
       return;
     }
     case 'choice': {
@@ -712,6 +783,10 @@ export const Story = {
       stage(false);
       bars(false);
       guard('camera back', () => { const w = Field.world(); if (w && w.cameraRig) w.cameraRig.release(0.6); });
+      // A BLACK FRAME IS THE WORST FAILURE IN THIS PROJECT: a scene that ends (or is skipped) mid-fade or under a
+      // chapter card must hand the screen back uncovered, every time.
+      hideCard();
+      guard('uncover', () => Transitions.clear({ ms: skipped ? 200 : 300 }));
       guard('shake off', () => { const el = typeof document !== 'undefined' && document.getElementById('game-canvas'); if (el) el.style.transform = ''; });
       if (opts.keepActors !== true) killAllActors();
       R.history.push({ id, ran: R.playing ? R.playing.i : 0, of: list.length, skipped, ms: Date.now() - (R.playing ? R.playing.at : Date.now()) });

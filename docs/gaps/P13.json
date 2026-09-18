@@ -103,9 +103,15 @@
       "n": 8,
       "title": "The bag and the shop show a stat line instead of the item's words, because menu.js keeps its own copy of the item table",
       "detail": "Filed against P13 because the file is src/ui/menu.js, whose own header says Menu.useData swaps in src/data/items.js 'the day P21 lands'. P21 has landed: src/data/items.js holds 73 rows, every one with a one-line blurb in voice, and it exports install(ctx) plus wire(Menu). Nothing calls either — src/main.js's PLUGINS list (transitions, dialogue, menu, hud, npc, encounter, battle.present, battle.scene, title) does not include data/items.js, so __DQ.state().items is null at /index.html and Menu.useData is never called. menu.js therefore keeps ITEMS = DATA.items from tests/battle/data.js (58 rows, 54 of them with no blurb at all) plus its own hand-copied ITEM_WORDS map of 17 lines. Measured at /index.html, walking the bag with __DQ.press('down') and reading .dq-blurb: Copper Sword -> '+11 Attack. Only Bram or Rowan can hold it.' (items.js: 'Your first real sword. It goes green if you sulk.'), Lucky Acorn -> '+8 Luck.', Chain Mail -> '+24 Defence, -2 Speed.', Mirror Shield -> '+25 Defence. Only Bram or Rowan can hold it.' — a 1,700 G shield whose whole point is reflecting Wobble and Snoozle, and the game never says so. All 45 equippable rows and 28 of the 73 rows overall have no words in the running game. The same happens in the shop: shots/P21-critic-d1/p22/03-03-buy-row2.png shows the Sling as '+7 Attack. Only Willow or Linnet can hold it.' instead of 'Willow can knock a pear off a wall with this at thirty paces.' The duplicate has already drifted: 6 of the 17 ITEM_WORDS lines no longer match items.js (sunbottle, retreat_bell, homing_feather, whiff_powder, seed_of_life, and pot_lid, where menu.js says 'Now it is a shield' and items.js says 'Barty would like it back'). Fix inside menu.js: import ITEMS from '../data/items.js' as the default table, delete ITEM_WORDS, and keep DATA.items only as the fallback if that import fails — itemWords() already prefers it.blurb, so the words appear the moment the table is right. Alternative one-liner for the integrator: add ['data.items', () => import('./data/items.js')] to src/main.js PLUGINS, which makes items.js call Menu.useData itself. Related: P14 gap about scene.js reading tests/battle/data.js is the same root — __DQ.give still refuses 12 of the 17 CANON section 6 key items (willows_ribbon, candle, music_box, papas_letter, mums_feather_hairpin, ambergarde_crest, tide_pearl, marsh_lily, stilt_boots, wolfscarf, emberbell, sunlarks_feather) and 3 of the 4 seeds.",
-      "state": "open",
+      "state": "merged",
       "opened": "2026-09-18T02:27:54.811Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-18T03:22:19.241Z",
+          "by": "orchestrator",
+          "note": "Duplicate of P13 #6 (menu keeps its own item table instead of reading src/data/items.js). Work it under #6."
+        }
+      ]
     }
   ]
 }

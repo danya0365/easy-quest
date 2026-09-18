@@ -1,0 +1,421 @@
+{
+ "name": "critic P06 interiors \u2014 every door in the real game",
+ "steps": [
+  {
+   "waitFor": "window.__DQ && __DQ.ready",
+   "timeout": 45000
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "note": "critic round 1 \u2014 P06 interiors, judged by walking every door of Puddlewick in the real game"
+  },
+  {
+   "eval": "(async()=>{const m=await import('/src/world/maps/puddlewick.js');const L=m.puddlewickLayout();window.__L=L;window.__W={};window.__MEM=[];const sleep=ms=>new Promise(r=>setTimeout(r,ms));window.__sleep=sleep;window.__clear=async()=>{for(let i=0;i<10;i++){const d=__DQ.state().dialogue;if(!d||!d.open)break;__DQ.press('confirm');await sleep(260);}return !!(__DQ.state().dialogue&&__DQ.state().dialogue.open);};window.__walk=async(orbitDeg,chunks)=>{__DQ.cameraOrbit(orbitDeg,true);await sleep(420);const start=__DQ.state().map.id;for(let k=0;k<chunks;k++){await __clear();__DQ.hold('up');await sleep(480);__DQ.release('up');await sleep(560);if(__DQ.state().map.id!==start)break;}await sleep(500);return __DQ.state().map.id;};window.__enter=async(id)=>{const d=L.doors[id];if(__DQ.state().map.id!=='puddlewick'){await __DQ.teleport('puddlewick');await sleep(1100);}await __clear();__DQ.walkTo(d.x,d.z);await sleep(300);const p0=__DQ.state().player;const landed=await __walk(d.facing*180/Math.PI+180,5);const s=__DQ.state();const r=__DQ.state().render;window.__MEM.push({room:id,geo:r.geometries,tex:r.textures,prog:r.programs,calls:r.calls,tris:r.tris});return {door:id,askedFrom:[+d.x.toFixed(2),+d.z.toFixed(2)],from:[+p0.x.toFixed(2),+p0.z.toFixed(2)],landed:s.map.id,name:s.map.name,kind:s.map.kind,size:s.map.size,npcs:s.map.npcs,chests:s.map.chests,interactables:s.map.interactables,props:s.map.props,colliders:s.map.colliders,lines:s.map.lines,missingLines:s.map.missingLines,music:s.map.music,y:+s.player.y.toFixed(3),ground:s.player.ground,fps:s.fps};};window.__leave=async()=>{await __clear();const landed=await __walk(180,6);const s=__DQ.state();return {landed:s.map.id,name:s.map.name,at:[+s.player.x.toFixed(2),+s.player.z.toFixed(2)]};};return JSON.stringify({doors:Object.keys(L.doors).length,exits:L.exits.length});})()"
+  },
+  {
+   "eval": "(async()=>{await __DQ.teleport('puddlewick');await __sleep(1600);await __clear();return JSON.stringify(__DQ.state().map);})()"
+  },
+  {
+   "shot": "the-green"
+  },
+  {
+   "note": "=== hollybank via hollybank ==="
+  },
+  {
+   "eval": "(async()=>{const r=await __enter('hollybank');window.__W['hollybank']=r;return JSON.stringify(r);})()"
+  },
+  {
+   "eval": "(async()=>{await __clear();return JSON.stringify(__DQ.state().map.id);})()"
+  },
+  {
+   "shot": "hollybank-a-arrive"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(120,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "hollybank-b-orbit120"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(245,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "hollybank-c-orbit245"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(0,true);await __sleep(450);const a=__DQ.openNear();await __sleep(1000);const s=__DQ.state();return JSON.stringify({map:s.map.id,openNear:a,treasure:s.treasure&&{chests:s.treasure.chests,searchable:s.treasure.searchable,unplaced:s.treasure.unplaced,here:(s.treasure.here||[]).map(q=>q.id+':'+q.kind+(q.holds?'='+q.holds:''))},dialogue:s.dialogue&&{speaker:s.dialogue.speaker,full:s.dialogue.full}});})()"
+  },
+  {
+   "shot": "hollybank-d-search"
+  },
+  {
+   "eval": "(async()=>{const r=await __leave();window.__W['hollybank'].out=r;return JSON.stringify(r);})()"
+  },
+  {
+   "shot": "hollybank-e-outside"
+  },
+  {
+   "note": "=== int_bakery via puddlewick_bakery ==="
+  },
+  {
+   "eval": "(async()=>{const r=await __enter('puddlewick_bakery');window.__W['int_bakery']=r;return JSON.stringify(r);})()"
+  },
+  {
+   "eval": "(async()=>{await __clear();return JSON.stringify(__DQ.state().map.id);})()"
+  },
+  {
+   "shot": "int_bakery-a-arrive"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(120,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_bakery-b-orbit120"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(245,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_bakery-c-orbit245"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(0,true);await __sleep(450);const a=__DQ.openNear();await __sleep(1000);const s=__DQ.state();return JSON.stringify({map:s.map.id,openNear:a,treasure:s.treasure&&{chests:s.treasure.chests,searchable:s.treasure.searchable,unplaced:s.treasure.unplaced,here:(s.treasure.here||[]).map(q=>q.id+':'+q.kind+(q.holds?'='+q.holds:''))},dialogue:s.dialogue&&{speaker:s.dialogue.speaker,full:s.dialogue.full}});})()"
+  },
+  {
+   "shot": "int_bakery-d-search"
+  },
+  {
+   "eval": "(async()=>{const r=await __leave();window.__W['int_bakery'].out=r;return JSON.stringify(r);})()"
+  },
+  {
+   "shot": "int_bakery-e-outside"
+  },
+  {
+   "note": "=== puddlewick_inn via puddlewick_inn ==="
+  },
+  {
+   "eval": "(async()=>{const r=await __enter('puddlewick_inn');window.__W['puddlewick_inn']=r;return JSON.stringify(r);})()"
+  },
+  {
+   "eval": "(async()=>{await __clear();return JSON.stringify(__DQ.state().map.id);})()"
+  },
+  {
+   "shot": "puddlewick_inn-a-arrive"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(120,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "puddlewick_inn-b-orbit120"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(245,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "puddlewick_inn-c-orbit245"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(0,true);await __sleep(450);const a=__DQ.openNear();await __sleep(1000);const s=__DQ.state();return JSON.stringify({map:s.map.id,openNear:a,treasure:s.treasure&&{chests:s.treasure.chests,searchable:s.treasure.searchable,unplaced:s.treasure.unplaced,here:(s.treasure.here||[]).map(q=>q.id+':'+q.kind+(q.holds?'='+q.holds:''))},dialogue:s.dialogue&&{speaker:s.dialogue.speaker,full:s.dialogue.full}});})()"
+  },
+  {
+   "shot": "puddlewick_inn-d-search"
+  },
+  {
+   "eval": "(async()=>{const r=await __leave();window.__W['puddlewick_inn'].out=r;return JSON.stringify(r);})()"
+  },
+  {
+   "shot": "puddlewick_inn-e-outside"
+  },
+  {
+   "note": "=== int_shop via puddlewick_shop ==="
+  },
+  {
+   "eval": "(async()=>{const r=await __enter('puddlewick_shop');window.__W['int_shop']=r;return JSON.stringify(r);})()"
+  },
+  {
+   "eval": "(async()=>{await __clear();return JSON.stringify(__DQ.state().map.id);})()"
+  },
+  {
+   "shot": "int_shop-a-arrive"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(120,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_shop-b-orbit120"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(245,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_shop-c-orbit245"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(0,true);await __sleep(450);const a=__DQ.openNear();await __sleep(1000);const s=__DQ.state();return JSON.stringify({map:s.map.id,openNear:a,treasure:s.treasure&&{chests:s.treasure.chests,searchable:s.treasure.searchable,unplaced:s.treasure.unplaced,here:(s.treasure.here||[]).map(q=>q.id+':'+q.kind+(q.holds?'='+q.holds:''))},dialogue:s.dialogue&&{speaker:s.dialogue.speaker,full:s.dialogue.full}});})()"
+  },
+  {
+   "shot": "int_shop-d-search"
+  },
+  {
+   "eval": "(async()=>{const r=await __leave();window.__W['int_shop'].out=r;return JSON.stringify(r);})()"
+  },
+  {
+   "shot": "int_shop-e-outside"
+  },
+  {
+   "note": "=== int_twins via puddlewick_twins ==="
+  },
+  {
+   "eval": "(async()=>{const r=await __enter('puddlewick_twins');window.__W['int_twins']=r;return JSON.stringify(r);})()"
+  },
+  {
+   "eval": "(async()=>{await __clear();return JSON.stringify(__DQ.state().map.id);})()"
+  },
+  {
+   "shot": "int_twins-a-arrive"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(120,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_twins-b-orbit120"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(245,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_twins-c-orbit245"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(0,true);await __sleep(450);const a=__DQ.openNear();await __sleep(1000);const s=__DQ.state();return JSON.stringify({map:s.map.id,openNear:a,treasure:s.treasure&&{chests:s.treasure.chests,searchable:s.treasure.searchable,unplaced:s.treasure.unplaced,here:(s.treasure.here||[]).map(q=>q.id+':'+q.kind+(q.holds?'='+q.holds:''))},dialogue:s.dialogue&&{speaker:s.dialogue.speaker,full:s.dialogue.full}});})()"
+  },
+  {
+   "shot": "int_twins-d-search"
+  },
+  {
+   "eval": "(async()=>{const r=await __leave();window.__W['int_twins'].out=r;return JSON.stringify(r);})()"
+  },
+  {
+   "shot": "int_twins-e-outside"
+  },
+  {
+   "note": "=== int_hob via puddlewick_hob ==="
+  },
+  {
+   "eval": "(async()=>{const r=await __enter('puddlewick_hob');window.__W['int_hob']=r;return JSON.stringify(r);})()"
+  },
+  {
+   "eval": "(async()=>{await __clear();return JSON.stringify(__DQ.state().map.id);})()"
+  },
+  {
+   "shot": "int_hob-a-arrive"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(120,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_hob-b-orbit120"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(245,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_hob-c-orbit245"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(0,true);await __sleep(450);const a=__DQ.openNear();await __sleep(1000);const s=__DQ.state();return JSON.stringify({map:s.map.id,openNear:a,treasure:s.treasure&&{chests:s.treasure.chests,searchable:s.treasure.searchable,unplaced:s.treasure.unplaced,here:(s.treasure.here||[]).map(q=>q.id+':'+q.kind+(q.holds?'='+q.holds:''))},dialogue:s.dialogue&&{speaker:s.dialogue.speaker,full:s.dialogue.full}});})()"
+  },
+  {
+   "shot": "int_hob-d-search"
+  },
+  {
+   "eval": "(async()=>{const r=await __leave();window.__W['int_hob'].out=r;return JSON.stringify(r);})()"
+  },
+  {
+   "shot": "int_hob-e-outside"
+  },
+  {
+   "note": "=== int_cottage via puddlewick_cottage ==="
+  },
+  {
+   "eval": "(async()=>{const r=await __enter('puddlewick_cottage');window.__W['int_cottage']=r;return JSON.stringify(r);})()"
+  },
+  {
+   "eval": "(async()=>{await __clear();return JSON.stringify(__DQ.state().map.id);})()"
+  },
+  {
+   "shot": "int_cottage-a-arrive"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(120,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_cottage-b-orbit120"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(245,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_cottage-c-orbit245"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(0,true);await __sleep(450);const a=__DQ.openNear();await __sleep(1000);const s=__DQ.state();return JSON.stringify({map:s.map.id,openNear:a,treasure:s.treasure&&{chests:s.treasure.chests,searchable:s.treasure.searchable,unplaced:s.treasure.unplaced,here:(s.treasure.here||[]).map(q=>q.id+':'+q.kind+(q.holds?'='+q.holds:''))},dialogue:s.dialogue&&{speaker:s.dialogue.speaker,full:s.dialogue.full}});})()"
+  },
+  {
+   "shot": "int_cottage-d-search"
+  },
+  {
+   "eval": "(async()=>{const r=await __leave();window.__W['int_cottage'].out=r;return JSON.stringify(r);})()"
+  },
+  {
+   "shot": "int_cottage-e-outside"
+  },
+  {
+   "note": "=== int_chapel via puddlewick_chapel ==="
+  },
+  {
+   "eval": "(async()=>{const r=await __enter('puddlewick_chapel');window.__W['int_chapel']=r;return JSON.stringify(r);})()"
+  },
+  {
+   "eval": "(async()=>{await __clear();return JSON.stringify(__DQ.state().map.id);})()"
+  },
+  {
+   "shot": "int_chapel-a-arrive"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(120,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_chapel-b-orbit120"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(245,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_chapel-c-orbit245"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(0,true);await __sleep(450);const a=__DQ.openNear();await __sleep(1000);const s=__DQ.state();return JSON.stringify({map:s.map.id,openNear:a,treasure:s.treasure&&{chests:s.treasure.chests,searchable:s.treasure.searchable,unplaced:s.treasure.unplaced,here:(s.treasure.here||[]).map(q=>q.id+':'+q.kind+(q.holds?'='+q.holds:''))},dialogue:s.dialogue&&{speaker:s.dialogue.speaker,full:s.dialogue.full}});})()"
+  },
+  {
+   "shot": "int_chapel-d-search"
+  },
+  {
+   "eval": "(async()=>{const r=await __leave();window.__W['int_chapel'].out=r;return JSON.stringify(r);})()"
+  },
+  {
+   "shot": "int_chapel-e-outside"
+  },
+  {
+   "note": "=== int_mill via puddlewick_mill ==="
+  },
+  {
+   "eval": "(async()=>{const r=await __enter('puddlewick_mill');window.__W['int_mill']=r;return JSON.stringify(r);})()"
+  },
+  {
+   "eval": "(async()=>{await __clear();return JSON.stringify(__DQ.state().map.id);})()"
+  },
+  {
+   "shot": "int_mill-a-arrive"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(120,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_mill-b-orbit120"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(245,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_mill-c-orbit245"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(0,true);await __sleep(450);const a=__DQ.openNear();await __sleep(1000);const s=__DQ.state();return JSON.stringify({map:s.map.id,openNear:a,treasure:s.treasure&&{chests:s.treasure.chests,searchable:s.treasure.searchable,unplaced:s.treasure.unplaced,here:(s.treasure.here||[]).map(q=>q.id+':'+q.kind+(q.holds?'='+q.holds:''))},dialogue:s.dialogue&&{speaker:s.dialogue.speaker,full:s.dialogue.full}});})()"
+  },
+  {
+   "shot": "int_mill-d-search"
+  },
+  {
+   "eval": "(async()=>{const r=await __leave();window.__W['int_mill'].out=r;return JSON.stringify(r);})()"
+  },
+  {
+   "shot": "int_mill-e-outside"
+  },
+  {
+   "note": "=== int_barn via hollybank_barn ==="
+  },
+  {
+   "eval": "(async()=>{const r=await __enter('hollybank_barn');window.__W['int_barn']=r;return JSON.stringify(r);})()"
+  },
+  {
+   "eval": "(async()=>{await __clear();return JSON.stringify(__DQ.state().map.id);})()"
+  },
+  {
+   "shot": "int_barn-a-arrive"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(120,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_barn-b-orbit120"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(245,true);await __sleep(850);return 1;})()"
+  },
+  {
+   "shot": "int_barn-c-orbit245"
+  },
+  {
+   "eval": "(async()=>{__DQ.cameraOrbit(0,true);await __sleep(450);const a=__DQ.openNear();await __sleep(1000);const s=__DQ.state();return JSON.stringify({map:s.map.id,openNear:a,treasure:s.treasure&&{chests:s.treasure.chests,searchable:s.treasure.searchable,unplaced:s.treasure.unplaced,here:(s.treasure.here||[]).map(q=>q.id+':'+q.kind+(q.holds?'='+q.holds:''))},dialogue:s.dialogue&&{speaker:s.dialogue.speaker,full:s.dialogue.full}});})()"
+  },
+  {
+   "shot": "int_barn-d-search"
+  },
+  {
+   "eval": "(async()=>{const r=await __leave();window.__W['int_barn'].out=r;return JSON.stringify(r);})()"
+  },
+  {
+   "shot": "int_barn-e-outside"
+  },
+  {
+   "eval": "JSON.stringify(window.__W)"
+  },
+  {
+   "eval": "JSON.stringify(window.__MEM)"
+  },
+  {
+   "eval": "JSON.stringify({fps:__DQ.state().fps,errors:__DQ.errors,render:__DQ.state().render})"
+  },
+  {
+   "assert": "__DQ.errors.length===0",
+   "msg": "no runtime errors walking every door"
+  },
+  {
+   "assert": "Object.keys(window.__W).length===10",
+   "msg": "all ten doors were tried"
+  },
+  {
+   "assert": "Object.values(window.__W).every(r=>r.landed!=='puddlewick')",
+   "msg": "every door in Puddlewick actually opens"
+  },
+  {
+   "assert": "Object.values(window.__W).every(r=>r.out&&r.out.landed==='puddlewick')",
+   "msg": "every room puts you back on the green"
+  },
+  {
+   "assert": "Object.values(window.__W).every(r=>r.chests>=3)",
+   "msg": "every room has at least three searchable things"
+  },
+  {
+   "assert": "Object.values(window.__W).every(r=>r.npcs>=1)",
+   "msg": "every room has somebody or something alive in it"
+  },
+  {
+   "assert": "Object.values(window.__W).every(r=>(r.missingLines||[]).length===0)",
+   "msg": "no room is missing dialogue lines"
+  }
+ ]
+}

@@ -5,7 +5,7 @@
       "n": 1,
       "title": "Not wired into the real game",
       "detail": "FIX LIVES IN src/main.js (integrator-only, so P17 may not touch it). src/world/party.js is the single install() for the whole P17+P18 feature (it installs companions.js and recruit.js itself). Add one line to the PLUGINS array in src/main.js, after battle.scene and before title: the pair party with an arrow function importing ./world/party.js. Until then followers, the wagon, the paddock, the roster window and the naming window exist only in demos/P17.html. Verify with scenarios/P17-index.json against /index.html: its two LIVE CHECK assertions fail today and pass the moment the line lands.",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:30:52.287Z",
       "events": [
         {
@@ -13,6 +13,11 @@
           "by": "critic",
           "pass": false,
           "note": "In /index.html the boot plugin list is transitions,dialogue,menu,hud,npc,encounter,battle.present,battle.scene,title — no party. __DQ.state().companions and .friends are undefined, __DQ.recruit and __DQ.wagonMenu are undefined. I forced a real join in the game (misses gloop=12, fight vs 2 gloops, answered Yes): the Gloop joined as Dollop and the game printed 'Dollop hops up into the wagon' — then the field showed the hero walking completely ALONE, no Halvard, no Bobble, no Dollop, no wagon. Nothing of P17/P18 is reachable by a player."
+        },
+        {
+          "at": "2026-09-18T03:21:58.013Z",
+          "by": "orchestrator",
+          "note": "Fixed by the orchestrator: src/plugins.js now carries the manifest and any piece may append its own line. party installs in /index.html (verified: boot.plugins.party === installed)."
         }
       ]
     },

@@ -30,6 +30,22 @@
       "state": "open",
       "opened": "2026-09-18T02:36:57.453Z",
       "events": []
+    },
+    {
+      "n": 4,
+      "title": "No screen shake or hit-stop on a big spell or a crit",
+      "detail": "Reassigned from P20 #2 (present.js is P15's file). A big spell or a terrific whack must land with weight: a short screen shake, a hit-stop freeze of a few frames, a white flash on the target, and the damage number popping late so the eye reads the hit first. Call FX.play for the spell school (src/art/fx.js is now installed as a plugin and exposes FX.play(id,{at,scale,dir,onPeak})) instead of drawing ad-hoc sprites.",
+      "state": "open",
+      "opened": "2026-09-18T03:22:19.280Z",
+      "events": []
+    },
+    {
+      "n": 5,
+      "title": "present.js never calls the FX library",
+      "detail": "Reassigned from P20's report: casting Bolster in a real fight shows one blue line over a still frame — no aura, no light. src/art/fx.js is now installed (boot.plugins.fx === installed) and exposes FX.play(id,{at,scale,dir,onPeak}) with fire, ice, bolt, wind, holy, heal sparkles, buff and debuff auras, sleep, poison, flash, shockwave, poof, level-up pillar. Wire every spell and impact beat in present.js to it.",
+      "state": "open",
+      "opened": "2026-09-18T03:22:19.318Z",
+      "events": []
     }
   ]
 }

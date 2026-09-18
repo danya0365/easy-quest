@@ -25,7 +25,7 @@
       "n": 2,
       "title": "No screen shake or hit-stop on a big spell",
       "detail": "WEIGHT: a Kazapple lands with a flash and a ring but the camera never moves. FX cannot shake the camera (src/world/camera.js is P09 and the battle camera is P15), so add a Bus emit fx.shake {amp, ms} from the heavy effects (fire_big, lightning, level_pillar, shockwave) and a short freeze hint, then ask P09/P15 to honour it.",
-      "state": "still-open",
+      "state": "reassigned",
       "opened": "2026-09-18T02:33:57.615Z",
       "events": [
         {
@@ -38,6 +38,11 @@
           "by": "critic",
           "pass": false,
           "note": "The camera still never moves on a heavy spell. Measured in the running build: Bus.count('fx.shake') === 0 in the demo and there is no Bus.on('fx.shake') anywhere in src/ (grep: only fx.js emits it). FX.state().shakes climbs (17 after a pass over the library) and install() does route setShake to the Bus, so P20's asking side is real, but with nobody listening the scene camera is byte-identical before and after fire_big (demo cam {orbit:20,zoom:1,tx:0,tz:0,ty:1.4} unchanged; the dist 8.5->9.5 delta is the demo's own framing table, not a shake). MISFILED: P20 cannot close this. It needs Bus.on('fx.shake') in src/world/camera.js (P09) and src/battle/present.js (P15). Please move it."
+        },
+        {
+          "at": "2026-09-18T03:22:19.245Z",
+          "by": "orchestrator",
+          "note": "Reassigned: screen shake and hit-stop live in src/battle/present.js, which P15 owns. Re-filed under P15."
         }
       ]
     },

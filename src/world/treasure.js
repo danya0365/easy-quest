@@ -77,8 +77,8 @@ const isRealItem = (id) => !!itemDef(id);
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // the ledger — what has already been taken, and what is in the pocket
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
-const LED = { taken: {}, searched: {}, keys: {}, seeds: {}, opened: 0, found: 0, gold: 0 };
-const fresh = () => { LED.taken = {}; LED.searched = {}; LED.keys = {}; LED.seeds = {}; LED.opened = 0; LED.found = 0; LED.gold = 0; };
+const LED = { taken: {}, searched: {}, keys: {}, seeds: {}, opened: 0, found: 0, gold: 0, socks: 0 };
+const fresh = () => { LED.taken = {}; LED.searched = {}; LED.keys = {}; LED.seeds = {}; LED.opened = 0; LED.found = 0; LED.gold = 0; LED.socks = 0; };
 const keyOf = (mapId, id) => `${mapId}:${id}`;
 
 // The purse and the bag belong to P14's Roster (the one party, the one bag). It is imported lazily so a map load
@@ -104,20 +104,48 @@ function giveGold(n) {
   return v;
 }
 /** A seed is eaten where it is found and never goes in the bag: it makes the boy permanently bigger inside. */
-const SEEDS = { seed_of_life: { stat: 'hp', by: 3, ledger: 'life', say: '%HERO% eats it.{n}There is a little more room in\nhim than there was.' } };
+const SEEDS = {
+  seed_of_life: { stat: 'hp', by: 3, ledger: 'life', say: '%HERO% eats it.{n}There is a little more room in\nhim than there was.' },
+  seed_of_strength: { stat: 'str', by: 1, ledger: 'strength', say: '%HERO% eats it.{n}Something in his arms decides\nto stay on.' },
+  seed_of_swiftness: { stat: 'agi', by: 1, ledger: 'swiftness', say: '%HERO% eats it.{n}His feet have opinions now.' },
+  seed_of_wisdom: { stat: 'wis', by: 1, ledger: 'wisdom', say: '%HERO% eats it.{n}He understands one more thing\nthan he did. He cannot say which.' },
+};
 function eatSeed(id) {
   const s = SEEDS[id];
   if (!s) return null;
   LED.seeds[s.ledger] = (LED.seeds[s.ledger] || 0) + 1;
   // the bonus rides on the member itself, so it saves with the party (P19's growth.js has no permanent hook yet —
-  // see the gap filed against P19: statsFor() should add member.seedHp on top of the level curve)
+  // see the gap filed against P19: statsFor() should add member.seed[stat] on top of the level curve)
   safe('seed', () => {
     const m = ROSTER && ROSTER.ensure && ROSTER.ensure()[0];
     if (!m) return;
-    m.seedHp = (m.seedHp || 0) + s.by;
-    if (Number.isFinite(+m.hp)) m.hp = +m.hp + s.by;
+    m.seed = m.seed || {};
+    m.seed[s.stat] = (m.seed[s.stat] || 0) + s.by;
+    if (s.stat === 'hp') { m.seedHp = (m.seedHp || 0) + s.by; if (Number.isFinite(+m.hp)) m.hp = +m.hp + s.by; }
   });
   return s;
+}
+
+/**
+ * CANON §6: eleven socks are hidden in searchable containers up and down the world, and all eleven make
+ * The Sock of Considerable Power. A sock is not an item in the bag — it is a tally, `secret.socks`.
+ */
+const SOCK_TOTAL = 11;
+let FLAGS = null;
+safe('flags', () => import('../story/flags.js').then((m) => { FLAGS = (m && (m.Flags || m.default)) || null; }, () => {}));
+function takeSock() {
+  LED.socks = Math.min(SOCK_TOTAL, (LED.socks || 0) + 1);
+  safe('sock flag', () => { if (FLAGS && FLAGS.set) FLAGS.set('secret.socks', LED.socks); });
+  if (LED.socks >= SOCK_TOTAL) giveItem('sock_of_considerable_power');
+  return LED.socks;
+}
+function sockPages() {
+  const n = LED.socks;
+  if (n >= SOCK_TOTAL) {
+    return ['%HERO% has got the eleventh {gold}sock{/gold}.'.replace('%HERO%', HERO),
+      'Eleven socks. Put together they\nare {gold}The Sock of Considerable\nPower{/gold}, and nobody is to laugh.'];
+  }
+  return ['%HERO% has got a {gold}sock{/gold}.{n}That is %N% of eleven.'.replace('%HERO%', HERO).replace('%N%', String(n))];
 }
 
 function giveItem(id) {
@@ -280,9 +308,32 @@ function emptyLine(entry, n) {
 }
 
 // ── the ceremony ─────────────────────────────────────────────────────────────────────────────────────────────
+/**
+ * How gold is announced. VOICE-BIBLE §3 no.13 ("found in a boot") is the line for a container that has nothing
+ * of its own to say — but it contradicted itself when the page before had just described where the money was
+ * (a purse under a footbridge, a cloth under the apples). So: a container with its own written find keeps its
+ * own words and gets a plain count, walked in order so no two finds in a row phrase it the same way.
+ */
+let goldTurn = 0;
+const GOLD_LINES = [
+  '{gold}%N% gold coins{/gold} go into\nthe purse.',
+  '{gold}%N% gold coins{/gold}. The purse is\nheavier, and says so.',
+  '%HERO% pockets {gold}%N% gold coins{/gold}.',
+  '{gold}%N% gold coins{/gold}, counted twice,\nbecause counting is the best part.',
+  '{gold}%N% gold coins{/gold}. He does not\nsay where from.',
+];
+function goldPage(entry, inChest) {
+  const n = entry.gold;
+  if (inChest) return str('chest.gold', { N: n });
+  const own = pagesOf(entry.found).concat(pagesOf(entry.text)).filter(Boolean).length;
+  if (!own) return str('gold.found', { N: n });
+  return GOLD_LINES[(goldTurn++) % GOLD_LINES.length].replace(/%N%/g, String(n)).replace(/%HERO%/g, HERO);
+}
+
 function rewardPages(entry, inChest = false) {
   const out = [];
-  if (entry.gold) out.push(str(inChest ? 'chest.gold' : 'gold.found', { N: entry.gold }));
+  if (entry.gold) out.push(goldPage(entry, inChest));
+  if (entry.sock) out.push(...sockPages());
   if (entry.item) {
     const nm = '{gold}' + itemName(entry.item) + '{/gold}';
     out.push(str(KEYS[entry.item] ? 'item.get.key' : 'item.get', { HERO, ITEM: nm }));
@@ -292,11 +343,43 @@ function rewardPages(entry, inChest = false) {
   return out;
 }
 
+/**
+ * The moment (DQV-RUBRIC "CEREMONY"): the fanfare lifts, the boy turns to the thing and throws the prize up over
+ * his head (P08's `celebrate` clip is exactly that pose), and the camera steps in a step for the beat and comes
+ * back. Every part is guarded: a missing stinger, a placeholder hero or a torn-down map can never stop a find.
+ */
+function celebrate(entry) {
+  safe('fanfare', () => import('../audio/music.js').then((m) => {
+    const M = m && (m.Music || m.default);
+    if (M && typeof M.stinger === 'function') M.stinger('item_get');
+  }, () => {}));
+  safe('held aloft', () => {
+    const w = Field.world();
+    const pl = w && w.player;
+    if (!pl) return;
+    if (Number.isFinite(+entry.x) && Number.isFinite(+entry.z) && pl.faceToward) pl.faceToward(+entry.x, +entry.z);
+    const h = pl.hero;
+    if (h && h.character && typeof h.character.play === 'function') h.character.play('celebrate');
+    else if (h && typeof h.nod === 'function') h.nod();
+  });
+  safe('camera beat', () => {
+    const w = Field.world();
+    const rig = w && w.cameraRig;
+    if (!rig || typeof rig.zoom !== 'function') return;
+    const d0 = +rig.zoom();
+    if (!Number.isFinite(d0)) return;
+    rig.zoom(Math.max(2.6, d0 - 0.95));
+    wait(2.1, () => safe('camera home', () => rig.zoom(d0)));
+  });
+}
+
 function grant(entry, id) {
   if (entry.gold) giveGold(entry.gold);
+  if (entry.sock) takeSock();
   if (entry.item) giveItem(entry.item);
   LED.taken[id] = true; LED.found++;
-  safe('bus', () => Bus.emit('treasure.found', { id, gold: entry.gold || 0, item: entry.item || null }));
+  celebrate(entry);
+  safe('bus', () => Bus.emit('treasure.found', { id, gold: entry.gold || 0, item: entry.item || null, sock: !!entry.sock }));
 }
 
 /** Confirm on a chest: the lid, the prize, the fanfare, the window — in that order, with a beat between each. */
@@ -360,7 +443,7 @@ function search(entry, propText) {
   const id = keyOf(L.map ? L.map.id : '?', entry.id);
   if (L.busy) return;
   const n = LED.searched[id] = (LED.searched[id] || 0) + 1;
-  const first = !LED.taken[id] && (entry.gold || entry.item);
+  const first = !LED.taken[id] && (entry.gold || entry.item || entry.sock);
   safe('sfx', () => Sfx.play('pot_search'));
   if (!first) {
     const pages = pagesOf(propText).concat(emptyLine(entry, n - 1));
@@ -371,34 +454,44 @@ function search(entry, propText) {
   grant(entry, id);
   spawnPrize(null, entry, prizeKindOf(entry));
   safe('sfx', () => Sfx.play(entry.gold ? 'gold_coins' : 'item_get'));
-  const head = pagesOf(propText).concat(pagesOf(entry.found));
+  // the words of the find: the prop's own line, then what the container itself was WRITTEN to say. `found` is the
+  // line for the moment it gives something up; a container that only has `text` (every layer entry, where propText
+  // is null) keeps that, instead of losing its whole setup to the reward line — the secrets are the prose.
+  const own = pagesOf(entry.found);
+  const head = pagesOf(propText).concat(own.length ? own : pagesOf(entry.text));
   const ok = talk(head.concat(rewardPages(entry, false)), { name: entry.name || null, onClose: () => { L.busy = false; } });
   if (!ok) L.busy = false;
 }
 
-/** The prize rises out of the chest (or out of whatever was searched), turning, with a glint and a few sparks. */
+/**
+ * The prize, HELD ALOFT. Dragon Quest puts the thing you found in the hero's fist over his head, big enough to
+ * read across the room — so it rises out of his hands, not out of the box: the lid is already open behind him and
+ * a 20px emblem hiding inside it was the single least ceremonious frame in the game.
+ */
 function spawnPrize(live, entry, kind) {
   if (!L.scene) return;
   const at = live ? live.root.position : null;
   const p = Field.player();
-  const x = at ? at.x : (Number.isFinite(+entry.x) ? +entry.x : (p ? p.x : 0));
-  const z = at ? at.z : (Number.isFinite(+entry.z) ? +entry.z : (p ? p.z : 0));
+  const hero = p && Number.isFinite(+p.x) && Number.isFinite(+p.z);
+  const x = hero ? +p.x : (at ? at.x : (Number.isFinite(+entry.x) ? +entry.x : 0));
+  const z = hero ? +p.z : (at ? at.z : (Number.isFinite(+entry.z) ? +entry.z : 0));
   const ground = L.map ? safe('walkY', () => L.map.walkY(x, z), 0) : 0;
-  const y0 = at ? at.y + live.height : (Number.isFinite(+entry.y) ? +entry.y : ground) + 0.72;
+  const y0 = hero ? (Number.isFinite(+p.y) ? +p.y : ground) + 1.66
+    : (at ? at.y + live.height : (Number.isFinite(+entry.y) ? +entry.y : ground) + 0.72);
   const g = new THREE.Group();
   g.position.set(x, y0, z);
   const prize = prizeMesh(kind); g.add(prize);
   const glint = new THREE.Sprite(new THREE.SpriteMaterial({ map: glintTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
-  glint.scale.set(0.85, 0.85, 1); glint.renderOrder = 40; g.add(glint);
+  glint.scale.set(1.5, 1.5, 1); glint.renderOrder = 40; g.add(glint);
   const sparks = [];
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 12; i++) {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glintTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
-    const a = (i / 8) * Math.PI * 2;
-    s.userData.v = new THREE.Vector3(Math.cos(a) * 0.42, 0.55 + (i % 3) * 0.14, Math.sin(a) * 0.42);
-    s.scale.setScalar(0.14); s.renderOrder = 41; g.add(s); sparks.push(s);
+    const a = (i / 12) * Math.PI * 2;
+    s.userData.v = new THREE.Vector3(Math.cos(a) * 0.62, 0.7 + (i % 3) * 0.18, Math.sin(a) * 0.62);
+    s.scale.setScalar(0.2); s.renderOrder = 41; g.add(s); sparks.push(s);
   }
   L.scene.add(g);
-  L.fx.push({ g, prize, glint, sparks, t: 0, life: 2.2, y0 });
+  L.fx.push({ g, prize, glint, sparks, t: 0, life: 2.6, y0 });
 }
 
 // ── per-frame ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -424,17 +517,17 @@ function tick(dt, t) {
     const f = L.fx[i];
     f.t += dt;
     const k = clamp(f.t / 0.55, 0, 1), ease = 1 - (1 - k) * (1 - k);
-    f.g.position.y = f.y0 + 0.16 + ease * 0.42;
+    f.g.position.y = f.y0 + 0.14 + ease * 0.5;
     f.prize.rotation.y += dt * 3.4;
-    f.prize.scale.setScalar(0.5 + ease * 0.75);
+    f.prize.scale.setScalar(0.7 + ease * 1.95);                 // big enough to read across the room
     const fade = clamp((f.life - f.t) / 0.6, 0, 1);
-    f.glint.material.opacity = (0.2 + 0.28 * Math.sin(f.t * 6)) * fade;
-    f.glint.scale.setScalar((0.72 + ease * 0.36) * fade);
+    f.glint.material.opacity = (0.22 + 0.3 * Math.sin(f.t * 6)) * fade;
+    f.glint.scale.setScalar((1.25 + ease * 0.85) * fade);
     for (const s of f.sparks) {
-      s.position.addScaledVector(s.userData.v, dt * 0.75);
+      s.position.addScaledVector(s.userData.v, dt * 0.9);
       s.userData.v.y -= dt * 1.5;
-      s.material.opacity = fade * 0.65;
-      s.scale.setScalar(0.14 * fade);
+      s.material.opacity = fade * 0.7;
+      s.scale.setScalar(0.2 * fade);
     }
     if (f.t >= f.life) { safe('fx dispose', () => { f.g.removeFromParent(); Assets.disposeObject(f.g); }); L.fx.splice(i, 1); }
   }
@@ -525,23 +618,31 @@ function onUnload() {
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // boot
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+const holdsOf = (c) => (c.gold ? c.gold + 'G' : (c.item || (c.sock ? 'sock' : null)));
 function describe() {
   const mapId = L.map ? L.map.id : null;
-  const list = L.map ? L.map.chests.map((c) => ({ id: c.id, kind: c.kind || 'chest', x: Math.round(c.x * 10) / 10, z: Math.round(c.z * 10) / 10,
-    holds: c.gold ? c.gold + 'G' : (c.item || null), locked: c.locked || null, mimic: !!c.mimic,
-    taken: !!LED.taken[keyOf(mapId, c.id)] })) : [];
-  return { map: mapId, chests: list.length, boxes: L.chests.length, searchable: L.searchable || 0,
-    unplaced: (L.unplaced || []).slice(), opened: LED.opened, found: LED.found, gold: LED.gold,
-    keys: Object.keys(LED.keys), seeds: Object.assign({}, LED.seeds), busy: L.busy, here: list };
+  const row = (c, from) => ({ id: c.id, kind: c.kind || 'chest', from, x: Math.round(c.x * 10) / 10, z: Math.round(c.z * 10) / 10,
+    holds: holdsOf(c), locked: c.locked || null, mimic: !!c.mimic, taken: !!LED.taken[keyOf(mapId, c.id)] });
+  const list = L.map ? L.map.chests.map((c) => row(c, 'chests')) : [];
+  // props the map already draws that this layer made searchable are containers too — a critic counting what a
+  // child can rummage in must see them in the same list, or the count is wrong by a well and three barrels.
+  const bolted = (L.searchList || []).map((s) => row(Object.assign({}, s.entry, { x: s.prop.x, z: s.prop.z }), 'prop'));
+  const here = list.concat(bolted);
+  return { map: mapId, containers: here.length, chests: list.length, boxes: L.chests.length, searchable: L.searchable || 0,
+    holding: here.filter((c) => c.holds).length, unplaced: (L.unplaced || []).slice(),
+    opened: LED.opened, found: LED.found, gold: LED.gold, socks: LED.socks || 0,
+    keys: Object.keys(LED.keys), seeds: Object.assign({}, LED.seeds), busy: L.busy, here };
 }
 
 export const Treasure = {
   /** Register every map's treasure layer and the ceremony. Safe to call as often as you like. */
   boot(extra = {}) {
-    if (L.booted) return Treasure;
-    L.booted = true;
+    // extras always merge, booted or not: a map layer that loads later than the ignition must still be able to
+    // hand over its `searches` / `rewards` tables
     if (extra.searches) Object.assign(SEARCHES, extra.searches);
     if (extra.rewards) Object.assign(REWARDS, extra.rewards);
+    if (L.booted) return Treasure;
+    L.booted = true;
     // maps/index.js (P23) only lists a chests layer for the meadow; the rest are registered here
     safe('layers', () => {
       Maps.addLayer('puddlewick', 'chests', pwLayer);
@@ -554,13 +655,14 @@ export const Treasure = {
       Field.on('render', (alpha, dt, t) => { if (dt > 0) tick(Math.min(0.1, dt), t); });
     });
     safe('save', () => Save.register('treasure', {
-      save: () => ({ taken: LED.taken, searched: LED.searched, keys: LED.keys, seeds: LED.seeds, opened: LED.opened, found: LED.found, gold: LED.gold }),
+      save: () => ({ taken: LED.taken, searched: LED.searched, keys: LED.keys, seeds: LED.seeds, opened: LED.opened, found: LED.found, gold: LED.gold, socks: LED.socks }),
       load: (v) => {
         fresh();
         if (!v || typeof v !== 'object') return;
         LED.taken = Object.assign({}, v.taken || {}); LED.searched = Object.assign({}, v.searched || {});
         LED.keys = Object.assign({}, v.keys || {}); LED.seeds = Object.assign({}, v.seeds || {});
-        LED.opened = +v.opened || 0; LED.found = +v.found || 0; LED.gold = +v.gold || 0;
+        LED.opened = +v.opened || 0; LED.found = +v.found || 0; LED.gold = +v.gold || 0; LED.socks = +v.socks || 0;
+        safe('sock flag', () => { if (FLAGS && FLAGS.set && LED.socks) FLAGS.set('secret.socks', LED.socks); });
       },
       summary: () => ({ found: LED.found }),
       reset: () => fresh(),

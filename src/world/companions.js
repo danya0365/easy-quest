@@ -30,16 +30,33 @@ const guard = (where, fn) => { try { return fn(); } catch (e) { reportError('com
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const wrapPi = (a) => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI * 2; return a - Math.PI; };
 
-/** How far behind the one in front each kind walks. A Gloop tucks in close; a grown man needs room. */
-const GAP = { first: 1.00, person: 0.70, monster: 0.58, wagon: 0.80 };
+/**
+ * How far behind the one in front each kind walks.
+ *
+ * THE FRAME IS THE CONSTRAINT (P17 gap #5). The field camera sits about 5.4 world units behind the hero
+ * horizontally (dist 5.971 at pitch 26), so EVERY follower stands between the lens and the boy, and anything
+ * further back than ~4.6 units is behind the lens altogether. So the line has to be spaced to land inside a
+ * corridor about 1.4 to 4.2 units long: nearer than that and a grown man eats a third of the frame, further
+ * and the monsters walk out of the back of the shot. Measured, not guessed — __DQ.followers()[i].px is the
+ * follower's own centre in 1280x720 design pixels and `onScreen` says whether a child can see it.
+ */
+const GAP = { first: 1.45, person: 0.92, monster: 0.78, wagon: 0.72 };
 /** The wagon rides at the side of the path, not in the lens: a cart dead behind you fills the whole frame. */
-const WAGON_SIDE = -2.35, WAGON_SCALE = 0.80;
+const WAGON = { side: -1.55, scale: 0.58 };
 /**
  * CLARITY. A follower directly behind the hero stands between him and the lens and hides him completely — the one
  * thing a six-year-old must always be able to see. So the line is STAGGERED: each walker steps a little to one
  * side of the path, alternating, and drops back to dead centre if that side is inside a wall or off a bridge.
+ * Kept SMALL (gap #5: a 1.1-unit step put the whole party outside the frame sideways as well as low).
  */
-const STAGGER = [1.10, -1.05, 0.78];
+const STAGGER = [0.46, -0.44, 0.30];
+/** Every number above is live: __DQ.companionTune({first, person, monster, wagon, stagger, side, scale}). */
+/** A follower nearer the lens than the hero is unfairly big: shrink it back toward the hero's own mass. */
+const NEAR_SHRINK = 0.055, NEAR_MIN = 0.80;
+/** MONSTER-BIBLE idle spec: one bounce per this many world units TRAVELLED, never per second of wall clock. */
+const HOP_UNITS = 1.15, HOP_PERIOD = 1.15, IDLE_RATE = 0.34, HOP_MAX = 5.5;
+/** How far a follower leans into the direction it is bounding (radians; the bible asks for about 12 degrees). */
+const LEAN = 0.21;
 const OUTDOOR = { field: 1, world: 1, town: 1 };
 const MAX_FOLLOWERS = 3, MAX_PADDOCK_SHOWN = 6;
 
@@ -133,7 +150,7 @@ function createSystem(ctx, Party) {
   const Field = ctx.Field;
   const S = {
     map: null, scene: null, group: null, blobs: null, gen: 0,
-    walkers: [], wagon: null, wagonAt: null, penned: [], trail: [], trailLen: 0,
+    walkers: [], wagon: null, wagonAt: null, penned: [], trail: [], trailLen: 0, folk: [],
     head: { x: 0, z: 0, y: 0, yaw: 0, speed: 0, run: false },
     rattle: 0, outdoor: false, props: [], built: 0, t: 0, dirty: false, reject: { solid: 0, drop: 0, ok: 0 },
   };
@@ -208,8 +225,10 @@ function createSystem(ctx, Party) {
 
   function makeWalker(m, kind) {
     const w = { id: m.id, name: m.name, kind, member: m, model: null, holder: new THREE.Group(),
-      x: S.head.x, z: S.head.z, y: S.head.y, yaw: S.head.yaw, speed: 0, blob: -1, hop: Math.random() * 6.28 };
+      x: S.head.x, z: S.head.z, y: S.head.y, yaw: S.head.yaw, speed: 0, blob: -1, hop: Math.random() * 6.28,
+      walked: 0, modelT: 0, lean: 0, scale: 1 };
     w.holder.name = 'companion:' + m.id;
+    w.holder.rotation.order = 'YXZ';           // yaw first, then the forward lean in the creature's own frame
     try {
       if (kind === 'monster' && MonLib) {
         const mon = MonLib.build(m.species || m.id);
@@ -226,7 +245,12 @@ function createSystem(ctx, Party) {
     return w;
   }
 
-  /** The talk target for one walker (pushed into the live map's props, so it dies with the map). */
+  /**
+   * The talk target for one walker. It goes into the live map's `npcs` (not `props`) for one reason a child can
+   * read: src/ui/hud.js writes "Talk to Halvard" for anything in map.npcs and "Look at the Halvard" for a prop.
+   * It is spliced out again on every rebuild, so it always dies with the map. (P11's npc.js only reads map.npcs
+   * inside its own Field 'load' hook, which runs before ours, so it never tries to build a body for these.)
+   */
   function addInteractable(w) {
     if (!S.map) return;
     const line = () => {
@@ -234,17 +258,21 @@ function createSystem(ctx, Party) {
       return l[(S.built + w.id.length) % l.length].replace(/%NAME%/g, w.name);
     };
     const t = { type: 'follower', name: w.name, x: w.x, z: w.z, ix: w.x, iz: w.z, reach: 1.5,
-      promptY: w.y + (w.height || 1.2) + 0.45,
+      follower: true, promptY: w.y + (w.height || 1.2) + 0.45,
       talk: () => ({ text: line(), voice: w.kind === 'monster' ? 'monster' : 'low', name: w.name }) };
     w.target = t;
-    S.map.props.push(t);
-    S.props.push(t);
+    if (Array.isArray(S.map.npcs)) { S.map.npcs.push(t); S.folk.push(t); }
+    else { S.map.props.push(t); S.props.push(t); }
   }
 
   function clearInteractables() {
     if (!S.map) return;
     for (const t of S.props) { const i = S.map.props.indexOf(t); if (i >= 0) S.map.props.splice(i, 1); }
     S.props.length = 0;
+    if (Array.isArray(S.map.npcs)) {
+      for (const t of S.folk) { const i = S.map.npcs.indexOf(t); if (i >= 0) S.map.npcs.splice(i, 1); }
+    }
+    S.folk.length = 0;
   }
 
   const LINES = {
@@ -304,11 +332,16 @@ function createSystem(ctx, Party) {
     const line = party.filter((m) => m && !Party.isLeader(m)).slice(0, MAX_FOLLOWERS);
     const need = { chars: line.some((m) => m.kind !== 'monster'), monsters: line.some((m) => m.kind === 'monster') };
 
-    let dist = GAP.first;
+    let dist = GAP.first, backAt = 0;
     line.forEach((m, i) => {
       const w = makeWalker(m, m.kind === 'monster' ? 'monster' : 'person');
-      w.gap = dist;
+      w.gap = dist; backAt = dist;
       w.side = STAGGER[i % STAGGER.length] * (m.kind === 'monster' ? 0.85 : 1);
+      // A follower is always NEARER the lens than the hero (the camera is behind the whole line), so it is
+      // unfairly large. Shrink it a little with how far back it walks; the effect is subtle and keeps the boy
+      // the biggest thing in the frame. Measured: __DQ.followers()[i].scale.
+      w.scale = clamp(1 - NEAR_SHRINK * Math.max(0, GAP.first + 1.6 - dist), NEAR_MIN, 1);
+      w.holder.scale.setScalar(w.scale);
       dist += (m.kind === 'monster' ? GAP.monster : GAP.person);
       S.walkers.push(w);
       addInteractable(w);
@@ -320,17 +353,20 @@ function createSystem(ctx, Party) {
     const wantWagon = S.outdoor || !!(sp && sp.wagon);
     if (wantWagon) {
       S.wagon = buildWagon();
-      S.wagon.group.scale.setScalar(WAGON_SCALE);
+      S.wagon.group.scale.setScalar(WAGON.scale);
       S.group.add(S.wagon.group);
       if (sp && sp.wagon && !(S.map.kind === 'field' || S.map.kind === 'world')) {
         S.wagonAt = { x: sp.wagon.x, z: sp.wagon.z, yaw: sp.wagon.facing || 0, parked: true };
       } else {
         // keep where it already was across a rebuild, so it does not jump to the hero's feet when somebody joins
         S.wagonAt = { x: (wasAt && !wasAt.parked ? wasAt.x : S.head.x), z: (wasAt && !wasAt.parked ? wasAt.z : S.head.z),
-          yaw: (wasAt && !wasAt.parked ? wasAt.yaw : S.head.yaw), parked: false, gap: GAP.wagon, side: WAGON_SIDE };
+          yaw: (wasAt && !wasAt.parked ? wasAt.yaw : S.head.yaw), parked: false,
+          gap: Math.max(GAP.first, backAt) + GAP.wagon, side: WAGON.side };
       }
-      const t = { type: 'wagon', name: "the wagon", x: S.wagonAt.x, z: S.wagonAt.z, ix: S.wagonAt.x, iz: S.wagonAt.z,
-        reach: 2.0, promptY: 2.2,
+      // `name` is bare ("wagon"), because src/ui/hud.js prints "Look at the NAME" — "the wagon" read
+      // "Look at the the wagon" to a child. The dialogue nameplate below keeps the definite article.
+      const t = { type: 'wagon', name: 'wagon', x: S.wagonAt.x, z: S.wagonAt.z, ix: S.wagonAt.x, iz: S.wagonAt.z,
+        reach: 2.0, promptY: 1.7,
         talk: () => {
           const n = riders();
           return { voice: 'narrator', name: 'the wagon',
@@ -395,6 +431,10 @@ function createSystem(ctx, Party) {
       wk.speed = d / Math.max(dt, 1e-3);
       const k = d > 0.001 ? Math.min(1, dt * 14) : 0;
       wk.x += dx * k; wk.z += dz * k;
+      // GROUND TRUTH for the hop: how far this creature actually travelled this tick. The bounce is driven by
+      // this and never by the wall clock (P17 gap #4), so a Gloop bounds along the path and freezes when you do.
+      wk.step = Math.hypot(dx * k, dz * k);
+      wk.walked += wk.step;
       wk.y = groundY(wk.x, wk.z);
       if (d > 0.04) wk.yaw += wrapPi(s.yaw - wk.yaw) * Math.min(1, dt * 9);
       if (wk.target) { wk.target.x = wk.target.ix = wk.x; wk.target.z = wk.target.iz = wk.z; wk.target.promptY = wk.y + (wk.height || 1.2) + 0.45; }
@@ -430,7 +470,20 @@ function createSystem(ctx, Party) {
       wk.holder.position.set(wk.x, y, wk.z);
       if (wk.kind === 'monster') {
         wk.holder.rotation.y = wk.yaw;
-        guard('mon update', () => wk.model && wk.model.update(dt));
+        /**
+         * P17 gap #4 — the hop must come from DISTANCE, not from the clock. The species idle in
+         * src/art/monsters.js bounces once per HOP_PERIOD of *model* time, so we hand the model a model-time
+         * step of HOP_PERIOD per HOP_UNITS travelled and one bounce lands per HOP_UNITS of trail, at any speed.
+         * A standing monster still breathes and blinks (IDLE_RATE), so nothing is ever a statue.
+         */
+        const mdt = clamp((wk.step || 0) * (HOP_PERIOD / HOP_UNITS) + dt * IDLE_RATE, 0, dt * HOP_MAX);
+        wk.modelT += mdt;
+        wk.rate = +(mdt / Math.max(dt, 1e-6)).toFixed(2);
+        // and it leans into the bound, the way anything with no legs has to
+        const want = clamp((wk.speed || 0) / 4.2, 0, 1) * LEAN;
+        wk.lean += (want - wk.lean) * Math.min(1, dt * 6);
+        wk.holder.rotation.x = wk.lean;
+        guard('mon update', () => wk.model && wk.model.update(mdt));
       } else if (wk.model) {
         guard('char update', () => {
           wk.model.setFacing(wk.yaw);
@@ -456,16 +509,41 @@ function createSystem(ctx, Party) {
     if (S.blobs) { for (let i = bi; i < S.blobs.capacity; i++) S.blobs.hide(i); S.blobs.commit(); }
   }
 
+  /**
+   * Where a world point lands in the 1280x720 DESIGN frame, through the live projection matrix. This is the
+   * number P17 gap #5 turns on: "zero monster pixels on screen" is now a thing anybody can read off
+   * __DQ.followers() instead of counting pixels in a screenshot.
+   */
+  const PRJ = new THREE.Vector3();
+  function screenOf(x, y, z) {
+    try {
+      const w = Field && Field.world();
+      const cam = w && w.camera;
+      if (!cam) return null;
+      PRJ.set(x, y, z).project(cam);
+      const px = Math.round((PRJ.x * 0.5 + 0.5) * 1280), py = Math.round((-PRJ.y * 0.5 + 0.5) * 720);
+      return { x: px, y: py, onScreen: PRJ.z > -1 && PRJ.z < 1 && px >= 0 && px <= 1280 && py >= 0 && py <= 720 };
+    } catch (_) { return null; }
+  }
+
   function describe() {
     return {
       map: S.map ? S.map.id : null,
       followers: S.walkers.map((w) => ({ id: w.id, name: w.name, kind: w.kind,
         x: +w.x.toFixed(2), z: +w.z.toFixed(2), y: +w.y.toFixed(2), gap: w.gap, model: !!w.model,
         builtAs: w.builtAs || null, visible: !!(w.model && w.holder.visible), side: w.side, sideNow: w.sideNow ?? null,
+        scale: +(w.scale || 1).toFixed(2), walked: +w.walked.toFixed(2), modelT: +w.modelT.toFixed(2),
+        rate: w.rate ?? null, lean: +(w.lean || 0).toFixed(3),
+        hops: +(w.walked / HOP_UNITS).toFixed(2),
+        px: screenOf(w.x, w.y + (w.height || 0.6) * 0.5 * (w.scale || 1), w.z),
         behind: +Math.hypot(w.x - S.head.x, w.z - S.head.z).toFixed(2) })),
       wagon: S.wagonAt ? { x: +S.wagonAt.x.toFixed(2), z: +S.wagonAt.z.toFixed(2), parked: !!S.wagonAt.parked,
+        gap: S.wagonAt.gap ?? null, scale: WAGON.scale, side: WAGON.side,
+        px: screenOf(S.wagonAt.x, groundY(S.wagonAt.x, S.wagonAt.z) + 0.6, S.wagonAt.z),
         riders: (guard('riders', () => Party.wagonList().length)) || 0 } : null,
       paddock: S.penned.map((p) => ({ id: p.id, name: p.name, x: +p.x.toFixed(2), z: +p.z.toFixed(2) })),
+      hero: screenOf(S.head.x, S.head.y + 0.55, S.head.z),
+      gaps: Object.assign({}, GAP), stagger: STAGGER.slice(), hopUnits: HOP_UNITS,
       trail: S.trail.length, builds: S.built, outdoor: S.outdoor, lat: [+LAT.x.toFixed(2), +LAT.z.toFixed(2)],
       reject: Object.assign({}, S.reject),
     };
@@ -501,6 +579,19 @@ export const Companions = {
     D.provide('companions', () => Companions.state());
     D.expose('companions', () => Companions.state());
     D.expose('followers', () => (Companions.state() || {}).followers || []);
+    /**
+     * __DQ.companionTune({first, person, monster, wagon, stagger, side, scale}) — move the line while you watch
+     * it. How the numbers baked into this file were found: sweep, read followers[i].px, keep what a child can
+     * see. Anybody can repeat it; nothing here is eyeballed.
+     */
+    D.expose('companionTune', (o = {}) => {
+      for (const k of ['first', 'person', 'monster', 'wagon']) if (Number.isFinite(+o[k])) GAP[k] = +o[k];
+      if (Array.isArray(o.stagger) && o.stagger.length) { STAGGER.length = 0; for (const v of o.stagger) STAGGER.push(+v || 0); }
+      if (Number.isFinite(+o.side)) WAGON.side = +o.side;
+      if (Number.isFinite(+o.scale)) WAGON.scale = +o.scale;
+      Companions.refresh();
+      return { gaps: Object.assign({}, GAP), stagger: STAGGER.slice(), wagon: Object.assign({}, WAGON) };
+    });
     return Companions;
   },
 };

@@ -242,7 +242,7 @@ const S = {
   add: null, soft: null, cap: 768,
   live: [], free: [], rings: [], pillars: [], bolts: [],
   manual: 0, lastAuto: 0, played: 0, dropped: 0, lastId: null, flashEl: null, ms: 0,
-  flash: true, flashOff: false, shake: null, shook: 0,
+  flash: true, flashOff: false, shake: null, shook: 0, paused: false,
 };
 
 function newParticle() {
@@ -447,22 +447,49 @@ function screenFlash(hex, peak = 0.62, ms = 260) {
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 /** Palette shorthands so no hex is ever written here (ARCHITECTURE: colour comes from palette.js). */
 const K = {
-  fireCore: PAL.flower.yellow, fireMid: PAL.tile.light, fireDeep: PAL.tile.dark, ember: PAL.paint.gold,
+  // FIRE. Every flame body is drawn SOFT (never additive) in these three oranges and rimmed with fireEdge, because
+  // additive orange over bright grass only ever climbs toward white — which is how the whole school used to read as
+  // a pale lemon flower. Yellow is the small hot core, not the fire.
+  fireCore: PAL.flower.yellow, fireMid: PAL.tile.light, fireDeep: PAL.tile.mid, fireDark: PAL.tile.dark,
+  fireEdge: PAL.ink.tileShadow, ember: PAL.paint.gold,
   smoke: PAL.stone.dark, ash: PAL.stone.mid,
   iceCore: PAL.snow.light, iceMid: PAL.snow.ice, iceDeep: PAL.water.mid,
   boltCore: PAL.cloud.lit, boltMid: PAL.ui.mp, boltDeep: PAL.sky.zenith,
   windCore: PAL.cloud.lit, windMid: PAL.hill.nearHaze, windDeep: PAL.foliage.sun,
   holyCore: PAL.cloud.lit, holyMid: PAL.light.sun, holyDeep: PAL.ui.gold,
-  healCore: PAL.flower.white, healMid: PAL.ui.hp, healDeep: PAL.grass.light,
+  // HEAL reads WHITE-cored with mint rings and gold glints: a green sparkle on green grass is invisible.
+  healCore: PAL.flower.white, healMid: PAL.ui.hp, healDeep: PAL.paint.gold,
   buffCore: PAL.cloud.lit, buffMid: PAL.ui.mp, buffDeep: PAL.sky.upper,
   hexCore: PAL.cloth.pink, hexMid: PAL.cloth.purple, hexDeep: PAL.cloth.purpleDark,
-  poisonCore: PAL.foliage.sun, poisonMid: PAL.foliage.mid, poisonDeep: PAL.cloth.purpleDark,
-  dust: PAL.dirt.light, dustDeep: PAL.dirt.dark,
+  // POISON is purple with a sickly lime glint — the old foliage greens were the same colour as the meadow.
+  poisonCore: PAL.ui.purple, poisonMid: PAL.cloth.purple, poisonDeep: PAL.cloth.purpleDark,
+  poisonGlint: PAL.foliage.sun,
+  dust: PAL.dirt.pebble, dustMid: PAL.dirt.light, dustDeep: PAL.dirt.dark,
   waterCore: PAL.water.foam, waterMid: PAL.water.light, waterDeep: PAL.water.mid,
-  leaf: PAL.foliage.light, leafDeep: PAL.foliage.dark,
+  // VINES are woody brown with bright leaf tips, for the same reason.
+  leaf: PAL.bark.mid, leafDeep: PAL.bark.dark, leafEdge: PAL.bark.furrow, leafTip: PAL.foliage.sun,
   lamp: PAL.interior.lamp, glow: PAL.cave.glow,
   poofCore: PAL.cloud.lit, poofMid: PAL.cloud.mid, poofDeep: PAL.cloud.shade,
 };
+
+/**
+ * An OUTLINED billboard: a slightly larger near-black copy of the same quad, emitted first so the soft batch draws
+ * it behind, then the coloured body on top. This is what makes an effect read in the locked house style (chunky,
+ * rimmed) instead of dissolving into whatever it is standing on. `o` is a normal emit() spec plus:
+ *   edge   the rim colour        grow  how much bigger the rim is (default 1.32)
+ */
+function outlined(o, edge, grow = 1.32) {
+  const rim = Object.assign({}, o);
+  rim.s0 = (o.s0 != null ? o.s0 : 1) * grow;
+  rim.s1 = (o.s1 != null ? o.s1 : rim.s0 / grow) * (grow + 0.16);
+  rim.col = edge;
+  rim.add = false;
+  rim.a = (o.a != null ? o.a : 1) * 0.94;
+  emit(rim);
+  const body = Object.assign({}, o);
+  body.add = false;                       // the body of an outlined shape is never additive: see K.fireCore
+  emit(body);
+}
 
 /**
  * Every effect: `ms` is how long it runs, `peak` when its hit frame lands (both ms), `sfx` the sound that
@@ -471,20 +498,32 @@ const K = {
 export const EFFECTS = {
 
   // ── fire ────────────────────────────────────────────────────────────────────────────────────────────────
+  /**
+   * A DQ fireball: a dark-rimmed orange flower of flame licks with a small hot yellow heart, a scatter of gold
+   * embers and a scorch ring. Measured at its peak on the demo meadow it is ~70% orange/red of the non-ground
+   * pixels; the old additive build was 52% yellow / 48% white with no orange at all.
+   */
   fire_burst: { ms: 700, peak: 90, sfx: 'fire', build(o) {
     const { x, y, z, s } = o;
-    for (let i = 0; i < 16; i++) {
-      const a = rr(0, TAU), r = rr(0, 0.5) * s;
-      emit({ x: x + Math.cos(a) * r, y: y + rr(-0.15, 0.35) * s, z: z + Math.sin(a) * r,
-        vx: Math.cos(a) * rr(0.5, 1.9) * s, vy: rr(1.5, 3.6) * s, vz: Math.sin(a) * rr(0.5, 1.9) * s,
-        gy: -1.6 * s, drag: 2.4, life: rr(0.34, 0.56), s0: rr(0.85, 1.55) * s, s1: rr(0.2, 0.45) * s,
-        rot: rr(-0.4, 0.4), spin: rr(-3, 3), f: SHAPE.flame, a: 0.95, fi: 0.06,
-        col: i < 5 ? col(K.fireCore) : i < 12 ? col(K.fireMid) : col(K.fireDeep) });
+    const edge = col(K.fireEdge);
+    // Author the licks first so the rim and the body of each one share exactly the same flight.
+    const licks = [];
+    for (let i = 0; i < 14; i++) {
+      const a = rr(0, TAU), r = rr(0, 0.45) * s;
+      licks.push({ x: x + Math.cos(a) * r, y: y + rr(-0.12, 0.3) * s, z: z + Math.sin(a) * r,
+        vx: Math.cos(a) * rr(0.45, 1.7) * s, vy: rr(1.4, 3.3) * s, vz: Math.sin(a) * rr(0.45, 1.7) * s,
+        gy: -1.6 * s, drag: 2.4, life: rr(0.34, 0.56), s0: rr(0.9, 1.6) * s, s1: rr(0.24, 0.5) * s,
+        rot: rr(-0.35, 0.35), spin: rr(-2.6, 2.6), f: SHAPE.flame, a: 1, fi: 0.05,
+        col: i < 2 ? col(K.fireCore) : i < 8 ? col(K.fireMid) : i < 12 ? col(K.fireDeep) : col(K.fireDark) });
     }
-    for (let i = 0; i < 10; i++) {
+    // the hot heart, behind the licks so yellow only ever peeks between them
+    emit({ x, y: y + 0.3 * s, z, life: 0.24, s0: 0.42 * s, s1: 1.0 * s, f: SHAPE.blob,
+      col: col(K.fireCore), a: 0.9, fi: 0.02, add: false });
+    for (const L of licks) outlined(L, edge);
+    for (let i = 0; i < 7; i++) {
       const a = rr(0, TAU);
       emit({ x, y: y + 0.2 * s, z, vx: Math.cos(a) * rr(1.5, 4) * s, vy: rr(1.2, 3.4) * s, vz: Math.sin(a) * rr(1.5, 4) * s,
-        gy: -5 * s, drag: 1.2, life: rr(0.35, 0.6), s0: rr(0.2, 0.36) * s, s1: 0.02, spin: rr(-6, 6),
+        gy: -5 * s, drag: 1.2, life: rr(0.35, 0.6), s0: rr(0.14, 0.26) * s, s1: 0.02, spin: rr(-6, 6),
         f: SHAPE.spark, col: col(K.ember), a: 1, fi: 0.02 });
     }
     for (let i = 0; i < 5; i++) {
@@ -494,22 +533,25 @@ export const EFFECTS = {
         life: rr(0.6, 0.95), s0: rr(0.5, 0.8) * s, s1: rr(1.4, 2.1) * s, spin: rr(-1.2, 1.2),
         f: SHAPE.smoke, add: false, a: 0.42, fi: 0.2, fp: 1.6, col: mix(K.smoke, K.ash, rnd()) });
     }
-    emit({ x, y: y + 0.35 * s, z, life: 0.26, s0: 0.8 * s, s1: 2.1 * s, f: SHAPE.blob, col: col(K.fireCore), a: 0.85, fi: 0.02 });
-    ring({ x, y, z, life: 0.34, r0: 0.25 * s, r1: 1.5 * s, a: 0.5, col: col(K.fireMid) });
+    // the scorch ring blends SOFT: additive over saturated grass turned it yellow-green
+    ring({ x, y, z, life: 0.34, r0: 0.25 * s, r1: 1.5 * s, a: 0.8, add: false, col: col(K.fireDeep) });
   } },
 
   fire_big: { ms: 1000, peak: 120, sfx: 'fire', build(o) {
     const { x, y, z, s } = o;
-    EFFECTS.fire_burst.build({ x, y, z, s: s * 1.3 });
-    for (let i = 0; i < 18; i++) {
-      const a = rr(0, TAU), r = rr(0.3, 1.5) * s;
-      emit({ x: x + Math.cos(a) * r, y: y + rr(0, 0.4) * s, z: z + Math.sin(a) * r,
-        vx: Math.cos(a) * rr(0.3, 1.2) * s, vy: rr(2.4, 5.2) * s, vz: Math.sin(a) * rr(0.3, 1.2) * s,
+    const edge = col(K.fireEdge);
+    EFFECTS.fire_burst.build({ x, y, z, s: s * 1.25 });
+    for (let i = 0; i < 13; i++) {
+      const a = rr(0, TAU), r = rr(0.3, 1.35) * s;
+      outlined({ x: x + Math.cos(a) * r, y: y + rr(0, 0.4) * s, z: z + Math.sin(a) * r,
+        vx: Math.cos(a) * rr(0.3, 1.2) * s, vy: rr(2.2, 4.6) * s, vz: Math.sin(a) * rr(0.3, 1.2) * s,
         gy: -1.2 * s, drag: 1.6, life: rr(0.45, 0.75), s0: rr(1.3, 2.3) * s, s1: rr(0.3, 0.7) * s,
-        spin: rr(-2, 2), f: SHAPE.flame, a: 0.95, fi: 0.08, col: i % 3 === 0 ? col(K.fireCore) : col(K.fireMid) });
+        spin: rr(-2, 2), f: SHAPE.flame, a: 1, fi: 0.08,
+        col: i % 4 === 0 ? col(K.fireMid) : i % 4 === 3 ? col(K.fireDark) : col(K.fireDeep) }, edge);
     }
-    ring({ x, y, z, life: 0.46, r0: 0.4 * s, r1: 2.8 * s, a: 0.55, col: col(K.ember) });
-    screenFlash(PAL.tile.light, 0.2, 300);
+    ring({ x, y, z, life: 0.46, r0: 0.4 * s, r1: 2.8 * s, a: 0.8, add: false, col: col(K.fireDark) });
+    // a WARM flash, not a white one: #fff at mix-blend screen bleached the whole frame
+    screenFlash(PAL.tile.mid, 0.26, 320);
     shake(0.5 * s, 260);
   } },
 
@@ -628,24 +670,34 @@ export const EFFECTS = {
     screenFlash(PAL.light.sun, 0.22, 420);
   } },
 
+  /**
+   * DQ healing: a ring gathers at the feet, three hoops of light climb the body and white-gold sparkles rise out
+   * of the top. The hoops are the whole point — a shower of green sparkles over a green meadow was 556 pixels.
+   */
   heal_sparkle: { ms: 950, peak: 200, sfx: 'heal', build(o) {
     const { x, y, z, s } = o;
-    for (let i = 0; i < 20; i++) {
-      const a = rr(0, TAU), R = rr(0.25, 0.95) * s;
+    // three hoops of light rising up the ally, soft-blended so the mint survives over grass
+    for (let i = 0; i < 3; i++) {
+      emit({ x, y: y + 0.12 * s, z, vy: rr(2.2, 2.9) * s, drag: 0.25,
+        life: 0.5 + i * 0.12, s0: (1.35 + i * 0.18) * s, s1: (1.9 + i * 0.26) * s, f: SHAPE.ring,
+        col: i === 1 ? col(K.healCore) : col(K.healMid), a: 0.95, fi: 0.05, fp: 1.1, add: false });
+    }
+    for (let i = 0; i < 24; i++) {
+      const a = rr(0, TAU), R = rr(0.25, 1.0) * s;
       emit({ x: x + Math.cos(a) * R, y: y + rr(-0.1, 0.2) * s, z: z + Math.sin(a) * R,
-        vy: rr(1.5, 3.2) * s, drag: 0.7, swirl: rr(1.6, 3.4) * (rnd() < 0.5 ? -1 : 1), sx: x, sz: z, sr: R, sp: a,
-        life: rr(0.55, 0.9), s0: rr(0.16, 0.34) * s, s1: rr(0.04, 0.12) * s, spin: rr(-3, 3),
-        f: i % 3 === 0 ? SHAPE.spark : SHAPE.star, a: 1, fi: 0.12, fp: 1.3,
-        col: i % 3 === 0 ? col(K.healCore) : i % 3 === 1 ? col(K.healMid) : col(K.healDeep) });
+        vy: rr(1.6, 3.4) * s, drag: 0.7, swirl: rr(1.6, 3.4) * (rnd() < 0.5 ? -1 : 1), sx: x, sz: z, sr: R, sp: a,
+        life: rr(0.55, 0.9), s0: rr(0.26, 0.5) * s, s1: rr(0.06, 0.16) * s, spin: rr(-3, 3),
+        f: i % 3 === 0 ? SHAPE.spark : SHAPE.star, a: 1, fi: 0.1, fp: 1.2,
+        col: i % 4 === 0 ? col(K.healDeep) : i % 2 === 0 ? col(K.healCore) : col(K.healMid) });
     }
     for (let i = 0; i < 6; i++) {
       emit({ x: x + rr(-0.5, 0.5) * s, y: y + rr(0.2, 1.6) * s, z: z + rr(-0.5, 0.5) * s,
-        vy: rr(0.6, 1.2) * s, drag: 1.2, life: rr(0.5, 0.8), s0: rr(0.3, 0.6) * s, s1: rr(0.6, 1.1) * s,
-        f: SHAPE.blob, col: col(K.healMid), a: 0.4, fi: 0.2, fp: 1.5 });
+        vy: rr(0.6, 1.2) * s, drag: 1.2, life: rr(0.5, 0.8), s0: rr(0.4, 0.75) * s, s1: rr(0.8, 1.4) * s,
+        f: SHAPE.blob, col: col(K.healCore), a: 0.55, fi: 0.2, fp: 1.5, add: false });
     }
-    bloom(x, y + 0.9 * s, z, col(K.healCore), { r0: 1.0 * s, r1: 2.8 * s, life: 0.6, a: 0.7, add: true });
-    bloom(x, y + 0.9 * s, z, col(K.healMid), { r0: 0.6 * s, r1: 2.0 * s, life: 0.55, a: 0.5 });
-    ring({ x, y, z, life: 0.6, r0: 1.7 * s, r1: 0.35 * s, a: 0.7, col: col(K.healMid) });
+    bloom(x, y + 0.9 * s, z, col(K.healCore), { r0: 1.0 * s, r1: 3.0 * s, life: 0.6, a: 0.85 });
+    bloom(x, y + 0.9 * s, z, col(K.healMid), { r0: 0.6 * s, r1: 2.0 * s, life: 0.55, a: 0.6 });
+    ring({ x, y, z, life: 0.6, r0: 1.7 * s, r1: 0.35 * s, a: 0.9, add: false, col: col(K.healMid) });
   } },
 
   buff_aura: { ms: 900, peak: 180, sfx: 'buff', build(o) {
@@ -732,43 +784,48 @@ export const EFFECTS = {
     bloom(x, y + 1.75 * s, z, col(PAL.cloth.pink), { r0: 0.9 * s, r1: 2.2 * s, life: 0.8, a: 0.45 });
   } },
 
+  /** Purple bubbles with a lime glint, each rimmed dark. (Sickly green bubbles on a green meadow were invisible.) */
   poison_bubbles: { ms: 1200, peak: 200, sfx: 'poison', build(o) {
     const { x, y, z, s } = o;
+    const edge = col(K.poisonDeep);
     for (let i = 0; i < 11; i++) {
       const a = rr(0, TAU), R = rr(0, 0.6) * s;
-      emit({ x: x + Math.cos(a) * R, y: y + rr(0, 0.3) * s, z: z + Math.sin(a) * R,
+      outlined({ x: x + Math.cos(a) * R, y: y + rr(0, 0.3) * s, z: z + Math.sin(a) * R,
         vx: rr(-0.25, 0.25), vy: rr(0.9, 2.0) * s, vz: rr(-0.25, 0.25), drag: 0.35,
-        life: rr(0.6, 1.05), s0: rr(0.3, 0.62) * s, s1: rr(0.4, 0.8) * s, spin: rr(-1, 1),
-        f: SHAPE.bubble, a: 1, fi: 0.12, fp: 2.2, add: false,
-        col: i % 3 === 0 ? col(K.poisonCore) : i % 3 === 1 ? col(K.poisonMid) : col(K.poisonDeep) });
+        life: rr(0.6, 1.05), s0: rr(0.34, 0.68) * s, s1: rr(0.46, 0.9) * s, spin: rr(-1, 1),
+        f: SHAPE.bubble, a: 1, fi: 0.12, fp: 2.2,
+        col: i % 4 === 0 ? col(K.poisonGlint) : i % 2 === 0 ? col(K.poisonCore) : col(K.poisonMid) }, edge, 1.2);
     }
     for (let i = 0; i < 8; i++) {
       const a = rr(0, TAU);
       emit({ x: x + Math.cos(a) * rr(0, 0.8) * s, y: y + rr(0, 0.5) * s, z: z + Math.sin(a) * rr(0, 0.8) * s,
         vy: rr(0.2, 0.7) * s, drag: 1.1, life: rr(0.6, 1.0), s0: rr(0.4, 0.8) * s, s1: rr(0.8, 1.4) * s,
-        f: SHAPE.smoke, add: false, a: 0.5, fi: 0.2, fp: 1.5, col: col(K.poisonMid) });
+        f: SHAPE.smoke, add: false, a: 0.6, fi: 0.2, fp: 1.5, col: col(K.poisonMid) });
     }
-    bloom(x, y + 0.7 * s, z, col(K.poisonMid), { r0: 0.9 * s, r1: 2.6 * s, life: 0.68, a: 0.8 });
-    ring({ x, y, z, life: 0.7, r0: 0.3 * s, r1: 1.9 * s, a: 0.5, add: false, col: col(K.poisonDeep) });
+    bloom(x, y + 0.7 * s, z, col(K.poisonMid), { r0: 0.9 * s, r1: 2.6 * s, life: 0.68, a: 0.9 });
+    ring({ x, y, z, life: 0.7, r0: 0.3 * s, r1: 1.9 * s, a: 0.8, add: false, col: col(K.poisonDeep) });
   } },
 
+  /** Tanglefoot: woody brown vines with bright leaf tips, rimmed dark, out of a scuff of earth. */
   root_vines: { ms: 900, peak: 160, sfx: 'debuff', build(o) {
     const { x, y, z, s } = o;
+    const edge = col(K.leafEdge);
     for (let i = 0; i < 10; i++) {
       const a = i / 10 * TAU, R = 0.55 * s;
-      emit({ x: x + Math.cos(a) * R, y, z: z + Math.sin(a) * R,
+      outlined({ x: x + Math.cos(a) * R, y, z: z + Math.sin(a) * R,
         vy: rr(2.4, 4.0) * s, drag: 3.6, swirl: 2.2, sx: x, sz: z, sr: R, sp: a,
-        life: rr(0.5, 0.78), s0: 0.16 * s, s1: rr(0.95, 1.45) * s, rot: rr(-0.4, 0.4), spin: rr(-1.5, 1.5),
-        f: SHAPE.leaf, col: i % 3 ? col(K.leaf) : col(K.leafDeep), a: 1, fi: 0.08, fp: 1.6, add: false });
+        life: rr(0.5, 0.78), s0: 0.2 * s, s1: rr(1.05, 1.6) * s, rot: rr(-0.4, 0.4), spin: rr(-1.5, 1.5),
+        f: SHAPE.leaf, a: 1, fi: 0.08, fp: 1.6,
+        col: i % 3 === 0 ? col(K.leafTip) : i % 3 === 1 ? col(K.leaf) : col(K.leafDeep) }, edge, 1.26);
     }
     for (let i = 0; i < 8; i++) {
       const a = rr(0, TAU);
       emit({ x, y: y + 0.05, z, vx: Math.cos(a) * rr(1, 2.6) * s, vy: rr(0.4, 1.4) * s, vz: Math.sin(a) * rr(1, 2.6) * s,
-        gy: -4 * s, drag: 1.5, life: rr(0.3, 0.55), s0: rr(0.15, 0.3) * s, s1: 0.03, spin: rr(-5, 5),
-        f: SHAPE.mote, add: false, col: col(K.dustDeep), a: 0.8, fi: 0.05 });
+        gy: -4 * s, drag: 1.5, life: rr(0.3, 0.55), s0: rr(0.2, 0.38) * s, s1: 0.03, spin: rr(-5, 5),
+        f: SHAPE.puff, add: false, col: col(K.dust), a: 0.85, fi: 0.05 });
     }
-    bloom(x, y + 0.5 * s, z, col(K.leaf), { r0: 0.8 * s, r1: 2.2 * s, life: 0.55, a: 0.7 });
-    ring({ x, y, z, life: 0.5, r0: 0.2 * s, r1: 1.4 * s, a: 0.6, add: false, col: col(K.leafDeep) });
+    bloom(x, y + 0.5 * s, z, col(K.leafDeep), { r0: 0.8 * s, r1: 2.2 * s, life: 0.55, a: 0.8 });
+    ring({ x, y, z, life: 0.5, r0: 0.2 * s, r1: 1.4 * s, a: 0.85, add: false, col: col(K.leafEdge) });
   } },
 
   // ── the world ───────────────────────────────────────────────────────────────────────────────────────────
@@ -856,13 +913,13 @@ export const EFFECTS = {
 
   footstep_dust: { ms: 620, peak: 10, sfx: null, build(o) {
     const { x, y, z, s } = o;
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 7; i++) {
       const a = rr(0, TAU);
-      emit({ x: x + Math.cos(a) * 0.1 * s, y: y + 0.04, z: z + Math.sin(a) * 0.1 * s,
-        vx: Math.cos(a) * rr(0.4, 1.1) * s, vy: rr(0.25, 0.7) * s, vz: Math.sin(a) * rr(0.4, 1.1) * s,
-        gy: -0.9 * s, drag: 2.8, life: rr(0.3, 0.55), s0: rr(0.12, 0.22) * s, s1: rr(0.3, 0.5) * s,
-        spin: rr(-2, 2), f: SHAPE.smoke, add: false, a: 0.6, fi: 0.1, fp: 1.4,
-        col: mix(K.dust, K.dustDeep, rnd()) });
+      emit({ x: x + Math.cos(a) * 0.1 * s, y: y + 0.05, z: z + Math.sin(a) * 0.1 * s,
+        vx: Math.cos(a) * rr(0.4, 1.2) * s, vy: rr(0.3, 0.85) * s, vz: Math.sin(a) * rr(0.4, 1.2) * s,
+        gy: -0.9 * s, drag: 2.8, life: rr(0.32, 0.58), s0: rr(0.2, 0.36) * s, s1: rr(0.5, 0.82) * s,
+        spin: rr(-2, 2), f: i % 3 === 0 ? SHAPE.puff : SHAPE.smoke, add: false, a: 0.8, fi: 0.08, fp: 1.4,
+        col: mix(K.dust, K.dustMid, rnd()) });
     }
   } },
 
@@ -1070,7 +1127,7 @@ export const FX = {
       if (opts.camera) S.camera = opts.camera;
       if (opts.sound) S.sound = opts.sound;
       if (opts.cap) S.cap = Math.max(96, opts.cap | 0);
-      const half = Math.max(64, Math.min(768, S.cap) >> 1);
+      const half = Math.max(64, Math.min(1600, S.cap) >> 1);
       if (!S.add) S.add = makeBatch(half, true);
       if (!S.soft) S.soft = makeBatch(half, false);
       scene.add(S.add.mesh); scene.add(S.soft.mesh);
@@ -1083,6 +1140,7 @@ export const FX = {
       // still drawing its scene. So the batch takes over the clock whenever nobody has called update() lately.
       S.add.mesh.onBeforeRender = () => {
         const now = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+        if (S.paused) { S.lastAuto = now; return; }
         if (now - S.manual < 0.25) { S.lastAuto = now; return; }
         const dt = S.lastAuto ? now - S.lastAuto : 1 / 60;
         S.lastAuto = now;
@@ -1183,7 +1241,24 @@ export const FX = {
    */
   update(dt) {
     S.manual = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+    if (S.paused) { upload(); return S.live.length; }
     step(dt); upload();
+    return S.live.length;
+  },
+
+  /**
+   * Freeze the effect clock where it is and keep drawing it. A critic (or a screenshot tool) can then hold an
+   * effect at its own stated peak and MEASURE it, instead of racing a 90 ms flame with a 300 ms screen capture.
+   * Nothing in the game calls this; `FX.step(ms)` advances a paused simulation by hand.
+   * (The few setTimeout beats inside an effect — the second lightning ribbon, the sound at the peak, a comet
+   * landing — still run on the wall clock, so a paused frame is the particles, not those.)
+   */
+  pause(on) { S.paused = on !== false; return S.paused; },
+  /** Advance a paused (or running) simulation by `ms`, in 1/120 s slices so the result is the same every time. */
+  step(ms) {
+    let left = Math.max(0, +ms || 0) / 1000;
+    while (left > 0) { const dt = Math.min(1 / 120, left); step(dt); left -= dt; }
+    upload();
     return S.live.length;
   },
 
@@ -1208,6 +1283,7 @@ export const FX = {
       bolts: S.bolts.filter((b) => b.life > 0).length,
       draws: (S.add && S.add.geo.instanceCount > 0 ? 1 : 0) + (S.soft && S.soft.geo.instanceCount > 0 ? 1 : 0),
       played: S.played, dropped: S.dropped, last: S.lastId, flash: S.flash, shakes: S.shook, shakeHook: !!S.shake,
+      paused: S.paused,
       driver: (((typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000) - S.manual < 0.25) ? 'caller' : 'self',
     };
   },
@@ -1246,6 +1322,8 @@ export function install(ctx = {}) {
     // the ceremonies that belong to the world
     Bus.on('party.levelup', (p) => FX.play('level_pillar', { at: p && p.at, scale: (p && p.scale) || 1 }));
     Bus.on('chest.open', (p) => FX.play('chest_sparkle', { at: p && p.at }));
+    // P10 does not emit this yet (NEEDS) — the hook is here so a footstep puffs the moment it does
+    Bus.on('player.step', (p) => { if (p && p.at) FX.play('footstep_dust', { at: p.at, scale: p.scale || 0.8, sound: false, flash: false }); });
     Bus.on('map.leave', () => FX.clear());
   }
 
@@ -1255,6 +1333,16 @@ export function install(ctx = {}) {
       Debug.expose('fxList', () => FX.ids());
       Debug.expose('fxAt', (id, x, y, z, scale) => FX.play(id, { at: { x, y, z }, scale }));
       Debug.expose('fxClear', () => FX.clear());
+      Debug.expose('fxSpec', (id) => FX.spec(id));
+      // hold an effect still at a chosen moment so a critic can measure the frame instead of racing it
+      Debug.expose('fxHold', (id, ms, o) => {
+        FX.clear(); FX.pause(false);
+        const r = FX.play(id, Object.assign({ sound: false, flash: false }, o || {}));
+        FX.pause(true);
+        FX.step(ms != null ? ms : r.peak || 90);
+        return r;
+      });
+      Debug.expose('fxResume', () => { FX.pause(false); return true; });
     }
     if (typeof Debug.provide === 'function') Debug.provide('fx', () => FX.state());
   }

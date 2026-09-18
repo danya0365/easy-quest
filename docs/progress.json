@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-18T02:55:52.373Z",
+  "updated": "2026-09-18T03:03:40.999Z",
   "wave": 2,
   "waveTitle": "Breadth wave: interiors, shops, treasure, spells, items, recruitment, party/wagon, story, more maps — target 65-75 per piece",
   "pieces": {
@@ -553,12 +553,12 @@
     },
     "P24": {
       "id": "P24",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "Act I written beat by beat with the P26 DSL; B1/B2/B3 on real maps, B4-B9 by road until P23 builds saltmarrow, cobwell_manor, coddleston, grey_ruins",
       "history": [],
       "name": "Story ch.1 — childhood"
     },
@@ -575,12 +575,12 @@
     },
     "P26": {
       "id": "P26",
-      "status": "todo",
+      "status": "building",
       "score": 0,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "",
+      "note": "cutscene DSL + runner, CANON flag registry, quest hints for all 28 beats, Act I B1-B9 playable (four maps still by road)",
       "history": [],
       "name": "Cutscenes, flags, quests"
     },
@@ -887,6 +887,10 @@
     {
       "at": "2026-09-18T02:55:52.373Z",
       "t": "Orchestrator fix: src/plugins.js — the plugin manifest any piece may append to. shop, treasure, party, fx and story were finished but invisible in the real game (main.js was integrator-only). All 14 plugins now install."
+    },
+    {
+      "at": "2026-09-18T02:56:15.093Z",
+      "t": "Orchestrator eyes on the cold-boot frame: hero is an adult sunk into the ground (P07), a follower is inside the wagon wheel (P18). Both filed."
     }
   ]
 }

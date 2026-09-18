@@ -26,11 +26,16 @@
 //
 //   __DQ.fx('fire_burst')           one effect at the middle pad
 //   __DQ.fxAt('lightning', x,y,z)   one effect anywhere
-//   __DQ.showAll()                  every effect at once, laid out on a grid of pads (one screenshot, everything)
+//   __DQ.showAll(band)              a BAND of 8 effects on a 4-wide grid with the camera at 14 units, so a pad is
+//                                   ~128 px across and the quiet effects (dust, smoke, sparkle) can be judged.
+//                                   4 bands cover the library; showAll() with no argument is band 0.
+//   __DQ.tour(i)                    one pad, camera right on top of it (the closest look there is)
 //   __DQ.cast('kascorcha')          a SPELL: looks its fx up in src/data/spells.js and plays it, with its sound
 //   __DQ.castAll()                  all 28 spells in a ring, one every 120 ms
 //   __DQ.spells()                   the audit: 28 spells, every school, nothing missing
 //   __DQ.page(n)                    step through the effects six at a time (readable close-ups)
+//   __DQ.fxHold('fire_burst', 90)   play it, then FREEZE the effect clock 90 ms in — a measurable still frame
+//   __DQ.fxResume()                 let the clock run again
 import * as THREE from 'three';
 import { App } from '/src/engine/app.js';
 import { Scenes } from '/src/engine/states.js';
@@ -48,7 +53,7 @@ Input.init();
 App.start({ canvas: document.getElementById('game-canvas'), version: '0.1.0-P20', beforeUpdate: Input.update });
 
 const IDS = FX.ids();
-const state = { last: null, page: 0, mode: 'single', plays: 0, tags: [] };
+const state = { last: null, page: 0, band: 0, mode: 'single', plays: 0, tags: [] };
 
 // ── the little blue card, so a critic always knows what is on screen ────────────────────────────────────────
 const card = document.createElement('div');
@@ -66,18 +71,22 @@ function setCard(title, sub) {
 setCard('P20 — spells &amp; VFX', `${IDS.length} effects · ${spellList().length} spells`);
 
 // ── where things stand ──────────────────────────────────────────────────────────────────────────────────────
-const GRID = { cols: 6, gapX: 3.5, gapZ: 3.4 };
+// 4 wide, 2 deep, one BAND per screenshot. At 14 units a 1.8-unit pad projects ~128 px across, which is what it
+// takes to judge footstep_dust or chest_sparkle; the old 6-wide grid at 21 units gave 72 px and hid them.
+const GRID = { cols: 4, rows: 2, gapX: 4.7, gapZ: 4.5, dist: 14 };
+const PER_BAND = GRID.cols * GRID.rows;
 function padAt(i) {
-  const c = i % GRID.cols, r = (i / GRID.cols) | 0;
-  return { x: (c - (GRID.cols - 1) / 2) * GRID.gapX, y: 0, z: (r - 2) * GRID.gapZ };
+  const c = i % GRID.cols, r = ((i / GRID.cols) | 0) % GRID.rows;
+  return { x: (c - (GRID.cols - 1) / 2) * GRID.gapX, y: 0, z: (r - (GRID.rows - 1) / 2) * GRID.gapZ };
 }
+const BANDS = Math.ceil(IDS.length / PER_BAND);
 
 Scenes.register('demo', () => {
   const scene = new THREE.Scene();
   scene.background = C3(PAL.sky.page);
   const camera = new THREE.PerspectiveCamera(46, App.aspect(), 0.3, 1400);
-  let offResize = null, t = 0;
-  const cam = { orbit: 0, zoom: 1, tx: 0, tz: 0, ty: 1.4, dist: 11 };
+  let offResize = null, t = 0, shakes = 0;
+  const cam = { orbit: 0, zoom: 1, tx: 0, tz: 0, ty: 1.4, dist: 11, shakeAmp: 0, shakeMs: 0, shakeT: 0, ox: 0, oy: 0 };
 
   return {
     opaque: true,
@@ -97,30 +106,47 @@ Scenes.register('demo', () => {
         // pale stone pads mark where each effect will go
         const padGeo = new THREE.CylinderGeometry(0.85, 0.9, 0.12, 26);
         const padMat = Toon.surface ? Toon.surface('stone') : new THREE.MeshLambertMaterial({ color: C3(PAL.stone.mid) });
-        const pads = new THREE.InstancedMesh(padGeo, padMat, 30);
+        const pads = new THREE.InstancedMesh(padGeo, padMat, PER_BAND);
         pads.name = 'pads'; pads.receiveShadow = true; pads.castShadow = false;
         const m = new THREE.Matrix4();
-        for (let i = 0; i < 30; i++) { const p = padAt(i); m.makeTranslation(p.x, 0.06, p.z); pads.setMatrixAt(i, m); }
+        for (let i = 0; i < PER_BAND; i++) { const p = padAt(i); m.makeTranslation(p.x, 0.06, p.z); pads.setMatrixAt(i, m); }
         pads.count = 0;                                     // only shown in showAll
         scene.add(pads);
         scene.userData.pads = pads;
-        FX.attach(scene, { camera, sound: (id, o) => { try { if (Audio.ready) Sfx.play(id, o); } catch (_) {} } });
+        // cap 1400: castAll and a band of eight together put ~600 particles in flight, and the pool must never drop
+        FX.attach(scene, { cap: 1400, camera, sound: (id, o) => { try { if (Audio.ready) Sfx.play(id, o); } catch (_) {} } });
+        // WEIGHT: the heavy effects ask for a camera shake (FX.setShake). In the real game src/world/camera.js (P09)
+        // and the battle rig (P15) must answer it off the Bus event fx.shake; here the demo answers it itself, so the
+        // ask is provably wired end to end and a critic can see the camera move on a Kascorcha.
+        FX.setShake(({ amp, ms }) => { cam.shakeAmp = Math.max(cam.shakeAmp || 0, +amp || 0); cam.shakeMs = Math.max(cam.shakeMs || 0, +ms || 200); cam.shakeT = 0; shakes++; });
       } catch (e) { reportError('P20 demo build', e); }
     },
     exit() { if (offResize) offResize(); FX.detach(); },
     update(dt) {
       t += dt;
+      // the shake FX asked for: a fast decaying wobble across the view, exactly what P09/P15 should do off the Bus
+      cam.ox = cam.oy = 0;
+      if (cam.shakeAmp > 0) {
+        cam.shakeT += dt * 1000;
+        const k = Math.max(0, 1 - cam.shakeT / cam.shakeMs);
+        if (k <= 0) { cam.shakeAmp = 0; }
+        else {
+          const w = cam.shakeAmp * k * k;
+          cam.ox = Math.sin(cam.shakeT * 0.075) * w * 0.7;
+          cam.oy = Math.cos(cam.shakeT * 0.093) * w * 0.5;
+        }
+      }
       const a = cam.orbit * Math.PI / 180;
       const d = cam.dist * cam.zoom;
-      camera.position.set(cam.tx + Math.sin(a) * d, 6.4 * cam.zoom, cam.tz + Math.cos(a) * d);
-      camera.lookAt(cam.tx, cam.ty, cam.tz);
+      camera.position.set(cam.tx + Math.sin(a) * d + cam.ox, 6.4 * cam.zoom + cam.oy, cam.tz + Math.cos(a) * d);
+      camera.lookAt(cam.tx + cam.ox * 0.5, cam.ty + cam.oy * 0.5, cam.tz);
       FX.setCamera(camera);
       FX.update(dt);
       layTags(camera);
     },
     render() { App.render(scene, camera); },
     onInput() { return true; },
-    cam, scene,
+    cam, scene, shookAt() { return { shakes, amp: cam.shakeAmp, ox: +cam.ox.toFixed(4), oy: +cam.oy.toFixed(4) }; },
   };
 });
 Scenes.push('demo');
@@ -161,23 +187,40 @@ function one(id, at, scale) {
 }
 
 const TALL = { lightning: 15, level_pillar: 16, holy_light: 11, warp_swirl: 11, frost: 9, fire_big: 9.5, lantern_glow: 10 };
-Debug.expose('fx', (id, o) => { state.mode = 'single'; state.tags = []; showPads(0); camTo(0, 0, TALL[id] || 8.5);
+Debug.expose('fx', (id, o) => { state.mode = 'single'; state.tags = []; showPads(0); FX.pause(false); camTo(0, 0, TALL[id] || 8.5);
   const r = FX.play(id, Object.assign({ at: { x: 0, y: 0.6, z: 0 }, dir: { x: 0, z: -1 } }, o || {}));
   state.last = r.id; state.plays++; setCard(r.ok ? r.id : `unknown "${id}"`, FX.spec(id) ? `sound: ${FX.spec(id).sfx || 'none'} · ${FX.spec(id).ms} ms` : 'not an effect');
   return r; });
 
 Debug.expose('fxAt', (id, x, y, z, scale) => one(id, { x, y, z }, scale));
 
-Debug.expose('showAll', () => {
+Debug.expose('showAll', (band) => {
   state.mode = 'all';
-  const n = IDS.length;
-  showPads(n);
-  camTo(0, 0, 21, 0);
-  state.tags = IDS.map((id, i) => { const p = padAt(i); return { x: p.x, y: 0.2, z: p.z, text: id }; });
-  IDS.forEach((id, i) => { const p = padAt(i); FX.play(id, { at: { x: p.x, y: 0.35, z: p.z }, scale: 0.8, dir: { x: 0, z: -1 }, sound: false, flash: false }); });
-  state.plays += n;
-  setCard('every effect at once', `${n} effects on ${n} pads`);
-  return { effects: n, ids: IDS };
+  state.band = ((band | 0) % BANDS + BANDS) % BANDS;
+  const slice = IDS.slice(state.band * PER_BAND, state.band * PER_BAND + PER_BAND);
+  FX.pause(false);
+  showPads(slice.length);
+  camTo(0, 0, GRID.dist, 0);
+  state.tags = slice.map((id, i) => { const p = padAt(i); return { x: p.x, y: 0.2, z: p.z, text: id }; });
+  slice.forEach((id, i) => { const p = padAt(i); FX.play(id, { at: { x: p.x, y: 0.35, z: p.z }, scale: 0.9, dir: { x: 0, z: -1 }, sound: false, flash: false }); });
+  state.plays += slice.length;
+  setCard(`effects — band ${state.band + 1} of ${BANDS}`, `${slice.length} of ${IDS.length}, a pad is ~128 px across`);
+  return { band: state.band, bands: BANDS, effects: slice.length, ids: slice, total: IDS.length };
+});
+
+/** The closest look there is: one pad, camera 4.5 units off it. */
+Debug.expose('tour', (i) => {
+  const n = ((i | 0) % IDS.length + IDS.length) % IDS.length;
+  const id = IDS[n];
+  state.mode = 'tour'; state.last = id;
+  FX.pause(false); FX.clear();
+  showPads(0);                                            // the band pads are laid out off-centre; no pad here
+  camTo(0, 0, TALL[id] ? TALL[id] * 0.55 : 4.6, 0);
+  state.tags = [];
+  FX.play(id, { at: { x: 0, y: 0.35, z: 0 }, scale: 0.9, dir: { x: 0, z: -1 }, sound: false, flash: false });
+  state.plays++;
+  setCard(`${n + 1} / ${IDS.length} — ${id}`, 'camera right on the pad');
+  return { i: n, id, of: IDS.length };
 });
 
 Debug.expose('page', (n) => {
@@ -185,6 +228,7 @@ Debug.expose('page', (n) => {
   const per = 6, pages = Math.ceil(IDS.length / per);
   state.page = ((n | 0) % pages + pages) % pages;
   const slice = IDS.slice(state.page * per, state.page * per + per);
+  FX.pause(false);
   showPads(0);
   camTo(0, 0, 10.5, 0);
   state.tags = slice.map((id, i) => { const x = (i % 3 - 1) * 4.2, z = ((i / 3) | 0) * 4.0 - 2.0; return { x, y: 0.2, z, text: id }; });
@@ -230,14 +274,29 @@ Debug.expose('travel', (id) => {
   setCard('a spell that flies', `${r.id} leaves the caster and lands ${r.travelMs} ms later`);
   return r;
 });
+// hold an effect still at a chosen millisecond so a critic can MEASURE the frame rather than race it
+Debug.expose('fxSpec', (id) => FX.spec(id));
+Debug.expose('fxHold', (id, ms, o) => {
+  state.mode = 'hold'; state.tags = []; showPads(0); camTo(0, 0, TALL[id] || 8.5);
+  FX.pause(false); FX.clear();
+  const r = FX.play(id, Object.assign({ at: { x: 0, y: 0.6, z: 0 }, dir: { x: 0, z: -1 }, sound: false, flash: false }, o || {}));
+  FX.pause(true);
+  FX.step(ms != null ? ms : (r.peak || 90));
+  state.last = r.id; state.plays++;
+  setCard(`${r.id} held`, `frozen ${ms != null ? ms : r.peak} ms in · fxResume() to let it run`);
+  return r;
+});
+Debug.expose('fxResume', () => { FX.pause(false); return true; });
+Debug.expose('shakeState', () => { const s = S(); return s && s.shookAt ? s.shookAt() : null; });
 Debug.expose('spells', () => audit());
 Debug.expose('spellTable', () => spellList().map((s) => ({ id: s.id, name: s.name, mp: s.mp, school: s.school, kind: s.kind, target: s.target, fx: s.fx, sfx: s.sfx })));
-Debug.expose('fxClear', () => { FX.clear(); state.tags = []; return true; });
+Debug.expose('fxClear', () => { FX.pause(false); FX.clear(); state.tags = []; return true; });
 Debug.expose('orbit', (deg) => { const s = S(); if (s && s.cam) s.cam.orbit = +deg || 0; return deg; });
 Debug.implement('cameraOrbit', (deg) => { const s = S(); if (s && s.cam) s.cam.orbit = +deg || 0; return deg; });
 Debug.implement('cameraZoom', (n) => { const s = S(); if (s && s.cam) s.cam.zoom = Math.max(0.35, Math.min(3, +n || 1)); return n; });
 
-Debug.provide('demo', () => ({ piece: 'P20', mode: state.mode, last: state.last, plays: state.plays,
-  effects: IDS.length, spells: spellList().length, audit: audit().problems.length }));
+Debug.provide('demo', () => { const s = S(); return { piece: 'P20', mode: state.mode, last: state.last, plays: state.plays,
+  effects: IDS.length, bands: BANDS, band: state.band, spells: spellList().length, audit: audit().problems.length,
+  shake: s && s.shookAt ? s.shookAt() : null }; });
 Debug.provide('fx', () => FX.state());
 </script></body></html>

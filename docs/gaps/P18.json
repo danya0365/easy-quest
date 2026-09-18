@@ -23,6 +23,14 @@
       "state": "open",
       "opened": "2026-09-18T02:52:33.564Z",
       "events": []
+    },
+    {
+      "n": 3,
+      "title": "A follower is inside the wagon wheel",
+      "detail": "Orchestrator eyes, 2026-09-18 10:00, shots/_plugcheck2/01-boot.png: a blue Gloop follower is drawn underneath and through the wagon's near wheel, at the very bottom edge of the frame. Followers need their own trailing slots with spacing that keeps them clear of the wagon and inside the frame at the gameplay camera.",
+      "state": "open",
+      "opened": "2026-09-18T02:56:15.057Z",
+      "events": []
     }
   ]
 }

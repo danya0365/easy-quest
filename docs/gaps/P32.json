@@ -50,6 +50,14 @@
       "state": "open",
       "opened": "2026-09-18T02:42:53.692Z",
       "events": []
+    },
+    {
+      "n": 5,
+      "title": "the HUD ribbon has its own quest table instead of the story's",
+      "detail": "src/ui/hud.js keeps a hard-coded QUESTS array. P26 now publishes the single authority at __DQ.state().quest = {id, beat, act, title, hint, map, mapName} (src/story/quests.js, one entry per CANON section 4 beat, all 28). The ribbon should prefer that hint when it is present and fall back to its own table when the story module is missing, so the sentence a child reads and the beat that is actually next can never disagree.",
+      "state": "open",
+      "opened": "2026-09-18T03:02:59.306Z",
+      "events": []
     }
   ]
 }

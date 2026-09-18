@@ -135,11 +135,126 @@ function chance({ species, base, heroLvl = 1, kidMode = true, charmBell = false,
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
-function plate(name, line) {
-  return UI.h('div', [
-    UI.h('div.dq-row', [UI.h('span.dq-label', 'NAME')]),
-    UI.h('div.dq-row', [UI.h('span.dq-grow.dq-c-gold', name || '…', { style: { fontSize: '1.9em', letterSpacing: '.06em' } })]),
-    UI.h('div.dq-row', [UI.h('span.dq-grow', line || '', { style: { whiteSpace: 'normal', opacity: '.86', lineHeight: '1.5' } })]),
+// ── the mugshot: the creature you are naming, turning slowly beside the name plate (MONSTER-BIBLE §7) ─────────
+// Naming a monster you cannot see is filling in a form. One small renderer, built when the window opens and torn
+// down with it — the same shape src/ui/menu.js uses for its status portrait, so there is only ever one extra
+// WebGL context alive and it goes away again.
+const MUG_CSS = `
+.p17-name{display:flex; gap: calc(16 * var(--u)); align-items:flex-start}
+.p17-mug{position:relative; flex:0 0 auto;
+  width: calc(168 * var(--u)); height: calc(168 * var(--u)); border-radius: calc(12 * var(--u));
+  background: radial-gradient(120% 90% at 50% 20%, var(--dq-win-sheen), transparent 72%),
+              linear-gradient(180deg, color-mix(in srgb, var(--pal-sky-horizon) 55%, transparent), transparent 80%);
+  box-shadow: inset 0 0 0 calc(1.6 * var(--u)) var(--dq-hair); overflow:hidden}
+.p17-mug::after{content:""; position:absolute; left:24%; right:24%; bottom: calc(14 * var(--u));
+  height: calc(13 * var(--u)); border-radius:50%;
+  background: radial-gradient(50% 50%, var(--dq-ink-shadow), transparent 72%); opacity:.5}
+.p17-mug canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
+.p17-plate{flex:1 1 auto; min-width:0}
+.p17-plate .p17-big{font-size: calc(42 * var(--u)); letter-spacing:.06em; color: var(--dq-gold)}
+.p17-plate .p17-line{white-space:normal; line-height:1.5; opacity:.88}
+`;
+let mugStyled = false;
+function installMugCss() {
+  if (mugStyled || typeof document === 'undefined') return;
+  mugStyled = true;
+  try {
+    const el = document.createElement('style');
+    el.id = 'dq-recruit-css';
+    el.textContent = MUG_CSS;
+    document.head.appendChild(el);
+  } catch (e) { reportError('recruit css', e); }
+}
+
+const MUG = { renderer: null, scene: null, camera: null, canvas: null, subject: null, off: null,
+  t: 0, frames: 0, species: null, err: null };
+let MonLib = null, monP = null, ThreeLib = null;
+function loadMug() {
+  if (!monP) {
+    monP = Promise.all([import('three'), import('../art/monsters.js')])
+      .then(([T, m]) => { ThreeLib = T; MonLib = m.Monsters || m.default || null; return MonLib; })
+      .catch((e) => { MUG.err = 'monsters.js did not load'; reportError('recruit mugshot: monsters.js', e); return null; });
+  }
+  return monP;
+}
+
+/** The empty frame (returned straight away so the window never waits on a model). */
+function mugEl() {
+  installMugCss();
+  const box = UI.h('div.p17-mug');
+  let canvas = MUG.canvas;
+  if (!canvas) { canvas = document.createElement('canvas'); MUG.canvas = canvas; }
+  box.appendChild(canvas);
+  return box;
+}
+
+/** Build the renderer and drop `species` into it, turning about 12 degrees a second, with its join pose on. */
+function mugShow(species) {
+  const THREE = ThreeLib, Mon = MonLib;
+  if (!THREE || !Mon || !MUG.canvas) return false;
+  try {
+    if (!MUG.renderer) {
+      const dpr = Math.min(2, (typeof devicePixelRatio === 'number' ? devicePixelRatio : 1) || 1);
+      const rend = new THREE.WebGLRenderer({ canvas: MUG.canvas, alpha: true, antialias: true });
+      rend.setPixelRatio(dpr);
+      rend.setSize(336, 336, false);
+      rend.outputColorSpace = THREE.SRGBColorSpace;
+      const scene = new THREE.Scene();
+      scene.background = null;
+      scene.add(new THREE.HemisphereLight(0xdfefff, 0xffe9c4, 1.05));
+      const key = new THREE.DirectionalLight(0xfff0d8, 1.4); key.position.set(2.2, 3.4, 2.6); scene.add(key);
+      const rim = new THREE.DirectionalLight(0xbcd8ff, 0.5); rim.position.set(-2.4, 1.4, -2.2); scene.add(rim);
+      MUG.renderer = rend; MUG.scene = scene;
+      MUG.camera = new THREE.PerspectiveCamera(28, 1, 0.1, 40);
+    }
+    mugClear();
+    const subj = Mon.build(species);
+    try { subj.setMood('friend'); } catch (_) {}
+    try { subj.play('join'); } catch (_) {}
+    MUG.scene.add(subj.root);
+    MUG.subject = subj; MUG.species = species; MUG.t = 0; MUG.err = null;
+    const H = Math.max(0.25, Number(subj.height) || 0.6);
+    const W = Math.max(0.25, (Number(subj.radius) || 0.3) * 2);
+    const span = Math.max(H, W * 0.9) * 1.22;
+    const dist = (span / 2) / Math.tan((MUG.camera.fov * Math.PI / 180) / 2) * 1.1;
+    MUG.camera.position.set(0, H * 0.62, dist);
+    MUG.camera.lookAt(0, H * 0.48, 0);
+    if (!MUG.off) MUG.off = UI.onUpdate((dt) => mugTick(dt));
+    return true;
+  } catch (e) { MUG.err = String(e && e.message || e); reportError('recruit mugshot', e); return false; }
+}
+function mugClear() {
+  const s = MUG.subject;
+  MUG.subject = null;
+  if (s) guard('mugshot dispose', () => s.dispose());
+}
+function mugTick(dt) {
+  if (!MUG.renderer || !MUG.subject) return;
+  try {
+    MUG.t += dt;
+    if (MUG.subject.update) MUG.subject.update(dt);
+    MUG.subject.root.rotation.y = MUG.t * 0.21;          // ~12 degrees a second, MONSTER-BIBLE §7
+    MUG.renderer.render(MUG.scene, MUG.camera);
+    MUG.frames++;
+  } catch (e) { reportError('recruit mugshot tick', e); MUG.subject = null; }
+}
+function mugDestroy() {
+  mugClear();
+  if (MUG.off) { guard('mugshot off', () => MUG.off()); MUG.off = null; }
+  const r = MUG.renderer;
+  MUG.renderer = null; MUG.scene = null; MUG.camera = null; MUG.canvas = null;
+  if (!r) return;
+  guard('mugshot renderer', () => { r.dispose(); r.forceContextLoss(); });
+}
+
+function plate(name, line, mug) {
+  return UI.h('div.p17-name', [
+    mug || mugEl(),
+    UI.h('div.p17-plate', [
+      UI.h('div.dq-row', [UI.h('span.dq-label', 'NAME')]),
+      UI.h('div.dq-row', [UI.h('span.dq-grow.p17-big', name || '…')]),
+      UI.h('div.dq-row', [UI.h('span.dq-grow.p17-line', line || '')]),
+    ]),
   ]);
 }
 
@@ -176,9 +291,12 @@ async function spellOut(start, win) {
 async function nameWindow({ species = 'gloop', monsterName = 'Monster', preset = null, taken = [] } = {}) {
   const def = uniqueName(preset || defaultName(species), taken);
   let seed = 0, chosen = def;
-  const win = UI.window({ id: 'recruit-name', centerX: true, top: 96, width: 560, title: `${monsterName} joins you`,
+  const win = UI.window({ id: 'recruit-name', centerX: true, top: 96, width: 640, title: `${monsterName} joins you`,
     destroyOnClose: true, content: plate(def, joinLine(species)) });
   await win.open();
+  // the creature turns beside its own name plate while you choose (never awaited: the window is already up)
+  loadMug().then(() => { if (win && !win.destroyed) guard('mugshot show', () => mugShow(species)); });
+  try {
   for (;;) {
     const list = suggest(species, seed).filter((n) => n.toLowerCase() !== def.toLowerCase()).slice(0, 6);
     const items = [{ id: 'keep', label: `Keep "${def}"`, color: 'gold' }, '-']
@@ -198,9 +316,10 @@ async function nameWindow({ species = 'gloop', monsterName = 'Monster', preset =
     chosen = uniqueName(it.id.slice(2), taken);
     break;
   }
-  if (win && !win.destroyed) { win.setContent(plate(chosen, 'A fine name.')); await UI.wait(0.45); await win.close(); win.destroy(); }
+  if (win && !win.destroyed) { win.setContent(plate(chosen, 'A fine name.')); await UI.wait(0.6); await win.close(); win.destroy(); }
   sfx('confirm');
   return chosen;
+  } finally { mugDestroy(); }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -279,6 +398,9 @@ export const Recruit = {
   names: NAMES,
   state() {
     return { joins: L.count, last: L.last, busy: L.busy,
+      // the naming window's turntable, so "is there a picture of the monster?" is a number, not an opinion
+      mugshot: { live: !!MUG.subject, species: MUG.species, frames: MUG.frames, spin: +(MUG.t * 0.21).toFixed(2),
+        canvas: !!MUG.canvas, error: MUG.err },
       pityAfter: RECRUIT_PITY_BATTLES, guaranteeAfter: RECRUIT_GUARANTEE_AFTER };
   },
 
@@ -315,6 +437,29 @@ export const Recruit = {
     D.expose('recruit', (species = 'gloop', opts = {}) => offer(species, opts));
     /** __DQ.recruitChance('gloop', 5) — what the odds actually are (a critic can check the bible). */
     D.expose('recruitChance', (species = 'gloop', heroLvl = 5, opts = {}) => chance({ species, heroLvl, ...opts }));
+    /**
+     * __DQ.friendsStock(n) — put n friends straight into the roster with no ceremony, filling party -> wagon ->
+     * paddock exactly as play would. This is how anybody (a critic, the harness, a parent showing the kids)
+     * sees the wagon and the follower line in the REAL game without winning six fights first.
+     */
+    D.expose('friendsStock', (n = 4, lvl = 4) => {
+      const SP = ['gloop', 'flapjack', 'peckish', 'cactuddle', 'chestnut', 'bloop', 'twiglet', 'crabbit',
+        'boulderdash', 'barrowmole', 'jinglebottom', 'grimalkitten'];
+      const out = [];
+      for (let i = 0; i < Math.max(0, Math.min(24, n)); i++) {
+        const sp = SP[i % SP.length];
+        const mon = monOf(sp);
+        if (!mon || !Party) continue;
+        const k = (Party.countSpecies(sp) || 0) + 1;
+        const m = guard('friendsStock', () => newCompanion(mon, {
+          id: `${sp}_s${Date.now().toString(36).slice(-3)}${i}`, name: defaultName(sp, k), lvl }));
+        if (!m) continue;
+        m.name = uniqueName(m.name, Party.all().map((x) => x.name));
+        out.push({ name: m.name, where: Party.add(m) });
+      }
+      if (Companions && Companions.refresh) guard('refresh', () => Companions.refresh());
+      return out;
+    });
     /** __DQ.nameMonster('gloop_1') — open the naming window for somebody already in the roster. */
     D.expose('nameMonster', async (id) => {
       const m = Party && Party.find(id);

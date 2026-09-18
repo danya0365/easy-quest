@@ -20,9 +20,15 @@
       "n": 2,
       "title": "Every one of the eight Puddlewick interiors holds NOTHING: 38 containers, 0 rewards",
       "detail": "Measured in the running game by teleporting to each map and reading __DQ.state().treasure: int_cottage 5 containers / 0 holding, int_bakery 5/0, int_shop 5/0, int_chapel 4/0, int_mill 4/0, int_barn 5/0, int_twins 5/0, int_hob 5/0. Not one item: or gold: field exists in any of src/world/maps/int_*.chests.js. Across the whole build 78 containers hold 21 things, but all 21 are in the four older maps (meadow 9/18, puddlewick 6/12, hollybank 3/6, inn 3/4); indoors the rate is 0/38 = 0%. A child who goes through all ten doors on the green and searches every pot, drawer, sack, crock, bookshelf and toy box in the village finds nothing, ever, and learns to stop searching. DQV PS2 puts about one in four indoors. int_twins tw_toybox is even kind chest with no contents, so opening it says Bram opens the chest with nothing inside. BUILD: put gold or an item in about 1 in 4 of the 38 indoor containers (roughly 9-10 of them: small gold 3-12G, herb, antidotal herb, a plain seed, a Chimaera-Wing-alike, one key item), each with its own found: line in the voice already in those files. Do not touch the empty lines that are already there - they are excellent - just add a found: beside the good ones. Also give tw_toybox real contents or change its kind so it is not a chest that opens on nothing.",
-      "state": "open",
+      "state": "merged",
       "opened": "2026-09-18T02:50:29.736Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-18T03:21:58.016Z",
+          "by": "orchestrator",
+          "note": "Duplicate of P30 #1 (same defect, opened concurrently). Work it under #1."
+        }
+      ]
     },
     {
       "n": 3,

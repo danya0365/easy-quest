@@ -48,6 +48,14 @@
       "state": "open",
       "opened": "2026-09-18T01:07:14.181Z",
       "events": []
+    },
+    {
+      "n": 4,
+      "title": "no Halvard, Willow, Sera or Bobble anywhere in the people layers",
+      "detail": "Act I needs Papa standing about between cutscenes: in Hollybank while !ch1.left_home, and at the lane out of Puddlewick. src/art/chars.js builds halvard, willow and sera, and the npcs layer already supports when: flags. P26 spawns its own cutscene bodies, but they vanish the moment the scene ends, so between beats the boy is alone in his own house. Asked for: hb-halvard in hollybank.npcs.js (when !ch1.left_home) and pw-halvard in puddlewick.npcs.js (when ch1.awake and !ch1.left_home), plus a walk API - __DQ.npcMove(id, x, z) - so a cutscene can walk a real NPC instead of standing in a duplicate.",
+      "state": "open",
+      "opened": "2026-09-18T03:02:59.345Z",
+      "events": []
     }
   ]
 }
