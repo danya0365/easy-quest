@@ -16,7 +16,8 @@
 //   __DQ.shop()            -> every counter id and the NPC who keeps it
 //   __DQ.shopPick('buy')   walk the focused window's cursor to that entry and confirm (a child's thumb)
 //   __DQ.economy()         SYSTEMS §5's promise, leg by leg: does the purse cover the next big buy?
-//   __DQ.purse(n)          set the gold   ·  __DQ.orbit(deg)  ·  __DQ.state().shop  ·  __DQ.state().demo
+//   __DQ.economyAudit()    the household sum: what the whole family's kit costs against what a child earns
+//   __DQ.purse(n) · __DQ.hurt(frac) · __DQ.fell(who) · __DQ.orbit(deg) · __DQ.state().shop · __DQ.state().demo
 import * as THREE from 'three';
 import { App } from '/src/engine/app.js';
 import { Scenes } from '/src/engine/states.js';
@@ -161,8 +162,26 @@ Debug.expose('hurt', (frac = 0.4) => {
   }
   return { hurt: out };
 });
+/** Lay somebody down, so the church's "Call somebody back" has somebody to call. */
+Debug.expose('fell', (who = null) => {
+  const all = Roster.ensure().concat(Roster.wagon || []).filter((m) => m && m.kind !== 'guest');
+  const m = (who && all.find((x) => x.id === who || x.name === who)) || all[all.length - 1];
+  if (!m) return { fell: null };
+  m.hp = 0;
+  return { fell: m.name, hp: m.hp };
+});
+/**
+ * The unhurried helper (SYSTEMS §6.1.6, INTEGRATION-NEEDS "P31 + P22"): after a boss has wiped the party twice
+ * in a row the battle hands the field one sentence a child can act on, and the priest is who says it.
+ */
+Debug.expose('helperAdvice', (text) => {
+  Roster.helper = { boss: 'bogwallop', heal: 'full', items: { strong_herb: 3 },
+    text: text || 'Bogwallop hits slow and hard. / There is a woman by his door / with a full mend and three Strong Herbs.' };
+  return { helper: Roster.helper };
+});
 Debug.expose('orbit', (deg) => { return { orbit: deg }; });
 Debug.expose('legs', () => Economy.nextBuyCheck());
+Debug.expose('household', () => Economy.audit());
 
 const label = document.getElementById('label');
 function setLabel() {

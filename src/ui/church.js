@@ -19,7 +19,7 @@ import { Sfx } from '../audio/sfx.js';
 import { Bus } from '../engine/events.js';
 import { reportError } from '../engine/debug.js';
 import { statsFor } from '../data/growth.js';
-import { CHURCH_WORDS } from '../data/shops.js';
+import { CHURCH_WORDS, itemOf } from '../data/shops.js';
 
 const guard = (where, fn, fallback) => { try { return fn(); } catch (e) { reportError('church: ' + where, e); return fallback; } };
 
@@ -55,6 +55,20 @@ const hurt = (m) => {
 const fallen = (m) => !!m && (m.hp ?? 1) <= 0;
 
 /**
+ * A ring that whispers. VOICE-BIBLE 24 gives the priest a line for it, so the mending takes it off and says it.
+ * Nothing in src/data/items.js is cursed yet (NEEDS P21: a `cursed: true` row) — the moment one is, this works.
+ */
+function cursedOn(m) {
+  if (!m || !m.equip) return [];
+  const out = [];
+  for (const [slot, id] of Object.entries(m.equip)) {
+    const it = guard('itemOf', () => itemOf(id), null);
+    if (it && it.cursed) out.push({ slot, id, name: it.name });
+  }
+  return out;
+}
+
+/**
  * The whole church, run inside src/ui/shop.js's counter runtime.
  * `R` gives say / hush / mkMenu / mkWin / closeWin / pay / take / openPurse; `H` gives words() and the roster.
  */
@@ -77,7 +91,7 @@ export async function runChurch(R, H) {
   }
 
   while (R.alive) {
-    const anyHurt = H.party().some(hurt);
+    const anyHurt = H.party().some((m) => hurt(m) || cursedOn(m).length);
     const anyFallen = H.party().some(fallen);
     const cmd = R.mkMenu({
       id: 's-church', left: 34, top: 30, minWidth: 340, origin: '0% 0%', title: c.name,
@@ -161,7 +175,18 @@ async function saveFlow(R, H) {
 async function healFlow(R, H, Roster) {
   const words = H.words;
   const hurtOnes = H.party().filter(hurt);
-  if (!hurtOnes.length) { await R.say(words(CHURCH_WORDS.healNone)); await R.hush(); return; }
+  const bewitched = H.party().filter((m) => cursedOn(m).length);
+  if (!hurtOnes.length && !bewitched.length) { await R.say(words(CHURCH_WORDS.healNone)); await R.hush(); return; }
+  // The whispering ring comes off first, free, and the priest says so (VOICE-BIBLE 24).
+  if (bewitched.length) {
+    for (const m of bewitched) for (const c of cursedOn(m)) delete m.equip[c.slot];
+    guard('uncurse sfx', () => Sfx.play('level_up_sparkle', { vol: 0.6 }));
+    Bus.emit('church.uncurse', { count: bewitched.length });
+    await R.say(words(CHURCH_WORDS.uncurse));
+    if (!R.alive) return;
+    await R.hush();
+    if (!hurtOnes.length) return;
+  }
   const poisoned = hurtOnes.filter((m) => m.status);
   guard('heal', () => (Roster && Roster.heal ? Roster.heal() : null));
   guard('heal sfx', () => Sfx.play('heal', { vol: 0.8 }));

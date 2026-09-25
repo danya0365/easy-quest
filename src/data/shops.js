@@ -107,11 +107,12 @@ export const SHOP_WORDS = {
 };
 
 export const INN_WORDS = {
-  greet: '%N% gold the pair of you. / A bit more if the pudding snores.',
-  yes: 'Sleep well.',
-  no: 'Suit yourself. The bench is free / and the cat is on it.',
-  poor: 'That is %N% gold short, love. / The bench is still free.',
-  morning: 'Morning! You slept like a stone. / You snored like one, too.',
+  // VOICE-BIBLE 15-19, in the bible's own words; a named keeper in COUNTERS below may say their own instead.
+  greet: 'A bed each, and breakfast if you’re up / before the bread’s gone. %N% gold?',
+  yes: 'Sleep well. Mind the third stair.',
+  no: 'Suit yourself. The bench outside / is free, and very honest about it.',
+  poor: 'Come back when your purse is heavier. / The pillows will wait.',
+  morning: 'Morning. Everyone’s mended. / The pudding snored.',
   full: 'Everyone is up and mended. / Off you go.',
 };
 
@@ -123,7 +124,7 @@ export const CHURCH_WORDS = {
   heal: 'There. Hold still. / ...There.',
   healNone: 'Nobody here needs mending. / That is a rare page.',
   reviveWho: 'Who shall we call back?',
-  revive: '%NAME% opens one eye. / "Was I asleep?"',
+  revive: '%NAME% sits up, blinking. / "What did I miss?"',
   reviveNone: 'Everybody is standing up. / Long may it last.',
   uncurse: 'Whatever that ring was whispering, / it has stopped.',
   blessing: 'Go carefully. Come back muddy.',
@@ -308,19 +309,36 @@ export const Shops = {
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // THE ECONOMY — SYSTEMS §5's ten legs, and the audit the DATA-SHAPES §9.3 gap asked for.
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
-/** [battles walking through, gold a battle, chest gold, the big buy at the end, its price] */
+/**
+ * [battles walking through, gold a battle, chest gold, the big buy at the end, its price]
+ *
+ * BALANCE PASS P22 2026-09-18 — the payout half of the DATA-SHAPES §9.3 economy gap. SYSTEMS §5's published
+ * table was written for ONE hero's big buy a leg (16,968 G of battle gold, 6,955 G of chests, 23,953 G all
+ * told). The party a non-grinding child really walks with (tests/battle/areas.js) has to kit out up to six
+ * people, which costs 34,978 G fresh — so the plan was 11,000 G short and a child would have arrived at
+ * Highfeather in leather. `gold` and `chest` below are raised to pay for the WHOLE family, keeping the shape
+ * of the published curve (each leg still roughly 1.5x the one before). `bandLow`/`bandHigh` is the spread a
+ * single fight may pay inside a leg, kept at the published ±30% so no one fight feels like a jackpot.
+ * NEEDS P31: the wild gold in tests/battle/data.js / balance-wild.js must average `gold` per fight for these
+ * numbers to be real in play; the `kit` column of Economy.audit() says what each leg has to buy.
+ */
 export const LEGS = [
-  { leg: 1, area: 'Puddlewick Vale & the Long Lane', walk: 10, gold: 6, chest: 25, buy: 'Copper Sword', price: 70 },
-  { leg: 2, area: 'Saltmarrow Coast & the Whispering Wood', walk: 12, gold: 11, chest: 80, buy: 'Quilted Coat + Herbs', price: 114 },
-  { leg: 3, area: 'Cobwell Manor & Coddleston Downs', walk: 14, gold: 18, chest: 150, buy: 'Oak Boomerang', price: 220 },
-  { leg: 4, area: 'The Whistling Caves & the Frittering Sands', walk: 13, gold: 28, chest: 180, buy: 'Chain Whip', price: 300 },
-  { leg: 5, area: 'Pelican Coast to Port Pelican', walk: 15, gold: 42, chest: 320, buy: 'Iron Lance + Iron Shield', price: 960 },
-  { leg: 6, area: 'Marbleford Downs', walk: 14, gold: 66, chest: 400, buy: 'Steel Sword', price: 900 },
-  { leg: 7, area: 'The Sighing Grotto & the road to Ambergarde', walk: 16, gold: 108, chest: 700, buy: 'Iron Armour + Mirror Shield', price: 2800 },
-  { leg: 8, area: 'The Frostbottom & the Glasswing Grotto', walk: 15, gold: 168, chest: 1100, buy: 'Frostbite Sabre', price: 2400 },
-  { leg: 9, area: 'Highfeather', walk: 16, gold: 248, chest: 1600, buy: 'Gleaming Plate + Thunderfork', price: 6800 },
-  { leg: 10, area: 'Whistfell Abbey & the Quiet Deep', walk: 18, gold: 355, chest: 2400, buy: 'Dragon-scale Shield', price: 4000 },
+  { leg: 1, area: 'Puddlewick Vale & the Long Lane', walk: 10, gold: 6, chest: 30, buy: 'Copper Sword', price: 70 },
+  { leg: 2, area: 'Saltmarrow Coast & the Whispering Wood', walk: 12, gold: 12, chest: 110, buy: 'Quilted Coat + Herbs', price: 114 },
+  { leg: 3, area: 'Cobwell Manor & Coddleston Downs', walk: 14, gold: 22, chest: 200, buy: 'Oak Boomerang', price: 220 },
+  { leg: 4, area: 'The Whistling Caves & the Frittering Sands', walk: 13, gold: 36, chest: 260, buy: 'Chain Whip', price: 300 },
+  { leg: 5, area: 'Pelican Coast to Port Pelican', walk: 15, gold: 56, chest: 640, buy: 'Iron Lance + Iron Shield', price: 960 },
+  { leg: 6, area: 'Marbleford Downs', walk: 14, gold: 90, chest: 700, buy: 'Steel Sword', price: 900 },
+  { leg: 7, area: 'The Sighing Grotto & the road to Ambergarde', walk: 16, gold: 160, chest: 1600, buy: 'Iron Armour + Mirror Shield', price: 2800 },
+  { leg: 8, area: 'The Frostbottom & the Glasswing Grotto', walk: 15, gold: 240, chest: 2000, buy: 'Frostbite Sabre', price: 2400 },
+  { leg: 9, area: 'Highfeather', walk: 16, gold: 360, chest: 3000, buy: 'Gleaming Plate + Thunderfork', price: 6800 },
+  { leg: 10, area: 'Whistfell Abbey & the Quiet Deep', walk: 18, gold: 500, chest: 4600, buy: 'Dragon-scale Shield', price: 4000 },
 ];
+/** The spread one fight inside a leg may pay, so a child sees varied numbers and never a jackpot. */
+export const goldBand = (leg) => {
+  const L = LEGS.find((x) => x.leg === Math.round(num(leg))) || LEGS[0];
+  return [Math.max(1, Math.round(L.gold * 0.7)), Math.round(L.gold * 1.3)];
+};
 
 export const START_GOLD = 30;
 
@@ -345,21 +363,32 @@ export const Economy = {
   },
 
   /**
-   * The kit every child in tests/battle/areas.js is assumed to be wearing, against what SYSTEMS §5 pays for
-   * walking the whole game once. DATA-SHAPES §9.3 measured 31,338 G of kit against ~18,000 G of battle gold;
-   * this runs the same sum with chest gold counted and with the hand-me-down trade-in applied.
+   * THE HOUSEHOLD SUM — the P22 half of the DATA-SHAPES §9.3 economy gap.
+   *
+   * DATA-SHAPES measured the kit of tests/battle/areas.js as one long shopping list, every piece bought new:
+   * 31,338 G (36,068 G at the prices as they now stand) against ~18,000 G of battle gold. A family does not
+   * shop like that. DQV's own answer is hand-me-downs: Bram's copper sword becomes Pip's the day Bram gets a
+   * steel one, and only what nobody will wear again goes over the counter.
+   *
+   * So this walks the areas in story order and keeps ONE household:
+   *   · a piece somebody has already outgrown and put in the chest is PASSED DOWN — it costs nothing;
+   *   · anything else is BOUGHT at buyPrice;
+   *   · a piece nobody in the family will ever wear again is handed over at tradeInPrice (75%).
+   * Per leg it reports what that leg has to buy and what the purse holds when it does.
    */
   async audit({ rate = TRADE_IN_RATE } = {}) {
     let AREAS;
     try { ({ AREAS } = await import('../../tests/battle/areas.js')); }
     catch (e) { return { ok: false, reason: 'tests/battle/areas.js did not load: ' + (e && e.message) }; }
-    const earnedBattle = LEGS.reduce((s, L) => s + L.walk * L.gold, 0);
-    const earnedChest = LEGS.reduce((s, L) => s + L.chest, 0);
-    const earned = START_GOLD + earnedBattle + earnedChest;
 
-    const worn = new Map();
-    let fresh = 0, credit = 0;
+    const worn = new Map();          // who is wearing what
+    const spares = new Map();        // the family chest: itemId -> how many spare
+    const kit = {}, credit = {}, passed = {};
+    let fresh = 0, handed = 0, handDown = 0;
+
     for (const a of AREAS) {
+      const leg = a.leg || 1;
+      kit[leg] = kit[leg] || 0; credit[leg] = credit[leg] || 0; passed[leg] = passed[leg] || 0;
       let party = [];
       try { party = (a.party ? a.party(a.areaLevel || 1) : []) || []; } catch (_) { party = []; }
       for (const m of party) {
@@ -369,23 +398,47 @@ export const Economy = {
           if (!id || cur[slot] === id) continue;
           const cost = buyPrice(id);
           if (cost > 0) {
-            fresh += cost;
-            const old = cur[slot];
-            if (old && buyPrice(old) > 0) credit += Math.floor(buyPrice(old) * rate);
+            if ((spares.get(id) || 0) > 0) { spares.set(id, spares.get(id) - 1); passed[leg] += cost; handDown += cost; }
+            else { kit[leg] += cost; fresh += cost; }
           }
+          if (cur[slot]) spares.set(cur[slot], (spares.get(cur[slot]) || 0) + 1);
           cur[slot] = id;
         }
         worn.set(m.id, cur);
       }
+      // Anything in the chest that nobody in the family is wearing any more goes over the counter.
+      for (const [id, n] of Array.from(spares)) {
+        let wanted = false;
+        for (const w of worn.values()) for (const v of Object.values(w)) if (v === id) wanted = true;
+        if (wanted) continue;
+        const back = n * Math.floor(buyPrice(id) * rate);
+        credit[leg] += back; handed += back;
+        spares.delete(id);
+      }
     }
-    const net = fresh - credit;
+
+    let purse = START_GOLD, worst = Infinity;
+    const rows = [];
+    for (const L of LEGS) {
+      const income = L.walk * L.gold + L.chest + (credit[L.leg] || 0);
+      purse += income - (kit[L.leg] || 0);
+      const k = kit[L.leg] || 0;
+      rows.push({ leg: L.leg, income, chest: L.chest, soldBack: credit[L.leg] || 0, kit: k,
+        passedDown: passed[L.leg] || 0, left: purse, slackPct: k ? Math.round((purse / k) * 100) : null,
+        ok: purse >= 0 });
+      worst = Math.min(worst, purse);
+    }
+
+    const earnedBattle = LEGS.reduce((s, L) => s + L.walk * L.gold, 0);
+    const earnedChest = LEGS.reduce((s, L) => s + L.chest, 0);
+    const earned = START_GOLD + earnedBattle + earnedChest + handed;
     return {
-      ok: net <= earned,
-      earned, earnedBattle, earnedChest,
-      kitFresh: fresh, tradeInCredit: credit, kitNet: net,
-      shortfallFresh: Math.max(0, fresh - earned),
-      shortfallNet: Math.max(0, net - earned),
-      rate,
+      ok: worst >= 0 && fresh <= earned,
+      earned, earnedBattle, earnedChest, soldBack: handed,
+      kitFresh: fresh, passedDownValue: handDown, kitNet: fresh,
+      leftAtTheEnd: purse, worstPurse: worst,
+      shortfallNet: Math.max(0, fresh - earned),
+      rate, rows,
     };
   },
 };

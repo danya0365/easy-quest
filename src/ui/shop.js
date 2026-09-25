@@ -12,6 +12,7 @@
  *
  *   Shop.open('puddlewick_shop')      -> Promise, resolves when the counter closes
  *   Shop.counterFor(npcId)            -> the counter that NPC keeps, or null
+ *   __DQ.shopTalk('hammond')          talk to the keeper in the field and wait for the counter to open
  *   __DQ.shop('puddlewick_shop')      open it        __DQ.shopPick('buy')   drive the cursor
  *   __DQ.state().shop = {open, id, kind, stage, gold, keeper, stock:[{id,name,price,have,afford}], cursor,
  *                        windows:[{id,left,top,w,h,over,spill}], last}
@@ -264,6 +265,16 @@ function counterRuntime(counter) {
         b.spill = Math.max(0, Math.round(spill));
         out.push(b);
       }
+      // A window half-hidden under the message box reads as broken to a child, so it is measured, not assumed:
+      // `covered` is how many design px of a window the keeper's own box is sitting on top of.
+      const say = out.find((w) => w.id === 's-say');
+      for (const b of out) {
+        b.covered = 0;
+        if (!say || b === say) continue;
+        const ov = Math.max(0, Math.min(b.right, say.right) - Math.max(b.left, say.left))
+          * Math.max(0, Math.min(b.bottom, say.bottom) - Math.max(b.top, say.top));
+        b.covered = Math.round(ov);
+      }
     });
     return out;
   }
@@ -387,12 +398,13 @@ async function buyFlow(R) {
     if (!preview || preview.destroyed) return null;
     return on ? preview.open() : preview.close();
   }, null);
-  const ask = async (opts) => {
-    await panel(false);
-    const yes = await R.yesNo(opts);
-    if (R.alive) panel(true);
-    return yes;
-  };
+  /**
+   * The keeper NEVER talks over the numbers. Every line of his — the price, the "you are N short", the bag being
+   * full — rolls the stat panel away first and rolls it back after, because the message box is 200 design px tall
+   * and a tall panel would otherwise be half-covered by it (and a half-covered number is worse than none).
+   */
+  const tell = async (markup, o = {}) => { await panel(false); await R.say(markup, o); };
+  const heard = async () => { await R.hush(); if (R.alive) await panel(true); };
 
   while (R.alive) {
     const pick = await list.choose();
@@ -403,16 +415,16 @@ async function buyFlow(R) {
     const price = pick.data.price;
     if (gold() < price) {
       guard('buzz', () => Sfx.play('buzzer', { vol: 0.6 }));
-      await R.say(words(c.lines.poor, { N: price - gold(), ITEM: it.name }));
-      await R.hush();
+      await tell(words(c.lines.poor, { N: price - gold(), ITEM: it.name }));
+      await heard();
       continue;
     }
-    if (bagFull() && !have(it.id)) { await R.say(words(SHOP_WORDS.full)); await R.hush(); continue; }
+    if (bagFull() && !have(it.id)) { await tell(words(SHOP_WORDS.full)); await heard(); continue; }
 
-    await R.say(words(c.lines.ask || SHOP_WORDS.ask, { ITEM: it.name, N: price }), { wait: false });
-    const yes = await ask({ yes: "I'll take it!", no: 'Maybe not' });
+    await tell(words(c.lines.ask || SHOP_WORDS.ask, { ITEM: it.name, N: price }), { wait: false });
+    const yes = await R.yesNo({ yes: "I'll take it!", no: 'Maybe not' });
     if (!R.alive) return;
-    if (!yes) { await R.hush(); continue; }
+    if (!yes) { await heard(); continue; }
 
     await R.pay(price);
     bagAdd(it.id, 1);
@@ -420,9 +432,12 @@ async function buyFlow(R) {
     await R.say(words(c.lines.buy, { N: price, ITEM: it.name }));
     if (!R.alive) return;
     await R.hush();
-    if (it.slot) await equipOnBuy(R, it, { onWorn: () => refresh(pick.id), ask, panel });
+    // The panel stays away for the whole "shall he put it on / and I'll take the old one" exchange: those
+    // windows stand exactly where it does.
+    if (it.slot) await equipOnBuy(R, it, { onWorn: () => refresh(pick.id), ask: (o) => R.yesNo(o), panel: null });
     if (!R.alive) return;
     refresh(pick.id);
+    await panel(true);
   }
   await R.closeWin(list);
   await R.closeWin(preview);
@@ -618,7 +633,9 @@ async function sleep(R) {
   try {
     veil = guard('veil', () => { const el = document.createElement('div'); el.className = 'dq-shop-night'; UI.layer.appendChild(el); return el; }, null);
     await R.hush();
-    if (veil) await fadeEl(veil, 0, 1, 0.6);
+    // 0.94, not 1: the town stays as a dark silhouette behind the beds, which reads as NIGHT. A frame faded all
+    // the way to flat black reads as a broken frame instead, and that is the worst thing this piece could show.
+    if (veil) await fadeEl(veil, 0, 0.94, 0.6);
     if (!R.alive) return;
     // The screen is dark, but it is never EMPTY: one little window glows in the middle with everyone in bed.
     beds = R.mkWin({ id: 's-beds', centerX: true, centerY: true, minWidth: 460, zIndex: 20, origin: '50% 50%',
@@ -636,7 +653,7 @@ async function sleep(R) {
     await UI.wait(1.6);
     await R.closeWin(beds);
     beds = null;
-    if (veil) await fadeEl(veil, 1, 0, 0.7);
+    if (veil) await fadeEl(veil, 0.94, 0, 0.7);
   } finally {
     if (veil) guard('veil out', () => veil.remove());
     Debug.busy('shop.night', false);
@@ -779,6 +796,7 @@ function describe() {
   const inst = currentScene();
   out.windows = inst && inst.runtime ? inst.runtime.fitReport() : [];
   out.offscreen = out.windows.filter((w) => w.over > 0 || w.spill > 0).map((w) => w.id);
+  out.covered = out.windows.filter((w) => w.covered > 0).map((w) => w.id);
   return out;
 }
 
@@ -814,6 +832,10 @@ export function registerShop() {
   Debug.provide('shop', describe);
   Debug.expose('shop', (id) => {
     if (id == null) return { counters: Shops.ids(), npcs: Shops.npcs() };
+    // Say so when it did NOT open: a critic who is told "opening" while the last counter is still up chases
+    // ghosts for the rest of the run.
+    if (describe().open) return { ok: false, reason: 'a counter is already open', id: G.id, stage: G.stage };
+    if (!Shops.get(typeof id === 'string' ? id : (id && id.id))) return { ok: false, reason: 'no counter "' + id + '"', counters: Shops.ids() };
     Shop.open(id);
     return { ok: true, opening: typeof id === 'string' ? id : (id && id.id) };
   });
@@ -821,19 +843,27 @@ export function registerShop() {
    * Walk the cursor to an entry and confirm — the same path a child's thumb takes. A keeper's line that is still
    * up is read first (confirm), exactly as a child would, so a critic can name an entry and get it.
    */
-  Debug.expose('shopPick', async (idOrLabel, tries = 10) => {
+  Debug.expose('shopPick', async (idOrLabel, tries = 12) => {
     if (!describe().open) return { ok: false, reason: 'no counter open' };
+    // Is the keeper still mid-sentence? A message box waiting for "go on" can be up while a LIST still holds the
+    // keyboard focus, so a child's next press reads the line rather than picking anything — and so must this.
+    // Only a line the flow is WAITING on counts (wait !== false, not finished). A patter — the greeting, "have a
+    // good long look" — is `wait: false` and must never be pressed at: the focused window then is the menu, and a
+    // blind confirm would buy whatever the cursor happened to be sitting on.
+    const saying = () => guard('saying', () => UI.all().some((w) => w && w.id === 's-say'
+      && w.state !== 'closed' && w.state !== 'closing' && w.finished === false
+      && !(w.sayOpts && w.sayOpts.wait === false)), false);
     let seen = null;
     for (let k = 0; k < tries; k++) {
       const w = UI.focused;
       if (w && Array.isArray(w.items)) {
         seen = w.items.map((it) => it && it.id);
         const i = w.items.findIndex((it) => it && (it.id === idOrLabel || it.label === idOrLabel || String(it.id) === String(idOrLabel)));
-        if (i >= 0) { w.setIndex(i); await UI.wait(0.08); UI.input('confirm'); return { ok: true, picked: idOrLabel, from: w.id }; }
-        return { ok: false, reason: 'no entry "' + idOrLabel + '"', window: w.id, items: seen };
+        if (i >= 0 && !saying()) { w.setIndex(i); await UI.wait(0.08); UI.input('confirm'); return { ok: true, picked: idOrLabel, from: w.id }; }
+        if (!saying()) return { ok: false, reason: 'no entry "' + idOrLabel + '"', window: w.id, items: seen };
       }
       UI.input('confirm');                                  // a line of the keeper's is up: read it and carry on
-      await UI.wait(0.16);
+      await UI.wait(0.18);
       if (!describe().open) return { ok: false, reason: 'the counter closed', items: seen };
     }
     return { ok: false, reason: 'nothing to pick', items: seen };
@@ -851,6 +881,26 @@ export function registerShop() {
       if (n <= 0) break;
     }
     return { ok: true, stage: G.stage, open: describe().open };
+  });
+  /**
+   * Walk up to the person behind a counter and talk, exactly as a child does: the keeper says their line in the
+   * field, the child presses confirm until the conversation ends, and the counter opens itself. Resolves once it
+   * is open, so a critic never has to guess how many presses a line of dialogue takes.
+   */
+  Debug.expose('shopTalk', async (npcId, tries = 12) => {
+    const counter = Shops.forNpc(npcId) || Shops.get(npcId);
+    if (!counter) return { ok: false, reason: 'nobody keeps a counter called "' + npcId + '"', npcs: Shops.npcs() };
+    if (describe().open) return { ok: false, reason: 'a counter is already open', id: G.id };
+    const N = counter.kind === 'inn' ? innPrice({ level: partyLevel(), size: Math.max(1, party().filter((m) => m && m.kind !== 'monster').length) }) : 0;
+    const line = words(counter.lines && counter.lines.greet ? counter.lines.greet : 'Hello there.', { N });
+    const Q = typeof window !== 'undefined' ? window.__DQ : null;
+    if (Q && typeof Q.say === 'function') {
+      guard('shopTalk say', () => Q.say([line], { npc: counter.npc || npcId, name: counter.keeper || counter.priest || null, voice: counter.voice }));
+    } else {
+      guard('shopTalk bus', () => Bus.emit('dialogue.end', { npc: counter.npc || npcId }));
+    }
+    for (let k = 0; k < tries && !describe().open; k++) { UI.input('confirm'); await UI.wait(0.28); }
+    return { ok: describe().open, id: G.id, kind: G.kind, keeper: counter.keeper || counter.priest || null, said: line };
   });
   /** The blunt one: shut the counter now (a critic resetting between beats). Play never needs it. */
   Debug.expose('shopClose', () => {
