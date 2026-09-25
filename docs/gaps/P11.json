@@ -56,6 +56,21 @@
       "state": "open",
       "opened": "2026-09-18T03:02:59.345Z",
       "events": []
+    },
+    {
+      "n": 5,
+      "title": "three cobwell npcs layer files are missing and 404",
+      "detail": "src/world/maps/index.js lists cobwell_upper, cobwell_cellar and cobwell_belfry, so Maps.loadAll imports src/world/maps/cobwell_upper.npcs.js, cobwell_cellar.npcs.js and cobwell_belfry.npcs.js. None exist, the server answers 404, and every page in the project logs 3 console errors plus 3 __DQ.errors at boot, which makes tools/shoot.mjs exit non-zero for EVERY piece. Measured 2026-09-18 in /index.html: 6 console 404s, 0 other errors. An empty export default {} closes it; the people and words can come later. See also P23 gap 12 and P30.",
+      "state": "verified-fixed",
+      "opened": "2026-09-18T04:16:26.543Z",
+      "events": [
+        {
+          "at": "2026-09-18T04:20:45.836Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Their owner landed the files while P01 was building. Measured 2026-09-18 in the running build: node tools/shoot.mjs on /index.html and /demos/P01.html both exit 0 with 0 console errors, 0 page errors, 0 failed requests (was 21 console 404s)."
+        }
+      ]
     }
   ]
 }

@@ -5,13 +5,19 @@
       "n": 1,
       "title": "On the little map you cannot find yourself",
       "detail": "Every mark on the plan was authored in canvas pixels while the canvas is drawn at 2x the design size, so everything came out half the size intended: the you arrow was 15 canvas px = 7.5 design px tall (smaller than a full stop), people were 2.2 canvas px = 1.1 design px specks, treasure the same. Zoomed in on the screenshot, the white arrow is a scratch and the people are invisible. Fix: draw every mark in DESIGN px times one scale factor K, make the arrow about 15 design px with a halo and an ink outline, make people and treasure about 3.5-4 design px with an ink ring, and give the ways out a gold gate of at least 9 design px with an edge.",
-      "state": "claimed-fixed",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:35:25.543Z",
       "events": [
         {
           "at": "2026-09-18T01:35:58.187Z",
           "by": "builder",
           "note": "Every mark is now authored in design px and multiplied once by K = canvas width / MAP_PX. The you arrow is 15 design px tall (2x what it was) with a white radial halo of 18.75 design px and a 2.6 px ink outline; people are 3.6 design px with a 1.7 px ring and are painted in ui.textDim so they never read as you; treasure is 4.2 design px gold with a bright centre; the ways out are gold gates of at least 9 design px with an ink edge. __DQ.state().hud.map.marks now reports {you:15, folk, treasure, ways} and both scenarios assert marks.you >= 12 and folk > 0 and ways > 0 (the meadow reports folk 15, ways 3). Checked by cropping the plan out of the frame at 3x: before, the arrow was a scratch; after, it reads at a glance."
+        },
+        {
+          "at": "2026-09-18T04:18:44.874Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Read the pixels straight off .hud-mapcanvas in /index.html: canvas 496x496 shown at 248 css px, so the scale is 0.5. The white 'you' chevron measures 15.0 css px tall by 12.5 wide - a hand-sized mark, not the 7.5 px scratch this gap describes - and its white centroid moved from [247,385] to a new place after holding ArrowDown for 1.1 s, so it follows the child. Legend marks for people, treasure and ways out are all legible in shots probe3/01-A."
         }
       ]
     },
@@ -19,13 +25,19 @@
       "n": 2,
       "title": "The place card and the quest ribbon land on top of each other",
       "detail": "Arriving somewhere puts a centred place card at the top of the screen and a quest ribbon at the top left. With a long place name the two overlap: in the shot the ribbon Follow the lane to Puddlewick covers the P of Puddlewick Vale. Fix: one thing at a time along the top - showing a card dismisses the ribbon and showing a ribbon dismisses the card, and on map.enter the ribbon waits until the card has had its moment and gone.",
-      "state": "claimed-fixed",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:35:25.578Z",
       "events": [
         {
           "at": "2026-09-18T01:35:58.226Z",
           "by": "builder",
           "note": "showCard closes any live ribbon and showRibbon closes any live card, and on map.enter the ribbon is scheduled for CARD_HOLD + 0.45 s and only shows if the card has already gone. Verified with assertions in both scenarios: after __DQ.hudCard() the state has a card and hud.ribbon is null; after __DQ.hudRibbon() the state has a ribbon and hud.card is null. Screenshots 01-place-card and 01b-what-to-do-next show each alone, against shots/P13-r0/01 where the ribbon covered the P of Puddlewick Vale."
+        },
+        {
+          "at": "2026-09-18T04:18:44.915Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Three crossings in the real game (meadow -> puddlewick -> hollybank -> puddlewick) plus a forced collision. Pairwise overlap of every open window was 0 every time. Forcing hudCard then hudRibbon 200 ms apart left card null and only the ribbon up. With the map unrolled and a card showing together: hud-map 968..1254 x 26..394 and hud-card 424..856 x 34..155, no overlap."
         }
       ]
     },
@@ -33,13 +45,19 @@
       "n": 3,
       "title": "The plan reads as a flat grey-green thumbnail, not a painted map",
       "detail": "The minimap ground was baked at one sample per world tile (64 for the meadow) and drawn with smoothing off, painted in unlifted palette colours with a flat stone tint over everything solid, and had no compass and no legend. It read as a programmer thumbnail next to the approved look. Fix: 1.6 samples per tile, smooth upscale, ground colours lifted towards the window light, solid ground painted as the same ground in shade, an N in the corner, and a small legend under the plan saying what the four marks mean.",
-      "state": "claimed-fixed",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:35:25.612Z",
       "events": [
         {
           "at": "2026-09-18T01:35:58.268Z",
           "by": "builder",
           "note": "The bake is now 1.6 samples per world tile (the meadow went from 64 to 128 a side, reported as hud.map.tiles), upscaled with smoothing on; ground colours are lifted 16 per cent towards the window light; solid ground is the same colour mixed 38 per cent to shadow, so trees and walls read as shade rather than a flat grey slab; an N sits in the top right of the plan; and a two-line legend under it says you, people, treasure, a way out with the matching glyph colours. The plan is 248 design px (was 232). Verified by eye at 2.6x and 3x crops of shots/P13-r4 and shots/P13-idx2 against the before crop of shots/P13-r0."
+        },
+        {
+          "at": "2026-09-18T04:18:57.246Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Counted the colours on the canvas myself: 274 distinct 4-bit colour buckets over a 100 per cent painted 496x496 canvas, baked at 128 samples for the 64-tile meadow (state().hud.map.tiles 128, and 102 for puddlewick). Looked at shots probe3/01-A: painted green ground, a blue stream, dirt tracks that read as tracks, a compass N and a four-item legend. It is a painted plan, not a programmer thumbnail. Weakest point left: the cottages are not drawn, so there are no landmarks to steer by."
         }
       ]
     },
@@ -47,16 +65,48 @@
       "n": 4,
       "title": "the interaction prompt says 'the the'",
       "detail": "src/ui/hud.js line 343 builds the prompt as 'Look at the ' plus the object name, but map object names already carry their article ('the low wall', 'the inn door'), so the HUD reads 'Look at the the low wall'. Seen in shots/P22-game-r3/12-12-still-walking.png in Puddlewick. Either strip a leading 'the ' from the name or drop it from the template.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:42:53.692Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-18T03:52:17.192Z",
+          "by": "builder",
+          "note": "verbFor now strips a leading the/a/an from the object name before the template, so a prop called the low wall reads Look at the low wall. Asserted in the real game: the prompt never matches / the the /. Measured prompt in /index.html was Talk to Nib Tolley; shots/P13-game-r10/02 shows the pill. 0 console errors, 0 __DQ errors."
+        },
+        {
+          "at": "2026-09-18T04:18:57.285Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Watched state().hud.prompt on a 120 ms timer while walking eight directions across the meadow and Puddlewick (66 interactables, 26 npcs, 28 props in range). Collected prompts: 'Read the sign', 'Look at the wagon', 'Talk to Halvard', 'Talk to Bobble'. Zero matches for / the the /. verbFor now strips a leading the/a/an before the template."
+        }
+      ]
     },
     {
       "n": 5,
       "title": "the HUD ribbon has its own quest table instead of the story's",
       "detail": "src/ui/hud.js keeps a hard-coded QUESTS array. P26 now publishes the single authority at __DQ.state().quest = {id, beat, act, title, hint, map, mapName} (src/story/quests.js, one entry per CANON section 4 beat, all 28). The ribbon should prefer that hint when it is present and fall back to its own table when the story module is missing, so the sentence a child reads and the beat that is actually next can never disagree.",
-      "state": "open",
+      "state": "still-open",
       "opened": "2026-09-18T03:02:59.306Z",
+      "events": [
+        {
+          "at": "2026-09-18T03:52:17.303Z",
+          "by": "builder",
+          "note": "The ribbon now prefers the ONE authority: it reads __DQ.state().quest.hint (P26 src/story/quests.js) first and only falls back to its own table when no story module is installed, and it re-shows on quest.change as well as flag.set. Measured in /index.html: hud.nextStep is Take Papa his boots. Search things on the way. and hud.nextStepFrom is story (B1), word for word equal to state().quest.hint; in the demo with no story module nextStepFrom is hud table. shots/P13-game-r10/02-02-ribbon-and-map.png."
+        },
+        {
+          "at": "2026-09-18T04:18:57.323Z",
+          "by": "critic",
+          "pass": false,
+          "note": "nextStepFrom says 'story (B1)' but the sentence is NOT the story's sentence - it is the sentence for the map you just left, every time. Measured twice in /index.html: on the meadow the ribbon read 'Go home to Hollybank Cottage and take Papa his boots.' while state().quest.hint read 'Walk up the lane into Puddlewick. Home is the cottage on the green.'; 2.2 s after arriving in Puddlewick the ribbon read 'Walk up the lane into Puddlewick...' while quest.hint read 'Home is Hollybank Cottage, the door on the green. Papa wants his boots.' Cause: Bus.on('map.enter') calls ribbonFor() while Field is still on the old map, caches the answer in S.ribbonText and shows it 3.45 s later; nextStep reports the cache. Fix: call ribbonFor() inside the setTimeout, at the moment the ribbon is shown."
+        }
+      ]
+    },
+    {
+      "n": 6,
+      "title": "The plan marks eleven identical ways out and never the one the hint is talking about",
+      "detail": "src/ui/hud.js. P32-s job in PIECES.md is -where do I go- clarity, and the plan and the ribbon do not agree with each other.\n\nMEASURED in /index.html, standing in Puddlewick with M pressed: state().hud.map.marks = {you 15, folk 26, treasure 12, ways 11}. Eleven ways out, every one drawn as the same small yellow square, and the legend has one entry for all eleven: -a way out-. The buildings are painted as dark grey-green patches with no names. Meanwhile the ribbon reads -Home is Hollybank Cottage, the door on the green.- See shots/P13-critic-e1/54-the-puddlewick-plan.png: a six-year-old is told to find a cottage door and handed a plan with eleven indistinguishable doors on it and no names anywhere.\n\nThe plan currently answers -what is near me-. A child needs it to answer -which one do I walk to-. Everything needed is already in hand: state().quest publishes {map, mapName, hint} for the beat, and the map-s exits each know where they lead.\n\nFIX: draw the exit whose target is state().quest.map differently and unmistakably - a larger gold marker with a soft pulse and the place-s name (mapName) lettered beside it on the plan - and add -where you are going- to the legend as a fifth entry. When the beat-s destination is not an exit of this map, mark the way out that leads towards it. Also letter the two or three landmarks a child steers by (the inn, the church, the shop) rather than leaving every building an anonymous patch. Assert it: with a quest whose map differs from the current one, exactly one mark on the plan is the destination mark, and it sits on the exit that leads there.",
+      "state": "open",
+      "opened": "2026-09-18T04:21:38.467Z",
       "events": []
     }
   ]

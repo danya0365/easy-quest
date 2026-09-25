@@ -6,9 +6,11 @@
  *
  *   1. PLACE CARD.  Arrive anywhere and a DQ window slides down from the top with the name of the place and one
  *      warm line about it, holds for a breath, and goes. Never twice for the same place inside a minute.
- *   2. THE RIBBON.  One slim line, low on the left: what a six-year-old should do next, read off the story flags
- *      (CANON §4) and the map you are standing on. It comes in behind the place card and fades out; the Map
- *      button brings it back whenever you have forgotten.
+ *   2. THE RIBBON.  One slim line, low on the left: what a six-year-old should do next, taken from the ONE
+ *      authority on that — P26's src/story/quests.js at __DQ.state().quest.hint, one entry per CANON §4 beat —
+ *      with a small table of its own only as the fallback for a build with no story module. It comes in behind
+ *      the place card and fades out; the Map button brings it back whenever you have forgotten, and it comes
+ *      back by itself the moment the story turns ('quest.change').
  *   3. THE MAP.  Press Map (M / the touch ⛶) and a little painted plan of the place unrolls top right: the
  *      ground as it really is with the trees and walls in shade, the ways out as gold gates, people as pale
  *      blue dots, treasure as gold ones, an N in the corner, and YOU as a big white arrow on a soft halo that
@@ -22,7 +24,9 @@
  * ONE THING AT A TIME along the top of the screen: showing a card dismisses the ribbon and showing a ribbon
  * dismisses the card, so the two can never land on top of each other.
  *
- * __DQ: state().hud = {shown, card, ribbon, map:{open, of, tiles, px, marks:{you, folk, treasure, ways}}, prompt, hidden};
+ * __DQ: state().hud = {shown, card, ribbon, nextStep, nextStepFrom, prompt, hidden,
+ *                       map:{open, of, tiles, px, marks:{you, folk, treasure, ways}}};   nextStepFrom says whether
+ *       the sentence came from the story ('story (beat)') or from the fallback table, so a critic can prove it;
  *       __DQ.hudCard('Puddlewick'), __DQ.hudRibbon(), __DQ.minimap(true|false), __DQ.hudShow(false).
  *
  * PLUGIN: main.js imports this file once and calls install(ctx) — so it is live in /index.html with no
@@ -119,7 +123,7 @@ export function install(ctx = {}) {
     card: null, cardT: 0, cardName: null, seen: new Map(),
     ribbon: null, ribbonT: 0, ribbonText: null,
     map: null, mapCanvas: null, mapBaked: null, mapBakedFor: null, mapOpen: false, mapT: 0,
-    prompt: null, promptName: null,
+    prompt: null, promptName: null, questFrom: null,
     hidden: false, forced: false, off: null, mapId: null, mapName: null,
   };
 
@@ -157,9 +161,19 @@ export function install(ctx = {}) {
   }
 
   // ── 2. the ribbon ───────────────────────────────────────────────────────────────────────────────────────
+  /**
+   * What a child should do next. P26 publishes the ONE authority — src/story/quests.js, one entry per CANON §4
+   * beat, live at __DQ.state().quest.hint — so the sentence on the ribbon is the beat the story is actually on.
+   * The little table below is only the fallback for a build with no story module (the demo, an isolated page).
+   */
   function ribbonFor() {
+    try {
+      const q = window.__DQ && window.__DQ.state && window.__DQ.state().quest;
+      if (q && q.hint) { S.questFrom = 'story (' + (q.beat || q.id || 'beat') + ')'; return String(q.hint); }
+    } catch (_) { /* no story module in this build: fall back to our own table */ }
     const f = flags();
-    for (const q of QUESTS) { try { if (q.when(f, S.mapId)) return q.text; } catch (_) {} }
+    for (const q of QUESTS) { try { if (q.when(f, S.mapId)) { S.questFrom = 'hud table'; return q.text; } } catch (_) {} }
+    S.questFrom = DEFAULT_RIBBON[S.mapId] ? 'hud default' : null;
     return DEFAULT_RIBBON[S.mapId] || null;
   }
   function showRibbon(text, hold = RIBBON_HOLD) {
@@ -340,7 +354,9 @@ export function install(ctx = {}) {
     if (/pot|barrel|drawer|wardrobe|shelf|sack|crate|basket|urn/.test(type)) return 'Search it';
     if (/well/.test(type)) return 'Look down the well';
     if (/bed/.test(type)) return 'Have a lie down';
-    if (name) return `Look at the ${name}`;
+    // Map object names carry their own article ('the low wall', 'an old pot'), so the template must not add a
+    // second one — that is what used to read 'Look at the the low wall'.
+    if (name) return `Look at the ${String(name).replace(/^\s*(?:the|an|a)\s+/i, '')}`;
     return 'Have a look';
   }
 
@@ -424,11 +440,13 @@ export function install(ctx = {}) {
       if (words) { S.ribbonText = words; setTimeout(() => { try { if (!S.hidden && S.cardT <= 0) showRibbon(words); } catch (_) {} }, (CARD_HOLD + 0.45) * 1000); }
     } catch (e) { oops('hud map.enter', e); }
   });
-  Bus.on('flag.set', () => {
+  // The story turning is exactly when a child needs telling where to go next: P26 emits 'quest.change' when the
+  // beat moves on, and a flag going down is the older, coarser signal for the same thing.
+  for (const ev of ['flag.set', 'quest.change']) Bus.on(ev, () => {
     try {
       const words = ribbonFor();
       if (words && words !== S.ribbonText && !S.hidden && onField()) showRibbon(words);
-    } catch (e) { oops('hud flag.set', e); }
+    } catch (e) { oops('hud ' + ev, e); }
   });
   for (const ev of ['dialogue.start', 'menu.open', 'battle.start', 'shop.open']) Bus.on(ev, () => { if (!S.forced) hideAll(ev); });
 
@@ -447,7 +465,7 @@ export function install(ctx = {}) {
     shown: !S.hidden && !S.forced,
     card: S.card && !S.card.destroyed && S.card.state !== 'closed' ? { name: S.cardName, left: Math.max(0, +S.cardT.toFixed(2)) } : null,
     ribbon: S.ribbon && !S.ribbon.destroyed && S.ribbon.state !== 'closed' ? { text: S.ribbonText, left: Math.max(0, +S.ribbonT.toFixed(2)) } : null,
-    nextStep: S.ribbonText,
+    nextStep: S.ribbonText, nextStepFrom: S.questFrom || null,
     map: (() => {
       let w = null; try { w = Field.world && Field.world(); } catch (_) {}
       const m = (w && w.map) || null;

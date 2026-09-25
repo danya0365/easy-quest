@@ -14,6 +14,14 @@
           "note": "src/world/encounter.js: SAFE_RADIUS 12 -> 5 (a door apron round an exit / church / save point) and 4 round the spawn point, so the walkable meadow is never covered; arrival grace 80 -> 26 paces; escalation capped at +18 instead of +30 and max clamped to mode+10 (min and mode used to climb PAST max, which made the triangular draw degenerate after five fights on one map). state() now names the reason nothing is happening: safeRadius, armed, and held ('grace' | 'armed: waiting to leave the doorstep' | 'firing' | 'no encounters here' | 'busy') — the arm-and-fire rule (finish the counter inside an apron and the fight goes off on the first pace outside) is now observable instead of invisible. Measured in /index.html with no cheats, holding the arrow keys: first fight of a session at 13.2s and again at 14.5s of walking (critic measured 25.1s); two fights in 90s of continuous walking, ending grace 4, inSafeZone false, held null, armed false (critic measured ONE fight in 182.4s, ending paces 73.4 / threshold 57 / stepsToNext 0 / grace 0 / inSafeZone true — pegged for over a minute). scenarios/P15.json asserts grace 20..30 and safeRadius <= 6; scenarios/P15-index.json asserts the counter is never left armed inside an apron. Both exit 0."
         }
       ]
+    },
+    {
+      "n": 2,
+      "title": "areas.js kits three people in Gleaming Plate at leg 10, and the wild gold does not match the new leg payouts",
+      "detail": "Two numbers in tests/battle/areas.js and tests/battle/data.js do not add up against the shop. (1) Under a household hand-me-down model (Economy.audit in src/data/shops.js: a piece somebody has outgrown is passed down free, only what nobody will wear again is handed over at 75 percent) the assumed parties cost 34,978 G of fresh kit, and 17,900 G of that lands in leg 10 alone because quiet_deep puts three characters in Gleaming Plate at 3,200 G each plus Thunderfork and Dragon-scale Shield. P22 has raised the SYSTEMS section 5 leg payouts to cover it (battle gold 16,968 to 24,000, chest gold 6,955 to 13,140, every leg now ends with 37 to 500 percent slack, 9,543 G left at the end) but the honest fix is that a family shares one best set, not three. (2) Those payouts are only a plan until the per-species gold in tests/battle/data.js and balance-wild.js averages the leg gold column: 6, 12, 22, 36, 56, 90, 160, 240, 360, 500 G per fight, with the per-fight spread from goldBand(leg) in src/data/shops.js (plus or minus 30 percent).",
+      "state": "open",
+      "opened": "2026-09-18T04:02:16.135Z",
+      "events": []
     }
   ]
 }

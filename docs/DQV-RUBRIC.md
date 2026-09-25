@@ -152,8 +152,9 @@ on to the missing features, so the whole game exists end to end.** Polishing to 
 is complete.
 
 What this changes:
-- **A piece is DONE FOR NOW at 70** (65 is acceptable if it is stable and nothing is broken). Do not keep
-  iterating past that; say so and stop.
+- **A piece PASSES ROUND ONE AT 65** (owner, 2026-09-18 10:30: "anything that reaches 65 has passed round one,
+  because the purpose of round one is that the game does every feature"). Do not keep iterating past 65 — say
+  it passed and stop. Polishing starts only once EVERY piece is at 65 and the whole game exists.
 - **Critics:** score as harshly as ever, and keep filing gaps to the ledger — the ledger is the to-do list for
   the later polish wave. But when a piece is at 70+ with nothing BROKEN, say "good enough for now" plainly.
   The score cap rule (no more than 80 with gaps open) still applies; it just no longer matters at this stage.

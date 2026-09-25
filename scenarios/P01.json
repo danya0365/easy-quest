@@ -1,0 +1,230 @@
+{
+ "name": "P01 title screen and intro",
+ "steps": [
+  {
+   "waitFor": "window.__DQ && __DQ.ready",
+   "timeout": 60000
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "note": "the attract sweep: logo, Press Enter, golden hour over Puddlewick Vale"
+  },
+  {
+   "shot": "01-title-sweep"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().title)"
+  },
+  {
+   "wait": 2600
+  },
+  {
+   "shot": "02-sweep-later"
+  },
+  {
+   "eval": "__DQ.title('sweep')"
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "note": "the DQ command window: A New Tale / Carry On / Settings"
+  },
+  {
+   "shot": "03-menu"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().title)"
+  },
+  {
+   "press": "ArrowDown",
+   "times": 2,
+   "delay": 200
+  },
+  {
+   "wait": 500
+  },
+  {
+   "shot": "04-menu-settings"
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "note": "Settings: confirm cycles a value, cancel goes back"
+  },
+  {
+   "shot": "05-settings"
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "wait": 450
+  },
+  {
+   "shot": "06-settings-changed"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().title.settings)"
+  },
+  {
+   "press": "Escape"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "JSON.stringify({phase: __DQ.state().title.phase, widgets: __DQ.state().title.widgets})"
+  },
+  {
+   "eval": "__DQ.title('naming')"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "note": "the letter grid, default Bram"
+  },
+  {
+   "shot": "07-naming"
+  },
+  {
+   "press": "ArrowUp",
+   "times": 2,
+   "delay": 180
+  },
+  {
+   "wait": 400
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "shot": "08-naming-typed"
+  },
+  {
+   "eval": "JSON.stringify({name: __DQ.state().title.name, phase: __DQ.state().title.phase})"
+  },
+  {
+   "eval": "__DQ.titleName('Bram')"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "eval": "__DQ.title('intro')"
+  },
+  {
+   "wait": 2600
+  },
+  {
+   "note": "the storybook intro over the vale, skippable"
+  },
+  {
+   "shot": "09-intro"
+  },
+  {
+   "press": "Enter",
+   "times": 8,
+   "delay": 700
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "shot": "10-intro-later"
+  },
+  {
+   "eval": "JSON.stringify({phase: __DQ.state().title.phase, scene: __DQ.state().scene})"
+  },
+  {
+   "press": "Escape"
+  },
+  {
+   "wait": 5200
+  },
+  {
+   "note": "the white fade lands in the real field on the meadow"
+  },
+  {
+   "eval": "JSON.stringify({scene: __DQ.state().scene, map: __DQ.state().map && __DQ.state().map.id, party: __DQ.state().party})"
+  },
+  {
+   "shot": "11-in-the-game"
+  },
+  {
+   "eval": "__DQ.toTitle()"
+  },
+  {
+   "wait": 3400
+  },
+  {
+   "note": "and back to the title from inside the game"
+  },
+  {
+   "shot": "12-back-at-the-title"
+  },
+  {
+   "eval": "JSON.stringify({scene: __DQ.state().scene, title: __DQ.state().title.phase, fps: __DQ.state().fps})"
+  },
+  {
+   "note": "Carry On: the autosave the field wrote on map.enter is offered by name, level and place"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().title.slots)"
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "shot": "13-menu-with-a-save"
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "shot": "14-carry-on-slots"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.state().ui.windows.map(w=>w.id))"
+  },
+  {
+   "press": "Enter"
+  },
+  {
+   "wait": 5200
+  },
+  {
+   "eval": "JSON.stringify({scene:__DQ.state().scene, map:__DQ.state().map && __DQ.state().map.id, hero:__DQ.state().party && __DQ.state().party[0] && __DQ.state().party[0].name})"
+  },
+  {
+   "shot": "15-carried-on"
+  },
+  {
+   "assert": "__DQ.errors.filter(e=>!/src\\/world\\/maps/.test(e)).length===0",
+   "msg": "no runtime errors from P01 (map-layer 404s belong to P23's maps/index.js)"
+  },
+  {
+   "assert": "__DQ.state().scene==='field'",
+   "msg": "Carry On lands in the field"
+  }
+ ]
+}

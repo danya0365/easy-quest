@@ -1,0 +1,13 @@
+{
+  "id": "F4",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "Bigger words pushes the menu off the screen: --u scales the design frame instead of reflowing it",
+      "detail": "FILED AGAINST F4 because the fix is src/ui/window.js line 219, which P13 and P32 may not edit. This is the ROOT CAUSE of P13 gap #5 coming back, and it is the accessibility setting, so the children who need it most are the ones it breaks.\n\nWHAT I MEASURED in /index.html, raw getBoundingClientRect against a 1280x720 viewport, not design px:\n  Misc, Bigger words = Normal (u 1.00): every window offScreen 0. m-misc bottom 620, m-blurb top 635, 15 px of clear air. Perfect.\n  Misc, Bigger words = Bigger (u 1.12): m-blurb runs 107 css px off the RIGHT edge, and overlaps m-misc by 642x60 design px. m-code runs 56 px off the bottom.\n  Misc, Bigger words = Biggest (u 1.26): m-blurb 280 css px off the right; m-misc 61 css px off the bottom, so the gold row -The tale-s secret code- is sliced in half by the screen edge and the line that explains the highlighted setting is not on the screen at all. See shots/P13-critic-e1/55-misc-at-biggest-words.png and 37-37-bigger-words.png.\n\nWHY. ui.css says every size is written in DESIGN PIXELS of a 1280x720 frame, and window.js sets --u = min(W/1280, H/720) * textScale. Multiplying the unit by the text scale does not make the words bigger inside the frame - it makes the FRAME bigger than the screen. The usable design frame collapses from 1280x720 to 1143x643 at 1.12 and 1016x571 at 1.26, while every window keeps its authored 1280x720 coordinates. Anything anchored left/top with a fixed width leaves the screen; only the right- and bottom-anchored windows survive (P32-s HUD does: I measured hud-map, hud-ribbon and hud-prompt all offScreen 0 at u 1.26).\n\nFIX, one of:\n (a) Keep --u at min(W/1280, H/720) for LAYOUT and scale only font-size by the text scale, so bigger words means fewer rows per window, not a bigger frame; or\n (b) publish the usable frame (W/u x H/u) and have the window widget clamp left/top/width/bottom into it, so a window authored at left 348 width 890 shrinks or slides instead of walking off the edge.\nEither way, assert it: no open window may have a rect outside the viewport at any of the three text scales.",
+      "state": "open",
+      "opened": "2026-09-18T04:21:11.152Z",
+      "events": []
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>P01 — title screen &amp; intro</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#0a1020}
+#game-canvas{display:block;width:100vw;height:100vh}#ui-root{position:fixed;inset:0;pointer-events:none}</style>
+</head><body>
+<canvas id="game-canvas"></canvas><div id="ui-root"></div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// DEMO — P01: the title screen, end to end. A slow golden-hour camera over the real Puddlewick Vale, our own
+// code-drawn logo, the title theme, A New Tale / Carry On / Settings, the naming grid, the storybook intro, and
+// the white fade into the actual field — the same flow the real game boots into (/index.html).
+//
+// The page builds the SAME plugin ctx main.js builds, installs the field + transitions (so "A New Tale" really
+// lands in the game) and then src/ui/title.js. Controls for a critic: __DQ.title(phase), __DQ.titleName(s),
+// __DQ.toTitle(), __DQ.goto('title').
+import { App } from '/src/engine/app.js';
+import { Loop } from '/src/engine/loop.js';
+import { Scenes } from '/src/engine/states.js';
+import { Bus } from '/src/engine/events.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { Save } from '/src/engine/save.js';
+import { applyCssVars } from '/src/art/palette.js';
+import { UI } from '/src/ui/window.js';
+import { Text } from '/src/ui/text.js';
+import { Audio } from '/src/audio/audio.js';
+import { Sfx } from '/src/audio/sfx.js';
+import { Maps } from '/src/world/map.js';
+import { Field } from '/src/world/field.js';
+
+const VERSION = '0.3.0-P01-demo';
+const step = (name, fn) => { try { return fn(); } catch (e) { reportError('demo: ' + name, e); } };
+
+step('palette', () => applyCssVars());
+step('input', () => Input.init());
+step('app', () => App.start({ canvas: document.getElementById('game-canvas'), version: VERSION, beforeUpdate: Input.update }));
+Debug.busy('demo.boot', true);
+step('save', () => Save.init());
+step('audio', () => { Audio.init(); Audio.bindEvents(Bus); });
+
+// the score, loaded lazily and wired to Audio's music bus — exactly as main.js does it
+let musicPromise = null;
+const loadMusic = () => {
+  if (!musicPromise) {
+    musicPromise = import('/src/audio/music.js').then((m) => {
+      const M = m.Music || m.default;
+      M.init({ ctx: Audio.ctx, output: Audio.bus('music'), reverbSend: Audio.reverbSend, setSpace: (n, ms) => Audio.setSpace(n, ms), quality: App.quality });
+      return M;
+    }).catch((e) => { reportError('demo music', e); musicPromise = null; return null; });
+  }
+  return musicPromise;
+};
+
+const ctx = {
+  version: VERSION,
+  App, Loop, Scenes, Bus, Debug, reportError, Input, UI, Text, Save, Audio, Sfx, Field, Maps,
+  Music: loadMusic,
+  vars: { HERO: 'Bram' },
+  boot: { scene: 'field', ctx: { map: 'meadow' }, newGame: true },
+};
+
+const demo = { maps: [], plugins: {} };
+Debug.provide('demo', () => ({ piece: 'P01', maps: demo.maps.length, plugins: Object.assign({}, demo.plugins) }));
+
+const PLUGINS = [
+  ['transitions', '/src/ui/transitions.js'],
+  ['dialogue', '/src/ui/dialogue.js'],
+  ['title', '/src/ui/title.js'],
+];
+
+(async () => {
+  demo.maps = await Maps.loadAll().catch((e) => { reportError('demo maps', e); return []; });
+  step('field', () => Field.install());
+  for (const [name, path] of PLUGINS) {
+    try {
+      const m = await import(path);
+      const install = m.install || (typeof m.default === 'function' ? m.default : null);
+      if (typeof install !== 'function') { demo.plugins[name] = 'no install()'; continue; }
+      install(ctx);
+      demo.plugins[name] = 'installed';
+    } catch (e) { demo.plugins[name] = 'failed'; reportError(`demo plugin "${name}"`, e); }
+  }
+  const scene = Scenes.has(ctx.boot.scene) ? ctx.boot.scene : 'field';
+  step('first scene', () => Scenes.push(scene, ctx.boot.ctx || {}));
+  Debug.busy('demo.boot', false);
+  Bus.emit('app.booted', { scene });
+})();
+</script></body></html>

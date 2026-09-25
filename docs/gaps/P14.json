@@ -56,6 +56,14 @@
       "state": "open",
       "opened": "2026-09-18T03:03:09.478Z",
       "events": []
+    },
+    {
+      "n": 8,
+      "title": "the save summary has no hero level, so Carry On cannot show it",
+      "detail": "src/battle/scene.js registers Save 'roster' with summary: () => Roster.describe().party.map(...) - an ARRAY. src/engine/save.js summarizeBody does mergeMeta(meta, h.summary(...)), which expects an OBJECT of meta fields, so nothing merges and meta.level stays null (body.party is also an object with .party inside, not a bare array, so the generic path misses it too). Result: the title's Carry On slot list can only print the hero's name, never 'Bram Lv 7', and the rubric's save screen loses its most useful number. Fix: return an object, e.g. {hero: p0.name, level: p0.lvl, party: party.map(p=>({name:p.name,lvl:p.lvl}))}. Measured 2026-09-18 in /index.html: after entering the game and returning to the title, Save.latest() gives hero Bram, level null, party [].",
+      "state": "open",
+      "opened": "2026-09-18T04:05:24.980Z",
+      "events": []
     }
   ]
 }

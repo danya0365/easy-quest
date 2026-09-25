@@ -1,0 +1,21 @@
+{
+  "id": "P01",
+  "gaps": [
+    {
+      "n": 1,
+      "title": "The title screen is completely silent - no theme, no cursor or confirm blips",
+      "detail": "MEASURED in a cold boot of /index.html: at the title __DQ.state().audio reports theme:null, ambience:null and sfx.played:0 / sfx.last:[] across opening the menu, moving the cursor, confirming A New Tale, every letter in the naming grid, Done, and every page of the intro. For contrast, booting with ?title=0 straight into the field reports theme:overworld, ambience:amb_meadow and sfx.played:11 within one second of walking - so the audio stack works and it is the title that never makes a sound. Two separate things to fix. (1) SFX: title.js never calls the sfx layer at all. Wire a cursor blip on every ArrowUp/Down/Left/Right in the main menu, the settings list, the slot list and the naming grid; a confirm thunk on Enter; a cancel note on Escape; a soft tick per letter typed and a distinct one for Rub out; and a chime when Done is pressed. (2) THEME: startMusic() at title.js:352-361 does call ctx.Music().then(M => M.play(title, {fade:1.4})) and S.music does reach the value title, so the call is made and resolves, yet music.js reports no current and no pending theme - src/audio/score/title.js exists. Verify whether Music.play(title) is being ignored; if the engine is at fault the fix belongs to P27 and this half should be re-filed under P27. Done when, at the title, audio.theme is title and sfx.played is greater than zero after one cursor move.",
+      "state": "open",
+      "opened": "2026-09-18T04:31:56.058Z",
+      "events": []
+    },
+    {
+      "n": 2,
+      "title": "The name the child types is thrown away at the hand-off - the hero is always Bram",
+      "detail": "MEASURED in a cold boot of /index.html: rubbed Bram out in the naming grid and set the name to Zigglesworth, which the grid accepted and capped to Zigglesw. state().title.name read Zigglesw at the moment Done was pressed and all the way through the intro. The instant the hand-off lands in the field, state().party[0].name is Bram and state().title.name has reverted to Bram. The autosave written on map.enter also records hero Bram, so Carry On offers the wrong boy forever. Same failure in demos/P01.html, so it is not an integration seam. CAUSE, in P01s own file: the save hook registered at src/ui/title.js:723 has reset: () => { heroName = DEFAULT_NAME } and the intro hand-off at src/ui/title.js:670 runs Save.newGame() FIRST and only then setHeroName(heroName) - by that point the module-level heroName has already been reset to Bram, so it faithfully re-applies the default. The New Tale path at src/ui/title.js:534 calls Save.newGame() with no name restore at all. FIX: capture the chosen name into a local const before calling Save.newGame(), then setHeroName(thatLocal) after. Done when naming the boy Zigglesw and walking into the field leaves state().party[0].name as Zigglesw, the dialogue token %HERO% expands to it, and the Carry On slot card shows it.",
+      "state": "open",
+      "opened": "2026-09-18T04:32:06.695Z",
+      "events": []
+    }
+  ]
+}
