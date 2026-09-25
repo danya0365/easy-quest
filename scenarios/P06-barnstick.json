@@ -1,0 +1,11 @@
+{
+  "name": "P06 barn enter stick test",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 500 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title)return JSON.stringify(__DQ.title('game'));return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene!=='title'", "timeout": 30000 },
+    { "wait": 800 },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));__DQ.teleport('meadow');await sleep(800);const r=__DQ.teleport('int_barn');await sleep(2000);const w=(await import('/src/world/field.js')).Field.world();const ex=w.map.exits[0];const p=__DQ.state().player;return JSON.stringify({teleportMap:r.map,now:__DQ.state().map.id,spawn:w.map.spawn,player:{x:+p.x.toFixed(2),z:+p.z.toFixed(2)},exit:ex&&{x:+ex.x.toFixed(2),z:+ex.z.toFixed(2),w:ex.w,h:ex.h},inExit:!!(ex&&Math.abs(p.x-ex.x)<=ex.w/2&&Math.abs(p.z-ex.z)<=ex.h/2)});})()" }
+  ]
+}

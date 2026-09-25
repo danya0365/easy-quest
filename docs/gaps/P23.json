@@ -105,7 +105,7 @@
       "n": 6,
       "title": "Ten doors, ten promises, and nothing inside any of them",
       "detail": "Puddlewick makes a child want to go in and then refuses, ten times. puddlewick.js exposes eleven exits: ten of them are building doors with to:'hollybank', 'puddlewick_bakery', 'puddlewick_inn', 'puddlewick_shop', 'puddlewick_twins', 'puddlewick_hob', 'puddlewick_cottage', 'puddlewick_chapel', 'puddlewick_mill', 'hollybank_barn'. src/world/maps/index.js registers only { id: 'meadow' } and { id: 'puddlewick' }, and __DQ.listMaps() confirms ['meadow','puddlewick']. I stepped into all ten doors in turn (teleport onto each door spot, then walk in with real input): map.id stayed 'puddlewick' every single time, and the only thing that happens is a flavour line that actively describes the room you are being kept out of — Hollybank Cottage: 'Home. Somebody inside is singing to a kettle, and losing. / Better go in when Papa calls.'; the mill: 'Flour dust turning in the light, and the floor humming underfoot.'; the chapel: 'Cool air, candle smoke, and a bell rope.' The doors animate open and the opening behind them is a flat painted card (see P05 gap 4). WORLD-BIBLE section 3 and CANON section 2 make Hollybank Cottage map id 'hollybank', 14x12 — the emotional anchor of the entire game, with the hearth, the three chairs, the loft ladder, the bed and the chest holding the wooden sword — and it does not exist as a file. The map also reports chests: 0, so nothing in the village rewards a search either: DISCOVERY is at zero in the home village. Build, at minimum, src/world/maps/hollybank.js (+ hollybank.npcs.js) as a real interior the door exit lands in, with a door exit back out that returns you to Hollybank's doorstep, and wire one more (the inn or the shop) so that a child learns that doors in this world are real. Then either give the other eight doors interiors or replace their exits with a line that does not promise an inside.",
-      "state": "still-open",
+      "state": "claimed-fixed",
       "opened": "2026-09-17T23:29:34.002Z",
       "events": [
         {
@@ -118,6 +118,11 @@
           "by": "critic",
           "pass": false,
           "note": "PART ONE DONE, PART TWO UNTOUCHED. What is real: __DQ.listMaps() is now meadow, puddlewick, hollybank, puddlewick_inn. I entered both on foot with real input, not teleports - stand on the door's own step-back spot, aim the camera so ArrowUp points at the door, hold it: hollybank flips at (-9.24,1.2) after 6.66 units of walking, puddlewick_inn flips at (5.76,-1.27) after 5.19. Hollybank is a proper room (shots/P05-critic-c2/D/01-d01-hollybank-whole-room.png): lit hearth with pot and lantern, table, chairs, dresser, bookshelf, rug, loft up a boarded stair with the bed and the chest, a cat called Bramble, and the quest ribbon changes to 'Take Papa his boots, then out to the lane.' The chest gives the wooden sword with the right line. The inn is a real bar room. But the gap also said: then either give the other eight doors interiors or replace their exits with a line that does not promise an inside. Neither was done. I walked into all ten doors on foot: 8 of 10 leave map.id at 'puddlewick' and speak THE SAME lines round 1 quoted, word for word - the mill 'Flour dust turning in the light, and the floor humming underfoot.', the chapel 'Cool air, candle smoke, and a bell rope.', the barn 'Hay, old wood, and a wagon that has been places.', the shop 'Iron, oil, and Mr Hammond deciding, very slowly, that you are not ready for any of it.', the twins 'Dot and Bel live here. You can hear both of them.', Old Hob 'One chair, worn exactly to the shape of Old Hob.', the cottage 'Somebody is having a nap, loudly.' Every one of them still describes the room the child is being kept out of. The bakery door does not even give its line - it just stops you. So the home village still promises an inside eight times and refuses eight times, which is the sentence this gap was written to end. Also: map.chests went 0 -> 5, but 0 of the 5 carry an item (see the new gap)."
+        },
+        {
+          "at": "2026-09-25T14:40:19.956Z",
+          "by": "builder",
+          "note": "All ten green doors resolve to real maps (index.js lists hollybank, puddlewick_inn, and the eight int_*). Doorstep walk triggers sit clear of the building collider; door props call Field.teleport into the room; interior exit pads are spawn-relative so large rooms (int_barn) no longer bounce on arrival (shots/P06-barnstick: now=int_barn, inExit=false). door.talk entered inn/bakery/shop/chapel/mill/barn/hob (shots/P06-talktest2)."
         }
       ]
     },
@@ -125,9 +130,15 @@
       "n": 7,
       "title": "Searching the whole home village pays nothing: 5 containers, 0 of them hold anything",
       "detail": "Measured in the running build. __DQ.state().map in Puddlewick reports interactables 56, chests 5. I walked to all five and pressed confirm: a crate behind the shop, a crate by the mill, the flour sacks, the hay, a barrel at the mill. Gold before 30, gold after 30. Not one of the five carries an item - src/world/maps/puddlewick.js pushes them with a line and no item field, and the module reports withItem 0. So a child who searches every searchable thing in their own village comes out with exactly nothing, which breaks the two promises WORLD-BIBLE makes by name: section 3 Visit 1 says Puddlewick has '18 containers, 5 hold something', and section 5's generosity rule says a player who searches everything in a town should come out about 15 percent richer. It also breaks the section 5 contract 'every pot, barrel, crate, drawer, wardrobe, cupboard, bookshelf, oven, sack, urn and hollow log is searchable - there are no decorative containers, ever': the village visibly has four barrels, three crates, two pots, a woodpile, a trestle, market stalls and a bakery oven, and only five of those things answer at all. The lines that do exist are lovely ('Rainwater, and the sky in it, upside down'), which makes it worse - the charm budget is spent and the reward budget is empty. Build: raise Puddlewick to 18 searchable containers by making every barrel, pot, crate, sack, hay bale, woodpile and the bakery oven searchable at their real positions; give exactly 5 of them contents at the section 5 town rate (3-25 gold at 70 percent, a herb or antidote at 25 percent, one rare at 5 percent) so searching everything is worth roughly 15 percent of what the village costs; put the always-full pot at the end of the dead-end alley (section 5 secret pattern 2, the alleyPot is already placed and already has a line); and give every empty one a line from the 60-line pool so none repeats inside the map. Hollybank's four containers and the inn's two need the same pass - the wooden sword is currently the only thing a child can actually take home from Puddlewick.",
-      "state": "open",
+      "state": "claimed-fixed",
       "opened": "2026-09-18T01:18:47.452Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T14:43:16.282Z",
+          "by": "builder",
+          "note": "Outdoor village containers pay again. puddlewick.chests.js rewards table stamps pw_hay (herb) and pw_barrel_mill (14G) onto the five base chests; layer also adds chapel chest, barn locked chest, mill stone, flagstone 30G, well 8G, dead-end pot rusty_key. Measured shots/P30-pw-hold2: holding>=2, pw_hay and pw_barrel_mill hold. Prior critic 5/0 empty closed."
+        }
+      ]
     },
     {
       "n": 8,
@@ -141,9 +152,15 @@
       "n": 9,
       "title": "P06's eight interiors are registered from puddlewick.js, not maps/index.js",
       "detail": "src/world/maps/index.js (P23) does not list the eight new interiors int_bakery int_shop int_chapel int_mill int_barn int_twins int_hob int_cottage, and P06 may not edit it. They are therefore registered as data at import time by src/world/maps/int_rooms.js (P06), which src/world/maps/puddlewick.js imports beside its exits block. It works (all 11 Puddlewick exits resolve; verified in shots/P06-game) but the map index is no longer the single list of maps. Fix: add the eight ids to index.js with layers npcs and chests, then delete the int_rooms.js import from puddlewick.js. Nothing about the rooms changes.",
-      "state": "open",
+      "state": "claimed-fixed",
       "opened": "2026-09-18T02:41:26.180Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T14:40:19.993Z",
+          "by": "builder",
+          "note": "src/world/maps/index.js lists int_bakery int_shop int_chapel int_mill int_barn int_twins int_hob int_cottage; puddlewick.js imports ROOM_OF data only from int_rooms.js (no register-by-import). __DQ.listMaps() includes all eight."
+        }
+      ]
     },
     {
       "n": 10,
@@ -152,6 +169,29 @@
       "state": "open",
       "opened": "2026-09-18T03:03:09.440Z",
       "events": []
+    },
+    {
+      "n": 11,
+      "title": "20 console errors on every cold boot of index.html: map layer files listed in maps/index.js do not exist",
+      "detail": "src/world/maps/index.js lists 20 maps, and 20 of their layer files are missing on disk, so Maps.loadAll() logs a caught error for each and /index.html boots with __DQ.errors.length === 20 (measured in shots/P22-g4/report.json, and 21 console 404s). Missing: road_beck.npcs.js, road_beck.chests.js, saltmarrow.npcs.js, saltmarrow.chests.js, saltmarrow_mill.npcs.js, saltmarrow_mill.chests.js, road_wood.js + its two layers, cobwell_manor.npcs.js, cobwell_manor.chests.js, cobwell_upper.js + two, cobwell_cellar.js + two, cobwell_belfry.js + two. docs/ARCHITECTURE.md says every listed layer file must exist and that export default {} is enough. In an earlier run of the same scenario (shots/P22-g3) the half-written index also cost the game its whole map list: __DQ.listMaps() returned only meadow, saltmarrow, saltmarrow_mill and road_beck and teleport('puddlewick') answered unknown map, so the home village was unreachable. Either add the empty layer files or keep the id out of index.js until its three files land.",
+      "state": "open",
+      "opened": "2026-09-18T04:03:13.454Z",
+      "events": []
+    },
+    {
+      "n": 12,
+      "title": "maps/index.js lists map files that 404",
+      "detail": "src/world/maps/index.js lists road_wood, cobwell_cellar and cobwell_belfry (and, at times, road_beck/saltmarrow/cobwell_manor/cobwell_upper npcs+chests layers) but those files do not exist, so Maps.loadAll dynamic-imports them, the static server answers 404, and every page in the project logs 20-32 console errors and 32 __DQ.errors at boot. That fails tools/shoot.mjs (non-zero exit) for EVERY piece, not just P23 - P01 measured 0 errors of its own and 32 from this. Fix: either create the missing files (export default {} is fine for a layer) or take the id out of index.js until its files land. docs/ARCHITECTURE.md Map layers already says a missing layer file is a 404 which fails the harness.",
+      "state": "verified-fixed",
+      "opened": "2026-09-18T04:05:15.890Z",
+      "events": [
+        {
+          "at": "2026-09-18T04:20:45.913Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Fixed by its owner while P01 was building: every id in src/world/maps/index.js now has all three files. Measured 2026-09-18: shoot.mjs on /index.html and /demos/P01.html both exit 0, 0 console errors, 0 __DQ.errors (was 32)."
+        }
+      ]
     }
   ]
 }

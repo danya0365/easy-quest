@@ -61,6 +61,17 @@ export function interiorMap(o) {
   /** Everything a scenario, a critic or a layer file needs to know about this room. */
   const R = { W, D, H, HW, HD, T: ROOM.T, DX, DW, DH, spawn, spots: o.spots || {} };
 
+  /** The door, as something to press Z at. `field` comes from field.js's interact(). */
+  const doorProp = () => ({
+    type: 'door', name: o.doorName || 'the door', solid: false,
+    x: DX, z: HD - 0.75, ix: DX, iz: HD - 1.9, reach: 2.6, height: DH * 0.9,
+    talk({ field }) {
+      const b = puddlewickDoorstep(o.plot);
+      try { field.teleport('puddlewick', b.x, b.z); } catch (e) { reportError(`${o.id}: door out`, e); }
+      return null;                                   // the door just opens; no window in the way
+    },
+  });
+
   const def = {
     id: o.id,
     name: o.name,
@@ -92,17 +103,30 @@ export function interiorMap(o) {
     room: R,
     spots: o.spots || {},
     colliders: o.colliders || [],
-    props: o.props || [],
+    // THE DOOR IS A THING YOU CAN TALK TO, as well as a line you can walk over. Measured (shots/P06-hb2): a
+    // party follower is solid and lines up between you and the front door you just came in by, and a child
+    // holding one direction walks into it and stops short of the wall. Walking round it works; being told
+    // "Z — the front door" while you stand there works every time. It is also plain DQV clarity: the way out is
+    // labelled. (Filed against P18 as well: followers should yield to the player.)
+    props: [doorProp(), ...(o.props || [])],
     chests: o.chests || [],
 
-    /** The way out: the same doorway, back onto this building's own doorstep on the green. */
+    /**
+     * The way out: the same doorway, back onto this building's own doorstep on the green.
+     *
+     * Sized from the spawn, not a fixed z. Measured (shots/P06-debug): int_barn is D=12.6 so spawn sits at
+     * z=1.8; a fixed exit at z=2.6/h=2.9 covered spawn and bounced every entry straight back to Puddlewick.
+     * The pad starts 0.55 past spawn and runs to the south wall — arrival is safe, one step south leaves.
+     */
     get exits() {
       const back = puddlewickDoorstep(o.plot);
+      const z0 = spawn.z + 0.55, z1 = HD - 0.25;
+      const zMid = (z0 + z1) / 2, h = Math.max(1.4, z1 - z0);
       return [{
-        x: DX, z: HD - 0.5, w: DW + 0.2, h: 0.9,
+        x: DX, z: zMid, w: Math.min(W - 0.8, DW + 6.0), h,
         to: 'puddlewick', tx: back.x, tz: back.z, kind: 'door',
         name: o.doorName || 'the door', line: 'door-out',
-        back: { x: DX, z: HD - 2.1 },
+        back: { x: DX, z: HD - 2.3 },
       }];
     },
 
@@ -122,12 +146,16 @@ export function interiorMap(o) {
       const { scene, rig } = ctx;
       const safe = (name, fn) => { try { return fn(); } catch (e) { reportError(`${o.id}: ${name}`, e); return null; } };
 
-      safe('rig', () => interiorRig({ rig, scene, dir: o.sunDir || [0.22, 0.96, 0.26], sun: o.sun ?? 1.3,
-        hemi: o.hemi ?? 1.12, extent: Math.max(W, D) + 6, surround: o.surround ?? 0.55 }));
+      safe('rig', () => interiorRig({ rig, scene, dir: o.sunDir || [0.22, 0.96, 0.26], sun: o.sun ?? 1.7,
+        hemi: o.hemi ?? 1.45, extent: Math.max(W, D) + 6, surround: o.surround ?? 0.55, fill: o.fill ?? 0.5 }));
 
       const ao = makeAOMask({ span: Math.max(W, D) + 18, size: 512, center: [0, 0] });
       const kit = createKit({ scene, heightAt: () => 0, ao });
       safe('recipes', () => { interiorRecipes(kit); indoorContacts(kit); });
+
+      // P06 gap #3: the warm gloom the room stands in, BEFORE the room, so a lens that leaves the shell finds a
+      // lit dollhouse on a warm dark table and never the clear colour. Costs two unlit draw calls.
+      safe('backdrop', () => kit.roomBackdrop({ W, D, H, floor: floorKind === 'stone' ? PAL.stone.dark : PAL.wood.dark }));
 
       safe('shell', () => kit.roomShell({
         x: 0, z: 0, rot: 0, W, D, H,
@@ -141,15 +169,34 @@ export function interiorMap(o) {
       if (o.timbers !== false) safe('timbers', () => kit.wallTimbers({ W, D, H, sides: o.timberSides || ['north', 'east', 'west'],
         windows, openings: [{ side: 'south', at: DX, w: DW }], seed: o.seed || 3 }));
 
+      // P06 gap #3: the storey above the wall tops. Every part of it leans AWAY from the room, so it fills the
+      // strip of frame that used to be a hole without ever standing over one board of the floor.
+      if (o.upper !== false) safe('upper', () => {
+        const wall = o.wall || 'plaster';
+        const tint = o.upperTint || o.wallTint || PAL.plaster.light;
+        const roof = o.roof || (wall === 'stone' ? 'stone' : 'thatch');
+        kit.roomUpper({ W, D, H, T: ROOM.T, wall, tint, roof,
+          up: o.upperUp ?? 1.2, out: o.upperOut ?? 0.42, seed: (o.seed || 3) + 4 });
+        // The DOOR wall gets a LOW course and no eaves. A full storey there lands right under the lens and
+        // fills the bottom quarter of the frame with brown (shots/P06-r1/08-bakery); nothing at all leaves a
+        // wedge of gloom whenever the boom swings south of the room and looks back in
+        // (shots/P06-g1/03-back-on-the-green). Half a storey, capped by its plate, is both.
+        kit.roomUpper({ W, D, H, T: ROOM.T, wall, tint, roof: false, sides: ['south'],
+          up: o.upperSouth ?? 0.52, out: (o.upperOut ?? 0.42) * 0.7, spacing: 2.4, seed: (o.seed || 3) + 9 });
+      });
+
       safe('door', () => kit.roomDoorway(DX, HD, 0, { w: DW, h: DH, swing: o.doorSwing ?? 0.66, color: o.doorColor || PAL.paint.doorRed }));
 
-      // every window with `shaft: true` throws a slab of afternoon across the floor
+      // every window with `shaft: true` lays a patch of afternoon on the boards (and a faint volume over it)
       safe('shafts', () => {
         for (const wn of windows) {
           if (!wn.shaft) continue;
           const f = SHAFT[wn.side]; if (!f) continue;
           const p = f(wn.at ?? 0, HW, HD);
-          kit.lightShaft(p.x, p.z, p.rot, { w: (wn.w ?? 1.0) * 0.95, y: wn.y ?? 1.4, len: wn.len ?? 3.4, k: 0.13 });
+          // clamped so the beam can never reach the wall opposite and show as a pale zigzag on it (gap #2)
+          const room = (wn.side === 'south' || wn.side === 'north') ? D : W;
+          const len = Math.min(wn.len ?? 3.4, room - 1.4);
+          kit.lightShaft(p.x, p.z, p.rot, { w: (wn.w ?? 1.0) * 0.95, y: wn.y ?? 1.4, len });
         }
       });
 

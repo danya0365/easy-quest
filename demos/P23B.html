@@ -1,0 +1,143 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><title>P23B — The Wider World</title>
+<link rel="stylesheet" href="/src/ui/ui.css"/>
+<style>html,body{margin:0;height:100%;overflow:hidden}
+#game-canvas{display:block;width:100vw;height:100vh}#ui-root{position:fixed;inset:0;pointer-events:none}</style>
+</head><body>
+<canvas id="game-canvas"></canvas><div id="ui-root"></div>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+<script type="module">
+// DEMO — P23B THE WIDER WORLD: the road out of the vale, Saltmarrow, and Cobwell Manor, all four floors of it.
+//
+// This is the REAL field scene with the real map layers — the same code path /index.html uses — so what a critic
+// sees here is what a child gets. It boots on the Beck road (the first new place a child reaches from the vale)
+// and every new place is one call away:
+//
+//   __DQ.place()            the whole chain, and whether each map is registered
+//   __DQ.place('saltmarrow')  jump to any of them (also: 'road_beck' 'saltmarrow_mill' 'road_wood'
+//                             'cobwell_manor' 'cobwell_upper' 'cobwell_cellar' 'cobwell_belfry')
+//   __DQ.next()             walk the whole chain, one call per place
+//   __DQ.here()             what this map reports: exits, props, chests, npcs, music, encounters
+//   __DQ.cobwell('portraits'|'dance')   solve either manor puzzle (the map exposes this itself)
+//   __DQ.dance()            what PUZZLE 2 is doing right now
+import { App } from '/src/engine/app.js';
+import { Loop } from '/src/engine/loop.js';
+import { Scenes } from '/src/engine/states.js';
+import { Bus } from '/src/engine/events.js';
+import { Debug, reportError } from '/src/engine/debug.js';
+import { Input } from '/src/engine/input.js';
+import { Save } from '/src/engine/save.js';
+import { applyCssVars } from '/src/art/palette.js';
+import { UI } from '/src/ui/window.js';
+import { Text } from '/src/ui/text.js';
+import { Audio } from '/src/audio/audio.js';
+import { Sfx } from '/src/audio/sfx.js';
+import { Maps } from '/src/world/map.js';
+import { Field } from '/src/world/field.js';
+import { preloadHero } from '/src/world/player.js';
+import { danceState } from '/src/world/maps/cobwell_upper.js';
+
+const VERSION = '0.1.0-P23B';
+const CHAIN = ['road_beck', 'saltmarrow', 'saltmarrow_mill', 'road_wood', 'cobwell_manor', 'cobwell_upper', 'cobwell_cellar', 'cobwell_belfry'];
+const step = (name, fn) => { try { return fn(); } catch (e) { reportError('P23B demo: ' + name, e); return undefined; } };
+
+applyCssVars();
+step('input', () => Input.init());
+step('app', () => App.start({ canvas: document.getElementById('game-canvas'), version: VERSION, beforeUpdate: Input.update }));
+Debug.busy('demo.boot', true);
+step('save', () => Save.init());
+step('audio', () => { Audio.init(); Audio.bindEvents(Bus); });
+
+let musicPromise = null, musicLib = null;
+function loadMusic() {
+  if (!musicPromise) {
+    musicPromise = import('/src/audio/music.js').then((m) => {
+      const M = m.Music || m.default;
+      M.init({ ctx: Audio.ctx, output: Audio.bus('music'), reverbSend: Audio.reverbSend, setSpace: (n, ms) => Audio.setSpace(n, ms), quality: App.quality });
+      musicLib = M;
+      return M;
+    }).catch((e) => { reportError('P23B demo: music did not load (the world runs silent)', e); musicPromise = null; return null; });
+  }
+  return musicPromise;
+}
+const want = { theme: null };
+Bus.on('map.enter', (m) => {
+  want.theme = (m && m.music) || null;          // CANON §9: 'overworld' on the roads, 'town' in Saltmarrow, 'dungeon' in the manor
+  Audio.onUnlock(() => {
+    if (want.theme) loadMusic().then((M) => { try { if (M && want.theme) M.play(want.theme, { fade: 1.2 }); } catch (e) { reportError('music play', e); } });
+  });
+});
+
+const PLUGINS = [
+  ['fx', '/src/art/fx.js'],
+  ['transitions', '/src/ui/transitions.js'],
+  ['dialogue', '/src/ui/dialogue.js'],
+  ['menu', '/src/ui/menu.js'],
+  ['items', '/src/data/items.js'],
+  ['shop', '/src/ui/shop.js'],
+  ['hud', '/src/ui/hud.js'],
+  ['npc', '/src/world/npc.js'],
+  ['treasure', '/src/world/treasure.js'],
+  ['party', '/src/world/party.js'],
+  ['encounter', '/src/world/encounter.js'],
+  ['battle.present', '/src/battle/present.js'],
+  ['battle.scene', '/src/battle/scene.js'],
+];
+const BOOT = { plugins: {}, maps: [] };
+
+const ctx = {
+  version: VERSION,
+  App, Loop, Scenes, Bus, Debug, reportError, Input, UI, Text, Save, Audio, Sfx, Field, Maps,
+  Music: loadMusic,
+  vars: { HERO: 'Bram' },
+  boot: { scene: 'field', ctx: { map: 'road_beck' }, newGame: false },
+};
+
+const chainTable = () => CHAIN.map(id => ({ map: id, built: Maps.has(id), layers: Maps.layers(id) }));
+
+(async function boot() {
+  BOOT.maps = await Maps.loadAll().catch((e) => { reportError('P23B demo: maps', e); return []; });
+  await preloadHero().catch(() => false);
+  step('field', () => Field.install());
+  for (const [name, path] of PLUGINS) {
+    try {
+      const m = await import(path);
+      const install = m.install || (typeof m.default === 'function' ? m.default : null);
+      if (typeof install !== 'function') { BOOT.plugins[name] = 'no install()'; continue; }
+      install(ctx);
+      BOOT.plugins[name] = 'installed';
+    } catch (e) { BOOT.plugins[name] = 'failed'; reportError(`P23B demo: plugin "${name}"`, e); }
+  }
+  step('first place', () => Scenes.push('field', { map: 'road_beck' }));
+  Debug.busy('demo.boot', false);
+})().catch((e) => { reportError('P23B demo boot', e); Debug.busy('demo.boot', false); });
+
+// ── what a critic can drive ──────────────────────────────────────────────────────────────────────────────────
+Debug.provide('demo', () => ({ piece: 'P23B', chain: CHAIN.slice(), plugins: Object.assign({}, BOOT.plugins) }));
+Debug.provide('chain', chainTable);
+/** __DQ.place('saltmarrow') — jump to any new place (no argument: the list). */
+Debug.expose('place', (id) => (id === undefined ? chainTable() : Field.teleport(String(id))));
+let ring = -1;
+/** __DQ.next() — walk the whole chain, one call per place. */
+Debug.expose('next', () => {
+  const all = CHAIN.filter(id => Maps.has(id));
+  ring = (ring + 1) % all.length;
+  return Object.assign({ ring, of: all.length, map: all[ring] }, Field.teleport(all[ring]));
+});
+/** __DQ.here() — everything this map reports about itself. */
+Debug.expose('here', () => {
+  const w = Field.world();
+  const m = w && w.map;
+  if (!m) return null;
+  return Object.assign(m.describe(), {
+    exitList: m.exits.map(e => ({ name: e.name, to: e.to, x: +e.x.toFixed(1), z: +e.z.toFixed(1), kind: e.kind })),
+    view: (w.view && w.view.state) ? w.view.state() : null,
+  });
+});
+/** __DQ.dance() — what PUZZLE 2 in the ballroom is doing. */
+Debug.expose('dance', () => { try { return danceState(); } catch (e) { return { error: String(e && e.message) }; } });
+/** __DQ.audioTheme() — which CANON §9 theme this place asked for. */
+Debug.expose('audioTheme', () => ({ theme: want.theme, music: musicLib ? (() => { try { return musicLib.state().theme; } catch (_) { return 'error'; } })() : null }));
+</script></body></html>

@@ -29,13 +29,14 @@ export default interiorMap({
   doorX: -0.8,
   music: 'village',
   wallTint: WALLS.smoke,
+  fill: 0.58,          // the smoke-grey plaster reads darker than the other rooms
   doorColor: PAL.paint.shutterBlue,
   seed: 9,
   spots: SPOTS,
   windows: [
     { side: 'south', at: 3.6, y: 1.4, w: 1.15, h: 0.95, shutter: PAL.paint.shutterBlue, shaft: true, len: 3.8 },
-    { side: 'west', at: -1.6, y: 1.42, w: 0.95, h: 0.85, shutter: PAL.paint.shutterBlue },
-    { side: 'east', at: 1.2, y: 1.42, w: 0.95, h: 0.85, shutter: PAL.paint.shutterBlue },
+    { side: 'west', at: -1.6, y: 1.42, w: 0.95, h: 0.85, shutter: PAL.paint.shutterBlue, shaft: true, len: 3.4 },
+    { side: 'east', at: 1.2, y: 1.42, w: 0.95, h: 0.85, shutter: PAL.paint.shutterBlue, shaft: true, len: 3.4 },
   ],
   outLine: 'Out onto the green, still empty-\nhanded.',
   searchLines: [

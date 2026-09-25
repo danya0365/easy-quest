@@ -344,7 +344,11 @@ export class GameMap {
       if (d > rch) continue;
       const dot = d > 1e-3 ? (dx * fx + dz * fz) / (d * fl) : 1;
       if (dot < -0.2 && d > 0.9) continue;
-      const score = d * (1.6 - dot * 0.6);
+      // A door underfoot always wins: a child on a doorstep must go in, not talk to the stall / hen / follower
+      // two paces away (shots/P06-zdoors: inn→stall, bakery→hen, chapel→Halvard).
+      let score = d * (1.6 - dot * 0.6);
+      // Doors always beat folk/stalls/animals in reach — discovery verb #1 is "go in" (shots/P06-zdoors).
+      if (t.type === 'door') score -= 20;
       if (score < bestScore) { bestScore = score; best = { target: t, dist: d, dot }; }
     }
     return best;
@@ -371,11 +375,16 @@ export class GameMap {
   }
 
   exitAt(x, z) {
+    // Prefer the nearest matching exit. Axis-aligned door pads can overlap; returning the first in array
+    // order sent shop/chapel walkers into int_twins (shots/P06-clean).
+    let best = null, bestD = Infinity;
     for (const e of this.exits) {
       const w = (e.w ?? 1) / 2, h = (e.h ?? 1) / 2;
-      if (Math.abs(x - e.x) <= w && Math.abs(z - e.z) <= h) return e;
+      if (Math.abs(x - e.x) > w || Math.abs(z - e.z) > h) continue;
+      const d = Math.hypot(x - e.x, z - e.z);
+      if (d < bestD) { bestD = d; best = e; }
     }
-    return null;
+    return best;
   }
 
   describe() {

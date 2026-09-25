@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-18T03:03:40.999Z",
+  "updated": "2026-09-25T14:43:16.359Z",
   "wave": 2,
   "waveTitle": "Breadth wave: interiors, shops, treasure, spells, items, recruitment, party/wagon, story, more maps — target 65-75 per piece",
   "pieces": {
@@ -82,13 +82,19 @@
     },
     "P01": {
       "id": "P01",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "",
-      "history": [],
+      "status": "iterating",
+      "score": 63,
+      "best": 63,
+      "rounds": 1,
+      "gap": "title is dead silent (theme null, 0 sfx) and the typed name is discarded - hero always Bram",
+      "note": "Title live in the real game: golden-hour sweep over Puddlewick Vale, code-drawn logo, Music.play(title), A New Tale / Carry On / Settings, naming grid, storybook intro, white fade into the field",
+      "history": [
+        {
+          "at": "2026-09-18T04:32:11.237Z",
+          "score": 63,
+          "gap": "title is dead silent (theme null, 0 sfx) and the typed name is discarded - hero always Bram"
+        }
+      ],
       "name": "Title screen & intro"
     },
     "P02": {
@@ -196,12 +202,12 @@
     },
     "P06": {
       "id": "P06",
-      "status": "building",
-      "score": 0,
+      "status": "--status",
+      "score": null,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "All ten Puddlewick doors now open into real rooms: interior kit (src/art/interior.js) + eight new int_*.js maps with npcs and chests layers; demo + real game both shoot clean at 100+ fps",
+      "note": "--score",
       "history": [],
       "name": "Interiors & furniture"
     },
@@ -338,13 +344,19 @@
     },
     "P13": {
       "id": "P13",
-      "status": "building",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "Menus: Status fits the screen at every level, the 3D portrait survives a second visit and grows up with Bram, long names wrap, Misc clears its own explanation line",
-      "history": [],
+      "status": "iterating",
+      "score": 64,
+      "best": 64,
+      "rounds": 1,
+      "gap": "Excellent DQ menu at the default text size, but Bigger words takes every page off the screen (Equip Numbers panel 303px, every blurb 280px, Status footer gone) and Use on the Retreat Bell now lies instead of greying out",
+      "note": "Menus read src/data/items.js (73 rows) and spells.js; a Keys page shows what you carry; status fits at 661/720; live in /index.html, 0 errors, 89 fps",
+      "history": [
+        {
+          "at": "2026-09-18T04:25:15.044Z",
+          "score": 64,
+          "gap": "Excellent DQ menu at the default text size, but Bigger words takes every page off the screen (Equip Numbers panel 303px, every blurb 280px, Status footer gone) and Use on the Retreat Bell now lies ins"
+        }
+      ],
       "name": "Menus"
     },
     "P14": {
@@ -525,18 +537,18 @@
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "Shops/inn/church/bank built: greeting, Buy+Sell with prices and green up red down per character, I'll take it, gold counting, equip-on-buy with 75pc part-exchange, out-of-money line; inn priced by party size with a night fade and everyone waking full; church saves via Save.write with F5 words, free mending and revive, plus the boss-advice line; bank in hundreds, saved. Live in /index.html via install() + the dialogue.end talk hook — needs one line in main.js PLUGINS.",
+      "note": "Live in /index.html from src/plugins.js: talk to Mr Hammond, Mrs Pottle or Sister Candlewick and the counter opens over the real town. Buy with a stat preview and equip-on-buy, sell at the outgrown rate, inn priced by party size with a night that keeps the town visible at 0.94 and everyone waking mended, church save via Save.write with F5 words plus free mending, uncursing and calling somebody back. Economy rebalanced: the whole family kit of 34,978 G is now affordable leg by leg with hand-me-downs (Economy.audit ok, worst purse 100 G, 9,543 G left). Demo shots/P22-r6 ok 118 fps 0 errors; game shots/P22-g8 ok 113 fps 0 errors, 9 of 9 assertions.",
       "history": [],
       "name": "Shops, inns, churches, economy"
     },
     "P23": {
       "id": "P23",
-      "status": "iterating",
-      "score": 70,
+      "status": "--status",
+      "score": null,
       "best": 70,
       "rounds": 2,
       "gap": "Puddlewick is a real village with a real plan and the lane in works, but a child's two verbs still fail: 8 of the 10 doors leave you outside with a line that describes the room you cannot enter (the same eight lines as round 1), and all five searchable things in the village give nothing - gold 30 before, 30 after, against WORLD-BIBLE's 18 containers of which 5 hold something.",
-      "note": "Hollybank Cottage and the Puddlewick inn are real maps you walk into and out of on foot; Puddlewick has 5 searchable containers and its plots are flat",
+      "note": "--score",
       "history": [
         {
           "at": "2026-09-17T23:29:40.980Z",
@@ -677,12 +689,12 @@
     },
     "P30": {
       "id": "P30",
-      "status": "iterating",
-      "score": 66,
+      "status": "--status",
+      "score": null,
       "best": 66,
       "rounds": 1,
       "gap": "the eight Puddlewick interiors hold nothing at all (38 containers, 0 rewards) and the chest ceremony has no held-aloft pose and no fanfare",
-      "note": "Chests with a lid that opens, prize aloft, fanfare and the window; locked chests + the Rusty Key; the Chestnut mimic starts a real fight; 40 searchable containers across 4 maps with about 1 in 4 holding something; 4 secrets; all remembered through Save",
+      "note": "--score",
       "history": [
         {
           "at": "2026-09-18T02:51:31.762Z",
@@ -711,13 +723,19 @@
     },
     "P32": {
       "id": "P32",
-      "status": "building",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "Field HUD: the little map is readable — a big white arrow for you, pale dots for people, gold gates for the ways out, a compass and a legend; card and ribbon never overlap",
-      "history": [],
+      "status": "iterating",
+      "score": 63,
+      "best": 63,
+      "rounds": 1,
+      "gap": "Card, plan, compass, legend and prompt are all right and survive Bigger words, but the ribbon shows the sentence for the map you just left on every single crossing while claiming it came from the story",
+      "note": "Field HUD: place card, ribbon now from the story quest hint (story B1), painted minimap, prompt with no 'the the'; live in /index.html, 0 errors",
+      "history": [
+        {
+          "at": "2026-09-18T04:25:15.098Z",
+          "score": 63,
+          "gap": "Card, plan, compass, legend and prompt are all right and survive Bigger words, but the ribbon shows the sentence for the map you just left on every single crossing while claiming it came from the stor"
+        }
+      ],
       "name": "Field HUD & wayfinding"
     },
     "P33": {
@@ -891,6 +909,18 @@
     {
       "at": "2026-09-18T02:56:15.093Z",
       "t": "Orchestrator eyes on the cold-boot frame: hero is an adult sunk into the ground (P07), a follower is inside the wagon wheel (P18). Both filed."
+    },
+    {
+      "at": "2026-09-18T03:30:45.511Z",
+      "t": "OWNER: round-one bar is now 65 (feature completeness first). Polish wave starts only when every piece is >=65."
+    },
+    {
+      "at": "2026-09-25T14:40:20.190Z",
+      "t": "P23/P06/P30 slice: Puddlewick doors enter real rooms (no arrival bounce); interior treasure holdings restored; door interact priority in map.js"
+    },
+    {
+      "at": "2026-09-25T14:43:16.359Z",
+      "t": "P23#7 outdoor Puddlewick rewards verified (hay herb, mill barrel 14G); 10/10 doors enter rooms (talk or walk-in) shots/P06-talktest5"
     }
   ]
 }

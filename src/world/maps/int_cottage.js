@@ -36,7 +36,7 @@ export default interiorMap({
   windows: [
     { side: 'south', at: -4.0, y: 1.38, w: 1.0, h: 0.9, shutter: PAL.paint.shutterGreen, shaft: true, len: 3.4 },
     { side: 'south', at: 3.6, y: 1.38, w: 1.0, h: 0.9, shutter: PAL.paint.shutterGreen },
-    { side: 'west', at: -0.4, y: 1.4, w: 0.9, h: 0.85, shutter: PAL.paint.shutterGreen },
+    { side: 'west', at: -0.4, y: 1.4, w: 0.9, h: 0.85, shutter: PAL.paint.shutterGreen, shaft: true, len: 3.4 },
   ],
   outLine: 'Out onto the green, quietly.',
 

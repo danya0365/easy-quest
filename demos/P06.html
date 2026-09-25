@@ -29,7 +29,7 @@ import { Sfx } from '/src/audio/sfx.js';
 import { Maps } from '/src/world/map.js';
 import { Field } from '/src/world/field.js';
 import { preloadHero } from '/src/world/player.js';
-import { DOORS, INTERIOR_IDS, INTERIOR_COUNT } from '/src/world/maps/int_rooms.js';
+import { DOORS, INTERIOR_IDS, INTERIOR_COUNT, ensureInteriors } from '/src/world/maps/int_rooms.js';
 
 const VERSION = '0.1.0-P06';
 const step = (name, fn) => { try { return fn(); } catch (e) { reportError('P06 demo: ' + name, e); return undefined; } };
@@ -86,6 +86,8 @@ const doorTable = () => DOORS.map(d => ({ door: d.plot, room: d.room, name: d.na
 
 (async function boot() {
   BOOT.maps = await Maps.loadAll().catch((e) => { reportError('P06 demo: maps', e); return []; });
+  // belt and braces: any of the ten rooms (or the village behind their doors) that maps/index.js did not list
+  BOOT.loaded = await ensureInteriors(['puddlewick', ...DOORS.map(d => d.room)]).catch(() => []);
   await preloadHero().catch(() => false);
   step('field', () => Field.install());
   for (const [name, path] of PLUGINS) {

@@ -44,9 +44,10 @@ import { Sfx } from '../../audio/sfx.js';
 import { reportError } from '../../engine/debug.js';
 import { createKit, buildSky, ringHill, buildGround, paintMasks, distanceGrid, curvePoints, bridgeFrame, prep } from '../scenery.js';
 import { LANDMARK_SETS } from '../../art/sky.js';
-// P06's eight interiors: importing this registers them with Maps (data only, per ARCHITECTURE rule 6) and gives
-// the `exits` block below the room id behind each door. NEEDS (P23): move these ids into maps/index.js and drop
-// this import. Only the exits array in furnish() uses it.
+// Which of P06's eight interiors is behind each door on the green. int_rooms.js is now PURE DATA and imports
+// nothing (it used to import all eight rooms to register them, which made an import cycle through int_common.js
+// -> puddlewick.js and, once maps/index.js listed twelve maps loaded in parallel, stopped this village from
+// registering at all). Only the exits array in furnish() reads it.
 import { ROOM_OF } from './int_rooms.js';
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -241,7 +242,7 @@ function layout() {
   // is 3 units clear on the east verge: you read it on your way past instead of walking into it.
   L.sign = { x: 15.6, z: 20.0 };
   L.pads.push({ x: L.sign.x, z: L.sign.z, r: 2.0, f: 3.0, y: groundNoPads(L, L.sign.x, L.sign.z) });   // level ground
-  L.stalls = [{ x: 6.0, z: 1.6, rot: -1.0, color: PAL.cloth.mustard, goods: ['apple', 'cabbage', 'loaf'], seed: 41 },
+  L.stalls = [{ x: 3.2, z: 3.8, rot: -1.0, color: PAL.cloth.mustard, goods: ['apple', 'cabbage', 'loaf'], seed: 41 },
     { x: 6.8, z: 9.8, rot: 0.7, color: PAL.cloth.blue, goods: ['pot', 'loaf', 'apple'], seed: 42 }];
   L.trestle = { x: -4.8, z: 10.2, rot: 0.15 };
   L.maypole = { x: 5.0, z: 12.6 };
@@ -766,13 +767,40 @@ function furnish() {
     // yet keeps tx/tz and `back`, so it speaks its line and steps you back out (src/world/field.js onExit).
     // ...and a door whose room is one of P06's eight (src/world/maps/int_*.js) points at that room id instead of
     // at the plot id. Every one of the ten doors on the green is now real, so `built` is never false here.
+    //
+    // Trigger geometry (shots/P06-lens + P06-probe2):
+    //   · doorway+0.45 was INSIDE the building collider — walking Up from the doorstep never entered.
+    //   · a 2 m pad on `out` covered the doorstep (`far`, 2.1 m) — leaving a room landed you back in the
+    //     same (or a neighbour's) exit and bounced you indoors again; shop→twins was that overlap.
+    //   · centre 1.25 m out, thin along the door normal, stops short of `far` so arrival stays outside, and
+    //     one step toward the door is enough to go in.
     const room = ROOM_OF[o.id] || o.id;
     const built = BUILT_INTERIORS.has(o.id) || !!ROOM_OF[o.id];
-    exits.push(Object.assign({ x: d.doorway.x + d.nx * 0.45, z: d.doorway.z + d.nz * 0.45,
-      w: Math.max(1.0, d.dw * 0.8), h: Math.max(1.0, d.dw * 0.8),
-      to: room, kind: 'door', name: o.name || o.id, line: 'door-' + o.id, back: { x: d.far.x, z: d.far.z } },
-    built ? {} : { tx: d.far.x, tz: d.far.z }));
+    // Walk trigger: just outside the building collider, short of the doorstep so arrival does not bounce
+    // (shots/P06-lens / P06-clean). Press Z on the door prop below is the reliable path for a child who
+    // stops beside the jamb instead of walking the last half-step into the strip.
+    const depth = 1.35, along = 1.15, across = Math.max(1.25, d.dw + 0.4);
+    const anx = Math.abs(d.nx), anz = Math.abs(d.nz);
+    exits.push(Object.assign({
+      x: d.doorway.x + d.nx * depth, z: d.doorway.z + d.nz * depth,
+      w: along * anx + across * anz, h: along * anz + across * anx,
+      to: room, kind: 'door', name: o.name || o.id, line: 'door-' + o.id, back: { x: d.far.x, z: d.far.z },
+    }, built ? {} : { tx: d.far.x, tz: d.far.z }));
     L.spots.doors[o.id] = { x: d.far.x, z: d.far.z, facing: d.face };
+    if (built) {
+      const dest = room;
+      // Interact point is the doorstep itself (no ix/iz override). nearestInteractable scores by distance to
+      // (ix??x), so a doorway ix lost to stalls/NPCs beside the boy (shots/P06-zdoors).
+      props.push({
+        type: 'door', name: o.name || 'the door', solid: false,
+        x: d.far.x, z: d.far.z,
+        reach: 2.8, height: 2.15,
+        talk({ field }) {
+          try { field.teleport(dest); } catch (e) { reportError('puddlewick: door in ' + dest, e); }
+          return null;
+        },
+      });
+    }
   }
   // the chapel's tower is its own block, and the bakery's oven sticks out
   C.push({ type: 'box', x: at(P.chapel, 4.15, 9.2 / 2 - 1.55).x, z: at(P.chapel, 4.15, 9.2 / 2 - 1.55).z, w: 3.2, d: 3.2, rot: P.chapel.rot, tag: 'tower' });
@@ -860,21 +888,21 @@ function furnish() {
   // ── spots: where the people, the animals and the wagon go (P11 / P16 / P18 read these) ──
   const s = L.spots;
   s.hob = { x: L.well.x - 1.5, z: L.well.z + 0.9, facing: Math.atan2(1.5, -0.9) };
-  s.nan = { x: s.doors.puddlewick_bakery.x + 0.6, z: s.doors.puddlewick_bakery.z + 0.4, facing: s.doors.puddlewick_bakery.facing };
-  s.barty = { x: s.doors.hollybank.x + 0.5, z: s.doors.hollybank.z + 0.3, facing: s.doors.hollybank.facing };
+  s.nan = { x: s.doors.puddlewick_bakery.x + 2.2, z: s.doors.puddlewick_bakery.z + 1.6, facing: s.doors.puddlewick_bakery.facing };
+  s.barty = { x: s.doors.hollybank.x + 1.8, z: s.doors.hollybank.z + 1.4, facing: s.doors.hollybank.facing };
   s.dot = { x: -1.6, z: 8.4, facing: 1.2 };
   s.bel = { x: 1.2, z: 10.4, facing: -2.0 };
   s.play = [{ x: -1.6, z: 8.4 }, { x: 1.2, z: 10.4 }, { x: 3.0, z: 7.0 }];
   s.halvard = { x: 10.6, z: 17.2, facing: Math.atan2(-2.0, -3.0) };
   s.wagon = { x: 12.4, z: 20.4, facing: Math.atan2(2.2, 3.2) };
-  s.innkeeper = { x: s.doors.puddlewick_inn.x - 1.2, z: s.doors.puddlewick_inn.z + 0.4, facing: s.doors.puddlewick_inn.facing };
-  s.shopkeeper = { x: s.doors.puddlewick_shop.x + 0.4, z: s.doors.puddlewick_shop.z + 1.4, facing: s.doors.puddlewick_shop.facing };
+  s.innkeeper = { x: s.doors.puddlewick_inn.x - 2.4, z: s.doors.puddlewick_inn.z + 1.6, facing: s.doors.puddlewick_inn.facing };
+  s.shopkeeper = { x: s.doors.puddlewick_shop.x + 1.8, z: s.doors.puddlewick_shop.z + 2.2, facing: s.doors.puddlewick_shop.facing };
   s.smithBoy = { x: L.crates[0].x - 1.2, z: L.crates[0].z + 0.6, facing: -1.4 };
   // Watchman Nodd used to stand at (14.8, 22.6) — dead centre of the gate lane, four metres in front of a child
   // the instant they arrive, filling the middle third of the very first frame of the village. He now leans on
   // the grass on the east verge and watches the lane, so the first thing you see is Puddlewick.
   s.gateGuard = { x: 18.2, z: 21.8, facing: Math.atan2(13.6 - 18.2, 22.0 - 21.8) };
-  s.deacon = { x: s.doors.puddlewick_chapel.x - 1.0, z: s.doors.puddlewick_chapel.z + 0.6, facing: s.doors.puddlewick_chapel.facing };
+  s.deacon = { x: s.doors.puddlewick_chapel.x - 2.2, z: s.doors.puddlewick_chapel.z + 1.8, facing: s.doors.puddlewick_chapel.facing };
   s.cat = { x: at(P.bakery, 5.6 / 2 + 0.85, -0.2).x, y: heightRaw(P.bakery.x, P.bakery.z) + 1.15, z: at(P.bakery, 5.6 / 2 + 0.85, -0.2).z };
   s.duck = { x: L.well.x + 1.6, z: L.well.z + 1.2 };
   s.cactuddle = { x: L.pot.x, z: L.pot.z };

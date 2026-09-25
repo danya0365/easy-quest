@@ -38,7 +38,7 @@ export default interiorMap({
   windows: [
     { side: 'south', at: -4.2, y: 1.4, w: 1.05, h: 0.9, shutter: PAL.paint.shutterGreen, shaft: true, len: 3.6 },
     { side: 'south', at: 4.4, y: 1.4, w: 1.05, h: 0.9, shutter: PAL.paint.shutterGreen },
-    { side: 'east', at: 0.4, y: 1.4, w: 0.95, h: 0.85, shutter: PAL.paint.shutterGreen },
+    { side: 'east', at: 0.4, y: 1.4, w: 0.95, h: 0.85, shutter: PAL.paint.shutterGreen, shaft: true, len: 3.4 },
   ],
   outLine: 'Out into the afternoon, smelling\nof bread.',
   searchLines: [

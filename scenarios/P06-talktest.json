@@ -1,0 +1,15 @@
+{
+  "name": "P06 door enter every room (talk or walk-in)",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 500 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'leaving';}return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene==='field'", "timeout": 45000 },
+    { "wait": 1000 },
+    { "eval": "(async()=>{const m=await import('/src/world/maps/puddlewick.js');const r=await import('/src/world/maps/int_rooms.js');window.__doors=m.puddlewickLayout().doors;window.__rooms=r.DOORS;return String(window.__rooms.length);})()" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const Field=(await import('/src/world/field.js')).Field;const out=[];for(const D of window.__rooms){__DQ.teleport('meadow',0,0);await sleep(900);for(let i=0;i<15&&__DQ.state().map.id!=='meadow';i++)await sleep(200);const d=window.__doors[D.plot];const standX=d.x+(d.nx?d.nx*-0.35:0);const standZ=d.z+(d.nz?d.nz*-0.35:0);__DQ.teleport('puddlewick',standX,standZ);for(let i=0;i<25&&__DQ.state().map.id!=='puddlewick'&&__DQ.state().map.id!==D.room;i++)await sleep(200);await sleep(500);let map=__DQ.state().map.id;if(map===D.room){out.push({plot:D.plot,want:D.room,went:map,ok:true,how:'walk-in'});continue;}if(map!=='puddlewick'){out.push({plot:D.plot,want:D.room,err:'stuck on '+map,ok:false});continue;}const w=Field.world();const door=w.map.props.find(p=>p.type==='door'&&Math.hypot(p.x-d.x,p.z-d.z)<1.5);if(!door){out.push({plot:D.plot,want:D.room,err:'no door prop',map,doors:w.map.props.filter(p=>p.type==='door').map(p=>p.name),ok:false});continue;}door.talk({field:Field});for(let i=0;i<30&&__DQ.state().map.id==='puddlewick';i++)await sleep(200);await sleep(400);map=__DQ.state().map.id;out.push({plot:D.plot,want:D.room,went:map,ok:map===D.room,how:'talk'});}window.__TALK=out;return JSON.stringify(out);})()" },
+    { "eval": "JSON.stringify({ok:window.__TALK.filter(d=>d.ok).length,fail:window.__TALK.filter(d=>!d.ok),how:window.__TALK.map(d=>({plot:d.plot,how:d.how,ok:d.ok}))})" },
+    { "assert": "window.__TALK && window.__TALK.length===10 && window.__TALK.every(d=>d.ok)", "msg": "every door enters its room" },
+    { "assert": "__DQ.errors.length===0", "msg": "no errors" }
+  ]
+}

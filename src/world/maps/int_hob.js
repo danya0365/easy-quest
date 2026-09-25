@@ -32,13 +32,13 @@ export default interiorMap({
   wallTint: WALLS.oat,
   doorColor: PAL.paint.shutterGreen,
   hours: 15.9,
-  sun: 1.2,
+  sun: 1.58,
   surround: 0.6,
   seed: 23,
   spots: SPOTS,
   windows: [
     { side: 'south', at: 3.8, y: 1.36, w: 1.0, h: 0.88, shutter: PAL.paint.shutterGreen, shaft: true, len: 3.4 },
-    { side: 'west', at: 2.2, y: 1.4, w: 0.9, h: 0.82, shutter: PAL.paint.shutterGreen },
+    { side: 'west', at: 2.2, y: 1.4, w: 0.9, h: 0.82, shutter: PAL.paint.shutterGreen, shaft: true, len: 3.4 },
   ],
   outLine: 'Out into the afternoon, where it\nis louder.',
 

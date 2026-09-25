@@ -35,7 +35,7 @@ export default interiorMap({
   windows: [
     { side: 'south', at: -3.4, y: 1.38, w: 1.0, h: 0.9, shutter: PAL.paint.shutterBlue, shaft: true, len: 3.4 },
     { side: 'south', at: 4.2, y: 1.38, w: 1.0, h: 0.9, shutter: PAL.paint.shutterBlue },
-    { side: 'east', at: 0.6, y: 1.4, w: 0.9, h: 0.85, shutter: PAL.paint.shutterBlue },
+    { side: 'east', at: 0.6, y: 1.4, w: 0.9, h: 0.85, shutter: PAL.paint.shutterBlue, shaft: true, len: 3.4 },
   ],
   outLine: 'Out onto the green, where the\nrules are different.',
 

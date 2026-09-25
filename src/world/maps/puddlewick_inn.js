@@ -14,6 +14,7 @@ import { PAL, C3, mixHex } from '../../art/palette.js';
 import { makeAOMask } from '../../art/toon.js';
 import { reportError } from '../../engine/debug.js';
 import { createKit } from '../scenery.js';
+import { interiorRecipes, indoorContacts, interiorRig } from '../../art/interior.js';
 import { puddlewickDoorstep } from './puddlewick.js';
 
 // Roomy on purpose — see the note in hollybank.js: P09's fade ghosts anything within 2.2 units of the lens, and
@@ -70,11 +71,21 @@ const puddlewickInn = {
 
   get exits() {
     const back = puddlewickDoorstep('puddlewick_inn');
-    return [{ x: DX, z: HD - 0.5, w: DW + 0.2, h: 0.9, to: 'puddlewick', tx: back.x, tz: back.z, kind: 'door',
-      name: 'the inn door', line: 'door-out', back: { x: DX, z: HD - 2.0 } }];
+    // Same spawn-relative pad as int_common — never cover the arrival spot.
+    const z0 = SPOTS.door.z + 0.55, z1 = HD - 0.25;
+    return [{ x: DX, z: (z0 + z1) / 2, w: Math.min(W - 0.8, DW + 6.0), h: Math.max(1.4, z1 - z0),
+      to: 'puddlewick', tx: back.x, tz: back.z,
+      kind: 'door', name: 'the inn door', line: 'door-out', back: { x: DX, z: HD - 2.3 } }];
   },
 
   props: [
+    // press Z at the door to leave, as well as walking into it (see int_common.js and shots/P06-hb2)
+    { type: 'door', name: 'the inn door', solid: false, x: DX, z: HD - 0.75, ix: DX, iz: HD - 1.9, reach: 2.6, height: DH * 0.9,
+      talk({ field }) {
+        const b = puddlewickDoorstep('puddlewick_inn');
+        try { field.teleport('puddlewick', b.x, b.z); } catch (e) { reportError('inn: door out', e); }
+        return null;
+      } },
     { type: 'counter', name: 'the bar', x: SPOTS.counter.x, z: SPOTS.counter.z + 0.7, line: 'bar', reach: 2.0, height: 1.3 },
     { type: 'hearth', name: 'the fire', x: SPOTS.fire.x + 1.1, z: SPOTS.fire.z, line: 'fire', reach: 1.9, height: 1.6 },
     { type: 'barrel', name: 'the kegs', x: SPOTS.kegs.x + 0.6, z: SPOTS.kegs.z + 0.6, line: 'kegs', reach: 1.7, height: 1.2 },
@@ -109,21 +120,14 @@ const puddlewickInn = {
   view({ scene, rig }) {
     const t0 = performance.now();
     const safe = (name, fn) => { try { return fn(); } catch (e) { reportError(`inn: ${name}`, e); return null; } };
-    safe('rig', () => {
-      rig.apply('interior'); rig.dir.set(-0.3, 0.95, 0.22).normalize();
-      if (rig.sun) rig.sun.intensity *= 1.3;
-      if (rig.hemi) rig.hemi.intensity *= 1.12;
-      if (rig.setExtent) rig.setExtent(16);                  // the whole room inside the shadow camera, or its edge cuts a hard diagonal across a wall
-    });
-    // the dark surround a DQV dollhouse interior sits in: the room must read far brighter than it
-    scene.background = C3(mixHex(PAL.shadow.contact, PAL.interior.dark, 0.5));
-    scene.fog = null;                       // RIG_PRESETS.interior carries no fog: a room is not a distance
+    // the SHARED interior rig (src/art/interior.js): the 'interior' preset lifted, plus the warm ambient fill
+    // makeLightRig has none of, and the warm gloom the room stands in instead of a flat clear colour (gap #3)
+    safe('rig', () => interiorRig({ rig, scene, dir: [-0.3, 0.95, 0.22], sun: 1.66, hemi: 1.45, extent: 16, fill: 0.5 }));
 
     const ao = makeAOMask({ span: 30, size: 512, center: [0, 0] });
     const kit = createKit({ scene, heightAt: () => 0, ao });
-    const rawContact = kit.contact;
-    kit.contact = (x, z, r, k = 0.85, o = {}) => rawContact(x, z, r * 0.62, k * 0.42,
-      Object.assign({}, o, { rx: (o.rx ?? r) * 0.62, rz: (o.rz ?? r) * 0.62, spread: 1.0 }));
+    safe('recipes', () => { interiorRecipes(kit); indoorContacts(kit); });
+    safe('backdrop', () => kit.roomBackdrop({ W, D, H, floor: PAL.wood.dark }));
 
     safe('shell', () => kit.roomShell({
       x: 0, z: 0, rot: 0, W, D, H, wall: 'plaster', wallTint: PAL.plaster.mid, floor: 'wood', beams: false, ceiling: false,
@@ -135,6 +139,12 @@ const puddlewickInn = {
         { side: 'west', at: -3.2, y: 1.42, w: 0.95, h: 0.85, shutter: PAL.paint.shutterBlue },
       ],
     }));
+
+    // the storey above the wall tops (the inn has bedrooms up there), leaning away so it never covers the floor
+    safe('upper', () => kit.roomUpper({ W, D, H, T, sides: ['north', 'east', 'west'], tint: PAL.plaster.mid,
+      roof: 'thatch', up: 1.3, out: 0.42, seed: 11 }));
+    // and a patch of afternoon on the boards from the west window
+    safe('shaft', () => kit.lightShaft(-HW + 0.2, 3.2, Math.PI / 2, { w: 0.95, y: 1.4, len: 3.2 }));
 
     safe('door', () => {
       const day = mixHex(PAL.sky.horizon, PAL.plaster.light, 0.55);
@@ -190,7 +200,7 @@ const puddlewickInn = {
         new THREE.Matrix4().setPosition(-5.4 + (k - 1) * 0.09, 1.0, 3.2).multiply(new THREE.Matrix4().makeRotationZ((k - 1) * 0.1)), PAL.wood.dark);
     });
 
-    kit.flush();
+    kit.flushInterior();
 
     const buildMs = Math.round(performance.now() - t0);
     return {

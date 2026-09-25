@@ -30,17 +30,19 @@ export default interiorMap({
   doorW: 2.0, doorH: 2.5,
   music: 'village',
   wall: 'planks',
+  fill: 0.62,
+  upperTint: mixHex(PAL.wood.weathered, PAL.plaster.light, 0.5), // the gable end, bleached by forty summers
   wallTint: mixHex(PAL.wood.weathered, PAL.wood.mid, 0.4),
   floor: 'stone',
   doorColor: PAL.wood.weathered,
   timberSides: ['north', 'east', 'west'],
-  sun: 1.24,
+  sun: 1.62,
   seed: 17,
   spots: SPOTS,
   windows: [
     { side: 'east', at: -1.6, y: 1.9, w: 1.0, h: 0.85, shutter: false, shaft: true, len: 4.4 },
-    { side: 'north', at: -4.0, y: 1.9, w: 0.9, h: 0.8, shutter: false },
-    { side: 'west', at: 3.4, y: 1.9, w: 0.9, h: 0.8, shutter: false },
+    { side: 'north', at: -4.0, y: 1.9, w: 0.9, h: 0.8, shutter: false, shaft: true, len: 4.0 },
+    { side: 'west', at: 3.4, y: 1.9, w: 0.9, h: 0.8, shutter: false, shaft: true, len: 4.0 },
   ],
   outLine: 'Out of the hay and into the\nafternoon.',
   searchLines: [

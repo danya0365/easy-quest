@@ -26,7 +26,7 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { PAL, C3, mixHex, lerp } from './palette.js';
+import { PAL, C3, mixHex, lerp, smooth } from './palette.js';
 import { Tex, mulberry } from './tex.js';
 import { makeToon, TOON_PRESETS, withOutline, OUTLINE } from './toon.js';
 import { M4, boxUV, prep } from './props.js';
@@ -65,11 +65,23 @@ export function indoorContacts(kit, { scale = 0.62, strength = 0.42 } = {}) {
 }
 
 /**
- * The standard interior lighting: F3's 'interior' rig preset, lifted a little (a cottage has a fire and four
- * windows; it is not a cave), no fog, and the dark surround a DQV dollhouse room sits in so the room itself
- * reads far brighter than the edge of the world.
+ * The standard interior lighting: F3's 'interior' rig preset, lifted, no fog, and the WARM gloom a DQV
+ * dollhouse room sits in so the room itself reads far brighter than the edge of the world.
+ *
+ * MEASURED (P06 gap #3, "interiors render dim with a black void filling a third of the frame"). Mean frame
+ * luminance over the eight rooms was 50-69 of 255 with 32-55% of every frame under 45 (near-black), against 110
+ * and 9.8% in docs/approved/cottage-materials.png. Three causes, all fixed here:
+ *   1. **No ambient light at all.** makeLightRig is a sun + a hemisphere and nothing else (toon.js, by design for
+ *      the field, where the sky IS the fill). Indoors the one directional light comes almost straight down, so
+ *      every vertical surface — which is most of what a child sees of a room — fell to the hemisphere's
+ *      ground colour alone. A warm AmbientLight lifts the shade band without flattening the key.
+ *   2. **The surround was olive-black** (a mix of the outdoor contact shadow with interior.dark), so the strip
+ *      above the walls read as a hole in the picture. It is now warm umber, the colour of a room's own gloom.
+ *   3. The sun and hemisphere were only lifted 1.3x / 1.12x over the cave-ish preset. 1.7x / 1.45x is a house.
  */
-export function interiorRig({ rig, scene, dir = [0.22, 0.96, 0.26], sun = 1.3, hemi = 1.12, extent = 18, surround = 0.55 }) {
+export function interiorRig({ rig, scene, dir = [0.22, 0.96, 0.26], sun = 1.7, hemi = 1.45, extent = 18,
+  surround = 0.55, fill = 0.5 } = {}) {
+  let amb = null;
   try {
     if (rig) {
       rig.apply('interior');
@@ -79,10 +91,17 @@ export function interiorRig({ rig, scene, dir = [0.22, 0.96, 0.26], sun = 1.3, h
       if (rig.setExtent) rig.setExtent(extent);
     }
     if (scene) {
-      scene.background = C3(mixHex(PAL.shadow.contact, PAL.interior.dark, surround));
+      // warm umber, never olive-black: the colour a candle-lit room's own far gloom would be
+      scene.background = C3(mixHex(PAL.interior.haze, PAL.interior.dark, 1 - surround));
       scene.fog = null;
+      if (fill > 0) {
+        amb = new THREE.AmbientLight(C3(mixHex(PAL.interior.lamp, PAL.interior.hemiSky, 0.45)), fill);
+        amb.name = 'interior:fill';
+        scene.add(amb);
+      }
     }
   } catch (e) { reportError('interior rig', e); }
+  if (rig) rig.interiorFill = amb;
   return rig;
 }
 
@@ -125,17 +144,43 @@ export function interiorRecipes(kit) {
   });
 
   // ── a shaft of daylight from a window onto the floor ───────────────────────────────────────────────────────
-  // The one thing in a DQV room that says "there is a world outside". An additive slab leaning in from the wall,
-  // brightest at the glass, gone by the time it reaches the boards.
-  const SHAFTS = [];
-  kit.lightShaft = (x, z, rot = 0, { w = 1.0, y = 1.4, len = 2.6, color = PAL.interior.lamp, spread = 1.25, blades = 3 } = {}) => safe('lightShaft', () => {
-    // Measured (shots/P06-rooms): ONE quad lying nearly flat across the floor reads as a stray translucent sheet,
-    // not as light. Three quads crossed about the beam's own axis read as a volume from every camera angle, and
-    // the beam is steep (it falls `len` forward while dropping the whole window height), so it looks like sun.
+  // The one thing in a DQV room that says "there is a world outside".
+  //
+  // P06 gap #2 ("the window light shafts are geometry, not light"): three crossed additive quads read as flat
+  // sheets with a visible seam from a low orbit, and one of them was poking THROUGH the far wall as a pale
+  // zigzag (shots/P06-lens0/01-north-wall). The shaft is now two things, in the order a painter would do them:
+  //   1. a PATCH on the floorboards — a flat additive parallelogram where the window lands, soft at every edge.
+  //      Light on a surface reads as light from any camera angle, and this is what a child actually sees.
+  //   2. a much fainter VOLUME above it (two blades, not three), whose whole mesh fades out as the camera drops
+  //      toward the floor — exactly the angle at which a flat blade stops looking like air and starts looking
+  //      like a sheet of paper. See the animator in buildShafts().
+  // The beam is also clamped so it can never reach the far wall (`len` is capped by the caller's room).
+  const SHAFTS = [], POOLS = [];
+  kit.lightShaft = (x, z, rot = 0, { w = 1.0, y = 1.4, len = 2.6, color = PAL.interior.lamp, spread = 1.25,
+    blades = 2, k = 1 } = {}) => safe('lightShaft', () => {
+    const c0 = C3(mixHex(color, PAL.char.white, 0.45));
+    // 1. the patch of sun ON the boards
+    {
+      const g = new THREE.PlaneGeometry(1, 1, 5, 7).rotateX(-Math.PI / 2);
+      const p = g.attributes.position, n = p.count, col = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        const u = p.getX(i), v = p.getZ(i) + 0.5;                  // 0 at the wall, 1 at the far end of the patch
+        const wide = lerp(1, spread * 1.12, v);
+        p.setX(i, u * w * wide); p.setY(i, 0); p.setZ(i, 0.12 + v * len);
+        const side = 1 - Math.min(1, Math.abs(u) * 2) ** 2.2;      // 1 down the middle, 0 at both edges
+        const along = Math.sin(Math.min(1, v * 1.12) * Math.PI) ** 0.7;   // 0 at the wall, 0 at the far end
+        const f = side * along * 0.92 * k;
+        col[i * 3] = c0.r * f; col[i * 3 + 1] = c0.g * f; col[i * 3 + 2] = c0.b * f;
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      g.computeVertexNormals();
+      g.applyMatrix4(M4(x, 0.03, z, rot));
+      POOLS.push(g);
+    }
+    // 2. the faint volume standing in it
     for (let b = 0; b < blades; b++) {
       const g = new THREE.PlaneGeometry(1, 1, 4, 6).rotateX(-Math.PI / 2);
-      const p = g.attributes.position, n = p.count;
-      const col = new Float32Array(n * 3), c0 = C3(mixHex(color, PAL.char.white, 0.45));
+      const p = g.attributes.position, n = p.count, col = new Float32Array(n * 3);
       for (let i = 0; i < n; i++) {
         const u = p.getX(i), v = p.getZ(i) + 0.5;    // 0 at the glass, 1 where it lands on the boards
         const wide = lerp(1, spread, v);
@@ -143,13 +188,13 @@ export function interiorRecipes(kit) {
         p.setY(i, y * (1 - v));
         p.setZ(i, v * len);
         const side = 1 - Math.min(1, Math.abs(u) * 2) ** 1.4;      // 1 in the middle, 0 at both edges
-        const f = (1 - v * 0.85) * (0.5 + 0.5 * (1 - v)) * side;
+        const f = (1 - v * 0.9) * (0.45 + 0.55 * (1 - v)) * side * 0.6 * k;
         col[i * 3] = c0.r * f; col[i * 3 + 1] = c0.g * f; col[i * 3 + 2] = c0.b * f;
       }
       g.setAttribute('color', new THREE.BufferAttribute(col, 3));
       g.computeVertexNormals();
       // roll each blade about the beam direction: the beam runs +z and falls in -y, so roll about z
-      g.applyMatrix4(new THREE.Matrix4().makeRotationZ((b / blades) * Math.PI));
+      g.applyMatrix4(new THREE.Matrix4().makeRotationZ(((b + 0.5) / blades) * Math.PI));
       g.applyMatrix4(M4(x, 0.02, z, rot));
       SHAFTS.push(g);
     }
@@ -157,19 +202,183 @@ export function interiorRecipes(kit) {
     return { x, z };
   });
 
-  /** Build the shafts registered so far into ONE additive mesh. Called by kit.flushInterior(). */
+  /**
+   * Build the shafts registered so far into TWO additive meshes (the floor patches, and the volume above them)
+   * and register the one animator that fades the volume by the camera's own height. Called by flushInterior().
+   */
   const buildShafts = () => {
-    if (!SHAFTS.length) return null;
-    const geo = mergeGeometries(SHAFTS.splice(0));
-    if (!geo) return null;
-    const mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.22,
+    const out = [];
+    const mkMat = (op) => new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: op,
       blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.name = 'light-shafts'; mesh.renderOrder = 4;
-    mesh.userData.camIgnore = true;
-    scene.add(mesh);
-    return mesh;
+    if (POOLS.length) {
+      const geo = mergeGeometries(POOLS.splice(0));
+      if (geo) {
+        const mesh = new THREE.Mesh(geo, mkMat(0.34));
+        mesh.name = 'light-pools'; mesh.renderOrder = 3;
+        mesh.userData.camIgnore = true;
+        scene.add(mesh); out.push(mesh);
+      }
+    }
+    if (SHAFTS.length) {
+      const geo = mergeGeometries(SHAFTS.splice(0));
+      if (geo) {
+        const mat = mkMat(0.15);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.name = 'light-shafts'; mesh.renderOrder = 4;
+        mesh.userData.camIgnore = true;
+        scene.add(mesh); out.push(mesh);
+        // Looked down into, a blade reads as a volume of dusty air; looked along, as a sheet of paper. So the
+        // volume lives or dies by how steeply the lens is looking: gone under ~12 degrees, full by ~34.
+        kit.animators.push((t, dt, camera) => {
+          if (!camera) return;
+          const d = camera.getWorldDirection(SHAFT_DIR);
+          const down = Math.max(0, -d.y);                       // 0 looking level, 1 looking straight down
+          const want = 0.15 * smooth(0.2, 0.56, down);
+          mat.opacity += (want - mat.opacity) * Math.min(1, dt * 6);
+        });
+      }
+    }
+    return out;
   };
+  const SHAFT_DIR = new THREE.Vector3();
+
+  // ── the warm gloom the room sits in, and the storey above its walls ───────────────────────────────────────
+  /**
+   * P06 gap #3, the half of it the light rig cannot fix: a room the camera looks DOWN into has no ceiling (that
+   * is roomShell's own decision, and the right one — with a ceiling on, the occluder fade ghosted it and every
+   * frame was brown mud), so everything above the wall tops was the clear colour: a flat wedge of nothing over
+   * a quarter of every frame, and over a THIRD of it whenever the boy stood at a wall and the boom swung outside
+   * the shell (shots/P30-critic-d1/run4).
+   *
+   * Two pieces of geometry answer it, and neither can ever stand between the lens and the boy:
+   *   `roomBackdrop` — a warm gloom dome and a floor apron, so the lens leaving the room finds a lit dollhouse
+   *                    on a warm dark table instead of a hole in the picture;
+   *   `roomUpper`    — the jettied upper storey a timber-framed Puddlewick house actually has, leaning OUTWARD
+   *                    over the street. Leaning outward is the whole trick: it fills the strip of frame above
+   *                    each far wall, and because every part of it is further from the room than the wall it
+   *                    stands on, it cannot occlude one board of the floor.
+   */
+  kit.roomBackdrop = ({ W = 12, D = 10, H = ROOM.H, tint = PAL.interior.haze, dark = PAL.interior.dark,
+    floor = null } = {}) => safe('roomBackdrop', () => {
+    const R = Math.max(W, D) * 1.35 + 16;
+    // the gloom: one open cylinder seen from the inside, warm at the floor, deep umber overhead
+    {
+      const g = new THREE.CylinderGeometry(R, R, 44, 24, 6, true);
+      const p = g.attributes.position, n = p.count, col = new Float32Array(n * 3);
+      const lo = C3(mixHex(tint, dark, 0.35)), hi = C3(mixHex(dark, '#000000', 0.45)), c = new THREE.Color();
+      for (let i = 0; i < n; i++) {
+        const v = smooth(-6, 16, p.getY(i));
+        c.copy(lo).lerp(hi, v);
+        col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      const mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
+      mesh.name = 'room-gloom'; mesh.position.y = 12; mesh.renderOrder = -10;
+      mesh.frustumCulled = false; mesh.userData.camIgnore = true;
+      scene.add(mesh);
+    }
+    // the table it stands on: a warm apron that darkens outward, so looking down past a wall is not a void
+    {
+      const g = new THREE.CircleGeometry(R * 0.995, 40, 0, TAU).rotateX(-Math.PI / 2);
+      const p = g.attributes.position, n = p.count, col = new Float32Array(n * 3);
+      const near = C3(mixHex(floor || PAL.wood.dark, tint, 0.28)), far = C3(mixHex(dark, '#000000', 0.3)), c = new THREE.Color();
+      const span = Math.max(W, D) * 0.5;
+      for (let i = 0; i < n; i++) {
+        const r = Math.hypot(p.getX(i), p.getZ(i));
+        c.copy(near).lerp(far, smooth(span, span + 9, r));
+        col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      const mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }));
+      mesh.name = 'room-apron'; mesh.position.y = -0.34; mesh.renderOrder = -9;
+      mesh.userData.camIgnore = true;
+      scene.add(mesh);
+    }
+    count('roomBackdrop');
+    return { R };
+  });
+
+  /**
+   * The jettied storey above the walls: plaster, studs, a top plate and a strip of thatch or tile.
+   * ROOM-LOCAL: it assumes the shell was built at the origin with rot 0, which is what int_common.js does, so
+   * world space and room space are the same and the gradients below can be read straight off world Y / X / Z.
+   * The side frames follow roomShell's: +z is south, and a wall's own +z always points AWAY from the room.
+   */
+  const UP_SIDES = { south: 0, east: Math.PI / 2, north: Math.PI, west: -Math.PI / 2 };
+  // The DOOR wall is left out on purpose. It is the wall the lens sits over (you arrive facing into the room),
+  // and a storey there lands right under the lens and fills the bottom quarter of the frame with brown
+  // (measured: shots/P06-r1/08-bakery). The three far walls are the ones a child is looking at.
+  kit.roomUpper = ({ W = 12, D = 10, H = ROOM.H, T = ROOM.T, sides = ['north', 'east', 'west'],
+    up = 1.2, out = 0.42, tint = PAL.plaster.light, beam = PAL.wood.beam, roof = 'thatch',
+    wall = 'plaster', roofColor = null, spacing = 1.5, seed = 5 } = {}) => safe('roomUpper', () => {
+    const r = mulberry(seed);
+    // the storey is built of whatever the room is: plaster over studs, a planked barn gable, a stone gable
+    const wallBucket = wall === 'stone' ? 'stone' : wall === 'planks' ? 'wood' : 'plaster';
+    const hi = C3(tint), lo = C3(mixHex(tint, wall === 'stone' ? PAL.stone.dark : PAL.plaster.grime, 0.55));
+    const y0 = H + 0.18;                                          // just above roomShell's timber wall plate
+    for (const side of sides) {
+      const ry = UP_SIDES[side]; if (ry === undefined) continue;
+      const axisZ = (side === 'north' || side === 'south');
+      const sgn = (side === 'south' || side === 'east') ? 1 : -1;  // which way "away from the room" points
+      // Each side's storey runs PAST the corner, so the four strips cross instead of leaving a triangle of
+      // gloom at every corner of the frame (measured: shots/P06-r1/08-bakery, two grey wedges up top).
+      const span = (axisZ ? W + 2 * T : D + 2 * T) + 2 * (out + 1.5);
+      const off = (axisZ ? D / 2 : W / 2) + T / 2;
+      const cs = Math.cos(ry), sn = Math.sin(ry);
+      /** `at` along the wall, `ly` up, `away` further out than the wall face. */
+      const put = (bucket, lw, lh, ld, at, ly, away, color) => addTo(bucket, boxUV(lw, lh, ld, 1.2),
+        M4(at * cs + (off + away) * sn, ly, -at * sn + (off + away) * cs, ry), color);
+      /** How far out of the room a world position is, in this wall's own direction. */
+      const awayOf = (p, i) => sgn * (axisZ ? p.getZ(i) : p.getX(i));
+      const pushOut = (p, i, d) => { if (axisZ) p.setZ(i, p.getZ(i) + sgn * d); else p.setX(i, p.getX(i) + sgn * d); };
+
+      /** Lean a piece of the storey away from the room, exactly as much as the panel leans. */
+      const jetty = (g, shade) => {
+        const p = g.attributes.position, c = g.attributes.color, t = new THREE.Color();
+        for (let i = 0; i < p.count; i++) {
+          const k = smooth(y0, y0 + up, p.getY(i));
+          pushOut(p, i, out * k);                                 // the top leans away: nothing overhangs the floor
+          if (shade) { t.copy(lo).lerp(hi, smooth(0.05, 0.8, k)); c.setXYZ(i, t.r, t.g, t.b); }
+        }
+        p.needsUpdate = true; if (shade) c.needsUpdate = true;
+        return g;
+      };
+      // the plaster panel of the storey, jettied out over the street, shaded like the wall below it
+      jetty(put(wallBucket, span, up, T * 0.85, 0, y0 + up / 2, out / 2, tint), true);
+      // the sill it sits on and the plate it carries
+      put('wood', span, 0.17, T + 0.22, 0, y0 + 0.06, 0.03, beam);
+      put('wood', span, 0.2, T + 0.4, 0, y0 + up + 0.09, out + 0.08, beam);
+      // ...and the studs, which lean with the panel instead of hanging off the plate like loose struts
+      // (measured: shots/P06-lens1/01 before this — a row of dark tabs dangling under the storey).
+      if (wallBucket === 'plaster') {
+        const n = Math.max(2, Math.round(span / spacing));
+        const faceIn = out / 2 - T * 0.85 / 2 - 0.055;            // just proud of the panel's room-facing side
+        for (let kk = 1; kk < n; kk++) {
+          jetty(put('wood', 0.13, up - 0.1, 0.11, -span / 2 + kk * (span / n), y0 + 0.05 + (up - 0.1) / 2, faceIn,
+            r() < 0.3 ? PAL.wood.dark : beam), false);
+        }
+      }
+      // and the strip of roof it carries: the eaves a child sees over a far wall instead of a hole
+      if (roof !== false) {
+        const col = roofColor || (roof === 'tile' ? PAL.tile.mid : roof === 'stone' ? PAL.stone.mid : PAL.thatch.mid);
+        const bucket = roof === 'tile' ? 'tile' : roof === 'stone' ? 'stone' : 'thatch';
+        const g = put(bucket, span + 0.5, 0.3, 1.3, 0, y0 + up + 0.5, out + 0.5, col);
+        const p = g.attributes.position, c = g.attributes.color, t = new THREE.Color();
+        const cHi = C3(mixHex(col, PAL.char.white, 0.24)), cLo = C3(mixHex(col, PAL.wood.dark, 0.4));
+        const lip = off + out + 1.1;
+        for (let i = 0; i < p.count; i++) {
+          const k = smooth(off + out - 0.1, lip, awayOf(p, i));
+          p.setY(i, p.getY(i) + 0.5 - 0.72 * k);                  // high against the storey, low at the eaves lip
+          t.copy(cHi).lerp(cLo, k);
+          c.setXYZ(i, t.r, t.g, t.b);
+        }
+        p.needsUpdate = true; c.needsUpdate = true;
+        g.computeVertexNormals();
+      }
+    }
+    count('roomUpper');
+    return { up, out, top: y0 + up + 1.0 };
+  });
 
   // ── plaster AND BEAMS: the half-timbering of a Puddlewick wall, seen from the inside ───────────────────────
   // The village outside is timber-framed; from a top-down camera the far walls are most of what a child sees of

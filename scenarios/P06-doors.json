@@ -1,0 +1,107 @@
+{
+ "name": "P06 every door on the green, in and out, on foot",
+ "steps": [
+  {
+   "waitFor": "window.__DQ && __DQ.ready",
+   "timeout": 45000
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title)return JSON.stringify(__DQ.title('game'));return 'already in '+s;})()"
+  },
+  {
+   "waitFor": "__DQ.state().scene!=='title'",
+   "timeout": 30000
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick'))"
+  },
+  {
+   "wait": 1600
+  },
+  {
+   "note": "1. every door on the green points at a map that is actually registered"
+  },
+  {
+   "eval": "(async()=>{const m=await import('/src/world/maps/puddlewick.js');const mm=await import('/src/world/map.js');const r=await import('/src/world/maps/int_rooms.js');const L=m.puddlewickLayout();window.__P06=L.doors;window.__P06rooms=r.DOORS;window.__P06bad=L.exits.filter(e=>e.to!=='meadow'&&!mm.Maps.has(e.to)).map(e=>e.name);return JSON.stringify({doors:L.exits.filter(e=>e.to!=='meadow').length,unbuilt:window.__P06bad});})()"
+  },
+  {
+   "note": "2. WALK OUT of all ten rooms: dismiss whatever the room says, head for the front wall, steer to the door if the first leg slid off something, and land back on the green"
+  },
+  {
+   "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const out=[];for(const D of window.__P06rooms){__DQ.teleport(D.room);await sleep(1500);for(let k=0;k<14&&__DQ.state().scene!=='field';k++){__DQ.press('confirm');await sleep(520);}const dx=(__DQ.state().map.spawn||{x:0}).x;let land=__DQ.state().map.id;let how='walk';for(let leg=0;leg<3&&land===D.room;leg++){__DQ.hold('down',2400);await sleep(2800);land=__DQ.state().map.id;if(land!==D.room)break;const p=__DQ.state().player;__DQ.hold(p.x<dx?'right':'left',1500);await sleep(1900);land=__DQ.state().map.id;}if(land===D.room){how='press Z at the door';const n=__DQ.state().player.near;__DQ.press('confirm');await sleep(1400);land=__DQ.state().map.id;}out.push({room:D.room,landed:land,how,ok:land==='puddlewick'});}window.__OUT=out;return JSON.stringify(out);})()"
+  },
+  {
+   "eval": "JSON.stringify({rooms:window.__OUT.length,stuck:window.__OUT.filter(d=>!d.ok).map(d=>d.room)})"
+  },
+  {
+   "note": "3. WALK IN through three doors at opposite ends of the green, from the doorstep, no teleport"
+  },
+  {
+   "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const out=[];for(const plot of ['puddlewick_bakery','puddlewick_chapel','hollybank_barn','puddlewick_shop']){const d=window.__P06[plot];__DQ.teleport('puddlewick',d.x,d.z);await sleep(1700);__DQ.freeze(true);__DQ.cameraOrbit(d.facing*180/Math.PI+180);__DQ.freeze(false);await sleep(500);for(let leg=0;leg<3&&__DQ.state().map.id==='puddlewick';leg++){__DQ.hold('up',1500);await sleep(2000);}out.push({plot,went:__DQ.state().map.id});}window.__IN=out;return JSON.stringify(out);})()"
+  },
+  {
+   "note": "4. what each room looks like, and the theme it asks for (CANON section 9)"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('int_cottage'))"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "01-cottage"
+  },
+  {
+   "eval": "JSON.stringify({map:__DQ.state().map.id,music:__DQ.state().map.music,theme:__DQ.state().audio&&__DQ.state().audio.theme})"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('int_chapel'))"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "02-chapel"
+  },
+  {
+   "eval": "JSON.stringify({map:__DQ.state().map.id,music:__DQ.state().map.music,theme:__DQ.state().audio&&__DQ.state().audio.theme})"
+  },
+  {
+   "eval": "JSON.stringify(__DQ.teleport('puddlewick_inn'))"
+  },
+  {
+   "wait": 1400
+  },
+  {
+   "shot": "03-inn"
+  },
+  {
+   "eval": "JSON.stringify({map:__DQ.state().map.id,music:__DQ.state().map.music,theme:__DQ.state().audio&&__DQ.state().audio.theme})"
+  },
+  {
+   "eval": "JSON.stringify({fps:__DQ.state().fps,errors:__DQ.errors.filter(e=>!/road_|cobwell|saltmarrow/.test(e))})"
+  },
+  {
+   "assert": "(window.__P06bad||['?']).length===0",
+   "msg": "every door on the green points at a map that exists"
+  },
+  {
+   "assert": "window.__OUT && window.__OUT.length===10 && window.__OUT.filter(d=>!d.ok).length===0",
+   "msg": "you can walk out of all ten rooms"
+  },
+  {
+   "assert": "window.__IN && window.__IN.filter(d=>d.went==='puddlewick').length===0",
+   "msg": "walking at a door on the green goes in"
+  },
+  {
+   "assert": "__DQ.errors.filter(e=>!/road_|cobwell|saltmarrow/.test(e)).length===0",
+   "msg": "no runtime errors from P06"
+  }
+ ]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "P30 puddlewick outdoor holdings",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 400 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'leaving';}return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene==='field'", "timeout": 45000 },
+    { "wait": 800 },
+    { "eval": "(()=>{__DQ.teleport('puddlewick');return 'ok';})()" },
+    { "waitFor": "__DQ.state().map && __DQ.state().map.id==='puddlewick'", "timeout": 20000 },
+    { "wait": 1000 },
+    { "eval": "JSON.stringify((()=>{const t=__DQ.state().treasure;const here=(t.here||[]).map(c=>({id:c.id,holds:c.holds,from:c.from}));const five=here.filter(c=>['pw_crate_shop','pw_crate_mill','pw_sacks','pw_hay','pw_barrel_mill'].includes(c.id));return {containers:t.containers,holding:t.holding,five,holdingFive:five.filter(c=>c.holds).length,here};})())" },
+    { "assert": "__DQ.state().treasure.holding>=2", "msg": "puddlewick holds at least 2 rewards" },
+    { "assert": "(__DQ.state().treasure.here||[]).some(c=>c.id==='pw_hay'&&c.holds)", "msg": "hay holds herb" },
+    { "assert": "(__DQ.state().treasure.here||[]).some(c=>c.id==='pw_barrel_mill'&&c.holds)", "msg": "mill barrel holds gold" },
+    { "assert": "__DQ.errors.length===0", "msg": "no errors" }
+  ]
+}

@@ -23,6 +23,7 @@ import { makeAOMask } from '../../art/toon.js';
 import { Sfx } from '../../audio/sfx.js';
 import { reportError } from '../../engine/debug.js';
 import { createKit, prep } from '../scenery.js';
+import { interiorRecipes, indoorContacts, interiorRig } from '../../art/interior.js';
 import { puddlewickDoorstep } from './puddlewick.js';
 
 // ── the room ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ const SPOTS = {
   dresser: { x: -5.85, z: -2.4, rot: Math.PI / 2 },
   shelf: { x: 0.4, z: -5.12, rot: 0 },
   rug: { x: -2.4, z: 1.5, rot: 0 },
-  boots: { x: -4.7, z: 4.1 },
+  boots: { x: -5.3, z: 2.55 },                             // by the door, but out of the doormat strip the exit watches
   waterPot: { x: -0.7, z: -4.75 },
   basket: { x: -5.5, z: 3.1 },
   crock: { x: 0.7, z: -4.55 },
@@ -88,7 +89,11 @@ const hollybank = {
   light: { preset: 'interior' },
   weather: 'clear',
   encounters: null,
-  spawn: { x: SPOTS.door.x, z: SPOTS.door.z, facing: Math.PI },
+  // Arriving 1.9 units EAST of the door axis, not on it. Measured (shots/P06-hb2): the party followers line
+  // up behind whoever they follow, and facing into the room means 'behind' is 'between him and the front
+  // door'. Two solid followers then stood at z 1.8 and 3.5 on x = -2.8 and a child holding Down walked into
+  // them and stopped 1.8 units short of his own front door. Off the axis, the walk to the door is clear.
+  spawn: { x: SPOTS.door.x + 1.9, z: SPOTS.door.z, facing: Math.PI },
   // A room is looked DOWN into, not along: at pitch 40 the lens sat level with the south wall and every frame was
   // half a ghosted wall. 52 degrees clears it. `mode: 'world'` is asked for deliberately — the interior preset
   // frames the boy at 26% of frame height, which is a portrait of a boy on some floorboards; the wide preset
@@ -128,11 +133,22 @@ const hollybank = {
   // ── the way out: the front door, back onto Hollybank's own doorstep in Puddlewick ──
   get exits() {
     const back = puddlewickDoorstep('hollybank');
-    return [{ x: DX, z: HD - 0.5, w: DW + 0.2, h: 0.9, to: 'puddlewick', tx: back.x, tz: back.z, kind: 'door',
-      name: 'the front door', line: 'door-out', back: { x: DX, z: HD - 2.0 } }];
+    // Spawn-relative (see int_common): never cover SPOTS.door, or arrival bounces straight out.
+    const z0 = SPOTS.door.z + 0.55, z1 = HD - 0.25;
+    return [{ x: DX, z: (z0 + z1) / 2, w: Math.min(W - 0.8, DW + 6.0), h: Math.max(1.4, z1 - z0),
+      to: 'puddlewick', tx: back.x, tz: back.z,
+      kind: 'door', name: 'the front door', line: 'door-out', back: { x: DX, z: HD - 2.3 } }];
   },
 
   props: [
+    // The door is a thing you can press Z at as well as a line you can walk over: a solid party follower lines
+    // up between you and your own front door (shots/P06-hb2), and "Z — the front door" always works.
+    { type: 'door', name: 'the front door', solid: false, x: DX, z: HD - 0.75, ix: DX, iz: HD - 1.9, reach: 2.6, height: DH * 0.9,
+      talk({ field }) {
+        const b = puddlewickDoorstep('hollybank');
+        try { field.teleport('puddlewick', b.x, b.z); } catch (e) { reportError('hollybank: door out', e); }
+        return null;
+      } },
     { type: 'hearth', name: 'the hearth', x: SPOTS.hearth.x, z: SPOTS.hearth.z + 0.75, line: 'hearth', reach: 2.0, height: 1.7 },
     { type: 'table', name: 'the table', x: SPOTS.table.x, z: SPOTS.table.z, line: 'table', reach: 1.9, height: 1.0 },
     { type: 'chair', name: "Father's chair", x: SPOTS.fatherChair.x, z: SPOTS.fatherChair.z, line: 'big-chair', reach: 1.6, height: 1.2 },
@@ -187,24 +203,18 @@ const hollybank = {
   view({ scene, rig, App }) {
     const t0 = performance.now();
     const safe = (name, fn) => { try { return fn(); } catch (e) { reportError(`hollybank: ${name}`, e); return null; } };
-    // a room is lit by its own fire, not by the sun: the interior rig, re-asserted below in case the clock runs
-    safe('rig', () => {
-      rig.apply('interior'); rig.dir.set(0.22, 0.96, 0.26).normalize();
-      if (rig.sun) rig.sun.intensity *= 1.3;                 // a fire and four windows: a cottage is not a cave
-      if (rig.hemi) rig.hemi.intensity *= 1.12;
-      if (rig.setExtent) rig.setExtent(16);                  // the whole room inside the shadow camera, or its edge cuts a hard diagonal across a wall
-    });
-    // the dark surround a DQV dollhouse interior sits in: the room must read far brighter than it
-    scene.background = C3(mixHex(PAL.shadow.contact, PAL.interior.dark, 0.55));
-    scene.fog = null;                       // RIG_PRESETS.interior carries no fog: a room is not a distance
+    // A room is lit by its own fire, not by the sun. This is the SHARED interior rig the eight other Puddlewick
+    // rooms use (src/art/interior.js): the 'interior' preset lifted, plus a warm ambient fill, because
+    // makeLightRig has no ambient at all and every vertical surface indoors fell to the hemisphere's ground
+    // colour alone — measured at mean 60/255 with 45% of the frame near-black before this (P06 gap #3).
+    safe('rig', () => interiorRig({ rig, scene, dir: [0.22, 0.96, 0.26], sun: 1.66, hemi: 1.45, extent: 16, fill: 0.5 }));
 
     const ao = makeAOMask({ span: 30, size: 512, center: [0, 0] });
     const kit = createKit({ scene, heightAt: () => 0, ao });
-    // The kit's contact pools are tuned for grass; stacked on floorboards they turned the room into mud. Indoors
-    // a piece of furniture gets a small, faint pool instead of a big soft one.
-    const rawContact = kit.contact;
-    kit.contact = (x, z, r, k = 0.85, o = {}) => rawContact(x, z, r * 0.62, k * 0.42,
-      Object.assign({}, o, { rx: (o.rx ?? r) * 0.62, rz: (o.rz ?? r) * 0.62, spread: 1.0 }));
+    safe('recipes', () => { interiorRecipes(kit); indoorContacts(kit); });
+
+    // the warm gloom the cottage stands in, so a lens that leaves the shell never finds the clear colour
+    safe('backdrop', () => kit.roomBackdrop({ W, D, H, floor: PAL.wood.dark }));
 
     const room = safe('shell', () => kit.roomShell({
       x: 0, z: 0, rot: 0, W, D, H, wall: 'plaster', wallTint: PAL.plaster.light, floor: 'wood', beams: false, ceiling: false,
@@ -216,6 +226,15 @@ const hollybank = {
         { side: 'east', at: SPOTS.loftWindow.z, y: SPOTS.loftWindow.y, w: 0.9, h: 0.72, shutter: false },
       ],
     }));
+
+    // ── the jettied storey above the wall tops: what used to be a flat wedge of nothing over a fifth of the
+    //    frame. Every part of it leans AWAY from the room, so it cannot stand over one board of the floor.
+    //    East is left out: the loft and its gable window are up there. ──
+    safe('upper', () => kit.roomUpper({ W, D, H, T, sides: ['north', 'east', 'west'], tint: PAL.plaster.light,
+      roof: 'thatch', up: 1.25, out: 0.42, seed: 7 }));
+
+    // the west window lays a patch of afternoon on the boards (src/art/interior.js kit.lightShaft)
+    safe('shaft', () => kit.lightShaft(-HW + 0.2, 1.4, Math.PI / 2, { w: 0.9, y: 1.35, len: 3.2 }));
 
     // ── the front door, standing a little open on the afternoon outside ──
     safe('door', () => {
@@ -304,7 +323,7 @@ const hollybank = {
     safe('bed', () => kit.bed(SPOTS.bed.x, SPOTS.bed.z, SPOTS.bed.rot, { w: 0.95, l: 1.85, small: true, blanket: PAL.cloth.green, y: LOFT_Y }));
     safe('chest', () => kit.chestBox(SPOTS.chest.x, SPOTS.chest.z, 0, { w: 0.9, h: 0.5, d: 0.56, open: 0, y: LOFT_Y }));
 
-    kit.flush();
+    kit.flushInterior();
 
     // ── the dust in the light from the window, the one thing in the room that moves on its own ──
     let motes = null;

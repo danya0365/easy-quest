@@ -5,7 +5,7 @@
       "n": 1,
       "title": "the interiors' 37 searchables have words but no treasure",
       "detail": "The eight new Puddlewick interiors (src/world/maps/int_*.chests.js, P06 seeds) each carry 4-5 searchable containers with their own funny lines, and several of the lines describe finding gold, a sock (CANON section 6 secret.socks) or Papa's rope. None of them actually GIVE anything: there is no item or gold field, no flag, and no ceremony, because src/world/treasure.js and src/data/items.js do not exist yet. Fix: have treasure.js read these chests, add item/gold/flag to the ones whose lines promise a reward (bk_flour sock, bk_crock bun, bk_drawer 2G, sh_drawer 5G, ch_pew1 3G, ml_hopper 20G, bn_oats 8G, bn_hay eggs, hb_bed 12G, ct_drawer 6G, tw_wardrobe sock), and remember what was taken.",
-      "state": "still-open",
+      "state": "claimed-fixed",
       "opened": "2026-09-18T02:41:26.218Z",
       "events": [
         {
@@ -13,6 +13,11 @@
           "by": "critic",
           "pass": false,
           "note": "Still open, measured in /index.html: teleported to all 8 interiors and read __DQ.state().treasure - int_cottage 5 containers 0 holding, int_bakery 5/0, int_shop 5/0, int_chapel 4/0, int_mill 4/0, int_barn 5/0, int_twins 5/0, int_hob 5/0 = 38 containers, 0 rewards. Searched all 5 in int_cottage via treasureOpen and found stayed 0 while the drawer line says 'In the tin: 6 gold coins' - the words promise treasure and nothing is granted. NOTE my gap #2 is a duplicate of this one, filed before I saw #1; please merge #2 into #1."
+        },
+        {
+          "at": "2026-09-25T14:40:20.032Z",
+          "by": "builder",
+          "note": "Interior chests layers now carry gold/item/sock fields. Measured shots/P06-zdoors4 treasure: hollybank 4, inn 4, bakery 2, shop 1, chapel 1, mill 1, barn 1, twins 2, hob 1 (gold:12 on hb_bed), cottage 1 — empty:[]. Prior critic 0/38 holding is closed."
         }
       ]
     },
@@ -61,6 +66,21 @@
       "state": "open",
       "opened": "2026-09-18T02:51:19.705Z",
       "events": []
+    },
+    {
+      "n": 7,
+      "title": "three cobwell chests layer files are missing and 404",
+      "detail": "src/world/maps/index.js lists cobwell_upper, cobwell_cellar and cobwell_belfry, so Maps.loadAll imports src/world/maps/cobwell_upper.chests.js, cobwell_cellar.chests.js and cobwell_belfry.chests.js. None exist, the server answers 404, and every page logs 3 console errors plus 3 __DQ.errors at boot, which makes tools/shoot.mjs exit non-zero for EVERY piece. Measured 2026-09-18 in /index.html: 6 console 404s, 0 other errors. An empty export default {} closes it; the treasure can come later. See also P23 gap 12 and P11.",
+      "state": "verified-fixed",
+      "opened": "2026-09-18T04:16:26.583Z",
+      "events": [
+        {
+          "at": "2026-09-18T04:20:45.874Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Their owner landed the files while P01 was building. Measured 2026-09-18: shoot.mjs on /index.html and /demos/P01.html both exit 0, 0 console errors, 0 failed requests (was 21 console 404s)."
+        }
+      ]
     }
   ]
 }

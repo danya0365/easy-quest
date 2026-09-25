@@ -28,6 +28,8 @@ export default interiorMap({
   doorX: 1.0,
   music: 'village',
   wall: 'planks',
+  fill: 0.66,                                                    // dark planks eat the light (measured: mean 60/255 at 0.5)
+  upperTint: mixHex(PAL.wood.weathered, PAL.plaster.light, 0.5), // a pale sun-bleached gable over dark boards
   wallTint: mixHex(PAL.wood.weathered, PAL.plaster.dark, 0.35),
   doorColor: PAL.wood.weathered,
   timberSides: ['north', 'west'],
@@ -35,7 +37,7 @@ export default interiorMap({
   spots: SPOTS,
   windows: [
     { side: 'south', at: -3.6, y: 1.5, w: 1.0, h: 0.9, shutter: false, shaft: true, len: 4.0 },
-    { side: 'west', at: 0.6, y: 1.55, w: 0.95, h: 0.9, shutter: false },
+    { side: 'west', at: 0.6, y: 1.55, w: 0.95, h: 0.9, shutter: false, shaft: true, len: 3.8 },
     { side: 'north', at: 3.2, y: 1.6, w: 0.9, h: 0.85, shutter: false },
   ],
   outLine: 'Out of the flour and the noise.',
