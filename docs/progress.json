@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-25T15:43:27.416Z",
+  "updated": "2026-09-25T16:25:17.743Z",
   "wave": 2,
   "waveTitle": "Breadth wave: interiors, shops, treasure, spells, items, recruitment, party/wagon, story, more maps — target 65-75 per piece",
   "pieces": {
@@ -933,6 +933,14 @@
     {
       "at": "2026-09-25T15:43:27.416Z",
       "t": "P32#5: HUD ribbon refreshes hint after place card for the map you are ON (shots/P32-ribbon)."
+    },
+    {
+      "at": "2026-09-25T16:15:11.196Z",
+      "t": "P23: fixed leave-village softlock — gate lane walks past rim onto meadow; Long Lane B3 no longer bounced by dead-end exit"
+    },
+    {
+      "at": "2026-09-25T16:25:17.743Z",
+      "t": "P23: leave-village corridor widened — walk off the dirt track no longer softlocks at the rim"
     }
   ]
 }

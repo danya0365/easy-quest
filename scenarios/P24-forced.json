@@ -1,0 +1,24 @@
+{
+  "name": "P24 forced leave village — walk + screenshots",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 400 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'leaving';}return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene==='field'", "timeout": 45000 },
+    { "wait": 1000 },
+    { "note": "Skip to post-Papa: awake + left_home, stand on gate lane" },
+    { "eval": "(()=>{__DQ.flag('ch1.awake',true);__DQ.flag('ch1.left_home',true);__DQ.teleport('puddlewick',14.8,23.4);return JSON.stringify({map:__DQ.state().map.id,player:__DQ.state().player,quest:__DQ.state().quest});})()" },
+    { "wait": 1200 },
+    { "shot": "01-gate-after-papa" },
+    { "note": "Probe: can we stand ON the exit pad by walking?" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const Field=(await import('/src/world/field.js')).Field;const m=Field.world().map;const path=[];const tryStep=(x,z)=>{const t=m.tileAt(x,z);return {x,z,solid:!!(t&&t.solid),ground:t&&t.ground,exit:!!m.exitAt(x,z)};};for(let z=23;z<=28.5;z+=0.5)path.push(tryStep(15.5,z));window.__PATH=path;__DQ.face(0);__DQ.cameraOrbit(180);await sleep(300);const trail=[];for(let i=0;i<12&&__DQ.state().map.id==='puddlewick';i++){const p=__DQ.state().player;trail.push({i,x:+p.x.toFixed(2),z:+p.z.toFixed(2),blocked:!!p.blocked,map:__DQ.state().map.id});__DQ.hold('up',700);await sleep(850);}trail.push({done:true,map:__DQ.state().map.id,player:__DQ.state().player&&{x:+__DQ.state().player.x.toFixed(2),z:+__DQ.state().player.z.toFixed(2)}});window.__TRAIL=trail;return JSON.stringify({path,trail});})()" },
+    { "shot": "02-after-walk-south" },
+    { "assert": "__DQ.state().map.id==='meadow'", "msg": "forced walk south must leave puddlewick" },
+    { "eval": "JSON.stringify({map:__DQ.state().map.id,player:__DQ.state().player&&{x:+__DQ.state().player.x.toFixed(2),z:+__DQ.state().player.z.toFixed(2)},quest:__DQ.state().quest})" },
+    { "shot": "03-arrived-meadow" },
+    { "note": "Now walk to Long Lane signpost (3.6, 31.8) for B3" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));for(let k=0;k<25&&__DQ.state().scene!=='field';k++){__DQ.press('confirm');await sleep(250);}__DQ.teleport('meadow',3.6,27.5);await sleep(900);for(let k=0;k<20&&__DQ.state().scene!=='field';k++){__DQ.press('confirm');await sleep(250);}__DQ.face(0);__DQ.cameraOrbit(180);await sleep(200);const before={map:__DQ.state().map.id,scene:__DQ.state().scene,z:__DQ.state().player&&+__DQ.state().player.z.toFixed(2)};for(let i=0;i<12;i++){if(__DQ.state().scene!=='field')break;__DQ.hold('up',600);await sleep(750);}window.__B3={before,after:{map:__DQ.state().map.id,scene:__DQ.state().scene,player:__DQ.state().player&&{x:+__DQ.state().player.x.toFixed(2),z:+__DQ.state().player.z.toFixed(2)},flags:__DQ.state().flags,quest:__DQ.state().quest}};return JSON.stringify(window.__B3);})()" },
+    { "shot": "04-long-lane-b3" },
+    { "assert": "__DQ.state().scene!=='field' || (__DQ.state().flags&&__DQ.state().flags['party.bobble'])", "msg": "B3 must start at Long Lane (cutscene/battle), not stay stuck on field" }
+  ]
+}

@@ -190,6 +190,42 @@
           "by": "critic",
           "pass": true,
           "note": "Fixed by its owner while P01 was building: every id in src/world/maps/index.js now has all three files. Measured 2026-09-18: shoot.mjs on /index.html and /demos/P01.html both exit 0, 0 console errors, 0 __DQ.errors (was 32)."
+        },
+        {
+          "at": "2026-09-25T16:15:11.123Z",
+          "by": "builder",
+          "note": "Gate lane solid pass in puddlewick.js; meadow lane-south exit removed so B3 owns the signpost. Verified shots/P24-walk-out2: walk from (14.8,23.4) with cameraOrbit 180 + hold up reaches meadow; standing near (3.6,28) starts B3 (battle scene)."
+        },
+        {
+          "at": "2026-09-25T16:15:11.159Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P24-walk-out2 ok=true. Solids along x=15.5 z=23..29 all walkable. Walk south from Papa gate lands meadow. Teleport to Long Lane approach starts B3 battle (not speak-and-bounce)."
+        }
+      ]
+    },
+    {
+      "n": 13,
+      "title": "Cannot walk out of Puddlewick — lane-out pad is solid",
+      "detail": "After B2 (Papa at the gate), a child walks south toward the lane and hits an invisible wall. The lane-out exit pad sits at (16.6, 27.6) but the playable superellipse (AZ=25.4) makes edgeR>1 for all z>=~25, so solid() blocks every cell of the pad. Teleporting onto the pad still fired the exit (harness P24-lane-out), but walking never could. Soft-lock: Follow the Long Lane / leave the village. Fix: carve a gate-lane pass in puddlewick solid() for the worn path past the rim (e<1.20, dirt mask). Also removed meadow's to:null lane-south exit — it shared the Long Lane signpost with Act I B3 and bounced the child before Bobble could arm.",
+      "state": "claimed-fixed",
+      "opened": "2026-09-25T16:15:11.085Z",
+      "events": [
+        {
+          "at": "2026-09-25T16:15:15.282Z",
+          "by": "builder",
+          "note": "Gate lane solid pass in puddlewick.js (worn path past rim, e<1.20); meadow lane-south to:null exit removed so Act I B3 owns the Long Lane signpost. Verified shots/P24-walk-out2."
+        },
+        {
+          "at": "2026-09-25T16:15:15.320Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P24-walk-out2 ok=true: walk from gate (14.8,23.4) south reaches meadow; solids z=23..29 walkable; Long Lane approach starts B3 battle (not bounce)."
+        },
+        {
+          "at": "2026-09-25T16:25:17.704Z",
+          "by": "builder",
+          "note": "Widened gate corridor to 3.4u off centreline (was dirt-mask-only); larger exit pad; Long Lane sign aims down gate; clearer quest hint."
         }
       ]
     }

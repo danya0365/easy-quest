@@ -383,7 +383,22 @@ const puddlewick = {
   tiles: {
     height: heightAt,
     solid(x, z) {
-      if (edgeR(x, z) > 1) return true;
+      const e = edgeR(x, z);
+      if (e > 1) {
+        // The lane-out pad sits past the playable rim. Open a corridor along the GATE LANE centreline
+        // (not just the dirt mask — walking a step off the worn track used to hit an invisible wall again).
+        if (z > 21 && e < 1.22) {
+          const g = layout().gate;
+          let d = 1e9;
+          for (let i = 0; i < g.length - 1; i++) {
+            const [ax, az] = g[i], [bx, bz] = g[i + 1], vx = bx - ax, vz = bz - az;
+            const t = Math.max(0, Math.min(1, ((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz || 1)));
+            d = Math.min(d, Math.hypot(x - ax - vx * t, z - az - vz * t));
+          }
+          if (d < 3.4) return false;
+        }
+        return true;
+      }
       const L = layout();
       if (L.water.sample(x, z) < HW + 0.35 && !L.bridge.corridor(x, z, 0.35)) return true;
       return false;
@@ -525,7 +540,7 @@ const puddlewick = {
       kit.signpost(atlas, L.sign.x, L.sign.z, [
         { label: 'Puddlewick', dir: Math.atan2(GREEN.x - L.sign.x, GREEN.z - L.sign.z) },   // up the lane, into the village
         { label: 'Saltmarrow', dir: Math.atan2(3.4, 5.6) },                                 // out of the gate and down the Beck
-        { label: 'Long Lane', dir: Math.atan2(4.2, 8.0) },
+        { label: 'Long Lane', dir: Math.atan2(16.0 - L.sign.x, 26.8 - L.sign.z) },          // straight down the gate lane to the vale
       ]);
     } catch (e) { reportError('puddlewick: signpost', e); }
 
@@ -891,7 +906,9 @@ function furnish() {
   // The meadow's own village-lane exit triggers over z = -33.1..-28.9 at x = 14.8..19.0, so we land at (14.5, -25.6)
   // — 3.3 units back down its lane — and the meadow's exit lands us at this map's spawn (14.8, 23.4), 2.6 clear of
   // the trigger below. Walking out and walking back in are therefore both one clean step, never a bounce.
-  exits.push({ x: 16.6, z: 27.6, w: 6.0, h: 3.2, to: 'meadow', tx: 14.5, tz: -25.6, kind: 'edge',
+  // Facing 0 rad = +z = south into the vale. Pad sits on the gate lane past the rim; w/h are generous so a
+  // child walking a little off-centre still trips the exit (shots/P24-angles: narrow headings used to miss).
+  exits.push({ x: 16.0, z: 26.8, w: 7.2, h: 4.4, to: 'meadow', tx: 14.5, tz: -25.6, facing: 0, kind: 'edge',
     name: 'the lane out of Puddlewick', line: 'lane-out', back: { x: 14.8, z: 23.4 } });
 
   // ── spots: where the people, the animals and the wagon go (P11 / P16 / P18 read these) ──

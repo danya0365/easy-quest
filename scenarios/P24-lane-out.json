@@ -1,0 +1,18 @@
+{
+  "name": "P24 leave Puddlewick after Papa at the lane",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 400 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'leaving';}return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene==='field'", "timeout": 45000 },
+    { "wait": 800 },
+    { "eval": "(()=>{__DQ.flag('ch1.awake',true);__DQ.teleport('puddlewick',14.8,23.4);return 'ok';})()" },
+    { "waitFor": "__DQ.state().map&&__DQ.state().map.id==='puddlewick'", "timeout": 15000 },
+    { "wait": 1500 },
+    { "eval": "JSON.stringify({map:__DQ.state().map.id,flags:__DQ.state().flags,quest:__DQ.state().quest,act1:__DQ.state().act1,exits:(()=>{try{const F=(window.__Field)||null;}catch(e){}return null;})()})" },
+    { "note": "Walk south toward the lane-out pad at z~27.6" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const Field=(await import('/src/world/field.js')).Field;const w=Field.world();const exits=(w.map&&w.map.exits)||[];const lane=exits.find(e=>e.to==='meadow'||/lane/i.test(e.name||''));window.__LANE=lane;__DQ.teleport('puddlewick',lane?lane.x:16.6,lane?lane.z:27.6);await sleep(400);for(let i=0;i<40;i++){await sleep(100);if(__DQ.state().map.id==='meadow')return 'meadow';}return JSON.stringify({map:__DQ.state().map.id,lane:lane&&{x:lane.x,z:lane.z,w:lane.w,h:lane.h,to:lane.to},player:__DQ.state().player,errors:__DQ.errors.slice(-5)});})()" },
+    { "eval": "JSON.stringify({map:__DQ.state().map.id,player:__DQ.state().player,lane:window.__LANE&&{x:window.__LANE.x,z:window.__LANE.z,to:window.__LANE.to}})" },
+    { "assert": "__DQ.state().map.id==='meadow'", "msg": "standing on lane-out reaches the meadow" }
+  ]
+}

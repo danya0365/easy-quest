@@ -1,0 +1,19 @@
+{
+  "name": "P24 walk out of Puddlewick after Papa (no teleport onto pad)",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 400 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'leaving';}return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene==='field'", "timeout": 45000 },
+    { "wait": 800 },
+    { "note": "B2 already done — stand on the gate lane north of the exit and walk south" },
+    { "eval": "(()=>{__DQ.flag('ch1.awake',true);__DQ.flag('ch1.left_home',true);__DQ.teleport('puddlewick',14.8,23.4);return 'ok';})()" },
+    { "waitFor": "__DQ.state().map&&__DQ.state().map.id==='puddlewick'", "timeout": 15000 },
+    { "wait": 900 },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const Field=(await import('/src/world/field.js')).Field;const w=Field.world();const lane=(w.map.exits||[]).find(e=>e.to==='meadow');window.__LANE=lane&&{x:lane.x,z:lane.z,w:lane.w,h:lane.h};const m=w.map;const solids=[];for(let z=23;z<=29;z+=0.5){const x=15.5;const t=m.tileAt(x,z);solids.push({x,z,solid:!!(t&&t.solid)});}window.__SOLIDS=solids;__DQ.face(0);try{__DQ.cameraOrbit(180);}catch(_){ }await sleep(200);for(let i=0;i<10&&__DQ.state().map.id==='puddlewick';i++){__DQ.hold('up',900);await sleep(1100);}return JSON.stringify({map:__DQ.state().map.id,player:__DQ.state().player&&{x:+__DQ.state().player.x.toFixed(2),z:+__DQ.state().player.z.toFixed(2),blocked:__DQ.state().player.blocked},lane:window.__LANE,solids:window.__SOLIDS});})()" },
+    { "assert": "__DQ.state().map.id==='meadow'", "msg": "walking south from the gate reaches the meadow" },
+    { "note": "Walk south on the meadow to the Long Lane signpost — B3 must arm, not bounce" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));for(let k=0;k<30&&__DQ.state().scene!=='field';k++){try{__DQ.press('confirm');}catch(_){ }await sleep(250);}__DQ.teleport('meadow',3.6,28.0);await sleep(800);for(let k=0;k<20&&__DQ.state().scene!=='field';k++){try{__DQ.press('confirm');}catch(_){ }await sleep(250);}__DQ.face(0);try{__DQ.cameraOrbit(0);}catch(_){ }await sleep(200);for(let i=0;i<10;i++){if(__DQ.state().scene!=='field'){try{__DQ.press('confirm');}catch(_){ }await sleep(300);continue;}if(Story&&Story.running&&Story.running())return 'b3-running';if(__DQ.state().flags&&__DQ.state().flags['party.bobble'])return 'bobble';__DQ.hold('up',700);await sleep(900);}return JSON.stringify({map:__DQ.state().map.id,scene:__DQ.state().scene,player:__DQ.state().player&&{x:+__DQ.state().player.x.toFixed(2),z:+__DQ.state().player.z.toFixed(2)},flags:__DQ.state().flags,quest:__DQ.state().quest,running:!!(window.Story&&Story.running&&Story.running()),act1:__DQ.state().act1});})()" },
+    { "assert": "(__DQ.state().flags&&__DQ.state().flags['party.bobble'])||(__DQ.state().scene!=='field')||(window.Story&&Story.running&&Story.running())", "msg": "Long Lane signpost starts B3 (Bobble), not a dead-end bounce" }
+  ]
+}

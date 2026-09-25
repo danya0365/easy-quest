@@ -519,9 +519,10 @@ function layout() {
     ...L.ducks.map((d, i) => ({ type: 'duck', name: 'duck ' + (i + 1), x: PONDS[d.pond].x, z: PONDS[d.pond].z, line: 'duck', reach: 3.4, height: 1.0, animal: i })),
   ];
 
-  // ── exits: the village lane now really arrives in Puddlewick (`to: 'puddlewick'`, landing on the village's own
-  //    gate lane at its spawn). The other two lanes still run on to places that are not built yet, and each ends
-  //    with somebody saying so (lines 'lane-east' / 'lane-south' in meadow.npcs.js). ──
+  // ── exits: the village lane arrives in Puddlewick. The Beck lane east still ends with a kind word (not built
+  //    yet). The Long Lane south used to be a to:null speak-and-bounce exit on the same spot as Act I B3
+  //    (signpost at 3.6, 31.8) — walking there bounced the child before the beat could arm, so Bobble never
+  //    appeared. The signpost prop still speaks `lane-south` on Confirm; B3 owns the walk-up.
   const exitOn = (pts, line, name, extra = {}) => {
     let k = pts.length - 1;
     while (k > 0 && superR(pts[k][0], pts[k][1]) > BOUND - 1.6) k--;
@@ -533,8 +534,7 @@ function layout() {
     // Puddlewick's own lane-out lands at (14.5, -25.6) here, and we land on its gate lane at (14.8, 23.4): each
     // landing spot is ~3 units clear of the other map's trigger box, so walking out never walks straight back in.
     exitOn(L.lane, 'lane-sheep', 'the lane into Puddlewick', { to: 'puddlewick', tx: 14.8, tz: 23.4 }),
-    exitOn(L.east, 'lane-east', 'the lane to Saltmarrow'),
-    exitOn([...L.lane].reverse(), 'lane-south', 'the Long Lane')];
+    exitOn(L.east, 'lane-east', 'the lane to Saltmarrow')];
 
   LAYOUT = L;
   return L;
