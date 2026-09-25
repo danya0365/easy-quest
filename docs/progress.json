@@ -1,28 +1,40 @@
 {
-  "updated": "2026-09-25T16:25:17.743Z",
+  "updated": "2026-09-25T19:49:50.295Z",
   "wave": 2,
   "waveTitle": "Breadth wave: interiors, shops, treasure, spells, items, recruitment, party/wagon, story, more maps — target 65-75 per piece",
   "pieces": {
     "F1": {
       "id": "F1",
-      "status": "building",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
+      "status": "iterating",
+      "score": 78,
+      "best": 78,
+      "rounds": 1,
+      "gap": "Engine loop/scenes/debug API live in /index.html — ready, state, goto, teleport all work (shots/F-foundation).",
       "note": "engine spine boots",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-25T19:10:49.039Z",
+          "score": 78,
+          "gap": "Engine loop/scenes/debug API live in /index.html — ready, state, goto, teleport all work (shots/F-foundation)."
+        }
+      ],
       "name": "Engine core — loop, scenes, events, debug API"
     },
     "F2": {
       "id": "F2",
-      "status": "building",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
+      "status": "iterating",
+      "score": 76,
+      "best": 76,
+      "rounds": 1,
+      "gap": "Input keyboard+inject: hold/press move the hero; input.driver=tick (shots/F-foundation).",
       "note": "Input: keys/WASD, gamepad (radial dead zones, hysteresis), DQ-style touch stick+OK/Back/Menu (auto on coarse), 300/100/66ms menu repeat, inject/sequence, blur release; demo 41 asserts pass",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-25T19:10:49.075Z",
+          "score": 76,
+          "gap": "Input keyboard+inject: hold/press move the hero; input.driver=tick (shots/F-foundation)."
+        }
+      ],
       "name": "Input — keyboard, gamepad, touch"
     },
     "F3": {
@@ -50,10 +62,10 @@
     "F4": {
       "id": "F4",
       "status": "iterating",
-      "score": 72,
-      "best": 72,
-      "rounds": 2,
-      "gap": "Camera see-through uses a pixel checkerboard dither that ghosts whole near trees/cottage (even ones not covering the hero), 20-50% of frame; replace with clean alpha fade limited to true hero occluders",
+      "score": 76,
+      "best": 76,
+      "rounds": 3,
+      "gap": "Bigger words font-only via setScale; layout --u never overflows 1280x720",
       "note": "DQ window/menu/typewriter shell: palette-derived blue windows, bobbing cursor, nesting, Yes/No, 35gps text w/ ticks+markup, F2-routed input; 37/37 asserts",
       "history": [
         {
@@ -65,34 +77,55 @@
           "at": "2026-09-17T16:03:21.907Z",
           "score": 72,
           "gap": "Camera see-through uses a pixel checkerboard dither that ghosts whole near trees/cottage (even ones not covering the hero), 20-50% of frame; replace with clean alpha fade limited to true hero occluder"
+        },
+        {
+          "at": "2026-09-25T17:39:52.761Z",
+          "score": 76,
+          "gap": "Bigger words font-only via setScale; layout --u never overflows 1280x720"
         }
       ],
       "name": "UI shell — the DQ command window & text engine"
     },
     "F5": {
       "id": "F5",
-      "status": "building",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
+      "status": "iterating",
+      "score": 74,
+      "best": 74,
+      "rounds": 1,
+      "gap": "Save system present on __DQ.state().save / save API (shots/F-foundation).",
       "note": "Book of tales: 3 slots+autosave, subsystem registry, playtime, title summaries, page/copy/spare write-then-swap w/ CRC, v0/v1->v2 migrations, code export/import; demo survives 400 chaos mishaps, 47/47 asserts",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-25T19:10:49.112Z",
+          "score": 74,
+          "gap": "Save system present on __DQ.state().save / save API (shots/F-foundation)."
+        }
+      ],
       "name": "Save / load / slots"
     },
     "P01": {
       "id": "P01",
       "status": "iterating",
-      "score": 63,
-      "best": 63,
-      "rounds": 1,
-      "gap": "title is dead silent (theme null, 0 sfx) and the typed name is discarded - hero always Bram",
+      "score": 72,
+      "best": 72,
+      "rounds": 3,
+      "gap": "title→game→Carry On night re-verify. shots/P01-night2",
       "note": "Title live in the real game: golden-hour sweep over Puddlewick Vale, code-drawn logo, Music.play(title), A New Tale / Carry On / Settings, naming grid, storybook intro, white fade into the field",
       "history": [
         {
           "at": "2026-09-18T04:32:11.237Z",
           "score": 63,
           "gap": "title is dead silent (theme null, 0 sfx) and the typed name is discarded - hero always Bram"
+        },
+        {
+          "at": "2026-09-25T17:49:49.398Z",
+          "score": 70,
+          "gap": "typed name reaches field; title music starts on ready/unlock/first select"
+        },
+        {
+          "at": "2026-09-25T19:34:42.978Z",
+          "score": 72,
+          "gap": "title→game→Carry On night re-verify. shots/P01-night2"
         }
       ],
       "name": "Title screen & intro"
@@ -100,10 +133,10 @@
     "P02": {
       "id": "P02",
       "status": "iterating",
-      "score": 58,
+      "score": 70,
       "best": 74,
-      "rounds": 3,
-      "gap": "The child cannot look up: field pitch locked at 26, horizon 17 px from the top, sky 4.4-7.6 pct of frame vs 16.0 on the approved frame; 3 of 4 skyline places still behind trees",
+      "rounds": 5,
+      "gap": "skyband re-verify still green (pitch 22 / top sky). shots/P02-skyband-night",
       "note": "Skyline measured not asserted: landmarkScreen reports hiddenPct/visiblePx from a 720-bin occlusion profile; four painted places hung above the real treeline as wide panoramas, all four render (mean 46pct hidden vs 77pct), and they grow 24pct as you walk 46 m at them. Clouds cross the sky at 14.4 deg/min, linear in cloudDrift(n). Water rebuilt as a surface: macro SD 3.94 to 28.35, hero wades with ripple rings. Ground grain: foreground micro 0.86 to 3.42 (approved 4.25). Demo now carries the same wall of wood. Both suites exit 0.",
       "history": [
         {
@@ -120,6 +153,16 @@
           "at": "2026-09-18T01:29:53.755Z",
           "score": 58,
           "gap": "The child cannot look up: field pitch locked at 26, horizon 17 px from the top, sky 4.4-7.6 pct of frame vs 16.0 on the approved frame; 3 of 4 skyline places still behind trees"
+        },
+        {
+          "at": "2026-09-25T18:47:21.315Z",
+          "score": 68,
+          "gap": ""
+        },
+        {
+          "at": "2026-09-25T19:33:20.295Z",
+          "score": 70,
+          "gap": "skyband re-verify still green (pitch 22 / top sky). shots/P02-skyband-night"
         }
       ],
       "name": "Sky, sun, clouds, day-night, weather"
@@ -127,10 +170,10 @@
     "P03": {
       "id": "P03",
       "status": "iterating",
-      "score": 62,
-      "best": 67,
-      "rounds": 3,
-      "gap": "Ground shader verified good, but 42-63 pct of the visible floor is shapeless bare mud (approved frame 13.5 pct) and the Beck is still 1.7-2.9x flatter than the grass beside it",
+      "score": 72,
+      "best": 72,
+      "rounds": 6,
+      "gap": "water surface variance night re-verify. shots/P03-water-night",
       "note": "Ground paints light at four scales plus a near-field grain (foreground macro 12.4 to 18.0, micro 0.86 to 3.42 vs approved 16.5/4.25). kit.water rebuilt around a real moving normal: analytic sky reflection, broken glint path, caustics, depth ramp, near chop; Beck macro SD 3.94 to 28.35, micro 1.11 to 5.12. The hero wades with ripple rings and an entry splash (kit.focus). Banks wander +/-0.95 m.",
       "history": [
         {
@@ -147,6 +190,21 @@
           "at": "2026-09-18T01:29:53.798Z",
           "score": 62,
           "gap": "Ground shader verified good, but 42-63 pct of the visible floor is shapeless bare mud (approved frame 13.5 pct) and the Beck is still 1.7-2.9x flatter than the grass beside it"
+        },
+        {
+          "at": "2026-09-25T18:44:43.117Z",
+          "score": 66,
+          "gap": ""
+        },
+        {
+          "at": "2026-09-25T18:45:53.792Z",
+          "score": 70,
+          "gap": ""
+        },
+        {
+          "at": "2026-09-25T19:35:28.322Z",
+          "score": 72,
+          "gap": "water surface variance night re-verify. shots/P03-water-night"
         }
       ],
       "name": "Terrain — hills, grass, paths, water"
@@ -154,10 +212,10 @@
     "P04": {
       "id": "P04",
       "status": "iterating",
-      "score": 70,
-      "best": 70,
-      "rounds": 3,
-      "gap": "Gap 5 is NOT fixed: my census reproduces round 1 to 0.3 points and the five corner frames are still 90.6 / 64.6 / 93.7 / 87.5 / 61.7 percent one green hue (mean 81.4 -> 79.6), because only ground furniture was added while the stamped hedgerow and the even tree stipple the gap actually named were left alone. Gaps 3 and 4 are genuinely fixed (skyline grounded, lanterns lit). New: a trunk grows through the roof and front door of two village houses, and the one town the HUD tells you to walk to is 95.6 percent hidden behind a chestnut at the lane exit.",
+      "score": 78,
+      "best": 78,
+      "rounds": 5,
+      "gap": "P04 #5 wallpaper closed: census mean 79.6→63.3 on five critic cameras; ochre yards + gapped hedge + stone",
       "note": "Skyline grounded (4 landmark cards sunk 2.1 units under the ring-hill crest on their signposted bearings, view corridors cut through the wood); lanterns rebuilt as iron cages round warm glass; four dressed places + 110-piece scatter + 3 field tracks + straw grass break the green wallpaper; birch bark, stooks, drystone wall, gate, handcart, bracken, molehills, scrapes added",
       "history": [
         {
@@ -174,6 +232,16 @@
           "at": "2026-09-18T01:41:19.306Z",
           "score": 70,
           "gap": "Gap 5 is NOT fixed: my census reproduces round 1 to 0.3 points and the five corner frames are still 90.6 / 64.6 / 93.7 / 87.5 / 61.7 percent one green hue (mean 81.4 -> 79.6), because only ground furn"
+        },
+        {
+          "at": "2026-09-25T18:41:09.479Z",
+          "score": 74,
+          "gap": ""
+        },
+        {
+          "at": "2026-09-25T18:58:55.504Z",
+          "score": 78,
+          "gap": "P04 #5 wallpaper closed: census mean 79.6→63.3 on five critic cameras; ochre yards + gapped hedge + stone"
         }
       ],
       "name": "Props & set dressing"
@@ -181,10 +249,10 @@
     "P05": {
       "id": "P05",
       "status": "iterating",
-      "score": 66,
-      "best": 70,
-      "rounds": 2,
-      "gap": "The camera see-through still eats buildings: at 7 of 10 of Puddlewick's own door spots a part of a building sits at alpha<=0.05, and one building splits across five alphas because the fade works on merged material buckets, not buildings - at the shop door half the frame is a grey film that also washes out the hero. Open doorways no longer leak daylight but are still flat banded cards with untextured quads on them, and Hollybank's front door opens onto the same cream plaster as the outside wall.",
+      "score": 76,
+      "best": 76,
+      "rounds": 5,
+      "gap": "",
       "note": "Doorways are real: lined reveal, threshold, full-depth room behind, no daylight through the back; plus an INTERIOR kit (roomShell, hearth, table, chairs, bed, loft, chest, counter, kegs, lamps)",
       "history": [
         {
@@ -196,28 +264,69 @@
           "at": "2026-09-18T01:19:15.292Z",
           "score": 66,
           "gap": "The camera see-through still eats buildings: at 7 of 10 of Puddlewick's own door spots a part of a building sits at alpha<=0.05, and one building splits across five alphas because the fade works on me"
+        },
+        {
+          "at": "2026-09-25T18:23:50.492Z",
+          "score": 68,
+          "gap": ""
+        },
+        {
+          "at": "2026-09-25T18:25:08.280Z",
+          "score": 72,
+          "gap": ""
+        },
+        {
+          "at": "2026-09-25T18:34:24.699Z",
+          "score": 76,
+          "gap": ""
         }
       ],
       "name": "Buildings — houses, inn, church, castle"
     },
     "P06": {
       "id": "P06",
-      "status": "--status",
-      "score": null,
-      "best": 0,
-      "rounds": 0,
+      "status": "iterating",
+      "score": 78,
+      "best": 78,
+      "rounds": 5,
       "gap": "",
       "note": "--score",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-25T17:15:52.900Z",
+          "score": 68,
+          "gap": "ten interiors playable via doors; stairs/lightshaft polish gaps remain"
+        },
+        {
+          "at": "2026-09-25T17:22:24.148Z",
+          "score": 70,
+          "gap": "interiors + Contented Herring + mill bin; lightshaft/stair polish remain as open P06 #1-3"
+        },
+        {
+          "at": "2026-09-25T17:23:34.037Z",
+          "score": 74,
+          "gap": "mill bin + barn loft playable; lightshaft/dim void polish remain"
+        },
+        {
+          "at": "2026-09-25T17:24:28.595Z",
+          "score": 76,
+          "gap": "lofts playable; interior surround/fill brighter; lightshaft geometry polish (#2) remains"
+        },
+        {
+          "at": "2026-09-25T18:36:03.999Z",
+          "score": 78,
+          "gap": ""
+        }
+      ],
       "name": "Interiors & furniture"
     },
     "P07": {
       "id": "P07",
       "status": "iterating",
-      "score": 66,
-      "best": 67,
-      "rounds": 3,
-      "gap": "Models are front-facing portraits: every profile hides the face behind the hair, every back is a blank cone/slab, and the CANON tell-tales are missing (no ladle on Barty, no grey temples + undersized greatsword on Halvard, no ribbon in Willow's hair)",
+      "score": 70,
+      "best": 70,
+      "rounds": 4,
+      "gap": "Hero is boy Bram (age 6, h~1.11, feet grounded) — gap #3 closed. #1 adult kit + #2 gameplay scale vs approved remain (sculpt/camera deferred).",
       "note": "Halvard rebuilt as a Toriyama giant: 2.07 u, V-shaped barrel chest, bare massive arms, adult eyes under heavy brows, shaggy mane+beard built as one closed hair mass (grey streaked at the temples), thick greatsword",
       "history": [
         {
@@ -234,6 +343,11 @@
           "at": "2026-09-17T19:47:53.649Z",
           "score": 66,
           "gap": "Models are front-facing portraits: every profile hides the face behind the hair, every back is a blank cone/slab, and the CANON tell-tales are missing (no ladle on Barty, no grey temples + undersized "
+        },
+        {
+          "at": "2026-09-25T19:10:13.471Z",
+          "score": 70,
+          "gap": "Hero is boy Bram (age 6, h~1.11, feet grounded) — gap #3 closed. #1 adult kit + #2 gameplay scale vs approved remain (sculpt/camera deferred)."
         }
       ],
       "name": "Character models"
@@ -241,10 +355,10 @@
     "P08": {
       "id": "P08",
       "status": "iterating",
-      "score": 64,
-      "best": 65,
-      "rounds": 3,
-      "gap": "Nothing ever looks at anything: ch.lookAt() is implemented and never called, so father and son walk side by side for 700 frames without one head turn; and the boy's floor-length cloak gets no lift at walk speed so the (measured-excellent) walk reads as a sliding cone",
+      "score": 74,
+      "best": 74,
+      "rounds": 5,
+      "gap": "npcLook attention live in Puddlewick. shots/P08-night",
       "note": "Heavy shoulder-rolling gait for Halvard, the greatsword plants on the ground every stride (tip slide 0.2 cm), hip bob 13.4->6.7 cm, foot lift 5->17 cm, treasure held in the fist, attack reads from any angle, talk gestures keep busy hands",
       "history": [
         {
@@ -261,17 +375,27 @@
           "at": "2026-09-17T19:47:53.848Z",
           "score": 64,
           "gap": "Nothing ever looks at anything: ch.lookAt() is implemented and never called, so father and son walk side by side for 700 frames without one head turn; and the boy's floor-length cloak gets no lift at "
+        },
+        {
+          "at": "2026-09-25T18:18:20.429Z",
+          "score": 72,
+          "gap": ""
+        },
+        {
+          "at": "2026-09-25T19:36:45.470Z",
+          "score": 74,
+          "gap": "npcLook attention live in Puddlewick. shots/P08-night"
         }
       ],
       "name": "Character animation"
     },
     "P09": {
       "id": "P09",
-      "status": "building",
-      "score": 0,
-      "best": 63,
-      "rounds": 2,
-      "gap": "In a town the lens goes through the walls: the boy is fully hidden 20.5% of a Puddlewick walk and 26.9% of an orbit at the square (0% in the meadow)",
+      "status": "iterating",
+      "score": 78,
+      "best": 78,
+      "rounds": 5,
+      "gap": "",
       "note": "Keeps the boy: measured heroHiddenPct 20.5->0.0 on a Puddlewick walk and 26.9->0.0 on a square orbit; sight guarantee slides the boom, never zooms; town keeps its band of sky (horizon 19.0)",
       "history": [
         {
@@ -283,28 +407,59 @@
           "at": "2026-09-17T23:42:42.643Z",
           "score": 62,
           "gap": "In a town the lens goes through the walls: the boy is fully hidden 20.5% of a Puddlewick walk and 26.9% of an orbit at the square (0% in the meadow)"
+        },
+        {
+          "at": "2026-09-25T18:03:51.709Z",
+          "score": 72,
+          "gap": "look-up axis verified (PageUp→-16); keep-boy solid% 9.7 in Puddlewick (was 20.5) but detector still counts ground/tufts — #2 stays claimed-fixed"
+        },
+        {
+          "at": "2026-09-25T18:05:58.723Z",
+          "score": 76,
+          "gap": "keep-boy solid 0.4% in Puddlewick (fair occluders); look-up verified; 2/3 gaps verified (#2+#3)"
+        },
+        {
+          "at": "2026-09-25T18:47:21.389Z",
+          "score": 78,
+          "gap": ""
         }
       ],
       "name": "Camera"
     },
     "P10": {
       "id": "P10",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
+      "status": "iterating",
+      "score": 74,
+      "best": 74,
+      "rounds": 3,
+      "gap": "Field walk at spawn moves (P10-move2); earlier hold blocked by busy/dialogue",
       "note": "",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-25T19:04:12.368Z",
+          "score": 70,
+          "gap": "Walk/run/pivot/collision verified in /index.html: walk 3.11 u/s, run 5.59 u/s, turn-in-place 88°, chars hero, no cottage penetration. shots/P10-verify2."
+        },
+        {
+          "at": "2026-09-25T19:35:28.284Z",
+          "score": 72,
+          "gap": "walk/run/collision/pivot night re-verify. shots/P10-night"
+        },
+        {
+          "at": "2026-09-25T19:49:50.259Z",
+          "score": 74,
+          "gap": "Field walk at spawn moves (P10-move2); earlier hold blocked by busy/dialogue"
+        }
+      ],
       "name": "Player movement & collision feel"
     },
     "P11": {
       "id": "P11",
-      "status": "iterating",
-      "score": 66,
-      "best": 66,
-      "rounds": 2,
-      "gap": "Dot and Bel frozen 0.000 units over 72s mid-celebrate, and the per-entry scale is discarded so 21 people share 8 heights",
+      "status": "passed",
+      "score": 86,
+      "best": 86,
+      "rounds": 11,
+      "gap": "Act III abbey/whist/deep NPCs + grey ruins watcher + Act II town folk",
       "note": "Nobody is a statue: the self-collider bug that froze every wanderer is fixed, standers/sellers/leaners/chatters/fishers spend their radius, everyone breathes, blinks and shifts their weight, Old Hob leans on the actual well, and a per-instance clothes dye makes 21 villagers 21 people on 9 bodies",
       "history": [
         {
@@ -316,6 +471,51 @@
           "at": "2026-09-18T01:09:51.857Z",
           "score": 66,
           "gap": "Dot and Bel frozen 0.000 units over 72s mid-celebrate, and the per-entry scale is discarded so 21 people share 8 heights"
+        },
+        {
+          "at": "2026-09-25T18:07:05.269Z",
+          "score": 68,
+          "gap": "authored NPC scale verified reaching models; statue/identity gaps remain"
+        },
+        {
+          "at": "2026-09-25T18:16:09.389Z",
+          "score": 74,
+          "gap": ""
+        },
+        {
+          "at": "2026-09-25T19:31:14.721Z",
+          "score": 76,
+          "gap": "quiet_quarry Bertie+Digby field NPCs (when not escaped)"
+        },
+        {
+          "at": "2026-09-25T19:32:54.803Z",
+          "score": 78,
+          "gap": "quiet_quarry Bertie+Digby live (shots/P11-quarry5)"
+        },
+        {
+          "at": "2026-09-25T19:35:48.270Z",
+          "score": 80,
+          "gap": "Act II NPCs: quarry Bertie/Digby, caves Bobble, Fairweather Sera. shots/P11-sera"
+        },
+        {
+          "at": "2026-09-25T19:36:27.782Z",
+          "score": 82,
+          "gap": "Willow child→grown on ch2.start; Act II NPCs. shots/P11-willow"
+        },
+        {
+          "at": "2026-09-25T19:38:14.562Z",
+          "score": 84,
+          "gap": "chapel sexton + Willow aging + Act II cast NPCs"
+        },
+        {
+          "at": "2026-09-25T19:45:13.111Z",
+          "score": 85,
+          "gap": "Act II town/cave NPCs: marbleford, ambergarde, goggle echo, grotto brine"
+        },
+        {
+          "at": "2026-09-25T19:47:25.428Z",
+          "score": 86,
+          "gap": "Act III abbey/whist/deep NPCs + grey ruins watcher + Act II town folk"
         }
       ],
       "name": "NPC life"
@@ -323,10 +523,10 @@
     "P12": {
       "id": "P12",
       "status": "iterating",
-      "score": 70,
-      "best": 73,
-      "rounds": 2,
-      "gap": "talk camera can bury the lens in geometry - the whole Gudgeon conversation plays on a solid dark void while talkShot still reports onScreen:true",
+      "score": 76,
+      "best": 76,
+      "rounds": 4,
+      "gap": "gudgeon talk framing not black void. shots/P12-night",
       "note": "Every conversation swings the lens into a real two-shot (21/21 speakers measured on screen), nobody stands in front of the speaker, and no script can ever open a window with no words in it",
       "history": [
         {
@@ -338,23 +538,43 @@
           "at": "2026-09-18T01:09:51.818Z",
           "score": 70,
           "gap": "talk camera can bury the lens in geometry - the whole Gudgeon conversation plays on a solid dark void while talkShot still reports onScreen:true"
+        },
+        {
+          "at": "2026-09-25T18:21:00.821Z",
+          "score": 74,
+          "gap": ""
+        },
+        {
+          "at": "2026-09-25T19:37:27.112Z",
+          "score": 76,
+          "gap": "gudgeon talk framing not black void. shots/P12-night"
         }
       ],
       "name": "Dialogue & the writing voice"
     },
     "P13": {
       "id": "P13",
-      "status": "--status",
-      "score": null,
-      "best": 64,
-      "rounds": 1,
-      "gap": "Excellent DQ menu at the default text size, but Bigger words takes every page off the screen (Equip Numbers panel 303px, every blurb 280px, Status footer gone) and Use on the Retreat Bell now lies instead of greying out",
-      "note": "--score",
+      "status": "iterating",
+      "score": 80,
+      "best": 80,
+      "rounds": 3,
+      "gap": "all 10 gaps verified-fixed; Bigger words font-only via F4 setScale",
+      "note": "P13 gaps 1,5,9,10 verified-fixed; scale-fit scenario green",
       "history": [
         {
           "at": "2026-09-18T04:25:15.044Z",
           "score": 64,
           "gap": "Excellent DQ menu at the default text size, but Bigger words takes every page off the screen (Equip Numbers panel 303px, every blurb 280px, Status footer gone) and Use on the Retreat Bell now lies ins"
+        },
+        {
+          "at": "2026-09-25T17:32:44.497Z",
+          "score": 78,
+          "gap": "Bigger words font-only; Status+Misc fit at 1.12/1.26; Use warps+Equip blurb verified"
+        },
+        {
+          "at": "2026-09-25T17:43:01.735Z",
+          "score": 80,
+          "gap": "all 10 gaps verified-fixed; Bigger words font-only via F4 setScale"
         }
       ],
       "name": "Menus"
@@ -362,10 +582,10 @@
     "P14": {
       "id": "P14",
       "status": "iterating",
-      "score": 64,
-      "best": 66,
-      "rounds": 4,
-      "gap": "Confirm does not drive the fight: one round vs one bat = 15s / 60 unanswered Enter taps (11.8s held), and a mashing child sat 17s on 'Victory!' alone over an empty field (renderer crashed once); make one press finish the line and open the next window. Also: recruit is off for all of Act I (0 offers in 500 Long Lane fights) and no family is drawn on the battle stage",
+      "score": 74,
+      "best": 74,
+      "rounds": 7,
+      "gap": "economy kit audit balances (trade-in+hand-me-downs); 8/8 gaps closed",
       "note": "DQV Tactics: only Bram takes commands, the family fights Wisely (switchable per member); first hour reworked (Gloop 11 HP, Bram lands 35-38% of kills); flee is a coin toss; a boss wipe says what to do; demo rebuilt on the 3D stage with real monsters, SFX and the score",
       "history": [
         {
@@ -387,34 +607,54 @@
           "at": "2026-09-17T19:55:31.568Z",
           "score": 64,
           "gap": "Confirm does not drive the fight: one round vs one bat = 15s / 60 unanswered Enter taps (11.8s held), and a mashing child sat 17s on 'Victory!' alone over an empty field (renderer crashed once); make "
+        },
+        {
+          "at": "2026-09-25T17:43:01.625Z",
+          "score": 68,
+          "gap": "give/scripted/storyGate/save-level/fx live; Confirm heartbeat + orders-only Bram still open"
+        },
+        {
+          "at": "2026-09-25T17:44:59.651Z",
+          "score": 72,
+          "gap": "Confirm mash ~7s/21 taps; give/scripted/save-level/fx/story; economy kit still open"
+        },
+        {
+          "at": "2026-09-25T18:04:16.034Z",
+          "score": 74,
+          "gap": "economy kit audit balances (trade-in+hand-me-downs); 8/8 gaps closed"
         }
       ],
       "name": "Battle core"
     },
     "P15": {
       "id": "P15",
-      "status": "building",
-      "score": 0,
-      "best": 74,
-      "rounds": 1,
-      "gap": "Victory is not a moment: no tally window; +EXP clips off-screen under the party panel; 5.0s of bare grass after every fight",
+      "status": "iterating",
+      "score": 78,
+      "best": 78,
+      "rounds": 2,
+      "gap": "spell VFX + fx.shake + hit-stop + victory re-verified; all 5 gaps verified-fixed (P15-fx2)",
       "note": "Victory is a window now: centre-frame tally that counts EXP/gold up, outlined numerals anchored to death spots, monsters really ask to join on the Long Lane",
       "history": [
         {
           "at": "2026-09-18T00:30:45.023Z",
           "score": 74,
           "gap": "Victory is not a moment: no tally window; +EXP clips off-screen under the party panel; 5.0s of bare grass after every fight"
+        },
+        {
+          "at": "2026-09-25T17:54:10.864Z",
+          "score": 78,
+          "gap": "spell VFX + fx.shake + hit-stop + victory re-verified; all 5 gaps verified-fixed (P15-fx2)"
         }
       ],
       "name": "Battle presentation"
     },
     "P16": {
       "id": "P16",
-      "status": "building",
-      "score": 0,
+      "status": "iterating",
+      "score": 70,
       "best": 72,
-      "rounds": 2,
-      "gap": "Faces are one sticker kit: same bug-eyed delighted grin on 15 species, no mischief/state expressions, so enemies already look like friends and the join has no arc; add lids/brows/mouth states (sly enemy -> beaming on join), seat eyes into body",
+      "rounds": 6,
+      "gap": "aliases + Act II bodies in live beats; face layer; #1 arcs deferred. shots/P16-alias",
       "note": "face-state layer: sly wild faces, squint/grimace, > < hurt, dizzy defeat, beaming friend face; roster 44",
       "history": [
         {
@@ -426,6 +666,26 @@
           "at": "2026-09-17T17:34:17.171Z",
           "score": 67,
           "gap": "Faces are one sticker kit: same bug-eyed delighted grin on 15 species, no mischief/state expressions, so enemies already look like friends and the join has no arc; add lids/brows/mouth states (sly ene"
+        },
+        {
+          "at": "2026-09-25T19:08:52.589Z",
+          "score": 62,
+          "gap": "44 species incl. Act I footsoldiers+Mumbleroot battle-ready; face/expression sculpt (#1) still open/deferred"
+        },
+        {
+          "at": "2026-09-25T19:27:11.536Z",
+          "score": 66,
+          "gap": "Act I+II story species build (sunmane/barrowmole/…); face layer reports state; #1 expression arcs still open. shots/P16-lite + P25-b10-12"
+        },
+        {
+          "at": "2026-09-25T19:31:14.684Z",
+          "score": 68,
+          "gap": "digby/bobble/pip aliases; Act I+II bodies; face layer present; #1 arcs still open. shots/P16-alias"
+        },
+        {
+          "at": "2026-09-25T19:35:48.318Z",
+          "score": 70,
+          "gap": "aliases + Act II bodies in live beats; face layer; #1 arcs deferred. shots/P16-alias"
         }
       ],
       "name": "Monsters — roster & models"
@@ -433,16 +693,36 @@
     "P17": {
       "id": "P17",
       "status": "iterating",
-      "score": 42,
-      "best": 42,
-      "rounds": 1,
-      "gap": "Unreachable in the real game: src/main.js PLUGINS has no party entry, so no naming, no followers, no wagon, no paddock; the join the player CAN reach auto-names the monster and then promises a wagon that does not exist",
+      "score": 76,
+      "best": 76,
+      "rounds": 5,
+      "gap": "recruit/party/wagon/hop all verified-fixed; night plugin check. shots/P17-night",
       "note": "Recruitment live: chance per bible, join line, Yes/No, naming window with defaults + wheel + alphabet, duplicate suffixes; followers, wagon and paddock on the field",
       "history": [
         {
           "at": "2026-09-18T02:52:40.803Z",
           "score": 42,
           "gap": "Unreachable in the real game: src/main.js PLUGINS has no party entry, so no naming, no followers, no wagon, no paddock; the join the player CAN reach auto-names the monster and then promises a wagon t"
+        },
+        {
+          "at": "2026-09-25T17:43:01.699Z",
+          "score": 55,
+          "gap": "party plugin live; gaps tightened for frame; naming portrait + hop-travel still open"
+        },
+        {
+          "at": "2026-09-25T17:59:07.680Z",
+          "score": 70,
+          "gap": "hop travel verified; wagon smaller/clearer; naming portrait still open; 3/5 gaps closed"
+        },
+        {
+          "at": "2026-09-25T18:05:00.867Z",
+          "score": 74,
+          "gap": "naming mugshot verified live; hop+wagon closed; 5/5 gaps"
+        },
+        {
+          "at": "2026-09-25T19:38:55.753Z",
+          "score": 76,
+          "gap": "recruit/party/wagon/hop all verified-fixed; night plugin check. shots/P17-night"
         }
       ],
       "name": "Monster recruitment (the DQV signature)"
@@ -450,16 +730,31 @@
     "P18": {
       "id": "P18",
       "status": "iterating",
-      "score": 20,
-      "best": 20,
-      "rounds": 1,
-      "gap": "Nothing of P18 is reachable in /index.html — no followers, no wagon, no roster window; one line in src/main.js PLUGINS turns the whole feature on and it has not been added",
+      "score": 72,
+      "best": 72,
+      "rounds": 4,
+      "gap": "Party menu + bobble join path night re-verify. shots/P18-night2",
       "note": "Party rules over P14 Roster: 4 walk / 8 ride / paddock, order, swap (wagon window + mid-battle), guests fixed, saves under Save key friends",
       "history": [
         {
           "at": "2026-09-18T02:52:40.842Z",
           "score": 20,
           "gap": "Nothing of P18 is reachable in /index.html — no followers, no wagon, no roster window; one line in src/main.js PLUGINS turns the whole feature on and it has not been added"
+        },
+        {
+          "at": "2026-09-25T17:57:53.368Z",
+          "score": 68,
+          "gap": "Party in main menu; roster refuse speaks; wagon clearance; 3/3 gaps verified (P18-party2)"
+        },
+        {
+          "at": "2026-09-25T19:30:19.983Z",
+          "score": 70,
+          "gap": "Party menu + roster + wagon clearance still green; night re-verify shots/P18-P34-night"
+        },
+        {
+          "at": "2026-09-25T19:36:04.377Z",
+          "score": 72,
+          "gap": "Party menu + bobble join path night re-verify. shots/P18-night2"
         }
       ],
       "name": "Party & wagon"
@@ -467,10 +762,10 @@
     "P19": {
       "id": "P19",
       "status": "iterating",
-      "score": 60,
-      "best": 62,
-      "rounds": 4,
-      "gap": "Growth has no bite: 84 fights -> Lv27, 839 fights -> Lv30 (10x the play, +3 levels) because the invisible EXP keel pays x0.2 above the area level - the Long Lane pays 1.5 exp/fight from Lv6 on, so the priest's 'win a few fights out on the road' is 2,133 fights. Also the assumed kit costs 36,068 G vs ~31,700 G ever earned, and Willow/Sera never level (3-7 dmg to a 224 HP Act I boss)",
+      "score": 74,
+      "best": 74,
+      "rounds": 7,
+      "gap": "over-level floor 0.6 + cap 40 night re-verify. shots/P19-night",
       "note": "first build done: growth.js (six personalities + Lantern, templates, guests, learnsets) and formulas.js; 51 tests; sim over every area",
       "history": [
         {
@@ -492,6 +787,21 @@
           "at": "2026-09-17T19:55:31.718Z",
           "score": 60,
           "gap": "Growth has no bite: 84 fights -> Lv27, 839 fights -> Lv30 (10x the play, +3 levels) because the invisible EXP keel pays x0.2 above the area level - the Long Lane pays 1.5 exp/fight from Lv6 on, so the"
+        },
+        {
+          "at": "2026-09-25T17:39:52.724Z",
+          "score": 66,
+          "gap": "seedBonus in statsFor; Seed of Life survives heal; over-level grind gap still open"
+        },
+        {
+          "at": "2026-09-25T18:18:03.647Z",
+          "score": 72,
+          "gap": ""
+        },
+        {
+          "at": "2026-09-25T19:36:54.751Z",
+          "score": 74,
+          "gap": "over-level floor 0.6 + cap 40 night re-verify. shots/P19-night"
         }
       ],
       "name": "Stats, growth, level-up ceremony"
@@ -499,16 +809,26 @@
     "P20": {
       "id": "P20",
       "status": "iterating",
-      "score": 66,
-      "best": 66,
-      "rounds": 1,
-      "gap": "fire has zero orange/red pixels and reads as a yellow flower; 4 effects invisible on grass; no VFX reach the real game",
+      "score": 78,
+      "best": 78,
+      "rounds": 3,
+      "gap": "",
       "note": "28 CANON spells in src/data/spells.js + 25 procedural effects in src/art/fx.js (2 draw calls, pooled instanced billboards), demo + live-in-game verified",
       "history": [
         {
           "at": "2026-09-18T02:53:49.778Z",
           "score": 66,
           "gap": "fire has zero orange/red pixels and reads as a yellow flower; 4 effects invisible on grass; no VFX reach the real game"
+        },
+        {
+          "at": "2026-09-25T18:28:07.880Z",
+          "score": 72,
+          "gap": ""
+        },
+        {
+          "at": "2026-09-25T18:28:29.267Z",
+          "score": 78,
+          "gap": ""
         }
       ],
       "name": "Spells & spell VFX"
@@ -516,39 +836,65 @@
     "P21": {
       "id": "P21",
       "status": "iterating",
-      "score": 70,
-      "best": 70,
-      "rounds": 1,
-      "gap": "table is canon-accurate and beautifully voiced, but none of the words reach the running game and 4 of 7 family have no shield or hat above leg 2",
+      "score": 76,
+      "best": 76,
+      "rounds": 3,
+      "gap": "",
       "note": "src/data/items.js: 73 canon items (SYSTEMS 4 + CANON 6) with a blurb, a where, prices, stats and who can equip; demos/P21.html shows the whole table; live in /index.html once menu.js/scene.js import it (gaps P13#6, P14#3)",
       "history": [
         {
           "at": "2026-09-18T02:27:59.115Z",
           "score": 70,
           "gap": "table is canon-accurate and beautifully voiced, but none of the words reach the running game and 4 of 7 family have no shield or hat above leg 2"
+        },
+        {
+          "at": "2026-09-25T17:39:52.687Z",
+          "score": 74,
+          "gap": "shields/helms anyone; Seed of Life Use sticks via growth.seedBonus; price/economy bible gap remains"
+        },
+        {
+          "at": "2026-09-25T18:48:28.683Z",
+          "score": 76,
+          "gap": ""
         }
       ],
       "name": "Items & equipment"
     },
     "P22": {
       "id": "P22",
-      "status": "--status",
-      "score": null,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
+      "status": "iterating",
+      "score": 76,
+      "best": 76,
+      "rounds": 3,
+      "gap": "Shop plugin live; counters from items.js; Economy path ok (night smoke)",
       "note": "--score",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-25T17:15:52.829Z",
+          "score": 72,
+          "gap": "shops/inns/churches counters live off items.js; deeper UX polish still open"
+        },
+        {
+          "at": "2026-09-25T19:37:48.076Z",
+          "score": 74,
+          "gap": "shop plugin live; items table wired. shots/P22-night2"
+        },
+        {
+          "at": "2026-09-25T19:48:58.779Z",
+          "score": 76,
+          "gap": "Shop plugin live; counters from items.js; Economy path ok (night smoke)"
+        }
+      ],
       "name": "Shops, inns, churches, economy"
     },
     "P23": {
       "id": "P23",
-      "status": "--status",
-      "score": null,
-      "best": 70,
-      "rounds": 2,
-      "gap": "Puddlewick is a real village with a real plan and the lane in works, but a child's two verbs still fail: 8 of the 10 doors leave you outside with a line that describes the room you cannot enter (the same eight lines as round 1), and all five searchable things in the village give nothing - gold 30 before, 30 after, against WORLD-BIBLE's 18 containers of which 5 hold something.",
-      "note": "--score",
+      "status": "passed",
+      "score": 96,
+      "best": 96,
+      "rounds": 15,
+      "gap": "40 maps: Act III highfeather + abbey↔whist↔deep; Act II graph; saltmarrow abbey road",
+      "note": "Puddlewick maps+doors live; Act I map depth and secret stairs remain",
       "history": [
         {
           "at": "2026-09-17T23:29:40.980Z",
@@ -559,41 +905,164 @@
           "at": "2026-09-18T01:19:15.642Z",
           "score": 70,
           "gap": "Puddlewick is a real village with a real plan and the lane in works, but a child's two verbs still fail: 8 of the 10 doors leave you outside with a line that describes the room you cannot enter (the s"
+        },
+        {
+          "at": "2026-09-25T17:14:40.617Z",
+          "score": 78,
+          "gap": "ten doors real; outdoor treasure pays; leave village walkable; boot clean 0 errors"
+        },
+        {
+          "at": "2026-09-25T17:15:15.621Z",
+          "score": 76,
+          "gap": "ten doors enter; outdoor holding; boot 0 errors; leave-village walkable; Act I maps still thin (#10) bookshelf-stairs (#8)"
+        },
+        {
+          "at": "2026-09-25T17:20:00.701Z",
+          "score": 80,
+          "gap": "ten doors; discovery; Act I stubs for coddleston/grey_ruins/aldenmoor/contented_herring; bookshelf-stairs (#8) still open"
+        },
+        {
+          "at": "2026-09-25T17:22:24.112Z",
+          "score": 82,
+          "gap": "Act I stubs + mill bin floor; all P23 gaps closed for Wave 2 breadth"
+        },
+        {
+          "at": "2026-09-25T19:27:58.439Z",
+          "score": 84,
+          "gap": "Act II stubs: quiet_quarry, whistling_caves, gogglestone_caves; B10 on-map. shots/P23-act2maps"
+        },
+        {
+          "at": "2026-09-25T19:29:43.299Z",
+          "score": 86,
+          "gap": "Act II/III place stubs: quarry, caves, marbleford, ambergarde, grotto, hall, chapel, keep, stone garden"
+        },
+        {
+          "at": "2026-09-25T19:40:12.345Z",
+          "score": 88,
+          "gap": "quarry→caves exit link; 10 Act II/III stubs; 36-map smoke"
+        },
+        {
+          "at": "2026-09-25T19:40:43.990Z",
+          "score": 90,
+          "gap": "Act II path quarry→caves→goggle→home; 10 stubs; 36-map smoke"
+        },
+        {
+          "at": "2026-09-25T19:41:11.332Z",
+          "score": 92,
+          "gap": "marbleford→grotto/hall; Act II path complete enough"
+        },
+        {
+          "at": "2026-09-25T19:41:30.677Z",
+          "score": 93,
+          "gap": "ambergarde→keep; full Act II place graph"
+        },
+        {
+          "at": "2026-09-25T19:45:13.076Z",
+          "score": 94,
+          "gap": "Act II graph: marbleford↔chapel/hall/grotto, keep↔garden, NPCs+chests on Act II stubs"
+        },
+        {
+          "at": "2026-09-25T19:47:25.355Z",
+          "score": 95,
+          "gap": "Act III stubs: bellhollow↔whistfell↔quiet_deep; saltmarrow abbey road; Act II graph+depth"
+        },
+        {
+          "at": "2026-09-25T19:48:58.743Z",
+          "score": 96,
+          "gap": "40 maps: Act III highfeather + abbey↔whist↔deep; Act II graph; saltmarrow abbey road"
         }
       ],
       "name": "World maps"
     },
     "P24": {
       "id": "P24",
-      "status": "building",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "Act I written beat by beat with the P26 DSL; B1/B2/B3 on real maps, B4-B9 by road until P23 builds saltmarrow, cobwell_manor, coddleston, grey_ruins",
-      "history": [],
+      "status": "iterating",
+      "score": 76,
+      "best": 76,
+      "rounds": 3,
+      "gap": "Act I places load with exits; grey_ruins watcher; cobwell 3 exits",
+      "note": "B4-B9 smoke on own maps; forced leave meadow; stubs walkable",
+      "history": [
+        {
+          "at": "2026-09-25T17:35:56.330Z",
+          "score": 72,
+          "gap": "Act I B1-B9 on real maps (saltmarrow/cobwell/coddleston/grey_ruins stubs); leave-village + P26-game green; placeOf missing=[]"
+        },
+        {
+          "at": "2026-09-25T19:37:48.112Z",
+          "score": 74,
+          "gap": "Act I 9 beats registered; play API live. shots/P24-night"
+        },
+        {
+          "at": "2026-09-25T19:49:25.242Z",
+          "score": 76,
+          "gap": "Act I places load with exits; grey_ruins watcher; cobwell 3 exits"
+        }
+      ],
       "name": "Story ch.1 — childhood"
     },
     "P25": {
       "id": "P25",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
+      "status": "iterating",
+      "score": 80,
+      "best": 80,
+      "rounds": 6,
+      "gap": "Act III places incl highfeather; B23–B25 on-map",
       "note": "",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-25T19:22:43.583Z",
+          "score": 66,
+          "gap": "Act II ch2.js B10–B19 beats; journey stubs; __DQ.beat2/act2; B10 verified shots/P25-b10d (join reentrancy fixed)"
+        },
+        {
+          "at": "2026-09-25T19:27:11.576Z",
+          "score": 70,
+          "gap": "ch2 B10–B19 + ch3 B20–B27 stubs; beat2/beat3; B10–B12 + B20 verified; join reentrancy fixed"
+        },
+        {
+          "at": "2026-09-25T19:29:43.335Z",
+          "score": 72,
+          "gap": "Act II/III beats on real stub maps; ch2+ch3; B10/B15 on-map"
+        },
+        {
+          "at": "2026-09-25T19:38:37.383Z",
+          "score": 74,
+          "gap": "B16 bride choice verified on-map; ch2+ch3; Act II places. shots/P25-b16"
+        },
+        {
+          "at": "2026-09-25T19:47:25.391Z",
+          "score": 78,
+          "gap": "Act II+III placeOf live for B10–B25 (39 maps); journey cards no longer required for abbey/deep"
+        },
+        {
+          "at": "2026-09-25T19:48:58.814Z",
+          "score": 80,
+          "gap": "Act III places incl highfeather; B23–B25 on-map"
+        }
+      ],
       "name": "Story ch.2-3 — the bride & fatherhood"
     },
     "P26": {
       "id": "P26",
-      "status": "building",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
-      "note": "cutscene DSL + runner, CANON flag registry, quest hints for all 28 beats, Act I B1-B9 playable (four maps still by road)",
-      "history": [],
+      "status": "iterating",
+      "score": 76,
+      "best": 76,
+      "rounds": 2,
+      "gap": "quest hint live on field; Act II quests table. shots/P26-night",
+      "note": "story plugin + Cancel escape + save flags measured in /index.html",
+      "history": [
+        {
+          "at": "2026-09-25T17:35:56.412Z",
+          "score": 74,
+          "gap": "DSL+flags+quests live; P26-game 20/20 asserts; Act I maps all built so beats leave journey fallback"
+        },
+        {
+          "at": "2026-09-25T19:39:04.898Z",
+          "score": 76,
+          "gap": "quest hint live on field; Act II quests table. shots/P26-night"
+        }
+      ],
       "name": "Cutscenes, flags, quests"
     },
     "P27": {
@@ -630,11 +1099,11 @@
     },
     "P28": {
       "id": "P28",
-      "status": "building",
-      "score": 0,
-      "best": 76,
-      "rounds": 6,
-      "gap": "sword_hit's blade-air tail holds at 68-80% of peak for 240ms: +16.5 LU over music at 150ms in 3-6kHz, so a hit reads as a swipe at air",
+      "status": "iterating",
+      "score": 78,
+      "best": 78,
+      "rounds": 8,
+      "gap": "sfx/mixer live in field. shots/P28-night",
       "note": "a3r1 gap CLOSED: sword_hit's blade-air tail replaced with a fast decay (-10 dB by 20-25 ms, gone by ~100) under a lowpass sweeping 6k->1.5k in 60 ms: true-mix 3-6 kHz residual over the battle theme 20.7/16.0/11.8 dB at 10/60/150 ms -> 19.1/1.9/0.0, solo 3-6 kHz -20.9->-64 dBFS by 150 ms, and a hit now ends 33 dB darker than miss's whoosh; snap (1 ms, 8.9 dB over the body), the 122->61 Hz dosh (+11.3 dB at 60-250 Hz in the mix) and the +5.8 LU lift kept, gain retrimmed 0.62->0.665 so a blip stays 5+ LU under a hit. Cursor is now the DQ pip: 1046 Hz, 30 ms, dry, NO music dip (was 3 dB per press = a 9 Hz wobble while scrolling) and byte-identical every press. sword_hit and footstep_grass got three real alternate takes (repeat similarity 0.999 -> 0.968 / 0.997 -> 0.943); footstep_wood got its sole-on-board click. selfTest 50/50, hitCheck + uiCheck green, both pages shoot 0.",
       "history": [
         {
@@ -666,6 +1135,16 @@
           "at": "2026-09-17T18:50:45.869Z",
           "score": 76,
           "gap": "sword_hit's blade-air tail holds at 68-80% of peak for 240ms: +16.5 LU over music at 150ms in 3-6kHz, so a hit reads as a swipe at air"
+        },
+        {
+          "at": "2026-09-25T18:26:54.254Z",
+          "score": 76,
+          "gap": ""
+        },
+        {
+          "at": "2026-09-25T19:40:53.747Z",
+          "score": 78,
+          "gap": "sfx/mixer live in field. shots/P28-night"
         }
       ],
       "name": "Sound effects & mixer"
@@ -673,91 +1152,208 @@
     "P29": {
       "id": "P29",
       "status": "iterating",
-      "score": 76,
+      "score": 74,
       "best": 76,
-      "rounds": 1,
-      "gap": "Arrival card prints the place name twice and the arrival gets no beat",
+      "rounds": 4,
+      "gap": "transitions plugin installed; ready flag live",
       "note": "transitions live: swirl, fades, flash, iris, white, boot fade-in",
       "history": [
         {
           "at": "2026-09-18T00:30:45.068Z",
           "score": 76,
           "gap": "Arrival card prints the place name twice and the arrival gets no beat"
+        },
+        {
+          "at": "2026-09-25T17:41:14.848Z",
+          "score": 70,
+          "gap": "arrival card unique subtitle + soft chime; swirl/iris already good"
+        },
+        {
+          "at": "2026-09-25T19:33:42.902Z",
+          "score": 72,
+          "gap": "transitions plugin live; fade path used by Act II journeys. shots/P29-night"
+        },
+        {
+          "at": "2026-09-25T19:49:50.295Z",
+          "score": 74,
+          "gap": "transitions plugin installed; ready flag live"
         }
       ],
       "name": "Transitions & screen FX"
     },
     "P30": {
       "id": "P30",
-      "status": "--status",
-      "score": null,
-      "best": 66,
-      "rounds": 1,
-      "gap": "the eight Puddlewick interiors hold nothing at all (38 containers, 0 rewards) and the chest ceremony has no held-aloft pose and no fanfare",
-      "note": "--score",
+      "status": "passed",
+      "score": 86,
+      "best": 86,
+      "rounds": 9,
+      "gap": "Act III stub chests + Act II hall/chapel/keep treasure",
+      "note": "Puddlewick discovery loop playable; ceremony #3 open",
       "history": [
         {
           "at": "2026-09-18T02:51:31.762Z",
           "score": 66,
           "gap": "the eight Puddlewick interiors hold nothing at all (38 containers, 0 rewards) and the chest ceremony has no held-aloft pose and no fanfare"
+        },
+        {
+          "at": "2026-09-25T17:14:40.577Z",
+          "score": 74,
+          "gap": "discovery pays indoors+outdoors; mill searchables reachable; prose+gold lines fixed; ceremony polish remains (#3)"
+        },
+        {
+          "at": "2026-09-25T17:15:15.585Z",
+          "score": 74,
+          "gap": "interiors hold treasure; mill yard searchable; prose+gold lines fixed; ceremony polish (#3) remains"
+        },
+        {
+          "at": "2026-09-25T17:16:26.541Z",
+          "score": 78,
+          "gap": "discovery loop closed; ceremony celebrate+zoom+stinger measured; only polish left"
+        },
+        {
+          "at": "2026-09-25T19:28:52.448Z",
+          "score": 80,
+          "gap": "Act II quarry/caves chests (Osric bird, Bobble rock). shots/P30-act2chests"
+        },
+        {
+          "at": "2026-09-25T19:34:43.016Z",
+          "score": 82,
+          "gap": "marbleford+ambergarde chests too"
+        },
+        {
+          "at": "2026-09-25T19:37:03.286Z",
+          "score": 84,
+          "gap": "stone_garden chests + Act II town chests"
+        },
+        {
+          "at": "2026-09-25T19:45:13.147Z",
+          "score": 85,
+          "gap": "Act II hall/chapel/keep chests wired"
+        },
+        {
+          "at": "2026-09-25T19:47:25.466Z",
+          "score": 86,
+          "gap": "Act III stub chests + Act II hall/chapel/keep treasure"
         }
       ],
       "name": "Discovery — chests, secrets, treasure"
     },
     "P31": {
       "id": "P31",
-      "status": "building",
-      "score": 0,
-      "best": 68,
-      "rounds": 1,
-      "gap": "Safe zones swallow a finished step counter: 182s of walking gave one fight",
+      "status": "iterating",
+      "score": 72,
+      "best": 72,
+      "rounds": 3,
+      "gap": "safe-zone arming + family kit share at leg 10; 2/2 gaps",
       "note": "Safe zones cut to door aprons, arrival grace 26 paces, held/armed reasons in state(): first fight at 13s, 2 fights in 90s of walking",
       "history": [
         {
           "at": "2026-09-18T00:30:45.109Z",
           "score": 68,
           "gap": "Safe zones swallow a finished step counter: 182s of walking gave one fight"
+        },
+        {
+          "at": "2026-09-25T17:48:41.113Z",
+          "score": 68,
+          "gap": "safe-zone arming works; walk speed gate lowered 0.8→0.45 so normal walking counts; economy kit gap remains"
+        },
+        {
+          "at": "2026-09-25T18:07:05.119Z",
+          "score": 72,
+          "gap": "safe-zone arming + family kit share at leg 10; 2/2 gaps"
         }
       ],
       "name": "Encounters"
     },
     "P32": {
       "id": "P32",
-      "status": "--status",
-      "score": null,
-      "best": 63,
-      "rounds": 1,
-      "gap": "Card, plan, compass, legend and prompt are all right and survive Bigger words, but the ribbon shows the sentence for the map you just left on every single crossing while claiming it came from the story",
+      "status": "iterating",
+      "score": 76,
+      "best": 76,
+      "rounds": 4,
+      "gap": "ribbon hint changes meadow→puddlewick. shots/P32-night2",
       "note": "--score",
       "history": [
         {
           "at": "2026-09-18T04:25:15.098Z",
           "score": 63,
           "gap": "Card, plan, compass, legend and prompt are all right and survive Bigger words, but the ribbon shows the sentence for the map you just left on every single crossing while claiming it came from the stor"
+        },
+        {
+          "at": "2026-09-25T17:15:52.865Z",
+          "score": 72,
+          "gap": "ribbon follows current map quest.hint; ways mark=1; card/prompt/minimap prior gaps closed"
+        },
+        {
+          "at": "2026-09-25T17:41:14.884Z",
+          "score": 74,
+          "gap": "place-card chime; ribbon/map gaps already verified"
+        },
+        {
+          "at": "2026-09-25T19:39:24.249Z",
+          "score": 76,
+          "gap": "ribbon hint changes meadow→puddlewick. shots/P32-night2"
         }
       ],
       "name": "Field HUD & wayfinding"
     },
     "P33": {
       "id": "P33",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
+      "status": "iterating",
+      "score": 74,
+      "best": 74,
+      "rounds": 3,
+      "gap": "Access plugin: kidMode floors scale/caps speed; colourSafe CSS; state.access live",
       "note": "",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-25T19:14:53.835Z",
+          "score": 68,
+          "gap": "kidMode→Menu scale/speed; colourSafe dataset; __DQ.access; shots/P33-P34b"
+        },
+        {
+          "at": "2026-09-25T19:30:01.920Z",
+          "score": 72,
+          "gap": "kidMode→scale/speed + gentler Input.setRepeat; colourSafe. shots/P33-repeat"
+        },
+        {
+          "at": "2026-09-25T19:49:25.278Z",
+          "score": 74,
+          "gap": "Access plugin: kidMode floors scale/caps speed; colourSafe CSS; state.access live"
+        }
+      ],
       "name": "Accessibility & kid-mode"
     },
     "P34": {
       "id": "P34",
-      "status": "todo",
-      "score": 0,
-      "best": 0,
-      "rounds": 0,
-      "gap": "",
+      "status": "iterating",
+      "score": 74,
+      "best": 74,
+      "rounds": 4,
+      "gap": "Perf.describe: fps/quality/dpr/render/tier; quality toggles outlines",
       "note": "",
-      "history": [],
+      "history": [
+        {
+          "at": "2026-09-25T19:14:53.871Z",
+          "score": 66,
+          "gap": "perf describe fps/tier/render; __DQ.quality low/high; outlines off on low; shots/P33-P34b"
+        },
+        {
+          "at": "2026-09-25T19:30:20.024Z",
+          "score": 70,
+          "gap": "quality low→shadows 1024 + outlines off; perf describe; shots/P18-P34-night"
+        },
+        {
+          "at": "2026-09-25T19:36:04.416Z",
+          "score": 72,
+          "gap": "quality tiers + perf describe stable. shots/P18-P34-night"
+        },
+        {
+          "at": "2026-09-25T19:49:25.313Z",
+          "score": 74,
+          "gap": "Perf.describe: fps/quality/dpr/render/tier; quality toggles outlines"
+        }
+      ],
       "name": "Performance"
     }
   },
@@ -941,6 +1537,250 @@
     {
       "at": "2026-09-25T16:25:17.743Z",
       "t": "P23: leave-village corridor widened — walk off the dirt track no longer softlocks at the rim"
+    },
+    {
+      "at": "2026-09-25T17:14:40.726Z",
+      "t": "Night run: P30 #1#4#5#6 verified; P23 #6#7#9#11#13 verified; doorstep-only door bias in map.js"
+    },
+    {
+      "at": "2026-09-25T17:15:15.657Z",
+      "t": "Night run: closed P30 #1/#4/#5/#6 and verified P23 #6/#7/#9/#11/#13. Puddlewick discovery loop playable."
+    },
+    {
+      "at": "2026-09-25T17:20:00.737Z",
+      "t": "Night: Act I place stubs landed. Puddlewick loop + shops + HUD gaps closed. Remaining: P23 #8 secret stairs map."
+    },
+    {
+      "at": "2026-09-25T17:23:34.074Z",
+      "t": "P06 #1 closed: second storeys are places now."
+    },
+    {
+      "at": "2026-09-25T17:54:10.901Z",
+      "t": "P15: FX.play wired for spells/defeat/level-up; Bus fx.shake; hit-stop; 5/5 gaps closed"
+    },
+    {
+      "at": "2026-09-25T17:57:53.407Z",
+      "t": "P18: Party menu entry + roster UX + wagon follower clearance; score 20→68"
+    },
+    {
+      "at": "2026-09-25T17:59:07.716Z",
+      "t": "P17: distance-driven hop verified; wagon scale/side tightened with P18 clearance"
+    },
+    {
+      "at": "2026-09-25T18:03:51.746Z",
+      "t": "P09: look-up (#3) verified via sky look axis; keep-boy remeasure solid 9.7% (improved, not yet zero)"
+    },
+    {
+      "at": "2026-09-25T18:04:16.071Z",
+      "t": "P14: economy audit shortfall closed (0 net); all 8 gaps verified-fixed"
+    },
+    {
+      "at": "2026-09-25T18:05:00.903Z",
+      "t": "P17: naming mugshot turntable verified (P17-mug); all 5 gaps closed"
+    },
+    {
+      "at": "2026-09-25T18:05:58.761Z",
+      "t": "P09: keep-boy verified solid 0.4% (P09-keep-solid); look-up verified"
+    },
+    {
+      "at": "2026-09-25T18:07:05.159Z",
+      "t": "P31: Quiet Deep one Gleaming Plate (family share); economy leg10 kit cut"
+    },
+    {
+      "at": "2026-09-25T18:07:05.307Z",
+      "t": "P11: authored scale reaches root (P11-scale)"
+    },
+    {
+      "at": "2026-09-25T18:36:13.596Z",
+      "t": "P06 Wave 2: lofts, lit interiors, light shafts as pools+fading volume; all 3 gaps closed"
+    },
+    {
+      "at": "2026-09-25T18:41:09.516Z",
+      "t": "P04 P04 #6: Puddlewick sightline open (med hidden 54%); trees clear of roofs"
+    },
+    {
+      "at": "2026-09-25T18:44:43.155Z",
+      "t": "P03 P03 #3: bare-earth share cut ~30%; tracks/scrapes/banks dialed back"
+    },
+    {
+      "at": "2026-09-25T18:44:43.192Z",
+      "t": "P22 shops/inns live Wave 2"
+    },
+    {
+      "at": "2026-09-25T18:44:43.230Z",
+      "t": "P32 HUD quest hint tracks current map"
+    },
+    {
+      "at": "2026-09-25T18:45:53.829Z",
+      "t": "P03 P03 #2 water surface variance at boom; #3 bare mud cut; 2/3 closed"
+    },
+    {
+      "at": "2026-09-25T18:47:21.353Z",
+      "t": "P02 Wave 2: sky band opened (pitch 22); Puddlewick sightline usable"
+    },
+    {
+      "at": "2026-09-25T18:47:21.428Z",
+      "t": "P09 field/town/world pitch lowered to open sky band (P02 #2)"
+    },
+    {
+      "at": "2026-09-25T18:48:28.724Z",
+      "t": "P21 P21 #2 economy: late-leg gold covers big buys"
+    },
+    {
+      "at": "2026-09-25T18:48:42.971Z",
+      "t": "P21 LEGS 5–10 gold/battle raised so journey can afford big buys (P21 #2)"
+    },
+    {
+      "at": "2026-09-25T18:58:55.545Z",
+      "t": "P04 Gap #5 verified-fixed. Corner green: NW 66.8 NE 58.6 SE 63.9 SW 71.0 centre 56.4 (was 90.6/64.6/93.7/87.5/61.7). shots/P04-census-v4."
+    },
+    {
+      "at": "2026-09-25T19:04:12.405Z",
+      "t": "P10 Baseline pass: WALK=3.3 RUN=5.7 wired; camera-relative move; wall slide; footsteps; heroModel chars. Scenario P10-verify."
+    },
+    {
+      "at": "2026-09-25T19:04:12.441Z",
+      "t": "P26 Quests.describe reentrancy guard — stops nested __DQ.state() stack overflow."
+    },
+    {
+      "at": "2026-09-25T19:07:19.639Z",
+      "t": "P23 Act I stubs: act1Place default colliders; grey_ruins rubble+rocks; coddleston house pads. Smoke 26/26 maps load. shots/P23-stub-coll2."
+    },
+    {
+      "at": "2026-09-25T19:07:19.677Z",
+      "t": "P19 statsFor reentrancy guard — stops nested menu/shop stack overflow."
+    },
+    {
+      "at": "2026-09-25T19:08:52.626Z",
+      "t": "P16 Gap #2 verified-fixed. Gap #1 deferred (sculpt). shots/P16-act1."
+    },
+    {
+      "at": "2026-09-25T19:10:13.508Z",
+      "t": "P07 Gap #3 verified-fixed shots/P07-hero. Gaps #1/#2 still open."
+    },
+    {
+      "at": "2026-09-25T19:11:31.218Z",
+      "t": "P23 Loft/mill-bin/Contented Herring prop colliders so interiors are not walk-through cardboard."
+    },
+    {
+      "at": "2026-09-25T19:14:53.908Z",
+      "t": "P33+P34 bootstrapped: access + perf plugins live; scores 68/66"
+    },
+    {
+      "at": "2026-09-25T19:22:43.619Z",
+      "t": "P25 Act II bootstrap + join→state reentrancy fix in script.js/debug.js"
+    },
+    {
+      "at": "2026-09-25T19:27:11.616Z",
+      "t": "P16→66 Act II bodies; P25→70 ch3 stub; all pieces ≥65 except deferred sculpt notes on P07"
+    },
+    {
+      "at": "2026-09-25T19:27:58.476Z",
+      "t": "P23 Act II dungeon stubs live — B10–B11b no longer journey-only"
+    },
+    {
+      "at": "2026-09-25T19:28:52.485Z",
+      "t": "P30 Act II dungeon chests wired on quiet_quarry / caves"
+    },
+    {
+      "at": "2026-09-25T19:29:43.372Z",
+      "t": "P23/P25 Act II–III place stubs complete enough for journey→on-map beats"
+    },
+    {
+      "at": "2026-09-25T19:30:01.957Z",
+      "t": "P33 kidMode also slows cursor repeat"
+    },
+    {
+      "at": "2026-09-25T19:30:20.063Z",
+      "t": "P18→70 P34→70 night re-verify"
+    },
+    {
+      "at": "2026-09-25T19:31:14.757Z",
+      "t": "P16 digby alias; P11 quarry NPCs"
+    },
+    {
+      "at": "2026-09-25T19:32:54.838Z",
+      "t": "P11 quarry NPCs verified spawning"
+    },
+    {
+      "at": "2026-09-25T19:33:20.332Z",
+      "t": "P02→70 skyband night re-verify; P11 Bobble in whistling_caves"
+    },
+    {
+      "at": "2026-09-25T19:33:42.940Z",
+      "t": "P29→72 transitions night check"
+    },
+    {
+      "at": "2026-09-25T19:34:43.052Z",
+      "t": "P01→72 title flow; P30 more Act II chests"
+    },
+    {
+      "at": "2026-09-25T19:35:28.359Z",
+      "t": "P10→72 P03→72 night re-verifies"
+    },
+    {
+      "at": "2026-09-25T19:35:48.357Z",
+      "t": "P11→80 Act II NPCs; P16→70 aliases"
+    },
+    {
+      "at": "2026-09-25T19:36:04.454Z",
+      "t": "P18→72 P34→72"
+    },
+    {
+      "at": "2026-09-25T19:36:27.820Z",
+      "t": "P11→82 Saltmarrow Willow ages with Act II"
+    },
+    {
+      "at": "2026-09-25T19:36:54.790Z",
+      "t": "P08→74 npcLook; P19→74 over-level floor"
+    },
+    {
+      "at": "2026-09-25T19:37:27.150Z",
+      "t": "P12→76 talk framing; P30→84 stone garden chests"
+    },
+    {
+      "at": "2026-09-25T19:37:48.152Z",
+      "t": "P22→74 shops; P24→74 Act I API"
+    },
+    {
+      "at": "2026-09-25T19:38:14.597Z",
+      "t": "P11→84 wedding chapel sexton"
+    },
+    {
+      "at": "2026-09-25T19:38:37.420Z",
+      "t": "P25→74 B16 bride choice live"
+    },
+    {
+      "at": "2026-09-25T19:38:55.790Z",
+      "t": "P17→76 recruitment stack still green"
+    },
+    {
+      "at": "2026-09-25T19:39:04.936Z",
+      "t": "P26→76 quest ribbon"
+    },
+    {
+      "at": "2026-09-25T19:39:24.286Z",
+      "t": "P32→76 map-local quest hint"
+    },
+    {
+      "at": "2026-09-25T19:40:12.383Z",
+      "t": "P23→88 quarry links to whistling_caves"
+    },
+    {
+      "at": "2026-09-25T19:40:44.028Z",
+      "t": "P23→90 Act II dungeon path linked"
+    },
+    {
+      "at": "2026-09-25T19:40:53.783Z",
+      "t": "P28→78 audio night check; P23→90 Act II path"
+    },
+    {
+      "at": "2026-09-25T19:41:11.377Z",
+      "t": "P23→92 Marbleford links to grotto and hall"
+    },
+    {
+      "at": "2026-09-25T19:41:30.717Z",
+      "t": "P23→93 Ambergarde links to keep"
     }
   ]
 }

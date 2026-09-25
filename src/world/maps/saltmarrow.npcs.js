@@ -36,6 +36,7 @@ export default function saltmarrowPeople(base = {}) {
       {
         id: 'willow', name: 'Willow Pye', char: 'willow', voice: 'willow', scale: 0.99, girth: 0.98,
         x: willow.x, z: willow.z, facing: willow.facing, idle: 'stand', wander: 1.4, radius: 0.42,
+        when: '!ch2.start',
         script: [{
           first: ['You’re the boy from over the beck.{p}You look like you need someone\nbrave.'],
           again: [{ cycle: [
@@ -43,6 +44,20 @@ export default function saltmarrowPeople(base = {}) {
             'I have been up to the gates\ntwice. Twice! The second time I\nwaved.',
             'Dad says it’s a *version*. Dad\nhas never been.',
             'If you’re coming, come. If you’re\nnot, say so and I shall think\nless of you but still be your\nfriend.',
+          ] }] }],
+      },
+      {
+        id: 'willow_grown', name: 'Willow Pye', char: 'willow', age: 'adult', voice: 'willow', scale: 1.0, girth: 1.0,
+        x: willow.x, z: willow.z, facing: willow.facing, idle: 'stand', radius: 0.5,
+        when: 'ch2.start',
+        script: [{
+          first: [
+            'Well.\nLook who grew.\nThe stew is on. Sit.',
+          ],
+          again: [{ cycle: [
+            'Dad left me the inn and the\nparrot. The parrot is still a liar.',
+            'If you are here about Sera’s\nlists, I already know. Come in\nanyway.',
+            'Ten years is a long time to wait\nfor somebody to walk back through\nthat door.',
           ] }] }],
       },
       {

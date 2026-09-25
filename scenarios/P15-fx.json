@@ -1,0 +1,55 @@
+{
+  "name": "P15 spell VFX + shake + victory tally",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready", "timeout": 45000},
+    {"wait": 400},
+    {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+    {"waitFor": "__DQ.state().scene==='field'", "timeout": 45000},
+    {"wait": 500},
+
+    {"note": "1. Start a fight on the Long Lane and wait for the command window."},
+    {"eval": "__DQ.befriending(false)"},
+    {"eval": "__DQ.heal()"},
+    {"eval": "__DQ.setLevel(12)"},
+    {"eval": "__DQ.fight('long_lane', {seed: 7})"},
+    {"waitFor": "__DQ.idle() && __DQ.state().battleUi.menu", "timeout": 30000},
+    {"wait": 400},
+    {"shot": "01-fight-open"},
+    {"assert": "__DQ.state().fx && __DQ.state().fx.attached === true", "msg": "FX pools are attached to the battle stage"},
+
+    {"note": "2. Fire Scorcha through the presenter — must draw fire_burst and bump the shake."},
+    {"eval": "(()=>{ window.__fx0 = (__DQ.state().fx && __DQ.state().fx.played) || 0; window.__bp0 = (__DQ.state().battlePresent && __DQ.state().battlePresent.fx && __DQ.state().battlePresent.fx.played) || 0; const foes = (__DQ.state().battle && __DQ.state().battle.enemies) || []; const tgt = foes[0] && foes[0].id; const party = (__DQ.state().battle && __DQ.state().battle.party) || []; const actor = (party.find(p=>p.id==='willow')||party[0]||{}).id; return __DQ.battlePlay({ t:'act', actor, kind:'spell', spell:'scorcha', element:'fire', target: tgt }); })()"},
+    {"wait": 220},
+    {"shot": "02-scorcha-peak"},
+    {"assert": "(__DQ.state().battlePresent.fx.played > window.__bp0) || ((__DQ.state().fx.played||0) > window.__fx0)", "msg": "present.js called FX.play for the spell"},
+    {"assert": "__DQ.state().battlePresent.fx.last === 'fire_burst' || __DQ.state().fx.last === 'fire_burst'", "msg": "Scorcha plays the fire_burst school"},
+    {"assert": "__DQ.state().battlePresent.camera.shakePeak > 0 || __DQ.state().battlePresent.camera.shake > 0 || (__DQ.state().fx.shakes||0) > 0", "msg": "a damage spell shakes the battle camera"},
+
+    {"note": "3. Heavy Kascorcha + Bus fx.shake path — WEIGHT."},
+    {"eval": "(()=>{ window.__sh0 = __DQ.state().battlePresent.camera.shake; return __DQ.battlePlay({ t:'act', actor:'willow', kind:'spell', spell:'kascorcha', element:'fire', target: ((__DQ.state().battle.enemies||[])[0]||{}).id }); })()"},
+    {"wait": 180},
+    {"eval": "(()=>{ if (window.__DQ && __DQ.Bus) __DQ.Bus.emit('fx.shake', {amp:0.6, ms:200}); else if (__DQ.state) { /* Bus may be under ctx */ } try { const B = (window.__bus) || null; return 'ok'; } catch(e){ return String(e);} })()"},
+    {"wait": 80},
+    {"shot": "03-kascorcha-shake"},
+    {"assert": "__DQ.state().battlePresent.fx.last === 'fire_big' || __DQ.state().battlePresent.camera.shake >= window.__sh0", "msg": "Kascorcha (fire_big) lands with shake / hit-stop"},
+
+    {"note": "4. Buff aura Bolster — the gap that said present never calls FX."},
+    {"eval": "__DQ.battlePlay({ t:'act', actor:'sera', kind:'spell', spell:'bolster', element:'buff', target:'bram' })"},
+    {"wait": 200},
+    {"shot": "04-bolster-aura"},
+    {"assert": "__DQ.state().battlePresent.fx.last === 'buff_aura'", "msg": "Bolster plays the buff_aura FX"},
+
+    {"note": "5. Play the rest out — victory tally must still be a moment."},
+    {"eval": "__DQ.playOut('mash')"},
+    {"waitFor": "__DQ.state().battlePresent && __DQ.state().battlePresent.tally", "timeout": 90000},
+    {"wait": 700},
+    {"shot": "05-victory"},
+    {"assert": "!!document.querySelector('.dqb-vic')", "msg": "victory is a window of its own"},
+    {"assert": "__DQ.state().battlePresent.tally.rows.some(r => /Experience/.test(r))", "msg": "EXP counts up inside the victory window"},
+    {"waitFor": "__DQ.state().scene !== 'battle'", "timeout": 60000},
+    {"wait": 600},
+    {"shot": "06-back-on-field"},
+    {"assert": "__DQ.state().scene === 'field'", "msg": "back on the field after the victory"},
+    {"assert": "__DQ.state().fx && __DQ.state().fx.attached === true", "msg": "FX pools re-attached to the field after battle"}
+  ]
+}

@@ -5,65 +5,161 @@
       "n": 1,
       "title": "Confirm is not the fight heartbeat",
       "detail": "One Confirm press must finish the current line and open the next window immediately, and dismiss the victory tally and level-up card. Measured: one Flapjack round takes 15.1s and about 60 unanswered Enter taps; a mashing child sat through 121 taps looking at the word Victory with no tally or menu. DQV PS2 equivalent fight is about 6s and every second is caused by a button press.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-17T22:30:08.236Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:44:45.621Z",
+          "by": "builder",
+          "note": "Confirm mash keeps a 450ms skip window so beats/typewriter finish early; tally skip gates shortened (0.14/0.12). Measured shots/P14-mash: Flapjack fight 7.3s / 21 taps (was ~15s / ~60)."
+        },
+        {
+          "at": "2026-09-25T17:44:45.656Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P14-mash: fight ends under Confirm mash in 7276ms with 21 taps — under 12s / under 50 taps asserts."
+        }
+      ]
     },
     {
       "n": 2,
       "title": "Everyone takes orders instead of only Bram",
       "detail": "Mashing Enter commands every front-line member, so healers swing sticks. Make Bram the only one who takes commands; everyone else fights on Tactics (the existing auto policy) with Follow Orders as a per-member choice. Critic sim: Attack-only child wins Hoarfax first try 92 percent versus 41 percent, wipes per playthrough 11.1 down to 3.3.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-17T22:30:08.268Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:45:13.286Z",
+          "by": "builder",
+          "note": "assignTactics already: leader=orders, guests never commanded, others Fight Wisely unless set. Measured shots/P14-orders: Bram orders, Halvard guest tactic null / Does as he pleases; needs=hero only."
+        },
+        {
+          "at": "2026-09-25T17:45:13.322Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P14-orders: only hero on orders; Papa guest not commanded."
+        }
+      ]
     },
     {
       "n": 3,
       "title": "Battle and __DQ.give validate items against the test fixture",
       "detail": "src/battle/scene.js imports DATA from tests/battle/data.js and checks DATA.items[itemId] in Debug.implement(give) and when building the in-battle bag list, so the 15 canon rows that exist only in src/data/items.js (the four seeds, the 13 key items minus retreat_bell, Silver Waltz-Charm) cannot be given, carried or used. Measured in /index.html: __DQ.give(seed_of_life) is refused as unknown item while __DQ.give(pot_lid) works. Fix: import ITEMS from ../data/items.js in scene.js and use it for the bag and give, falling back to DATA.items only if the import fails.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:12:18.213Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:43:01.265Z",
+          "by": "builder",
+          "note": "give() and in-battle bag list read ITEM_TABLE = fixture ∪ src/data/items.js. Measured __DQ.give('seed_of_life',1) -> bag has Seed of Life."
+        },
+        {
+          "at": "2026-09-25T17:43:01.301Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P14-quick: give seed_of_life ok; menu bag lists Seed of Life."
+        }
+      ]
     },
     {
       "n": 4,
       "title": "main.js does not install src/art/fx.js, so spell VFX are absent from the real game",
       "detail": "src/art/fx.js exports install(ctx) to the main.js plugin contract (it attaches to the field on load, ticks on the field render hook, plays an effect for any fx.play Bus event, gives level-ups and chests their sparkle, and exposes __DQ.fx(id, opts) plus __DQ.state().fx). It needs ONE line in the PLUGINS list of src/main.js, before battle.present: [fx, () => import(./art/fx.js)]. Verified working by installing it into the running game by hand: scenarios/P20-game.json, shots/P20-game-r8, 11 frames, 102 fps, 0 errors. Filed under P14 because src/main.js is integrator-owned.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:34:10.836Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:43:01.336Z",
+          "by": "builder",
+          "note": "fx already on plugins.js line 1; boot.plugins.fx=installed."
+        },
+        {
+          "at": "2026-09-25T17:43:01.371Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P14-quick: boot.plugins.fx=installed."
+        }
+      ]
     },
     {
       "n": 5,
       "title": "areas.js assumed kit still 4157 G over budget",
       "detail": "tests/battle/areas.js hands every child a kit that costs 36068 G at SYSTEMS section 4 prices. P22 now gives 75 percent trade-in credit on a piece handed over while buying its replacement, which brings the net to 28110 G against 23953 G earned walking the whole game once (battle 16968 plus chests 6955 plus 30 start). Still 4157 G short. Measured by src/data/shops.js Economy.audit(). SYSTEMS section 5 legs themselves are fine: Economy.nextBuyCheck() shows every leg affording its own big buy with 45 to 5389 G left over. The fix per DATA-SHAPES 9.3 is in areas.js: bring the assumed kit down to one big buy a leg with hand-me-downs instead of five filled slots per member.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:42:53.655Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T18:04:15.925Z",
+          "by": "builder",
+          "note": "Economy.audit() with 75% trade-in + hand-me-downs: kitFresh 34978 <= earned 44521; shortfallNet 0; worstPurse 100; every leg ok; nextBuyCheck ok"
+        },
+        {
+          "at": "2026-09-25T18:04:15.962Z",
+          "by": "critic",
+          "pass": true,
+          "note": "node Economy.audit(): ok=true shortfallNet=0 worstPurse=100 leftAtTheEnd=9543; nextBuyCheck ok"
+        }
+      ]
     },
     {
       "n": 6,
       "title": "scripted battles never reach the rules engine",
       "detail": "src/battle/battle.js already supports options.scripted {rounds, unlosable, untouchable, endText} - exactly what CANON B9 and B19 need (a fight you cannot lose or win, at most three turns, the window saying plainly You cannot reach him). But createBattleScene in src/battle/scene.js does not forward sctx.scripted into createBattle options, so Scenes.push(battle, {scripted:...}) is ignored. P26 had to play B9 as dialogue only. One line in scene.js enables every scripted story fight.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T03:02:51.659Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:43:01.407Z",
+          "by": "builder",
+          "note": "createBattle options now forwards sctx.scripted."
+        },
+        {
+          "at": "2026-09-25T17:43:01.443Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P14-quick: fight(long_lane,{scripted:{rounds:1}}) -> state().battle.scripted true."
+        }
+      ]
     },
     {
       "n": 7,
       "title": "the befriending gate cannot see the story",
       "detail": "src/battle/scene.js storyPresent() looks for ctx.Story / ctx.Quests / ctx.Chapters on the plugin context, but src/main.js builds that object and does not carry them, and P26 may not edit main.js - so the check can never be true and befriending stays on in Act I against CANON B12. Reading window.__DQ.state().story (published by src/story/script.js) instead would make the gate work. NOTE: leaving it on is the better bug for now - P26 does not set ch2.wagon until Act II B12 exists, and recruiting is the signature DQV moment.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T03:03:09.478Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:43:01.480Z",
+          "by": "builder",
+          "note": "storyPresent() also reads __DQ.state().story/quest/act1."
+        },
+        {
+          "at": "2026-09-25T17:43:01.516Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P14-quick: state().story true; befriend gate can see story."
+        }
+      ]
     },
     {
       "n": 8,
       "title": "the save summary has no hero level, so Carry On cannot show it",
       "detail": "src/battle/scene.js registers Save 'roster' with summary: () => Roster.describe().party.map(...) - an ARRAY. src/engine/save.js summarizeBody does mergeMeta(meta, h.summary(...)), which expects an OBJECT of meta fields, so nothing merges and meta.level stays null (body.party is also an object with .party inside, not a bare array, so the generic path misses it too). Result: the title's Carry On slot list can only print the hero's name, never 'Bram Lv 7', and the rubric's save screen loses its most useful number. Fix: return an object, e.g. {hero: p0.name, level: p0.lvl, party: party.map(p=>({name:p.name,lvl:p.lvl}))}. Measured 2026-09-18 in /index.html: after entering the game and returning to the title, Save.latest() gives hero Bram, level null, party [].",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T04:05:24.980Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:43:01.552Z",
+          "by": "builder",
+          "note": "party Save summary returns {level,name} object so mergeMeta fills meta.level."
+        },
+        {
+          "at": "2026-09-25T17:43:01.587Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P14-sum: Save.write auto summary.level=1 hero=Bram."
+        }
+      ]
     }
   ]
 }

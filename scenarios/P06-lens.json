@@ -1,0 +1,18 @@
+{
+  "name": "P06 lens: door exit geometry vs doorstep",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 600 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title)return JSON.stringify(__DQ.title('game'));return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene!=='title'", "timeout": 30000 },
+    { "wait": 800 },
+    { "eval": "JSON.stringify(__DQ.teleport('puddlewick'))" },
+    { "wait": 1200 },
+    { "eval": "(async()=>{const m=await import('/src/world/maps/puddlewick.js');const r=await import('/src/world/maps/int_rooms.js');const L=m.puddlewickLayout();const map=__DQ.state().map;const field=await import('/src/world/field.js');const F=field.Field;const world=F.world();const real=world.map;const out=[];for(const D of r.DOORS){const spot=L.doors[D.plot];const exits=(real.exits||[]).filter(e=>e.to===D.room||e.name===D.plot||(e.line&&e.line.includes(D.plot)));const ex=exits[0]||(real.exits||[]).find(e=>e.to===D.room);const clear=spot?real.clear(spot.x,spot.z,0.35):null;const atExit=ex?real.clear(ex.x,ex.z,0.35):null;const solidSpot=spot?real.solidAt(spot.x,spot.z):null;const solidEx=ex?real.solidAt(ex.x,ex.z):null;const hit=ex?real.exitAt(ex.x,ex.z):null;const mid=spot&&ex?{x:(spot.x+ex.x)/2,z:(spot.z+ex.z)/2}:null;const clearMid=mid?real.clear(mid.x,mid.z,0.35):null;out.push({plot:D.plot,room:D.room,spot,exit:ex?{x:+ex.x.toFixed(2),z:+ex.z.toFixed(2),w:ex.w,h:ex.h,to:ex.to}:null,dist:spot&&ex?+(Math.hypot(spot.x-ex.x,spot.z-ex.z)).toFixed(2):null,clearSpot:!!clear,clearExit:!!atExit,clearMid:!!clearMid,solidSpot,solidEx,exitHit:!!hit});}window.__LENS=out;return JSON.stringify(out);})()" },
+    { "note": "force walk: teleport onto each exit center and see if onExit would fire (already there), then try walk from 0.3 before exit toward it" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const out=[];for(const row of window.__LENS){if(!row.exit||!row.spot){out.push({plot:row.plot,err:'missing'});continue;}const ex=row.exit;const sp=row.spot;const dx=ex.x-sp.x,dz=ex.z-sp.z,len=Math.hypot(dx,dz)||1;const bx=ex.x-dx/len*0.4,bz=ex.z-dz/len*0.4;__DQ.teleport('puddlewick',bx,bz);await sleep(600);const deg=Math.atan2(dx,dz)*180/Math.PI;__DQ.face(deg);__DQ.cameraOrbit(deg+180);await sleep(300);const before=__DQ.state().map.id;__DQ.hold('up',1000);await sleep(1300);out.push({plot:row.plot,want:row.room,from:{x:+bx.toFixed(2),z:+bz.toFixed(2)},went:__DQ.state().map.id,ok:__DQ.state().map.id===row.room,blocked:__DQ.state().player.blocked});}window.__FORCE=out;return JSON.stringify(out);})()" },
+    { "eval": "JSON.stringify({forceOk:window.__FORCE.filter(d=>d.ok).length,forceFail:window.__FORCE.filter(d=>!d.ok)})" },
+    { "eval": "JSON.stringify({lens:window.__LENS.map(r=>({plot:r.plot,dist:r.dist,clearSpot:r.clearSpot,clearExit:r.clearExit,clearMid:r.clearMid,solidEx:r.solidEx,w:r.exit&&r.exit.w,h:r.exit&&r.exit.h}))})" },
+    { "assert": "__DQ.errors.length===0", "msg": "no errors" }
+  ]
+}

@@ -33,4 +33,30 @@ export default [
   { id: 'cobwell_upper' },                           // the manor's first floor: Ottilie, the ballroom, the study
   { id: 'cobwell_cellar' },                          // the cellar under the kitchen: the third music box
   { id: 'cobwell_belfry' },                          // the belfry: BOSS Mumbleroot the Grudge
+
+  // ── Act I places that were road-cards only (P23 gap #10): walkable stubs so B8/B9 play on-map ─────────────
+  { id: 'contented_herring' },                       // Dodd Pye's inn on the Saltmarrow quay
+  { id: 'coddleston' },                              // Bertie's castle town (CANON §2 [06])
+  { id: 'grey_ruins' },                              // broken abbey — Halvard's fall (CANON §2 [19])
+  { id: 'aldenmoor' },                               // overworld stub (CANON aldenmoor)
+  { id: 'int_mill_bin' },                            // mill bin floor (stair up from int_mill; P23 #8)
+  { id: 'int_barn_loft' },                           // barn hayloft (ladder up from int_barn; P06 #1)
+
+  // ── Act II places (P25 breadth): walkable stubs so B10–B11b are not only journey cards ───────────────────
+  { id: 'quiet_quarry' },                            // the Quiet Quarry (CANON §2) — B10
+  { id: 'whistling_caves' },                         // Whistling Caves — B11 Bobble waits
+  { id: 'gogglestone_caves' },                       // Gogglestone — B11b the Sunmane
+  { id: 'marbleford' },                              // Marbleford / Fairweather approach — B14
+  { id: 'ambergarde' },                              // Ambergarde headland — B18
+  { id: 'sighing_grotto' },                          // Sighing Grotto — B15 Tide Pearl
+  { id: 'fairweather_hall' },                        // Fairweather Hall — B16 choice
+  { id: 'marbleford_chapel' },                       // Chapel — B17 wedding
+  { id: 'ambergarde_keep' },                         // Keep — B18 / B21
+  { id: 'stone_garden' },                            // Stone Garden — B20 / B26
+
+  // ── Act III places (P25 breadth): walkable stubs so B23–B25 are not only journey cards ──────────────────
+  { id: 'bellhollow_abbey' },                        // Bellhollow Abbey — B23 Cloud Stair
+  { id: 'whistfell_abbey' },                         // Whistfell Abbey — B24 Elowen
+  { id: 'quiet_deep' },                              // The Quiet Deep — B25 Malgrim
+  { id: 'highfeather' },                             // Highfeather — B23 Cloud Stair perch
 ];

@@ -1,0 +1,27 @@
+{
+  "name": "P03 bare-earth share near approved (~13%)",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready && typeof __DQ.teleport==='function'", "timeout": 60000},
+    {"wait": 900},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 1500},
+    {"eval": "JSON.stringify(__DQ.teleport('meadow',0,8))"},
+    {"wait": 1800},
+    {"eval": "(()=>{for(let i=0;i<8;i++){try{__DQ.press&&__DQ.press('Enter');}catch(e){}}return 'skip';})()"},
+    {"wait": 400},
+    {"eval": "(async()=>{const orbs=[0,90,180,270];const out=[];const canvas=document.querySelector('canvas');for(const o of orbs){if(__DQ.cameraOrbit)__DQ.cameraOrbit(o);for(let i=0;i<30;i++)__DQ.advance(16.6667);await new Promise(r=>setTimeout(r,80);}window.__ORBS=orbs;return 'posed';})()"},
+    {"eval": "(()=>{if(__DQ.cameraOrbit)__DQ.cameraOrbit(0);return 'n';})()"},
+    {"wait": 500},
+    {"shot": "01-bare-north"},
+    {"eval": "(()=>{if(__DQ.cameraOrbit)__DQ.cameraOrbit(135);return 'se';})()"},
+    {"wait": 500},
+    {"shot": "02-bare-se"},
+    {"eval": "(()=>{if(__DQ.cameraOrbit)__DQ.cameraOrbit(180);return 's';})()"},
+    {"wait": 500},
+    {"shot": "03-bare-south"},
+    {"eval": "(()=>{if(__DQ.cameraOrbit)__DQ.cameraOrbit(270);return 'w';})()"},
+    {"wait": 500},
+    {"shot": "04-bare-west"},
+    {"note": "bare-earth census is done offline from the PNGs (WebGL canvas readback is black)"}
+  ]
+}

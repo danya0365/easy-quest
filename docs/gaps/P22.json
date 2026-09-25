@@ -5,7 +5,7 @@
       "n": 1,
       "title": "Shops do not read src/data/items.js",
       "detail": "src/data/shops.js line 37 still says it will take the real table the day src/data/items.js lands. It has landed: 73 rows, 44 of them buyable, with buy prices copied verbatim from SYSTEMS section 4 and sellPrice(id) implementing the floor(buy/2) rule plus SYSTEMS section 5 kinder 65 percent for gear two tiers below your best (pass {outgrown:true}). Fix: import { ITEMS, sellPrice, canEquip, statPairs, describe } from ../data/items.js in shops.js and shop.js, stock each counter by item id, and use statPairs/canEquip for the green up-arrow red down-arrow compare the economy rules require. Verified in /index.html that the same table drives the Equip window: Copper Sword +11 shows Attack 12 with a green 21.",
-      "state": "claimed-fixed",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:15:00.252Z",
       "events": [
         {
@@ -17,6 +17,17 @@
           "at": "2026-09-18T04:02:00.229Z",
           "by": "builder",
           "note": "src/data/shops.js line 36 imports ITEMS, sellPrice, isKey, canEquip, statLine, traitWords, describe, buyable and whoWords from src/data/items.js and re-exports them; itemOf(herb) returns the items.js row (buy 8, blurb A green leaf that stops a graze stinging). In the running demo the stock list prints the items.js blurbs and prices verbatim: Cypress Stick 10 (A stick. A good one, but a stick., +4 Attack), Copper Sword 70 (+11 Attack, only Bram or Rowan), Sling 55 (only Willow or Linnet). No fixture table remains: useItems() is a test-only override that defaults to items.js. Shots shots/P22-r2/03 and 04."
+        },
+        {
+          "at": "2026-09-25T17:15:52.532Z",
+          "by": "builder",
+          "note": "shops.js imports ITEMS from items.js"
+        },
+        {
+          "at": "2026-09-25T17:15:52.567Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P22-P32-night itemAudit buyable=44 from items.js; shop counters live"
         }
       ]
     },
@@ -24,13 +35,24 @@
       "n": 2,
       "title": "shop.js is not in main.js PLUGINS",
       "detail": "src/ui/shop.js is a finished plugin (install(ctx) registers the shop scene and the talk hook) but src/main.js is integrator-only and does not import it, so the counters are dead in /index.html until one line is added to the PLUGINS list: ['shop', () => import('./ui/shop.js')] placed after 'menu'. Verified working in the real game by installing it at runtime (scenarios/P22-game.json, shots/P22-game-r3): talk to Mr Hammond and the shop opens, buy works, gold 30 to 20, the field is playable after. INTEGRATOR ACTION, not a P22 code change.",
-      "state": "claimed-fixed",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:42:53.614Z",
       "events": [
         {
           "at": "2026-09-18T04:02:00.270Z",
           "by": "builder",
           "note": "src/plugins.js now carries the line [shop, () => import(./ui/shop.js)] after menu, and in the real game __DQ.state().boot.plugins.shop is the string installed, __DQ.state() has a shop key, and the counters open from a talk with no runtime install (scenarios/P22-game.json no longer imports anything by hand). Verified in shots/P22-g4."
+        },
+        {
+          "at": "2026-09-25T17:15:52.602Z",
+          "by": "builder",
+          "note": "shop plugin in plugins.js"
+        },
+        {
+          "at": "2026-09-25T17:15:52.639Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P22-P32-night boot.plugins.shop=installed; __DQ.shop() lists counters"
         }
       ]
     }

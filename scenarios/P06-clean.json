@@ -1,0 +1,19 @@
+{
+  "name": "P06 child walk-in each door cleanly",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 600 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title)return JSON.stringify(__DQ.title('game'));return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene!=='title'", "timeout": 30000 },
+    { "wait": 1000 },
+    { "eval": "(async()=>{const m=await import('/src/world/maps/puddlewick.js');const r=await import('/src/world/maps/int_rooms.js');window.__doors=m.puddlewickLayout().doors;window.__rooms=r.DOORS;return JSON.stringify(window.__rooms.map(d=>d.plot));})()" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const out=[];for(const D of window.__rooms){__DQ.teleport('meadow');await sleep(900);const d=window.__doors[D.plot];__DQ.teleport('puddlewick',d.x,d.z);await sleep(1600);const deg=d.facing*180/Math.PI;__DQ.face(deg);__DQ.cameraOrbit(deg+180);await sleep(500);for(let leg=0;leg<5&&__DQ.state().map.id==='puddlewick';leg++){__DQ.hold('up',1400);await sleep(1800);}const went=__DQ.state().map.id;out.push({plot:D.plot,want:D.room,went,ok:went===D.room});if(went!==D.room&&went!=='puddlewick'){__DQ.teleport('meadow');await sleep(800);}}window.__IN=out;return JSON.stringify(out);})()" },
+    { "eval": "JSON.stringify({ok:window.__IN.filter(d=>d.ok).length,fail:window.__IN.filter(d=>!d.ok)})" },
+    { "note": "walk out each room after teleport in" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const out=[];for(const D of window.__rooms){__DQ.teleport('meadow');await sleep(700);__DQ.teleport(D.room);await sleep(1400);for(let k=0;k<20&&__DQ.state().scene!=='field';k++){__DQ.press('confirm');await sleep(350);}__DQ.face(0);__DQ.cameraOrbit(180);await sleep(300);for(let leg=0;leg<5&&__DQ.state().map.id===D.room;leg++){__DQ.hold('up',1600);await sleep(2000);}if(__DQ.state().map.id===D.room){__DQ.press('confirm');await sleep(1000);}out.push({room:D.room,landed:__DQ.state().map.id,ok:__DQ.state().map.id==='puddlewick'});}window.__OUT=out;return JSON.stringify(out);})()" },
+    { "eval": "JSON.stringify({outOk:window.__OUT.filter(d=>d.ok).length,outFail:window.__OUT.filter(d=>!d.ok)})" },
+    { "assert": "window.__IN && window.__IN.every(d=>d.ok)", "msg": "every door walks in" },
+    { "assert": "window.__OUT && window.__OUT.every(d=>d.ok)", "msg": "every room walks out" },
+    { "assert": "__DQ.errors.length===0", "msg": "no errors" }
+  ]
+}

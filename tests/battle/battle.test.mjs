@@ -640,7 +640,7 @@ test('scaling: a wild species met at another party level is carried there; bosse
 
 test('the EXP keel: under the area level earns more, over it earns less, nothing without an area level', () => {
   assert.equal(expKeel(5, 8), 2.5); assert.equal(expKeel(6, 8), 2); assert.equal(expKeel(7, 8), 1.5);
-  assert.equal(expKeel(8, 8), 1); assert.equal(expKeel(9, 8), 0.675); assert.equal(expKeel(20, 8), 0.2);
+  assert.equal(expKeel(8, 8), 1); assert.equal(expKeel(9, 8), 0.675); assert.equal(expKeel(20, 8), 0.6);
   assert.equal(expKeel(8, null), 1);
   const run = (lvl, areaLevel) => {
     const b = battle({ party: [heroAt(lvl, { weapon: 'steel_sword' })], enemies: ['gloop'], options: { areaLevel } });

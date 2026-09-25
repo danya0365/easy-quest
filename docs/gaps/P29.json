@@ -5,9 +5,21 @@
       "n": 1,
       "title": "Arriving somewhere new prints the place name twice and gets no beat",
       "detail": "The boot/arrival card in /index.html reads 'Puddlewick Vale' in the title line and 'Puddlewick Vale' again as the subtitle underneath it - the same string twice in one window (shots/P15-critic-d1/j/06-bootfade-f5.png). It is the first thing a child reads in the game. The rest of the arrival is a 1.5 s white sky-fade and then nothing: no chime, no held beat, no camera settle, and the card simply sits there while the hint bar 'Follow the lane to Puddlewick.' sits under it. BUILD: make the subtitle the region or the chapter ('The Long Lane', 'Chapter One - Puddlewick'), or drop the second line entirely; give the card a soft chime and a 0.4 s ease-in/hold/ease-out instead of appearing with the fade; let the camera drift 2-3 degrees in over the hold so the arrival reads as a breath rather than a label. VERIFIED GOOD, do not regress: the encounter swirl measures 600 ms with the battle pressable at 1442 ms from the trigger; the exit ink curtain peaks at 1.0 for 751 ms; the iris is a clean circular close (shots/P15-critic-d1/j/20-iris.png); crit screen-shake peaks at 1.0 and the screen flash at 0.5 over six fights; audio.music crossfades field->battle->field. Zero console, page or __DQ errors on the normal play path.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T00:30:26.221Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:41:14.770Z",
+          "by": "builder",
+          "note": "Subtitle no longer repeats the place name (hud showCard drops sub when it matches title — meadow reads 'the lane runs through it'). Card openMs 420 + soft confirm chime at 0.45 so arrival is a beat. Camera drift deferred to P09. Measured shots/P29-card."
+        },
+        {
+          "at": "2026-09-25T17:41:14.809Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P29-card: meadow card place='Puddlewick Vale' sub='the lane runs through it' (not duplicate). Puddlewick arrival asserts pass."
+        }
+      ]
     }
   ]
 }

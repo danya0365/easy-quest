@@ -5,7 +5,7 @@
       "n": 1,
       "title": "Status page runs off the bottom of the screen",
       "detail": "A grown character's Status page was taller than the 720-tall frame: measured 729 design px tall at top=96, bottom=825, with the footer line (arrows somebody else - Cancel to go back) at y=800, entirely off screen. A child could not see how to leave the page or how to look at the next character. Fix: lay the page out so it always fits (smaller status type, spells in two columns, Next level and In a fight moved under the numbers), and measure the real height after every content change and slide the window up if it would ever overflow.",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:35:11.524Z",
       "events": [
         {
@@ -24,6 +24,22 @@
           "by": "critic",
           "pass": false,
           "note": "CORRECTING MY OWN EARLIER PASS. At the default text size the page fits (top 96, bottom 661, footer visible). But turn on Bigger words and this gap's exact symptom returns: at Biggest (u 1.26) m-status is 245 css px off the RIGHT and its bottom is off the screen too - 'Wooden Sword' is sliced to 'Wood', the Shield/Hat/Trinket values are gone, and the footer line 'arrows somebody else - Cancel to go back' is entirely off the bottom, so a child again cannot see how to leave the page or how to look at the next character. See shots/P13-critic-e1/57-status-at-biggest-words.png. WORSE: state().menu.statusFit still reports {top 96, bottom 661} at that scale, because it measures in design px - so the very instrument written to prove this gap fixed is blind to it. Measure statusFit against the viewport in css px, not against the 1280x720 design frame. Root cause filed as F4 #1."
+        },
+        {
+          "at": "2026-09-25T17:32:04.808Z",
+          "by": "builder",
+          "note": "--pass"
+        },
+        {
+          "at": "2026-09-25T17:32:44.241Z",
+          "by": "builder",
+          "note": "Bigger words grows type tokens (--dq-menu/--dq-text/--dq-line/--dq-word-scale), not UI.setScale/--u. Status uses dq-status-tight when scale>1 and fit() slides the page. Measured shots/P13-scale-fit: scale 1.12 bottom 614; 1.26 bottom 693; CSS overR/overB 0; design over 0; Cancel footer on screen."
+        },
+        {
+          "at": "2026-09-25T17:32:44.315Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Re-measured in /index.html via scenarios/P13-scale-fit.json. At Bigger (1.12) m-status CSS bottom 614 / design 614; at Biggest (1.26) CSS bottom 693.3 design 693 — both overR=0 overB=0, fit over=0. Footer Cancel visible in shots/P13-scale-fit/02-status-biggest.png. Layout unit stays --u=1px; only type tokens grow."
         }
       ]
     },
@@ -91,7 +107,7 @@
       "n": 5,
       "title": "The Misc window covers the line that explains the setting",
       "detail": "Misc is the tallest list in the menu (six rows plus a title). At top 360 it reached y=692 and sat straight on top of the blurb window at bottom 24, so the one line that tells a child what How fast the words come actually means was 90 per cent hidden, with only the last two words (xt one.) peeking out from behind. Fix: sit the Misc list higher, and assert in the scenario that the Misc window bottom is above the blurb top.",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:41:10.546Z",
       "events": [
         {
@@ -109,6 +125,22 @@
           "by": "critic",
           "pass": false,
           "note": "REGRESSED, and only fixed at one text size. At Bigger words (scale 1.12) m-blurb runs 107 css px off the right of the 1280x720 screen AND overlaps m-misc by 642x60 design px - the exact gap this ticket describes. At Biggest (1.26) m-blurb is 280 css px off the right and m-misc is 61 css px off the bottom, so the gold row 'The tale-s secret code' is sliced by the screen edge (see shots/P13-critic-e1/37). Root cause: --u = min(W/1280,H/720) * textScale, so the usable design frame shrinks to 1143x643 then 1016x571 while every window keeps fixed 1280x720 coordinates. At Normal it is genuinely fixed: misc bottom 620, blurb top 635, 15 px of clear air, offScreen 0."
+        },
+        {
+          "at": "2026-09-25T17:32:04.844Z",
+          "by": "builder",
+          "note": "--pass"
+        },
+        {
+          "at": "2026-09-25T17:32:44.279Z",
+          "by": "builder",
+          "note": "Bigger words no longer multiplies --u (was pushing blurb 107-280 CSS px off the right). Misc sits higher/wider with word scale (1.12 top 220 w 740; 1.26 top 168 w 820). Measured shots/P13-scale-fit: gapDes 52/37, blurb overR 0, misc spill 0 at Biggest."
+        },
+        {
+          "at": "2026-09-25T17:32:44.350Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Re-measured same scenario. Biggest: m-misc top 168 bottom 568, m-blurb top 605 bottom 696, gapDes 37; CSS overR 0 for both; fit spill 0. Bigger: gapDes 52. Blurb no longer runs off the right because scale no longer multiplies --u. Shot 01-misc-biggest.png shows blurb line fully readable under Misc."
         }
       ]
     },
@@ -182,7 +214,7 @@
       "n": 9,
       "title": "Use on a key item in the bag is greyed out, so the Retreat Bell and the Homing Feather do nothing",
       "detail": "src/data/items.js builds every kind:key row with field:false, so src/ui/menu.js usable() greys out Use for them and the bag explains There is nothing to do with the Retreat Bell out here. But their own words promise something: Ring it and you are outside, blinking at the daylight and Blow it and the wind carries you back to the last church. A child reads the promise and finds a greyed row. Two halves to the fix: (1) the menu should treat a key with a warp field as usable and (2) something has to perform the warp - Field.teleport to the map exit for retreat_bell, and to the last church for homing_feather (the church list does not exist yet). Not broken, no dead end, but a promise the game does not keep. Polish wave.",
-      "state": "claimed-fixed",
+      "state": "verified-fixed",
       "opened": "2026-09-18T03:53:02.785Z",
       "events": [
         {
@@ -195,6 +227,12 @@
           "at": "2026-09-25T15:31:33.998Z",
           "by": "builder",
           "note": "Use on Homing Feather and Retreat Bell now warps. Feather lands on the chapel forecourt (CHURCHES at 2,-14 so the door pad cannot swallow you); Bell walks out via the map exit (cobwell_manor -> road_wood). Rusty Key / keepsakes stay grey with an honest refuse. Measured shots/P13-use-equip4."
+        },
+        {
+          "at": "2026-09-25T17:32:44.385Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P13-use-equip4 ok=true. Homing Feather from meadow lands puddlewick x=2.35 z=-13.65 (chapel forecourt). Retreat Bell leaves cobwell_manor. Use rows not greyed for warps."
         }
       ]
     },
@@ -202,13 +240,19 @@
       "n": 10,
       "title": "Equip is the one page with no words: choosing a sword shows numbers and no blurb",
       "detail": "src/ui/menu.js. The bag, the Keys page, Spells, Tactics and Misc all open an m-blurb window and put the item-s own line in it. Equip does not: measured in /index.html, on the kit list for Bram-s weapon slot the open windows were m-cmd, m-party, m-gold, m-slots, m-stats, m-kit and NO m-blurb, and __CR.blurb() returned null on every row of the list. See shots/P13-critic-e1/27-27-stat-arrows-on-a-copper-sword.png.\n\nSo the moment a child is actually choosing what their hero wears, the only thing on the screen is -Copper Sword +11- and -Attack 12 up-arrow 21-. The words P21 wrote for that sword - -Your first real sword. It goes green if you sulk.- - and the line that says -only Bram or Rowan can wear it- are both available (the bag prints them two windows earlier) and both withheld here. It is the page where the charm would land hardest and it is the only page with none.\n\nIt also costs CLARITY. Because there is no blurb, a slot with nothing that fits shows a list whose only entry is -Take it off-, with no sentence saying why: at level 1 with an empty bag that is exactly what a child sees, and one press of Confirm takes their sword off and drops their Attack from 12 to 10 with nothing on screen explaining it.\n\nFIX: open the same m-blurb window on the Equip flow (kitRows already knows the item id) and set it on every cursor move to describe(id) - the item-s blurb, its bonus line and who may wear it - exactly as bagRows does. For -Take it off- write a line of its own, e.g. -Hands free. Your Attack goes back down.- Assert in the scenario that m-blurb is open and non-empty on every Equip row.",
-      "state": "claimed-fixed",
+      "state": "verified-fixed",
       "opened": "2026-09-18T04:21:25.479Z",
       "events": [
         {
           "at": "2026-09-25T15:31:34.035Z",
           "by": "builder",
           "note": "Equip opens the same m-blurb strip as Items/Spells/Misc. Cursor on a kit row sets itemWords (blurb + bonus + who); Take it off has its own line. Measured shots/P13-use-equip4: m-blurb open with sword words."
+        },
+        {
+          "at": "2026-09-25T17:32:44.420Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P13-use-equip4: Equip weapon kit opens m-blurb; assert passed that blurb has sword/wear words."
         }
       ]
     }

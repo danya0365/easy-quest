@@ -183,7 +183,14 @@ function accessor(name) {
 }
 
 // ── state() ──────────────────────────────────────────────────────────────────────────────────────────────────
+let _stateDepth = 0;
+let _lastState = null;
 function buildState() {
+  // Providers (story/quest/menu/…) must never call __DQ.state() while we are already building — that blew the
+  // stack overnight (join→state→act2→Flags.has→…). Return the last good snapshot instead.
+  if (_stateDepth > 0) return _lastState || { scene: Scenes.top(), sceneStack: Scenes.stack(), errors: errorTotal, nested: true };
+  _stateDepth++;
+  try {
   const loop = Loop.info();
   let render = null;
   try { render = App.stats(); } catch (_) { render = null; }
@@ -218,7 +225,9 @@ function buildState() {
     try { s[key] = fn(); }
     catch (e) { reportError(`__DQ.state provider "${key}"`, e); s[key] = { error: String(e && e.message || e) }; }
   }
+  _lastState = s;
   return s;
+  } finally { _stateDepth--; }
 }
 
 // ── the public object ────────────────────────────────────────────────────────────────────────────────────────

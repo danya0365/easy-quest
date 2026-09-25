@@ -1,0 +1,100 @@
+{
+  "name": "P04 census 5 only",
+  "steps": [
+    {
+      "waitFor": "window.__DQ && __DQ.ready",
+      "timeout": 45000
+    },
+    {
+      "wait": 2500
+    },
+    {
+      "eval": "(window.__C={go:function(x,z,deg,dist){__DQ.teleport('meadow',x,z);__DQ.cameraOrbit(deg);if(dist!==undefined)__DQ.cameraZoom(dist);return x+','+z+' @'+deg+' d'+dist;}},'ok')"
+    },
+    {
+      "eval": "__DQ.freeze(true)"
+    },
+    {
+      "note": "the five identical-camera census frames (hue 0.19-0.45, sat>0.15, 230400 samples)"
+    },
+    {
+      "eval": "__C.go(-26,-26,45,11)"
+    },
+    {
+      "wait": 2200
+    },
+    {
+      "eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"
+    },
+    {
+      "wait": 900
+    },
+    {
+      "shot": "rep-NW"
+    },
+    {
+      "eval": "__C.go(26,-26,315,11)"
+    },
+    {
+      "wait": 2200
+    },
+    {
+      "eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"
+    },
+    {
+      "wait": 900
+    },
+    {
+      "shot": "rep-NE"
+    },
+    {
+      "eval": "__C.go(26,26,225,11)"
+    },
+    {
+      "wait": 2200
+    },
+    {
+      "eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"
+    },
+    {
+      "wait": 900
+    },
+    {
+      "shot": "rep-SE"
+    },
+    {
+      "eval": "__C.go(-26,26,135,11)"
+    },
+    {
+      "wait": 2200
+    },
+    {
+      "eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"
+    },
+    {
+      "wait": 900
+    },
+    {
+      "shot": "rep-SW"
+    },
+    {
+      "eval": "__C.go(0,0,0,11)"
+    },
+    {
+      "wait": 2200
+    },
+    {
+      "eval": "JSON.stringify(__DQ.cameraRig({pitch:26}))"
+    },
+    {
+      "wait": 900
+    },
+    {
+      "shot": "rep-centre"
+    },
+    {
+      "assert": "__DQ.errors.length===0",
+      "msg": "ok"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "P17 follower hop from distance travelled",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready", "timeout": 45000},
+    {"wait": 400},
+    {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+    {"waitFor": "__DQ.state().scene==='field'", "timeout": 45000},
+    {"wait": 400},
+    {"eval": "(__DQ.teleport('meadow', 6, 0), 'meadow')"},
+    {"wait": 600},
+    {"eval": "JSON.stringify(__DQ.friendsStock(3))"},
+    {"wait": 700},
+
+    {"note": "1. Stand still — monster modelT / hop should barely advance (idle breathe only)."},
+    {"eval": "(async()=>{ const sleep=ms=>new Promise(r=>setTimeout(r,ms)); const mon=()=>(__DQ.state().companions.followers||[]).find(f=>f.kind==='monster')||(__DQ.state().companions.followers||[])[0]; const a=mon(); window.__still0={id:a&&a.id, walked:a&&a.walked, rate:a&&a.rate, x:a&&a.x, z:a&&a.z}; await sleep(1200); const b=mon(); window.__still1={id:b&&b.id, walked:b&&b.walked, rate:b&&b.rate, x:b&&b.x, z:b&&b.z, speed:(__DQ.state().player&&__DQ.state().player.speed)||0}; return JSON.stringify({still0:window.__still0,still1:window.__still1}); })()"},
+    {"assert": "(window.__still1.speed||0) < 0.15", "msg": "hero is standing still for the idle measure"},
+    {"assert": "Math.abs((window.__still1.walked||0)-(window.__still0.walked||0)) < 0.08", "msg": "standing still: follower walked almost nothing"},
+    {"assert": "(window.__still1.rate||0) <= 0.5", "msg": "standing still: hop rate is idle-only, not a wall-clock bounce"},
+
+    {"note": "2. Walk — walked accumulates; sample hop rate mid-stride."},
+    {"eval": "(async()=>{ const sleep=ms=>new Promise(r=>setTimeout(r,ms)); const mon=()=>(__DQ.state().companions.followers||[]).find(f=>f.kind==='monster')||(__DQ.state().companions.followers||[])[0]; const a=mon(); window.__walk0={walked:a&&a.walked, hops:a&&a.hops, rate:a&&a.rate}; let peak=0, leanPeak=0; __DQ.hold('up', 2000); for(let i=0;i<12;i++){ await sleep(160); const b=mon(); if(b){ peak=Math.max(peak, b.rate||0); leanPeak=Math.max(leanPeak, Math.abs(b.lean||0)); } } const c=mon(); window.__walk1={walked:c&&c.walked, hops:c&&c.hops, rate:c&&c.rate, lean:c&&c.lean, peak, leanPeak}; return JSON.stringify({walk0:window.__walk0,walk1:window.__walk1}); })()"},
+    {"shot": "01-hopping"},
+    {"assert": "(window.__walk1.walked||0) > (window.__walk0.walked||0) + 0.8", "msg": "walking: follower walked accumulates with trail distance"},
+    {"assert": "(window.__walk1.hops||0) > (window.__walk0.hops||0) + 0.5", "msg": "walking: hop count rises with distance (not wall clock)"},
+    {"assert": "(window.__walk1.peak||0) > 0.55 || (window.__walk1.leanPeak||0) > 0.05", "msg": "mid-stride: hop rate or lean rises above idle"},
+
+    {"eval": "JSON.stringify({gaps:__DQ.state().companions.gaps, hopUnits:__DQ.state().companions.hopUnits, followers:(__DQ.state().companions.followers||[]).map(f=>({id:f.id,kind:f.kind,walked:f.walked,rate:f.rate,onScreen:f.onScreen,px:f.px}))})"}
+  ]
+}

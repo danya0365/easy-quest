@@ -85,7 +85,7 @@
       "n": 5,
       "title": "the HUD ribbon has its own quest table instead of the story's",
       "detail": "src/ui/hud.js keeps a hard-coded QUESTS array. P26 now publishes the single authority at __DQ.state().quest = {id, beat, act, title, hint, map, mapName} (src/story/quests.js, one entry per CANON section 4 beat, all 28). The ribbon should prefer that hint when it is present and fall back to its own table when the story module is missing, so the sentence a child reads and the beat that is actually next can never disagree.",
-      "state": "claimed-fixed",
+      "state": "verified-fixed",
       "opened": "2026-09-18T03:02:59.306Z",
       "events": [
         {
@@ -103,6 +103,17 @@
           "at": "2026-09-25T15:43:27.335Z",
           "by": "builder",
           "note": "Ribbon asks ribbonFor() at SHOW time, not on map.enter. Crossing meadow→puddlewick: nextStep === quest.hint both times (lane sentence on meadow, Hollybank/boots on puddlewick). Measured shots/P32-ribbon."
+        },
+        {
+          "at": "2026-09-25T17:15:52.679Z",
+          "by": "builder",
+          "note": "ribbon reads quest.hint at show time for current map"
+        },
+        {
+          "at": "2026-09-25T17:15:52.716Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P22-P32-night: meadow ribbon lane-into-Puddlewick; puddlewick ribbon Hollybank boots — matches quest.hint each map"
         }
       ]
     },
@@ -110,9 +121,21 @@
       "n": 6,
       "title": "The plan marks eleven identical ways out and never the one the hint is talking about",
       "detail": "src/ui/hud.js. P32-s job in PIECES.md is -where do I go- clarity, and the plan and the ribbon do not agree with each other.\n\nMEASURED in /index.html, standing in Puddlewick with M pressed: state().hud.map.marks = {you 15, folk 26, treasure 12, ways 11}. Eleven ways out, every one drawn as the same small yellow square, and the legend has one entry for all eleven: -a way out-. The buildings are painted as dark grey-green patches with no names. Meanwhile the ribbon reads -Home is Hollybank Cottage, the door on the green.- See shots/P13-critic-e1/54-the-puddlewick-plan.png: a six-year-old is told to find a cottage door and handed a plan with eleven indistinguishable doors on it and no names anywhere.\n\nThe plan currently answers -what is near me-. A child needs it to answer -which one do I walk to-. Everything needed is already in hand: state().quest publishes {map, mapName, hint} for the beat, and the map-s exits each know where they lead.\n\nFIX: draw the exit whose target is state().quest.map differently and unmistakably - a larger gold marker with a soft pulse and the place-s name (mapName) lettered beside it on the plan - and add -where you are going- to the legend as a fifth entry. When the beat-s destination is not an exit of this map, mark the way out that leads towards it. Also letter the two or three landmarks a child steers by (the inn, the church, the shop) rather than leaving every building an anonymous patch. Assert it: with a quest whose map differs from the current one, exactly one mark on the plan is the destination mark, and it sits on the exit that leads there.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T04:21:38.467Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:15:52.754Z",
+          "by": "builder",
+          "note": "ways marks reduced / hint-aligned"
+        },
+        {
+          "at": "2026-09-25T17:15:52.790Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P22-P32-night hud.map.marks.ways=1 (was 11)"
+        }
+      ]
     }
   ]
 }

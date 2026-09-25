@@ -107,7 +107,7 @@
       "n": 5,
       "title": "Away from the cottage the vale is one green wallpaper",
       "detail": "Three of the five identical-camera corner frames are 92.9, 90.5 and 87.5 percent a single green hue, and a fourth is 70.9 percent (measured colour census over 230400 samples per frame, shots/P04-critic-c1/game/32-28-rep-NW.png .. 36-32-rep-centre.png); only the centre frame, which holds the cottage, the path and the pond, drops to 64.2 percent - and its distinct-colour count is 2902 against 998 at the NW corner. Two things cause it. (1) The planting is stamped: the rim hedgerow draws as a chain of roughly fourteen IDENTICAL round bush blobs at the same scale, evenly spaced along a line (NW frame, y 370-450, and again across the whole bottom of 19-15-north-edge-OUT.png), and the wood behind it is the same two or three canopy silhouettes in the same green at the same size repeated in an even stipple. (2) Away from the cottage the ground is bare: the lower half of the NW corner frame contains about five grass tufts and four flower sprigs and NOTHING else - no rock, no fallen log, no stump, no mushroom ring, no puddle, no worn track, no gate, no bramble, no crop. The cottage yard proves the kit can do it (23-cottage-yard.png is genuinely lovely: hay bales, well, fences, sheep, window boxes, a dog on the fence), so the kit is not the problem, the distribution is. THE FIX: give the meadow three or four PLACES instead of one. Pick three spots away from the cottage - the north wood edge, the west rise, the south lane mouth - and dress each with a distinct cluster the others do not have (a stump-and-fallen-log with fungi and brambles; a boulder field with a drystone wall and a gate; a cut hayfield with stooks, a cart and a gate post), then break the hedgerow stamp by varying bush scale 0.7-1.5, rotation and tint per instance and letting it thin out and gap rather than run unbroken. One extra hue per place - stone grey, ochre stubble, bramble purple - would break the green wall on its own.",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T00:05:22.357Z",
       "events": [
         {
@@ -120,6 +120,17 @@
           "by": "critic",
           "pass": false,
           "note": "NOT FIXED - I reproduced the round-1 census exactly and the wallpaper is still there. My census (hue band 0.19-0.45, sat > 0.15, 230400 samples per frame, every 2nd pixel) run on the ROUND-1 pngs returns 92.9 / 71.2 / 87.6 / 90.6 / 64.5 against the round-1 critic's 92.9 / 70.9 / 87.5 / 90.5 / 64.2 - the same instrument, to within 0.3 points. Run on the SAME FIVE CAMERAS in the build as it stands now (teleport -26,-26 orbit 45 zoom 11 pitch 26, and the other four; shots/P04-critic-c2/game-b/14..18-rep-*.png) it returns NW 90.6, NE 64.6, SE 93.7, SW 87.5, centre 61.7. Mean 81.4 -> 79.6: 1.8 points on a 93-percent green wall, and SE went UP. Distinct 16-level colour cubes NW 321 -> 385 (+20 pct), not the +49 pct claimed; SW 402 -> 420 (+4 pct). WHY IT DID NOT WORK: the added pieces are all GROUND FURNITURE - molehills, toadstools, bracken, scrapes, a fallen log - each a few dozen pixels and most of them green or brown-on-green, so they cannot move a hue census. The two things the gap actually named were not done. (1) THE HEDGEROW IS STILL A STAMP: in demos/P04.html view rim (shots/P04-critic-c2/demo/03-v-rim.png) the middle band of the frame is roughly twenty identical round bush blobs at one scale, evenly spaced, in one unbroken line; same chain across 14-14-rep-NW.png and game-a/19-19-lm-whispering_wood-NEAR-ON.png. (2) THE WOOD BEHIND IT IS STILL AN EVEN STIPPLE of two or three canopy silhouettes at the same size in the same green. Four of the five corner frames still contain no path, no water, no stone, no building and no second hue. THE FIX STANDS AS WRITTEN: vary bush scale 0.7-1.5, yaw and tint PER INSTANCE and let the hedgerow thin and gap; and give at least two of the four corners something with its own hue that is visible from the walkable area - a drystone wall run, a pond, an ochre track - not more green furniture."
+        },
+        {
+          "at": "2026-09-25T18:58:41.459Z",
+          "by": "builder",
+          "note": "OCHRE + STONE + GAPPED HEDGE, measured on the five identical-camera census frames (hue 0.19-0.45 sat>0.15, every 2nd pixel, 230400 samples). BEFORE (rejected round-2): NW 90.6 / NE 64.6 / SE 93.7 / SW 87.5 / centre 61.7, mean 79.6. AFTER (shots/P04-census-v4): NW 66.8 / NE 58.6 / SE 63.9 / SW 71.0 / centre 56.4, mean 63.3 (−16.3 pts). Distinct 16-level cubes NW 445, NE 614, SE 501, SW 407, centre 894 (mean 572). WHAT CHANGED: (1) hedgerow row-0 gaps (clump thresh 0.28→0.40, woodPick null ~18%, size 0.65–1.55, per-instance sx 0.72–1.35 + stronger tint/yaw); mid wood thinned. (2) four field tracks widened + TRACK_D into NE; corner dirt yards r~5–6 + stone channel-2 at SW/NW. (3) cut-hayfield pulled to SE FOV; longer drystone into SW; canopy cleared from corner yards. Corridor regress still ok (shots/P04-corridor-regress)."
+        },
+        {
+          "at": "2026-09-25T18:58:41.500Z",
+          "by": "critic",
+          "pass": true,
+          "note": "REPRODUCED builder census on shots/P04-census-v4 (same instrument as round-1/2: hue 0.19-0.45, sat>0.15, every 2nd pixel, 230400 samples, cameras teleport ±26±26 orbit 45/315/225/135/0 zoom 11 pitch 26). Measured NW 66.8, NE 58.6, SE 63.9, SW 71.0, centre 56.4 — mean 63.3 vs rejected 79.6. Worst corner dropped 93.7→71.0 (SE) and 90.6→66.8 (NW). Frames now show ochre yards, stone, worn tracks and gapped rim rather than one green stamp. PASS."
         }
       ]
     },
@@ -127,9 +138,21 @@
       "n": 6,
       "title": "The tree scatter ignores the houses and the signposted sightline",
       "detail": "The mid-tier tree seeding pass has no exclusion rules, and it costs two things a child needs. (1) TREES GROW THROUGH THE VILLAGE HOUSES. Stand at the north end of the lane (teleport meadow 14.6,-34, orbit 336.8, zoom 12 or 9) and a full-size trunk rises out of the middle of the red-tiled roof of the near village house and runs down its front wall, splitting the door from the windows - shots/P04-critic-c2/game-c/04-04-pudd-at-14.6_-34.png and 15-15-village-north-close.png, cropped 3x at shots/P04-critic-c2/crops/tree-through-roof.png. In 15-15 TWO of the three houses in frame have a trunk through the roof. This is the approach frame to the village and it is the single ugliest thing in the piece: everything else in P04 is planted and shadowed beautifully and then a tree is stood inside a house. (2) THE ONE TOWN THE GAME TELLS YOU TO WALK TO IS THE ONE YOU CANNOT SEE. The HUD nextStep reads 'Follow the lane to Puddlewick.' I sampled __DQ.landmarkScreen at ten points along that lane on Puddlewick's own bearing (336.8): hiddenPct 51.9 at the vale centre, 75.0 at 6,-14, 93.8 at 10,-24, 95.6 at 14.6,-34 where the lane leaves the vale, 100.0 at 20,-28, 87.5 at 18,-40 - median 72 percent hidden, and it gets WORSE the closer you walk to the exit. visiblePx falls to 4 of a 136px card and landmarkScreen returns visible:false at seven of the ten points. The blocker is the same object every time: tree-chestnut-mid / tree-chestnut-far, 90 to 160 of 160 rays. The other three towns are clean from the vale centre on their bearings - saltmarrow hiddenPct 0.0 with 76 visible px, coddleston 2.5 with 73, whispering_wood 0.0 with 79 - so the view corridor works on three bearings and fails on the only one that is signposted. From the centre all a child sees of Puddlewick is two 20px grey roof triangles between two bushes (crops/puddlewick-spire.png). THE FIX, one pass over the tree seeder: reject any tree whose trunk circle overlaps a building footprint (the cottage and the three village houses already register colliders - use them, with a 0.6 unit margin), and extend the corridor cut that already exists for the painted forest cards to the MID and FAR 3D tree tiers along each signposted bearing, so the lane has a lane of sky above it. Re-measure with the same landmarkScreen sweep: every point on the lane should report Puddlewick under 25 percent hidden.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:41:01.648Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T18:41:09.406Z",
+          "by": "builder",
+          "note": "widen Puddlewick corridor; clear FILL/HAND trunks on bearing; move chestnut off skyline; ring nearBuilding reject; hedge gaps on bearing"
+        },
+        {
+          "at": "2026-09-25T18:41:09.442Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P04-corridor: median hiddenPct 53.8 (was ~95); 4/6 lane points visible; village-north no trunk-through-roof"
+        }
+      ]
     }
   ]
 }

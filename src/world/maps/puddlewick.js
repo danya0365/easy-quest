@@ -252,7 +252,9 @@ function layout() {
   L.shrineBench = { x: 21.0, z: -22.6, rot: 0.1 };          // north of the stones, looking back at them (the Beck's edge is at -18.5)
   L.benches = [{ x: 1.6, z: 8.6, rot: 0.25 }, { x: 14.0, z: 18.4, rot: -1.0 }];
   L.notice = { x: 4.4, z: -15.9, rot: 0.1 };
-  L.barrels = [{ x: 12.3, z: -2.2, s: 1 }, { x: 12.9, z: -1.3, s: 0.85 }, { x: -9.6, z: -4.8, s: 1 }, { x: -20.0, z: -11.4, s: 0.9 }];
+  // Mill barrel: was (-20,-11.4) in the race (water). Yard east of the wheel, clear of the doorstep
+  // (door bias is doorstep-only in map.js; stand at ~(-14,-9) to Confirm — shots/P30-v6e).
+  L.barrels = [{ x: 12.3, z: -2.2, s: 1 }, { x: 12.9, z: -1.3, s: 0.85 }, { x: -9.6, z: -4.8, s: 1 }, { x: -15.2, z: -9.0, s: 0.9 }];
   L.crates = [{ x: 18.9, z: 6.3, rot: 0.4 }, { x: 18.3, z: 7.2, rot: -0.2 }, { x: -18.6, z: -8.6, rot: 0.2 }];
   L.woodpile = { x: -16.8, z: -4.6, rot: Math.PI / 2 };
   // The washing line used to be strung a metre off Hollybank's north wall, which merged it into the cottage's
@@ -948,7 +950,7 @@ function furnish() {
     { id: 'pw_crate_mill', x: L.crates[2].x, z: L.crates[2].z, kind: 'crate', name: 'a crate by the mill', line: 'search-crate-mill', reach: 1.6 },
     { id: 'pw_sacks', x: L.sacks[0].x, z: L.sacks[0].z, kind: 'sacks', name: 'the flour sacks', line: 'search-sacks', reach: 1.7 },
     { id: 'pw_hay', x: L.hay[0].x, z: L.hay[0].z, kind: 'hay', name: 'the hay', line: 'search-hay', reach: 1.7 },
-    { id: 'pw_barrel_mill', x: L.barrels[3].x, z: L.barrels[3].z, kind: 'barrel', name: 'a barrel at the mill', line: 'search-barrel-mill', reach: 1.6 },
+    { id: 'pw_barrel_mill', x: L.barrels[3].x, z: L.barrels[3].z, kind: 'barrel', name: 'a barrel at the mill', line: 'search-barrel-mill', reach: 1.9 },
   );
   L.chests = chests;
   L.colliders = C;

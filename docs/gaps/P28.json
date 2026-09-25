@@ -5,9 +5,21 @@
       "n": 1,
       "title": "sword_hit ends in a quarter-second of bright hiss",
       "detail": "sword_hit is the only impact calling blade with tail=1: two wide noise bands held at 68-80 percent of peak from 50ms to 240ms, plus 16.5 LU over the battle theme at 150ms in 3-6kHz, so a connected hit reads as a swipe at air and lasts longer than the miss whoosh. Replace the held envelope with a fast exponential decay (minus 10dB by 30ms, gone by 90-110ms) and sweep the tail lowpass 6kHz down to 1.5kHz over 60ms, keeping the snap and low body.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-17T22:30:08.421Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T18:26:54.179Z",
+          "by": "builder",
+          "note": "blade() tail: fast exp decay + LP sweep; gone by ~100ms (was held 50-240ms hiss)"
+        },
+        {
+          "at": "2026-09-25T18:26:54.217Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P28 hitCheck ok=true: 3-6kHz out of way by 60ms, gone by 150; darker than miss; uiCheck fails=[]"
+        }
+      ]
     }
   ]
 }

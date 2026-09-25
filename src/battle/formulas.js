@@ -190,15 +190,17 @@ export function catchUpMultiplier(lvl, partyHighest) {
  * arrive at the next door within a level or two of each other — and the monsters there were tuned for that level.
  * Measured by tests/battle/journey.mjs: without it, a child who fights every battle reaches Mumbleroot 3 levels
  * over and Hoarfax 3 levels under.
- *   gap = partyHighest - areaLevel:  -3 → x2.5, -2 → x2, -1 → x1.5, 0 → x1, +1 → x0.65, +2 → x0.35, +3 or more → x0.2
+ *   gap = partyHighest - areaLevel:  -3 → x2.5, -2 → x2, -1 → x1.5, 0 → x1, +1 → x0.65, +2 → x0.6, +3 or more → x0.6
  * battle.js caps it at x1 for bosses (balance pass r3): a boss pays what it pays — the keel trims boss EXP, never
  * inflates it, so running from everything no longer carries a child up the curve on boss EXP alone.
+ * Over-level floor is 0.6 (P19): grinding always helps; the old 0.2 floor + cap 30 left Attack-only children stuck.
  */
 export function expKeel(partyHighest, areaLevel) {
   if (!areaLevel || !partyHighest) return 1;
   const gap = partyHighest - areaLevel;
   if (gap <= 0) return Math.min(2.5, 1 + 0.5 * -gap);
-  return Math.max(0.2, 1 - 0.325 * gap);
+  // Over-level floor ~0.6 so grinding still pays (P19 gap #1); was 0.2 and capped growth.
+  return Math.max(0.6, 1 - 0.325 * gap);
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -213,15 +215,16 @@ export function expKeel(partyHighest, areaLevel) {
 // No entry level → the block exactly as written ("Gloop: always politely a little too weak").
 
 export const REF = {
-  hp:   [20, 26, 32, 38, 44, 52, 59, 67, 74, 82, 91, 100, 110, 119, 128, 139, 150, 160, 171, 182, 195, 208, 220, 233, 246, 261, 276, 290, 305, 320],
-  atk:  [12, 15, 22, 29, 31, 34, 37, 40, 43, 46, 49, 53, 73, 84, 87, 91, 103, 115, 126, 138, 143, 148, 152, 157, 162, 168, 173, 179, 184, 190],
-  def:  [8, 10, 13, 15, 23, 25, 34, 37, 41, 48, 52, 59, 69, 71, 74, 78, 86, 93, 100, 107, 109, 111, 118, 123, 141, 146, 149, 151, 153, 156],
-  spd:  [8, 10, 12, 13, 15, 17, 19, 22, 24, 26, 28, 31, 33, 36, 38, 41, 43, 46, 48, 51, 54, 57, 59, 62, 65, 68, 71, 74, 77, 80],
-  gold: [5, 6, 6, 8, 11, 14, 18, 20, 25, 28, 34, 42, 55, 66, 80, 95, 108, 120, 140, 155, 168, 190, 215, 248, 300, 355, 380, 400, 420, 440],
+  hp:   [20, 26, 32, 38, 44, 52, 59, 67, 74, 82, 91, 100, 110, 119, 128, 139, 150, 160, 171, 182, 195, 208, 220, 233, 246, 261, 276, 290, 305, 320, 336, 352, 368, 384, 400, 416, 432, 448, 464, 480],
+  atk:  [12, 15, 22, 29, 31, 34, 37, 40, 43, 46, 49, 53, 73, 84, 87, 91, 103, 115, 126, 138, 143, 148, 152, 157, 162, 168, 173, 179, 184, 190, 196, 202, 208, 214, 220, 226, 232, 238, 244, 250],
+  def:  [8, 10, 13, 15, 23, 25, 34, 37, 41, 48, 52, 59, 69, 71, 74, 78, 86, 93, 100, 107, 109, 111, 118, 123, 141, 146, 149, 151, 153, 156, 159, 162, 165, 168, 171, 174, 177, 180, 183, 186],
+  spd:  [8, 10, 12, 13, 15, 17, 19, 22, 24, 26, 28, 31, 33, 36, 38, 41, 43, 46, 48, 51, 54, 57, 59, 62, 65, 68, 71, 74, 77, 80, 83, 86, 89, 92, 95, 98, 101, 104, 107, 110],
+  gold: [5, 6, 6, 8, 11, 14, 18, 20, 25, 28, 34, 42, 55, 66, 80, 95, 108, 120, 140, 155, 168, 190, 215, 248, 300, 355, 380, 400, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600, 620, 640],
 };
 const refAt = (k, L) => {           // fractional levels interpolate (an encounter table may sit at 12.5)
-  const x = clamp(L, 1, 30), i = Math.floor(x), t = x - i;
-  return i >= 30 ? REF[k][29] : REF[k][i - 1] * (1 - t) + REF[k][i] * t;
+  const top = REF[k].length;
+  const x = clamp(L, 1, top), i = Math.floor(x), t = x - i;
+  return i >= top ? REF[k][top - 1] : REF[k][i - 1] * (1 - t) + REF[k][i] * t;
 };
 const toNextAt = (L) => { const l = clamp(Math.round(L), 1, 29); return EXP_TABLE[l + 1] - EXP_TABLE[l]; };
 const MOVE_AMOUNTS = ['amount', 'fixed', 'drain', 'recoil', 'heal', 'base', 'selfMissDamage'];

@@ -1,0 +1,13 @@
+{
+  "name": "P06 stand on exit centers",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 600 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title)return JSON.stringify(__DQ.title('game'));return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene!=='title'", "timeout": 30000 },
+    { "wait": 800 },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const m=await import('/src/world/maps/puddlewick.js');const r=await import('/src/world/maps/int_rooms.js');__DQ.teleport('puddlewick');await sleep(1200);const world=(await import('/src/world/field.js')).Field.world();const exits=world.map.exits.filter(e=>e.kind==='door');const out=[];for(const D of r.DOORS){const ex=exits.find(e=>e.to===D.room);if(!ex){out.push({plot:D.plot,err:'no exit'});continue;}__DQ.teleport('puddlewick',ex.x,ex.z);await sleep(900);const hit=world.map.exitAt(__DQ.state().player.x,__DQ.state().player.z);out.push({plot:D.plot,want:D.room,stood:{x:+__DQ.state().player.x.toFixed(2),z:+__DQ.state().player.z.toFixed(2)},exitAt:hit&&hit.to,went:__DQ.state().map.id,ok:__DQ.state().map.id===D.room});}window.__STAND=out;return JSON.stringify(out);})()" },
+    { "eval": "JSON.stringify({standOk:window.__STAND.filter(d=>d.ok).length,fail:window.__STAND.filter(d=>!d.ok)})" },
+    { "assert": "window.__STAND && window.__STAND.every(d=>d.ok)", "msg": "standing on each door exit enters that room" }
+  ]
+}

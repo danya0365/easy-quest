@@ -26,6 +26,21 @@ export default function hollybankPeople(base = {}) {
 
   return {
     npcs: [
+      // ── Act I: Papa between cutscenes (boots quest → lane). Gone once ch1.left_home. ──
+      {
+        id: 'hb-halvard', name: 'Papa', char: 'halvard', voice: 'halvard', scale: 1.08, girth: 1.1,
+        x: chair.x + 1.1, z: chair.z - 0.4, facing: 200, idle: 'stand', radius: 0.7, when: '!ch1.left_home',
+        script: [{
+          first: [
+            'Boots, lad. If you would.',
+            'I shall be at the wagon. Do not\nmake me shout up the stair.',
+          ],
+          again: [{ cycle: [
+            'The lane does not wait. The\nwagon does, and I would rather\nit did not.',
+            'Bring the boots. Leave the\nkettle its dignity.',
+          ] }],
+        }],
+      },
       // ── Act I: the cat owns the hearthstone, and says so ──
       {
         id: 'hb-cat', name: 'Bramble', animal: 'cat', tint: 'ginger', voice: 'monster:1.38',

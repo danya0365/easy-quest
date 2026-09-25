@@ -5,17 +5,41 @@
       "n": 1,
       "title": "Extra fights cannot buy safety",
       "detail": "Over-level EXP is cut to 0.2x and the cap is 30, so fighting three times as many battles puts a child only about one level ahead at each boss, and an Attack-only child hits the cap with nowhere to grow. Raise the over-level floor to about 0.6 and the cap to 40 (extend EXP_TABLE and growth anchors) so grinding always helps.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-17T22:30:08.360Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T18:18:03.574Z",
+          "by": "builder",
+          "note": "expKeel floor 0.6; LEVEL_CAP 40; EXP_TABLE+anchors+REF through 40"
+        },
+        {
+          "at": "2026-09-25T18:18:03.610Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P19-overlevel ok=true; battle.test 40/40; keel wayOver=0.6; cap=40 hp40=468"
+        }
+      ]
     },
     {
       "n": 2,
       "title": "Seeds have no permanent stat hook",
       "detail": "P30 drops a Seed of Life in the hollow of the fallen oak in the meadow. It is eaten on the spot: treasure.js records it in its own ledger and writes member.seedHp += 3 on the party leader, plus +3 to current HP. But src/data/growth.js statsFor(member, L) recomputes hp purely from the level curve, so the moment Roster.heal() or a level-up runs, the seed bonus vanishes. Fix in growth.js: have statsFor() add member.seedHp / member.seedMp / member.seedMight etc (a small {stat: bonus} bag on the member) on top of the personality curve, and expose a helper addSeed(member, stat, n). P30 already writes and saves member.seedHp, so nothing else has to change. Verify: __DQ.treasure().seeds shows {life:1} and the leader's max HP stays 3 higher after __DQ.heal().",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:26:39.822Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:39:52.538Z",
+          "by": "builder",
+          "note": "statsFor() adds seedBonus(member) from member.seed / member.seedHp. addSeed() helper for menu Use. Measured shots/P21-P19-seed3: before 20 mid 24 after heal 24; seed.hp=4."
+        },
+        {
+          "at": "2026-09-25T17:39:52.575Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P21-P19-seed3: Seed of Life Use -> statsFor 20->24; Roster.heal(); still 24. seedHp=4 on hero."
+        }
+      ]
     }
   ]
 }

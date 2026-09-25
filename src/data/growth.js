@@ -3,7 +3,7 @@
 // Nettle→Sera, Bosco→Barty, Tam→Rowan, Ellie→Linnet; spells renamed per CANON §7).
 // PURE DATA + tiny pure helpers. No DOM, no Three.js. Runs under plain node.
 
-export const LEVEL_CAP = 30;
+export const LEVEL_CAP = 40;
 
 /** SYSTEMS §2.1 — one shared table. EXP_TABLE[L] = total EXP needed to *be* level L. */
 export const EXP_TABLE = [
@@ -11,6 +11,7 @@ export const EXP_TABLE = [
   0, 7, 23, 47, 92, 160, 260, 400, 590, 840,                 // 1..10
   1170, 1590, 2120, 2780, 3600, 4600, 5800, 7250, 8950, 10950, // 11..20
   13300, 16050, 19250, 22950, 27200, 32050, 37600, 43900, 51000, 59000, // 21..30
+  68000, 78000, 89000, 101000, 114500, 129500, 146000, 164500, 184500, 206500, // 31..40
 ];
 
 export const STAT_KEYS = ['hp', 'mp', 'might', 'nimble', 'resil', 'wis', 'luck'];
@@ -37,7 +38,7 @@ export const PERSONALITIES = {
     anchors: A([
       [1, 20, 0, 10, 8, 9, 4, 8], [5, 44, 8, 20, 15, 19, 10, 14], [10, 82, 22, 35, 26, 33, 20, 22],
       [15, 128, 40, 52, 38, 49, 32, 31], [20, 182, 62, 72, 51, 67, 46, 41], [25, 246, 88, 96, 65, 88, 62, 52],
-      [30, 320, 118, 124, 80, 112, 80, 64],
+      [30, 320, 118, 124, 80, 112, 80, 64], [35, 394, 148, 152, 95, 136, 98, 76], [40, 468, 178, 180, 110, 160, 116, 88],
     ]),
   },
   firecracker: {
@@ -45,7 +46,7 @@ export const PERSONALITIES = {
     anchors: A([
       [1, 17, 6, 9, 12, 7, 9, 10], [5, 40, 20, 21, 26, 16, 22, 18], [10, 74, 40, 38, 44, 28, 40, 27],
       [15, 105, 58, 52, 58, 38, 55, 34], [20, 132, 74, 63, 69, 46, 67, 40], [25, 155, 88, 72, 78, 53, 77, 45],
-      [30, 175, 100, 79, 85, 59, 85, 49],
+      [30, 175, 100, 79, 85, 59, 85, 49], [35, 195, 112, 86, 92, 65, 93, 53], [40, 215, 124, 93, 99, 71, 101, 57],
     ]),
   },
   slow_bloom: {
@@ -54,6 +55,7 @@ export const PERSONALITIES = {
       [1, 15, 8, 6, 9, 8, 11, 14], [5, 30, 22, 11, 16, 15, 22, 26], [10, 50, 42, 17, 25, 24, 36, 44],
       [15, 74, 68, 24, 34, 34, 54, 64], [18, 92, 88, 29, 40, 42, 66, 76], [20, 112, 108, 33, 45, 48, 80, 86],
       [25, 152, 150, 42, 55, 62, 106, 105], [30, 196, 195, 51, 65, 77, 132, 120],
+      [35, 240, 240, 60, 75, 92, 158, 135], [40, 284, 285, 69, 85, 107, 184, 150],
     ]),
   },
   boulder: {
@@ -61,7 +63,7 @@ export const PERSONALITIES = {
     anchors: A([
       [1, 30, 0, 13, 4, 14, 2, 5], [5, 62, 0, 26, 8, 30, 3, 8], [10, 108, 0, 44, 13, 52, 5, 12],
       [15, 158, 0, 62, 18, 74, 7, 16], [20, 212, 0, 80, 23, 96, 9, 20], [25, 270, 0, 98, 27, 118, 11, 24],
-      [30, 332, 0, 116, 31, 140, 13, 28],
+      [30, 332, 0, 116, 31, 140, 13, 28], [35, 394, 0, 134, 35, 162, 15, 32], [40, 456, 0, 152, 39, 184, 17, 36],
     ]),
   },
   prodigy: {
@@ -69,7 +71,7 @@ export const PERSONALITIES = {
     anchors: A([
       [1, 18, 5, 11, 10, 8, 8, 9], [5, 42, 20, 24, 22, 19, 21, 16], [10, 80, 44, 44, 38, 35, 40, 25],
       [15, 124, 70, 64, 53, 52, 60, 34], [20, 174, 98, 86, 68, 70, 82, 43], [25, 230, 128, 110, 82, 90, 105, 52],
-      [30, 292, 160, 134, 96, 111, 128, 61],
+      [30, 292, 160, 134, 96, 111, 128, 61], [35, 354, 192, 158, 110, 132, 151, 70], [40, 416, 224, 182, 124, 153, 174, 79],
     ]),
   },
   kite: {
@@ -77,12 +79,15 @@ export const PERSONALITIES = {
     anchors: A([
       [1, 14, 10, 5, 11, 6, 14, 11], [5, 30, 30, 10, 24, 13, 32, 19], [10, 52, 60, 16, 42, 22, 58, 29],
       [15, 76, 94, 22, 57, 31, 86, 38], [20, 102, 132, 28, 70, 40, 116, 47], [25, 130, 172, 34, 81, 49, 148, 55],
-      [30, 160, 215, 40, 90, 58, 182, 63],
+      [30, 160, 215, 40, 90, 58, 182, 63], [35, 190, 258, 46, 99, 67, 216, 71], [40, 220, 301, 52, 108, 76, 250, 79],
     ]),
   },
   lantern: {
     id: 'lantern', name: 'the Lantern', blurb: 'Sera-shaped but steeper. The best healing in the game, from the moment she wakes.',
-    anchors: A([[20, 110, 150, 20, 50, 40, 120, 70], [30, 170, 240, 28, 66, 56, 170, 90]]),
+    anchors: A([
+      [20, 110, 150, 20, 50, 40, 120, 70], [30, 170, 240, 28, 66, 56, 170, 90],
+      [35, 200, 285, 32, 74, 64, 195, 100], [40, 230, 330, 36, 82, 72, 220, 110],
+    ]),
   },
 };
 export const FAMILY_PERSONALITIES = ['steady_oak', 'firecracker', 'slow_bloom', 'boulder', 'prodigy', 'kite'];
@@ -101,7 +106,7 @@ export const MONSTER_TEMPLATES = {
     anchors: A([
       [1, 24, 0, 9, 5, 9, 3, 8], [5, 52, 4, 18, 11, 19, 8, 14], [10, 92, 8, 30, 18, 32, 14, 21],
       [15, 136, 12, 42, 25, 45, 20, 28], [20, 184, 16, 54, 32, 58, 26, 35], [25, 234, 20, 66, 38, 71, 32, 42],
-      [30, 288, 24, 78, 44, 84, 38, 49],
+      [30, 288, 24, 78, 44, 84, 38, 49], [35, 342, 28, 90, 50, 97, 44, 56], [40, 396, 32, 102, 56, 110, 50, 63],
     ]),
   },
 };
@@ -164,10 +169,10 @@ export const MOTHERS_GIFT = {
 
 /** CANON §5 story companions. Species ids are MONSTER-BIBLE ids (P16). */
 export const COMPANIONS = {
-  bobble: { id: 'bobble', name: 'Bobble', species: 'gloop', template: 'plodder', mult: 1.0, cap: 30, kind: 'monster' },
-  pip: { id: 'pip', name: 'Pip', species: 'sunspot_cub', template: 'sprite', mult: 1.15, cap: 30, kind: 'monster' },
-  digby: { id: 'digby', name: 'Digby', species: 'barrowmole', template: 'brute', mult: 1.0, cap: 28, kind: 'monster' },
-  bogwallop: { id: 'bogwallop', name: 'Bogwallop', species: 'bogwallop', template: 'plodder', mult: 1.2, cap: 28, kind: 'monster' },
+  bobble: { id: 'bobble', name: 'Bobble', species: 'gloop', template: 'plodder', mult: 1.0, cap: 40, kind: 'monster' },
+  pip: { id: 'pip', name: 'Pip', species: 'sunspot_cub', template: 'sprite', mult: 1.15, cap: 40, kind: 'monster' },
+  digby: { id: 'digby', name: 'Digby', species: 'barrowmole', template: 'brute', mult: 1.0, cap: 35, kind: 'monster' },
+  bogwallop: { id: 'bogwallop', name: 'Bogwallop', species: 'bogwallop', template: 'plodder', mult: 1.2, cap: 35, kind: 'monster' },
 };
 
 /**
@@ -275,12 +280,64 @@ export function growthOf(member) {
   return { kind: 'personality', id };
 }
 
+/** Seeds found in the field (P30) write member.seed / member.seedHp — add them on top so a Seed of Life
+ *  survives heal() and level-up (P19 gap #2). */
+const SEED_TO_STAT = {
+  hp: 'hp', mp: 'mp', str: 'might', might: 'might', agi: 'nimble', nimble: 'nimble',
+  wis: 'wis', luck: 'luck', resil: 'resil',
+};
+export function seedBonus(member) {
+  const out = Object.fromEntries(STAT_KEYS.map((k) => [k, 0]));
+  if (!member) return out;
+  const bag = member.seed || {};
+  for (const [k, v] of Object.entries(bag)) {
+    const dest = SEED_TO_STAT[k] || (STAT_KEYS.includes(k) ? k : null);
+    if (dest) out[dest] += Math.max(0, +v || 0);
+  }
+  // Legacy field written by treasure.js alongside seed.hp — do not double-count.
+  if (member.seedHp && !bag.hp) out.hp += Math.max(0, +member.seedHp || 0);
+  return out;
+}
+/** Eat a seed on a member (bag or field Use): permanent tiny bump, saved with the party. */
+export function addSeed(member, stat, n = 1) {
+  if (!member) return null;
+  const dest = SEED_TO_STAT[stat] || (STAT_KEYS.includes(stat) ? stat : null);
+  if (!dest) return null;
+  const by = Math.max(0, n | 0);
+  member.seed = member.seed || {};
+  const key = dest === 'might' ? 'str' : dest === 'nimble' ? 'agi' : dest;
+  member.seed[key] = (member.seed[key] || 0) + by;
+  if (dest === 'hp') {
+    member.seedHp = (member.seedHp || 0) + by;
+    if (Number.isFinite(+member.hp)) member.hp = +member.hp + by;
+  }
+  return seedBonus(member);
+}
+
 /** The seven base stats of a member at level L (or its own level). Fixed-stat members return their stats. */
-export function statsFor(member, L = member.lvl || 1) {
-  const g = growthOf(member);
-  if (g.kind === 'fixed') return { ...(g.stats || member.stats) };
-  if (g.kind === 'template') return templateAt(g.id, L, g.mult);
-  return personalityAt(g.id, g.lvl || L);
+let _statsDepth = 0;
+export function statsFor(member, L) {
+  if (!member) return { hp: 1, mp: 0, might: 0, nimble: 0, resil: 0, wis: 0, luck: 0 };
+  // nested __DQ.state / menu / shop can re-enter; never blow the stack on a circular party row
+  if (_statsDepth > 8) {
+    return { hp: Math.max(1, +member.hp || 1), mp: Math.max(0, +member.mp || 0),
+      might: 0, nimble: 0, resil: 0, wis: 0, luck: 0 };
+  }
+  _statsDepth++;
+  try {
+    const level = Math.max(1, Math.min(LEVEL_CAP, ((L != null ? L : member.lvl) | 0) || 1));
+    const g = growthOf(member);
+    let base;
+    if (g.kind === 'fixed') base = { ...(g.stats || member.stats || {}) };
+    else if (g.kind === 'template') base = templateAt(g.id, level, g.mult);
+    else base = personalityAt(g.id, g.lvl || level);
+    const bonus = seedBonus(member);
+    const out = { ...base };
+    for (const k of STAT_KEYS) {
+      if (bonus[k]) out[k] = (out[k] || 0) + bonus[k];
+    }
+    return out;
+  } finally { _statsDepth--; }
 }
 
 /** gainAtLevel(L) = stat(L) - stat(L-1), for the level-up panel (SYSTEMS §2.2). */
@@ -384,7 +441,7 @@ export function newCompanion(monster, { id, name, lvl = 1, template, mult } = {}
   const m = {
     id: id || monster.id, name: name || monster.name, kind: 'monster',
     species: monster.id, template: t, mult: mult ?? Math.max(0.7, Math.min(1.3, 0.85 + (monster.tier || 1) * 0.07)),
-    cap: Math.max(20, Math.min(30, 18 + (monster.tier || 1) * 2 + (monster.boss ? 4 : 0))),
+    cap: Math.max(20, Math.min(40, 18 + (monster.tier || 1) * 2 + (monster.boss ? 4 : 0))),
     lvl, exp: expForLevel(lvl), equip: {},
     learn: (monster.moves || []).filter((mv) => mv.spell && !mv.monsterOnly).map((mv) => [mv.spell, Math.max(1, mv.learnAt || 1)]),
   };

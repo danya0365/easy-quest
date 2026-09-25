@@ -36,6 +36,10 @@ import { newCompanion, newMember, statsFor } from '../data/growth.js';
 import { createPresenter, setLivePresenter } from './present.js';
 import DATA from '../../tests/battle/data.js';
 import { AREAS, AREA_BY_ID, rollEncounter } from '../../tests/battle/areas.js';
+import { ITEMS as CANON_ITEMS } from '../data/items.js';
+
+/** Prefer the canon item table (P21) for give / bag rows; fall back to the battle fixture. */
+const ITEM_TABLE = Object.assign({}, DATA.items || {}, CANON_ITEMS || {});
 
 const guard = (where, fn) => { try { return fn(); } catch (e) { reportError('battle ' + where, e); return undefined; } };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -55,7 +59,15 @@ export const areaFor = (mapId) => AREA_BY_ID[MAP_AREA[mapId] || ''] || AREA_BY_I
  * `__DQ.befriending(true|false|'auto')` forces it either way.   NEEDS P26: set `ch2.wagon` and this falls into line.
  */
 let BEFRIEND = 'auto';
-function storyPresent() { return !!(L.ctx && (L.ctx.Story || L.ctx.Quests || L.ctx.Chapters)); }
+function storyPresent() {
+  if (L.ctx && (L.ctx.Story || L.ctx.Quests || L.ctx.Chapters)) return true;
+  // Plugin ctx may not carry Story (P26 cannot edit main.js) — read the live published state instead.
+  try {
+    const st = (typeof window !== 'undefined' && window.__DQ && window.__DQ.state && window.__DQ.state()) || null;
+    if (st && (st.story || st.quest || st.act1)) return true;
+  } catch (_) {}
+  return false;
+}
 function befriendOn(area) {
   if (BEFRIEND !== 'auto') return !!BEFRIEND;
   if (!area || area.act >= 2) return true;
@@ -95,7 +107,7 @@ function polish(line) {
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // The Roster — who you are, between fights
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
-const HERB_PRICE = Object.fromEntries(Object.values(DATA.items).filter((i) => i.kind === 'consumable').map((i) => [i.id, i.buy]));
+const HERB_PRICE = Object.fromEntries(Object.values(ITEM_TABLE).filter((i) => i && i.kind === 'consumable' && i.buy > 0).map((i) => [i.id, i.buy]));
 
 export const Roster = {
   party: null, wagon: [], gold: 30, bag: { herb: 3 }, assist: 0,
@@ -187,7 +199,7 @@ export const Roster = {
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 const L = {
   ctx: null, session: null, present: null, box: null, menu: null, ui: null,
-  confirmAt: -1e9, instant: false, lastResult: null, lastArea: null, sound: [], busy: false, waiting: null,
+  confirmAt: -1e9, confirmUntil: -1e9, instant: false, lastResult: null, lastArea: null, sound: [], busy: false, waiting: null,
   lastLine: null, autoAnswer: true, speed: 1, theme: null,
 };
 
@@ -230,14 +242,16 @@ function blip(id, opts) {
   guard('sfx', () => { if (c && c.Sfx && c.Audio && c.Audio.ready) c.Sfx.play(id, opts); });
 }
 
-/** A beat: wait `ms` of engine time, cut short by a press of Confirm. */
+/** A beat: wait `ms` of engine time, cut short by a press of Confirm (or a recent mash window). */
 function beat(rawMs) {
   const ms = rawMs * rate();
   if (L.instant || !(ms > 0)) return Promise.resolve(true);
   const start = nowMs();
   return new Promise((resolve) => {
     const off = UI.onUpdate(() => {
-      if (nowMs() - start >= ms || L.confirmAt > start || !L.session || !L.session.alive) { off(); resolve(true); }
+      if (nowMs() - start >= ms || L.confirmAt > start || nowMs() < L.confirmUntil || !L.session || !L.session.alive) {
+        off(); resolve(true);
+      }
     });
   });
 }
@@ -391,7 +405,7 @@ async function askCommand(actor) {
   const snap = b.snapshot();
   const foes = snap.enemies.filter((e) => e.alive);
   const hasSpell = actor.spells && actor.spells.some((s) => !s.field);
-  const hasItem = Object.keys(snap.bag || {}).some((k) => DATA.items[k] && DATA.items[k].battle && snap.bag[k] > 0);
+  const hasItem = Object.keys(snap.bag || {}).some((k) => ITEM_TABLE[k] && ITEM_TABLE[k].battle && snap.bag[k] > 0);
   const others = b.tactics().filter((t) => t.canChange).length;
   if (L.present) L.present.setActive(actor.id);
   const items = [
@@ -437,12 +451,12 @@ async function askCommand(actor) {
       return { type: 'spell', id: s.id };
     }
     case 'items': {
-      const list = Object.entries(snap.bag || {}).filter(([k, n]) => DATA.items[k] && n > 0)
-        .map(([k, n]) => ({ id: k, label: DATA.items[k].name, right: '×' + n, disabled: !DATA.items[k].battle }));
+      const list = Object.entries(snap.bag || {}).filter(([k, n]) => ITEM_TABLE[k] && n > 0)
+        .map(([k, n]) => ({ id: k, label: ITEM_TABLE[k].name, right: '×' + n, disabled: !ITEM_TABLE[k].battle }));
       if (!list.length) { await refuse('The bag has nothing useful for a fight.'); return null; }
       const pick = await ask({ items: list, title: 'The bag', minWidth: 340 });
       if (!pick) return null;
-      const item = DATA.items[pick.id];
+      const item = ITEM_TABLE[pick.id];
       if (!item.battle) { await refuse(`The ${item.name} won't help in a fight.`); return null; }
       if (item.battle.target === 'enemies') return { type: 'item', id: item.id };
       const pool = snap.party.filter((p) => (item.battle.effect === 'revive' ? !p.alive : p.alive));
@@ -698,6 +712,7 @@ function createBattleScene() {
             protectedMap: !!sctx.protectedMap,
             recruit: !bossSpec && befriendOn(area) ? Object.assign({}, Roster.recruit) : null,
             bossWipes: sctx.bossWipes ?? (bossKey ? (Roster.bossWipes[bossKey] || 0) : 0),
+            scripted: sctx.scripted || null,
           },
         });
         const snap = S.battle.snapshot();
@@ -737,9 +752,18 @@ function createBattleScene() {
     onInput(btn) {
       if (btn === 'confirm') {
         L.confirmAt = nowMs();
+        // Mash window: the next ~0.45s of beats / typewriter finish early (P14 gap #1 — Confirm is the heartbeat).
+        L.confirmUntil = L.confirmAt + 450;
         // ONE press is the whole ceremony: it fills the tally, then dismisses it; then the level-up card.
         if (L.present && L.present.tallyOpen) { L.present.skipTally(); return true; }
         if (L.present && L.present.panelOpen) { L.present.skipPanel(); return true; }
+        // Finish the current message page at once.
+        try {
+          if (L.box && L.box.tw && !L.box.destroyed) {
+            if (!L.box.tw.pageDone) L.box.tw.complete();
+            else if (L.box.tw.hasNext && L.box.tw.hasNext()) L.box.tw.next();
+          }
+        } catch (_) {}
       }
       if (UI.input(btn)) return true;
       return true;               // nothing below the battle ever gets a button
@@ -795,7 +819,10 @@ export function install(ctx = {}) {
         Roster.fights = Number(v.fights) || 0;
         Roster.defeats = Number(v.defeats) || 0;
       },
-      summary: () => Roster.describe().party.map((p) => ({ id: p.id, name: p.name, lvl: p.lvl })),
+      summary: () => {
+        const hero = (Roster.describe().party || []).find((p) => p.id === 'hero') || (Roster.describe().party || [])[0];
+        return { level: hero ? hero.lvl : null, name: hero ? hero.name : null };
+      },
       reset: () => { Roster.reset(); },
     });
     ctx.Save.register('gold', { save: () => Roster.gold, load: (v) => { Roster.gold = Math.max(0, Math.round(Number(v) || 0)); }, reset: () => { Roster.gold = 30; } });
@@ -850,7 +877,7 @@ export function install(ctx = {}) {
   D.implement('heal', () => { Roster.heal(); return Roster.describe(); });
   D.implement('gold', (n) => { if (n !== undefined) Roster.gold = Math.max(0, Math.round(Number(n) || 0)); return Roster.gold; });
   D.implement('give', (itemId, n = 1) => {
-    if (!DATA.items[itemId]) return { ok: false, reason: `unknown item "${itemId}"`, items: Object.keys(DATA.items).slice(0, 20) };
+    if (!ITEM_TABLE[itemId]) return { ok: false, reason: `unknown item "${itemId}"`, items: Object.keys(ITEM_TABLE).slice(0, 20) };
     Roster.bag[itemId] = (Roster.bag[itemId] || 0) + Math.max(1, n | 0);
     return Object.assign({}, Roster.bag);
   });

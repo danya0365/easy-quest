@@ -1,0 +1,13 @@
+{
+  "name": "Act I map smoke — teleport every registered map",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+    {"wait": 800},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 1500},
+    {"eval": "(async()=>{for(let i=0;i<20;i++){__DQ.press('cancel',40);__DQ.press('confirm',40);await new Promise(r=>setTimeout(r,50));}const maps=__DQ.listMaps?__DQ.listMaps():[];window.__MAPS=maps;return JSON.stringify(maps);})()"},
+    {"eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const maps=window.__MAPS||[];const out=[];for(const id of maps){const beforeErr=(__DQ.errors||[]).length;try{const t=__DQ.teleport(id);await sleep(900);for(let i=0;i<6;i++){__DQ.press('cancel',30);await sleep(40);}const st=__DQ.state();const p=st.player||{};out.push({id,ok:!!(t&&t.ok),map:st.map&&st.map.id,scene:st.scene,x:p.x,z:p.z,y:p.y,errs:(__DQ.errors||[]).length-beforeErr,colliders:st.map&&st.map.colliders,props:st.map&&st.map.props});}catch(e){out.push({id,ok:false,error:String(e)});} }window.__SMOKE=out;return JSON.stringify({n:out.length,fail:out.filter(o=>!o.ok||o.map!==o.id||o.errs>0),all:out});})()"},
+    {"shot": "01-last-map"},
+    {"assert": "window.__SMOKE && window.__SMOKE.fail && window.__SMOKE.fail.length===0", "msg": "every map teleports clean with matching id and no new errors"}
+  ]
+}

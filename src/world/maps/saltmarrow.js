@@ -24,6 +24,7 @@
  */
 import { outdoorMap, marks, PAL, mulberry, THREE } from './road_common.js';
 import { BECK_EAST_LANDING } from './road_beck.js';
+import { reportError } from '../../engine/debug.js';
 
 /** A box / a boat hull, placed in WORLD space (the kit's buckets own the material). */
 const BOX = (w, h, d) => new THREE.BoxGeometry(w, h, d);
@@ -174,6 +175,9 @@ const salt = outdoorMap({
     { x: DOORWAY.saltmarrow_mill.x, z: DOORWAY.saltmarrow_mill.z, w: DOORWAY.saltmarrow_mill.w, h: DOORWAY.saltmarrow_mill.w,
       to: 'saltmarrow_mill', tx: 0, tz: 0.9, kind: 'door', name: 'the mill door', line: 'mill-door',
       back: { x: DOORS.saltmarrow_mill.x, z: DOORS.saltmarrow_mill.z } },
+    // Act III: abbey road east of the quay (B23 Cloud Stair path)
+    { x: 18.5, z: -6.5, w: 4.0, h: 3.5, to: 'bellhollow_abbey', tx: 0, tz: 8, kind: 'door',
+      name: 'the abbey road', line: 'to-abbey', back: { x: 16.5, z: -5.0 }, facing: Math.PI * 0.5 },
   ],
 
   spots: {
@@ -205,7 +209,11 @@ const salt = outdoorMap({
     { type: 'sign', name: 'the harbour signpost', x: -4.8, z: -3.4, line: 'signpost', reach: 3.4, height: 2.5 },
     { type: 'wheel', name: 'the tide-mill wheel', x: -8.4, z: 1.2, line: 'wheel', reach: 3.6, height: 3.4 },
     { type: 'sign', name: 'the inn sign', x: DOORS.contented_herring.x + 1.9, z: DOORS.contented_herring.z + 0.2, line: 'inn-sign', reach: 2.4, height: 3.4 },
-    { type: 'door', name: 'the inn door', x: DOORS.contented_herring.x, z: DOORS.contented_herring.z, line: 'inn-door', reach: 1.8, height: 2.6 },
+    { type: 'door', name: 'the inn door', x: DOORS.contented_herring.x, z: DOORS.contented_herring.z, line: 'inn-door', reach: 1.8, height: 2.6,
+      talk({ field }) {
+        try { field.teleport('contented_herring'); } catch (e) { reportError('saltmarrow: inn door', e); }
+        return null;
+      } },
     { type: 'door', name: 'the shop door', x: DOORS.saltmarrow_shop.x, z: DOORS.saltmarrow_shop.z, line: 'shop-door', reach: 1.8, height: 2.6 },
     { type: 'door', name: 'the chapel door', x: DOORS.saltmarrow_chapel.x, z: DOORS.saltmarrow_chapel.z, line: 'chapel-door', reach: 2.0, height: 3.0 },
     { type: 'boat', name: 'a moored boat', x: 5.4, z: 0.2, line: 'boat', reach: 2.4, height: 1.2 },
@@ -221,6 +229,7 @@ const salt = outdoorMap({
     'gate-west': 'The lane climbs back up the Beck\ntoward Puddlewick.',
     'gate-north': 'The trees start about a hundred\npaces up that lane, and they\ndo not stop.',
     'mill-door': 'Into the mill, where it is\nlouder and whiter.',
+    'to-abbey': 'The road climbs toward Bellhollow.\nAn empty bell frame waits.',
     signpost: ['{gold}PUDDLEWICK{/gold} — back up the Beck.\n{gold}THE WHISPERING WOOD{/gold} — north.\n{gold}THE QUAY{/gold} — you are standing on it.',
       'Somebody has scratched a fourth\narm pointing straight down. It\nsays HERE.'],
     wheel: ['The wheel is as tall as a house\nand it turns with the tide, not\nthe stream — so it stops twice\na day and nobody minds.',

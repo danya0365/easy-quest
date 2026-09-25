@@ -286,6 +286,23 @@ export default {
         ] },
       ],
     },
+
+    // ── Act I: Bobble on the Long Lane bank before he joins (B3) ───────────────────────────────────────────
+    {
+      id: 'meadow-bobble', name: 'a blue Gloop', monster: 'gloop', voice: 'bobble',
+      x: 3.4, z: -8.2, facing: 200, idle: 'idle', radius: 0.55,
+      when: ['ch1.left_home', '!party.bobble'],
+      script: [{
+        first: [
+          'Frankly— Bobble was here first.\nBobble is excellent at waiting.',
+          'Bobble is not an ambush.\nBobble is a greeting that has\nnot happened yet.',
+        ],
+        again: [{ cycle: [
+          'Bobble. Not Bubble. Not Wobble.\nBOBBLE.',
+          'Frankly— the wagon looks roomy.\nBobble has measured it with\nhis eyes.',
+        ] }],
+      }],
+    },
   ],
 
   lines: {

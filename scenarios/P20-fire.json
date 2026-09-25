@@ -1,0 +1,21 @@
+{
+  "name": "P20 fire is orange/red, not white-yellow lotus",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready", "timeout": 30000},
+    {"wait": 600},
+    {"eval": "__DQ.unlock && __DQ.unlock()"},
+    {"wait": 200},
+    {"eval": "__DQ.fxHold('fire_burst', 90)"},
+    {"wait": 250},
+    {"shot": "01-fire-burst"},
+    {"eval": "(()=>{const canvas=document.querySelector('canvas');const w=canvas.width,h=canvas.height;const c=document.createElement('canvas');c.width=Math.min(640,w);c.height=Math.min(360,h);const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(canvas,0,0,c.width,c.height);const d=g.getImageData(0,0,c.width,c.height);let white=0,yellow=0,orange=0,red=0,other=0,grass=0,n=0;for(let i=0;i<d.data.length;i+=4){const r=d.data[i],gv=d.data[i+1],b=d.data[i+2];if(gv>r+20&&gv>b+15&&gv>80){grass++;continue;}n++;const max=Math.max(r,gv,b),min=Math.min(r,gv,b);if(max<40){other++;continue;}if(r>210&&gv>210&&b>180){white++;continue;}if(r>180&&gv>150&&b<110&&r-gv<50){yellow++;continue;}if(r>140&&gv>60&&gv<170&&b<100&&r>gv+25){orange++;continue;}if(r>110&&gv<100&&b<90&&r>gv+40){red++;continue;}other++;}const tot=Math.max(1,n);window.__FIRE={burst:{white:+(white/tot).toFixed(3),yellow:+(yellow/tot).toFixed(3),orange:+(orange/tot).toFixed(3),red:+(red/tot).toFixed(3),other:+(other/tot).toFixed(3),n,grass}};return JSON.stringify(window.__FIRE);})()"},
+    {"eval": "__DQ.fxHold('fire_big', 120)"},
+    {"wait": 250},
+    {"shot": "02-fire-big"},
+    {"eval": "(()=>{const canvas=document.querySelector('canvas');const w=canvas.width,h=canvas.height;const c=document.createElement('canvas');c.width=Math.min(640,w);c.height=Math.min(360,h);const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(canvas,0,0,c.width,c.height);const d=g.getImageData(0,0,c.width,c.height);let white=0,yellow=0,orange=0,red=0,other=0,grass=0,n=0;for(let i=0;i<d.data.length;i+=4){const r=d.data[i],gv=d.data[i+1],b=d.data[i+2];if(gv>r+20&&gv>b+15&&gv>80){grass++;continue;}n++;const max=Math.max(r,gv,b);if(max<40){other++;continue;}if(r>210&&gv>210&&b>180){white++;continue;}if(r>180&&gv>150&&b<110&&r-gv<50){yellow++;continue;}if(r>140&&gv>60&&gv<170&&b<100&&r>gv+25){orange++;continue;}if(r>110&&gv<100&&b<90&&r>gv+40){red++;continue;}other++;}const tot=Math.max(1,n);window.__FIRE.big={white:+(white/tot).toFixed(3),yellow:+(yellow/tot).toFixed(3),orange:+(orange/tot).toFixed(3),red:+(red/tot).toFixed(3),other:+(other/tot).toFixed(3),n};return JSON.stringify(window.__FIRE.big);})()"},
+    {"assert": "window.__FIRE.burst.orange+window.__FIRE.burst.red >= 0.25", "msg": "fire_burst has meaningful orange+red (was 0)"},
+    {"assert": "window.__FIRE.burst.white <= 0.35", "msg": "fire_burst not mostly white"},
+    {"assert": "window.__FIRE.big.orange+window.__FIRE.big.red >= 0.20", "msg": "fire_big has orange+red"},
+    {"eval": "JSON.stringify(window.__FIRE)"}
+  ]
+}

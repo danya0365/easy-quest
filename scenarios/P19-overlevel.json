@@ -1,0 +1,14 @@
+{
+  "name": "P19 over-level floor 0.6 and level cap 40",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+    {"wait": 400},
+    {"eval": "(async()=>{const F=await import('/src/battle/formulas.js');const G=await import('/src/data/growth.js');window.__P19={keel:{eq:F.expKeel(8,8),plus1:F.expKeel(9,8),plus2:F.expKeel(10,8),plus3:F.expKeel(11,8),wayOver:F.expKeel(20,8)},cap:G.LEVEL_CAP,tableLen:G.EXP_TABLE.length-1,exp40:G.EXP_TABLE[40],hp40:G.personalityAt('steady_oak',40).hp,hp30:G.personalityAt('steady_oak',30).hp,lvlAt:G.levelForExp(G.EXP_TABLE[40]),toNext39:G.expToNext(39,G.EXP_TABLE[39])};return JSON.stringify(window.__P19);})()"},
+    {"assert": "window.__P19.keel.eq===1 && window.__P19.keel.plus1>=0.65", "msg": "keel at equal / +1 still near full"},
+    {"assert": "window.__P19.keel.plus2>=0.6 && window.__P19.keel.wayOver===0.6", "msg": "over-level floor is 0.6 (was 0.2)"},
+    {"assert": "window.__P19.cap===40 && window.__P19.tableLen===40", "msg": "LEVEL_CAP and EXP_TABLE reach 40"},
+    {"assert": "window.__P19.hp40>window.__P19.hp30 && window.__P19.lvlAt===40", "msg": "steady_oak grows past 30; levelForExp hits 40"},
+    {"assert": "window.__P19.toNext39>0", "msg": "level 39 still has EXP to next"},
+    {"eval": "JSON.stringify(window.__P19)"}
+  ]
+}

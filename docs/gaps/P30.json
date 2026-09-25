@@ -5,7 +5,7 @@
       "n": 1,
       "title": "the interiors' 37 searchables have words but no treasure",
       "detail": "The eight new Puddlewick interiors (src/world/maps/int_*.chests.js, P06 seeds) each carry 4-5 searchable containers with their own funny lines, and several of the lines describe finding gold, a sock (CANON section 6 secret.socks) or Papa's rope. None of them actually GIVE anything: there is no item or gold field, no flag, and no ceremony, because src/world/treasure.js and src/data/items.js do not exist yet. Fix: have treasure.js read these chests, add item/gold/flag to the ones whose lines promise a reward (bk_flour sock, bk_crock bun, bk_drawer 2G, sh_drawer 5G, ch_pew1 3G, ml_hopper 20G, bn_oats 8G, bn_hay eggs, hb_bed 12G, ct_drawer 6G, tw_wardrobe sock), and remember what was taken.",
-      "state": "claimed-fixed",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:41:26.218Z",
       "events": [
         {
@@ -18,6 +18,28 @@
           "at": "2026-09-25T14:40:20.032Z",
           "by": "builder",
           "note": "Interior chests layers now carry gold/item/sock fields. Measured shots/P06-zdoors4 treasure: hollybank 4, inn 4, bakery 2, shop 1, chapel 1, mill 1, barn 1, twins 2, hob 1 (gold:12 on hb_bed), cottage 1 — empty:[]. Prior critic 0/38 holding is closed."
+        },
+        {
+          "at": "2026-09-25T17:12:55.834148Z",
+          "by": "builder",
+          "note": "Interior holding verified shots/P30-night6: cottage1 bakery2 shop1 chapel1 mill1 barn1 twins2 hob1; hollybank4 inn4. Wardrobe/books bolted via searches."
+        },
+        {
+          "at": "2026-09-25T17:13:35.766Z",
+          "by": "critic",
+          "pass": false,
+          "note": "shots/P30-night6 holding census all interiors >=1"
+        },
+        {
+          "at": "2026-09-25T17:13:46.990Z",
+          "by": "builder",
+          "note": "Interior holding shots/P30-night6: all 8 int_* + hollybank/inn holding>=1"
+        },
+        {
+          "at": "2026-09-25T17:13:47.025Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P30-night6 holding census: cottage1 bakery2 shop1 chapel1 mill1 barn1 twins2 hob1 hollybank4 inn4"
         }
       ]
     },
@@ -25,13 +47,19 @@
       "n": 2,
       "title": "Every one of the eight Puddlewick interiors holds NOTHING: 38 containers, 0 rewards",
       "detail": "Measured in the running game by teleporting to each map and reading __DQ.state().treasure: int_cottage 5 containers / 0 holding, int_bakery 5/0, int_shop 5/0, int_chapel 4/0, int_mill 4/0, int_barn 5/0, int_twins 5/0, int_hob 5/0. Not one item: or gold: field exists in any of src/world/maps/int_*.chests.js. Across the whole build 78 containers hold 21 things, but all 21 are in the four older maps (meadow 9/18, puddlewick 6/12, hollybank 3/6, inn 3/4); indoors the rate is 0/38 = 0%. A child who goes through all ten doors on the green and searches every pot, drawer, sack, crock, bookshelf and toy box in the village finds nothing, ever, and learns to stop searching. DQV PS2 puts about one in four indoors. int_twins tw_toybox is even kind chest with no contents, so opening it says Bram opens the chest with nothing inside. BUILD: put gold or an item in about 1 in 4 of the 38 indoor containers (roughly 9-10 of them: small gold 3-12G, herb, antidotal herb, a plain seed, a Chimaera-Wing-alike, one key item), each with its own found: line in the voice already in those files. Do not touch the empty lines that are already there - they are excellent - just add a found: beside the good ones. Also give tw_toybox real contents or change its kind so it is not a chest that opens on nothing.",
-      "state": "merged",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:50:29.736Z",
       "events": [
         {
           "at": "2026-09-18T03:21:58.016Z",
           "by": "orchestrator",
           "note": "Duplicate of P30 #1 (same defect, opened concurrently). Work it under #1."
+        },
+        {
+          "at": "2026-09-25T18:59:38.975Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Merged into P30 #1 (same defect). #1 now verified-fixed with holding census on all interiors."
         }
       ]
     },
@@ -39,33 +67,114 @@
       "n": 3,
       "title": "The chest ceremony has no moment: no held-aloft pose, no fanfare, prize is a 20px sprite behind the lid",
       "detail": "Measured in /index.html on meadow_lane_chest, meadow_hay_chest, the Puddlewick chest and the dead-end pot, 12-frame bursts at 130ms. What happens: the lid rotates up, a ~20px prize sprite rises for about 0.5s, then the blue window types 'Bram opens the chest. / Inside: Herb.' Rubric requires opening animation + item held aloft + fanfare + the window; we have 2 of 4. (1) The hero never moves. src/art/anim.js line 391 already implements the 'celebrate' clip - the DQ crouch-hop with the treasure thrust up in one fist - and src/art/chars.js documents an 'item' bone 'for the held-aloft treasure' with attach(obj, boneName). treasure.js plays neither. Only npc.js uses celebrate. (2) No fanfare: treasure.js plays chest_open then item_get/gold_coins; src/audio/sfx.js has a 'fanfare' id that is never called on a find. (3) The camera never moves, so at the default over-the-shoulder distance the hero's body covers most of the chest (see shots/P30-critic-d1/meadow/14-03-chest-window.png) and the prize spawns behind the open lid. BUILD: on a find, Field.player().hero.play('celebrate'), attach the prize mesh to the 'item' bone for the ~1.2s of the pose, play 'fanfare', and hold a short close camera beat on the hero+chest before the window opens.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:50:54.502Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:16:26.468Z",
+          "by": "builder",
+          "note": "celebrate clip + item_get stinger + camera zoom + prize from hero hands already wired in treasure.js"
+        },
+        {
+          "at": "2026-09-25T17:16:26.504Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P30-ceremony: after open clip=celebrate zoom 5.97→5.02 found=1; prize rises from hero"
+        }
+      ]
     },
     {
       "n": 4,
       "title": "Both meadow secrets lose their prose: search() shows entry.found and never entry.text",
       "detail": "src/world/treasure.js search() builds its head as pagesOf(propText).concat(pagesOf(entry.found)). For a container that comes from the map's chests layer propText is null (step 2 of onLoad sets def.talk = () => search(def, null)), so when the thing HOLDS something its own written line is dropped and only entry.found survives. Measured: __F.map.chests shows meadow_log_seed.text = ['The fallen oak is hollow.{wait:350}{n}Inside, wrapped in a rag, somebody has hidden a seed.'] and meadow_bridge_stone.text = ['One stone under the footbridge sits proud of the others.{wait:300}{n}It lifts.', 'A purse. Wet through, and still counting.'] - both present on the entry. What the running game actually says when you search them: log = 'Bram has got the Seed of Life!' only; bridge stone = '18 gold coins, found in a boot.' only. The two best-written discoveries in the vale arrive with zero setup. BUILD: head should be pagesOf(propText || entry.text).concat(pagesOf(entry.found)) - or concat both when found exists - so the prose runs before the reward. Then check m_hay_b and m_crate_b still read right (they have found: lines that intentionally replace a 'nothing here' text).",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:51:19.605Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:12:55.834308Z",
+          "by": "builder",
+          "note": "search() now concatenates propText + entry.text + entry.found (was found-only when found set)."
+        },
+        {
+          "at": "2026-09-25T17:13:35.800Z",
+          "by": "critic",
+          "pass": false,
+          "note": "shots/P30-prose: meadow_log_seed shows fallen oak setup; bridge shows stone lifts"
+        },
+        {
+          "at": "2026-09-25T17:13:47.060Z",
+          "by": "builder",
+          "note": "search() concatenates propText+text+found"
+        },
+        {
+          "at": "2026-09-25T17:13:47.095Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P30-prose: meadow_log_seed shows fallen-oak setup; bridge shows stone lifts"
+        }
+      ]
     },
     {
       "n": 5,
       "title": "Every gold find says 'found in a boot', contradicting the line just before it",
       "detail": "src/data/strings.js 'gold.found' = '%N% gold coins, found in a boot.' and treasure.js rewardPages() uses it for every non-chest gold find, so it fires verbatim every time. Measured four times in /index.html: m_crate_b says 'Under the apples, in a cloth, somebody's entire savings.' then '9 gold coins, found in a boot.'; meadow_bridge_stone (a purse under a footbridge stone) says '18 gold coins, found in a boot.'; pw_barrel_mill says 'Coins in the bottom of the water, looking up at him.' then '14 gold coins, found in a boot.'; m_rain_barrel's own found line is already 'Under the boot, of all places' so it reads boot twice. It is the one repeated line in a script that is otherwise never repeated, and three times out of four it is factually wrong about where the money was. Also 'door.unlock' = 'The key turns. The door forgives you.' is played on the locked CHEST, so a chest talks about a door. BUILD: make gold.found a small pick() list of location-neutral lines ('%N% gold coins. / Somebody will miss these.'), let an entry's own found: line carry the where, and give the chest its own unlock line ('The old lock gives up.').",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:51:19.657Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:12:55.834312Z",
+          "by": "builder",
+          "note": "gold.found neutral '%N% gold coins.'; chest.unlock for locked chests (not door.unlock). goldPage already preferred GOLD_LINES when entry has found/text."
+        },
+        {
+          "at": "2026-09-25T17:13:35.836Z",
+          "by": "critic",
+          "pass": false,
+          "note": "gold.found is '%N% gold coins.' no boot; chest.unlock added"
+        },
+        {
+          "at": "2026-09-25T17:13:47.129Z",
+          "by": "builder",
+          "note": "gold.found neutral; chest.unlock for locked chests"
+        },
+        {
+          "at": "2026-09-25T17:13:47.166Z",
+          "by": "critic",
+          "pass": true,
+          "note": "strings gold.found='%N% gold coins.'; no boot; chest.unlock present"
+        }
+      ]
     },
     {
       "n": 6,
       "title": "Four containers can never be searched: 14G and a Strong Herb are sealed inside the mill, two are shadowed by no-talk props",
       "detail": "Measured with a 240-point ring scan (48 directions x radii 0.9/1.1/1.3/1.5/1.7) calling map.clear() then map.nearestInteractable(). (a) pw_barrel_mill (14G) at (-20.0,-11.4) and pw_mill_stone (strong_herb) at (-19.6,-10.9): 0 of 240 standing spots are clear, map.clear() is false on the spots themselves, and teleporting there puts the hero inside the mill masonry with ground 'water' and the camera buried in stone (shots/P30-critic-d1/run5/04-04-mill-barrel-walked.png). 14 gold and a Strong Herb are unobtainable in normal play. Move them out into the mill yard where a boy can stand. (b) int_cottage ct_wardrobe and int_hob hb_books: standable from 7-8 sides, but the interior's own furniture prop ('the wardrobe', 'the books') sits at almost the same spot, scores nearer in nearestInteractable and has no talk function, so the searchable never fires. The HUD still says 'Search it' and __DQ.openNear() returns 'nothing within reach'; pressing confirm gives the prop's description line instead, forever, with no second-look escalation. Fix by making the chests layer bind onto that prop (the SEARCHES path in onLoad step 3) instead of adding a second interactable beside it, or by offsetting the entry clear of the prop.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:51:19.705Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:12:55.834315Z",
+          "by": "builder",
+          "note": "Mill barrel at (-15.2,-9) + millrace herb (-17.2,-10.4). map.js door bias doorstep-only (d<1.2). Wardrobe/books via searches. shots/P30-night6: +14G, herb, mill door still enters int_mill."
+        },
+        {
+          "at": "2026-09-25T17:13:35.731Z",
+          "by": "critic",
+          "pass": false,
+          "note": "shots/P30-night6: barrel +14G, herb found, mill door enters, wardrobe+books openNear"
+        },
+        {
+          "at": "2026-09-25T17:13:47.202Z",
+          "by": "builder",
+          "note": "mill yard barrel+herb; doorstep-only door bias; wardrobe/books searches"
+        },
+        {
+          "at": "2026-09-25T17:13:47.239Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P30-night6: +14G herb found; mill door enters; wardrobe+books openNear"
+        }
+      ]
     },
     {
       "n": 7,

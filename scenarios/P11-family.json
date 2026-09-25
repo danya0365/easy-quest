@@ -1,0 +1,41 @@
+{
+  "name": "P11 family NPCs on maps (Halvard, Willow, Sera, Bobble)",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready && typeof __DQ.teleport === 'function' && typeof __DQ.npcs === 'function'", "timeout": 60000},
+    {"wait": 600},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 800},
+
+    {"eval": "(()=>{__DQ.flag('ch1.left_home',null);__DQ.flag('party.bobble',null);return {left:__DQ.flag('ch1.left_home'),bobble:__DQ.flag('party.bobble')};})()"},
+    {"eval": "JSON.stringify(__DQ.teleport('hollybank'))"},
+    {"wait": 900},
+    {"eval": "(()=>{const L=__DQ.npcs()||[];const ids=L.map(n=>n.id);window.__FAM={holly:ids};return JSON.stringify(ids);})()"},
+    {"assert": "window.__FAM.holly.includes('hb-halvard')", "msg": "Papa in Hollybank while !ch1.left_home"},
+
+    {"eval": "JSON.stringify(__DQ.teleport('puddlewick'))"},
+    {"wait": 900},
+    {"eval": "(()=>{const L=__DQ.npcs()||[];const ids=L.map(n=>n.id);const m=__DQ.npcModel('pw-halvard');window.__FAM.puddle=ids;window.__FAM.papa=m;return JSON.stringify({ids,papa:{ok:m&&m.ok!==false,look:m&&m.look,height:m&&m.height}});})()"},
+    {"assert": "window.__FAM.puddle.includes('pw-halvard')", "msg": "Papa at Puddlewick lane while !ch1.left_home"},
+    {"assert": "window.__FAM.papa && window.__FAM.papa.look==='halvard' && Number(window.__FAM.papa.height) > 1.4", "msg": "Papa is tall Halvard body"},
+
+    {"eval": "__DQ.flag('ch1.left_home', true)"},
+    {"eval": "JSON.stringify(__DQ.teleport('puddlewick'))"},
+    {"wait": 900},
+    {"eval": "(()=>{const L=__DQ.npcs()||[];const ids=L.map(n=>n.id);window.__FAM.after=ids;return JSON.stringify(ids.includes('pw-halvard'));})()"},
+    {"assert": "!window.__FAM.after.includes('pw-halvard')", "msg": "Papa gone from lane after ch1.left_home"},
+
+    {"eval": "JSON.stringify(__DQ.teleport('meadow'))"},
+    {"wait": 900},
+    {"eval": "(()=>{const L=__DQ.npcs()||[];const ids=L.map(n=>n.id);const m=__DQ.npcModel('meadow-bobble');window.__FAM.meadow=ids;window.__FAM.bobble=m;return JSON.stringify({ids,bobble:{ok:m&&m.ok!==false,look:m&&m.look,height:m&&m.height}});})()"},
+    {"assert": "window.__FAM.meadow.includes('meadow-bobble')", "msg": "Bobble on meadow before party.bobble"},
+    {"assert": "window.__FAM.bobble && window.__FAM.bobble.look==='gloop'", "msg": "Bobble uses gloop monster body"},
+
+    {"eval": "JSON.stringify(__DQ.teleport('saltmarrow'))"},
+    {"wait": 1000},
+    {"eval": "(()=>{const L=__DQ.npcs()||[];const ids=L.map(n=>n.id);const w=__DQ.npcModel('willow');const s=__DQ.npcModel('sera');window.__FAM.salt=ids;window.__FAM.willow=w;window.__FAM.sera=s;return JSON.stringify({ids,willow:w&&w.look,sera:s&&s.look});})()"},
+    {"assert": "window.__FAM.salt.includes('willow') && window.__FAM.willow && window.__FAM.willow.look==='willow'", "msg": "Willow in Saltmarrow people layer"},
+    {"assert": "window.__FAM.salt.includes('sera') && window.__FAM.sera && window.__FAM.sera.look==='sera'", "msg": "Sera in Saltmarrow people layer"},
+
+    {"eval": "JSON.stringify({holly:window.__FAM.holly.includes('hb-halvard'),puddlePapa:true,bobble:window.__FAM.meadow.includes('meadow-bobble'),willow:window.__FAM.salt.includes('willow'),sera:window.__FAM.salt.includes('sera')})"}
+  ]
+}

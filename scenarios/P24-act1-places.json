@@ -1,0 +1,17 @@
+{
+  "name": "P24 Act I beats on real maps (B4-B9 smoke)",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 300 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene==='field'", "timeout": 45000 },
+    { "wait": 500 },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const skip=async()=>{for(let i=0;i<40;i++){if(!__DQ.storyState||!__DQ.storyState().playing)break;try{__DQ.press('cancel');}catch(_){} await sleep(120); try{__DQ.press('confirm');}catch(_){} await sleep(80);} };\nconst out=[];\nconst beats=[\n  ['b4','saltmarrow',['party.bobble']],\n  ['b5','saltmarrow',['party.bobble','ch1.met_willow']],\n  ['b6','cobwell_manor',['party.bobble','ch1.met_willow','ch1.dare_taken']],\n  ['b7','saltmarrow',['party.bobble','ch1.met_willow','ch1.dare_taken','ch1.manor_cleared']],\n  ['b8','coddleston',['party.bobble','ch1.met_willow','ch1.dare_taken','ch1.manor_cleared','ch1.farewell']],\n  ['b9','grey_ruins',['party.bobble','ch1.met_willow','ch1.dare_taken','ch1.manor_cleared','ch1.farewell','ch1.bertie_taken']]\n];\nfor(const [id,map,flags] of beats){\n  for(const f of flags) __DQ.flag(f,true);\n  __DQ.teleport(map); await sleep(900);\n  const before=__DQ.state().map.id;\n  const where=__DQ.state().act1 && __DQ.state().act1.next && __DQ.state().act1.next.where;\n  __DQ.beat(id); await sleep(1200);\n  const playing=!!(__DQ.storyState&&__DQ.storyState().playing);\n  const sceneStack=__DQ.state().sceneStack||[];\n  await skip(); await sleep(400);\n  out.push({id,map,before,after:__DQ.state().map.id,playing,hadCutscene:playing||sceneStack.includes('cutscene'),journey:where&&where.journey,whereMap:where&&where.map,errors:(__DQ.errors||[]).length});\n}\nwindow.__BEATS=out; return JSON.stringify(out);})()" },
+    { "shot": "grey-ruins-after-b9" },
+    { "eval": "JSON.stringify(window.__BEATS)" },
+    { "assert": "window.__BEATS.every(b=>b.before===b.map)", "msg": "each beat starts on its own map" },
+    { "assert": "window.__BEATS.every(b=>b.hadCutscene)", "msg": "each beat opens a cutscene" },
+    { "assert": "window.__BEATS.every(b=>b.journey===false)", "msg": "no journey fallback — maps are real" },
+    { "assert": "__DQ.errors.length===0", "msg": "no runtime errors" }
+  ]
+}

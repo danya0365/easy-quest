@@ -21,9 +21,21 @@
       "n": 3,
       "title": "The hero on screen is an adult, sunk into the ground, and too close to the lens",
       "detail": "Orchestrator eyes, 2026-09-18 10:00, shots/_plugcheck2/01-boot.png (cold boot of /index.html): the figure the player controls is a long-haired ADULT in a blue tunic with a drawn sword, not the round six-year-old Bram in the green travelling cloak that CANON and docs/approved/hero-close.png describe. His legs are cut off by the ground plane (feet below the terrain), and he fills a third of the frame height. Three things to check: which char id the field actually builds (chars.js knows 'hero'), the ground-height sampling that places him, and the scale agreed with the camera piece. A child must see the boy from the story, standing on the ground.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:56:15.020Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T19:09:48.502Z",
+          "by": "builder",
+          "note": "Hero is Chars boy Bram, not the adult placeholder. Measured shots/P07-hero: kind=chars, AABB height <1.6, feetGap in [-0.15,0.25] (not sunk). Scenario P07-hero ok=true. The 2026-09-18 plugcheck adult sword figure is gone."
+        },
+        {
+          "at": "2026-09-25T19:09:48.540Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Reproduced: chars boy attached, feet on ground, height under adult. PASS. Gaps #1 (adult body kit) and #2 (gameplay scale vs approved) remain."
+        }
+      ]
     }
   ]
 }

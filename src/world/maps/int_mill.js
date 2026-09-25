@@ -58,7 +58,11 @@ export default interiorMap({
     { type: 'millstones', name: 'the millstones', x: SPOTS.stones.x, z: SPOTS.stones.z + 1.5, line: 'stones', reach: 2.1, height: 1.8 },
     { type: 'sign', name: 'the hopper', x: SPOTS.stones.x - 1.5, z: SPOTS.stones.z, line: 'hopper', reach: 1.9, height: 2.2 },
     { type: 'table', name: 'the flour bench', x: SPOTS.bench.x + 0.8, z: SPOTS.bench.z, line: 'bench', reach: 1.7, height: 1.1 },
-    { type: 'stairs', name: 'the stair up', x: SPOTS.stair.x - 1.1, z: SPOTS.stair.z + 1.2, line: 'stair', reach: 1.9, height: 2.0 },
+    { type: 'stairs', name: 'the stair up', x: SPOTS.stair.x - 1.1, z: SPOTS.stair.z + 1.2, line: 'stair', reach: 1.9, height: 2.0,
+      talk({ field }) {
+        try { field.teleport('int_mill_bin'); } catch (e) { /* report via field */ }
+        return null;
+      } },
     { type: 'sign', name: 'the scales', x: SPOTS.scales.x, z: SPOTS.scales.z + 0.6, line: 'scales', reach: 1.7, height: 1.2 },
   ],
 

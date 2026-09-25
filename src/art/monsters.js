@@ -5308,10 +5308,14 @@ const GLOW = C3(PAL.ui.cursor).multiplyScalar(0.9);
 // 8. Public API
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 export const Monsters = {
+  /** Story / party ids that share a species body. */
+  ALIASES: Object.freeze({ digby: 'barrowmole', bobble: 'gloop', pip: 'sunmane', sunspot: 'sunmane' }),
+
   /** Build a monster instance. Unknown ids build a Gloop (and say so in __DQ.errors). */
   build(id) {
     try {
       let key = String(id || '').toLowerCase();
+      if (Monsters.ALIASES[key]) key = Monsters.ALIASES[key];
       if (!SPECIES.has(key)) { reportError('Monsters.build', new Error(`unknown monster "${id}" — building a Gloop`)); key = 'gloop'; }
       return instantiate(template(key));
     } catch (e) {
@@ -5321,9 +5325,14 @@ export const Monsters = {
     }
   },
   list() { return Array.from(SPECIES.keys()); },
-  has(id) { return SPECIES.has(String(id)); },
+  has(id) {
+    const key = String(id || '').toLowerCase();
+    return SPECIES.has(key) || !!Monsters.ALIASES[key];
+  },
   info(id) {
-    const s = SPECIES.get(String(id)); if (!s) return null;
+    let key = String(id || '').toLowerCase();
+    if (Monsters.ALIASES[key]) key = Monsters.ALIASES[key];
+    const s = SPECIES.get(key); if (!s) return null;
     const T = template(s.id);
     return { id: s.id, name: s.name, family: s.family, boss: !!s.boss, story: !!s.story, death: s.defeat ? 'custom' : s.death, height: +T.height.toFixed(3), radius: +T.radius.toFixed(3), tris: T.tris, bones: T.bones.length, buckets: Object.keys(T.geos) };
   },

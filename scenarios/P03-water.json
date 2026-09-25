@@ -1,0 +1,22 @@
+{
+  "name": "P03 water surface variance at gameplay camera",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready && typeof __DQ.teleport==='function'", "timeout": 60000},
+    {"wait": 900},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 1500},
+    {"eval": "JSON.stringify(__DQ.teleport('meadow',4,-6))"},
+    {"wait": 1800},
+    {"eval": "(()=>{for(let i=0;i<8;i++){try{__DQ.press&&__DQ.press('Enter');}catch(e){}}return 'skip';})()"},
+    {"wait": 400},
+    {"eval": "(()=>{__DQ.walkTo(2.5,-8.5);return 'beck';})()"},
+    {"wait": 1200},
+    {"eval": "(()=>{if(__DQ.cameraOrbit)__DQ.cameraOrbit(200);return 'look';})()"},
+    {"wait": 700},
+    {"shot": "01-beck-gameplay"},
+    {"eval": "(()=>{if(__DQ.cameraOrbit)__DQ.cameraOrbit(90);return 'side';})()"},
+    {"wait": 600},
+    {"shot": "02-beck-side"},
+    {"note": "luminance SD census offline from PNGs"}
+  ]
+}

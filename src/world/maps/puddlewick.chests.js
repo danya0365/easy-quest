@@ -41,9 +41,9 @@ export default {
     { id: 'pw_barn_chest', x: -19.0, z: 5.0, kind: 'chest', locked: 'rusty_key', item: 'leather_cap',
       name: 'a locked chest behind the barn', line: 't-barn-chest' },
 
-    // ── the secrets: behind the mill wheel, and a flagstone at the shrine ──────────────────────────────────
-    { id: 'pw_mill_stone', x: -19.6, z: -10.9, kind: 'hidden', item: 'strong_herb',
-      name: 'behind the mill wheel', line: 't-mill', reach: 1.8 },
+    // ── the secrets: by the millrace (walkable yard — was (-19.6,-10.9) in the water), and a shrine flagstone ─
+    { id: 'pw_mill_stone', x: -17.2, z: -10.4, kind: 'hidden', item: 'strong_herb',
+      name: 'by the millrace', line: 't-mill', reach: 2.0 },
     { id: 'pw_flagstone', x: 19.4, z: -22.4, kind: 'hidden', gold: 30,
       name: 'a loose flagstone', line: 't-flagstone', reach: 1.8 },
 
@@ -56,7 +56,7 @@ export default {
   lines: {
     't-chapel': 'It stands on the path to the\nshrine, and the deacon has never\nonce opened it.',
     't-barn-chest': 'It has stood in the long grass\nbehind the barn since before\nBram was born.',
-    't-mill': ['The millrace runs behind the\nwheel, and behind the race\nthere is a dry gap.',
+    't-mill': ['Beside the millrace, where the\nwheel is loudest, the bank is\ndry enough to kneel.',
       'Somebody keeps their medicine\nwhere the water is loudest.'],
     't-flagstone': ['One flagstone by the stones\nrocks when he stands on it.{wait:350}{n}It comes up in his hands.',
       'A purse, and a note.\nThe note says: FOR LATER.'],

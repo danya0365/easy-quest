@@ -1,0 +1,28 @@
+{
+  "name": "P06 light shafts: floor pools + volume fades when looking level",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready && typeof __DQ.teleport==='function'", "timeout": 60000},
+    {"wait": 900},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 1500},
+    {"eval": "JSON.stringify(__DQ.teleport('puddlewick_inn'))"},
+    {"wait": 2000},
+    {"eval": "(()=>{for(let i=0;i<8;i++){try{__DQ.press&&__DQ.press('Enter');}catch(e){}}return 'skip';})()"},
+    {"wait": 400},
+    {"eval": "(async()=>{const Field=(await import('/src/world/field.js')).Field;const sc=Field.world().scene;const find=n=>{let m=null;sc.traverse(o=>{if(o.name===n)m=o;});return m;};const pools=find('light-pools');const shafts=find('light-shafts');window.__SH={hasPools:!!pools,hasShafts:!!shafts,poolTris:pools&&pools.geometry&&pools.geometry.index?pools.geometry.index.count/3:0};return JSON.stringify(window.__SH);})()"},
+    {"assert": "window.__SH.hasPools===true", "msg": "floor light pools exist (light on boards)"},
+    {"assert": "window.__SH.hasShafts===true", "msg": "faint volume shafts exist"},
+
+    {"eval": "(()=>{try{__DQ.cameraRig({pitch:8,dist:6.2});}catch(e){}return 'level';})()"},
+    {"wait": 200},
+    {"eval": "(async()=>{for(let i=0;i<50;i++)__DQ.advance(16.6667);await new Promise(r=>setTimeout(r,150));const Field=(await import('/src/world/field.js')).Field;const THREE=await import('three');const sc=Field.world().scene;let shafts=null;sc.traverse(o=>{if(o.name==='light-shafts')shafts=o;});const cam=Field.world().camera;const d=new THREE.Vector3();cam.getWorldDirection(d);window.__SH.level={op:+(shafts.material.opacity).toFixed(3),down:+Math.max(0,-d.y).toFixed(3)};return JSON.stringify(window.__SH.level);})()"},
+    {"shot": "01-shaft-level"},
+
+    {"eval": "(()=>{try{__DQ.cameraRig({pitch:48,dist:5.4});}catch(e){}return 'down';})()"},
+    {"wait": 200},
+    {"eval": "(async()=>{for(let i=0;i<55;i++)__DQ.advance(16.6667);await new Promise(r=>setTimeout(r,150));const Field=(await import('/src/world/field.js')).Field;const THREE=await import('three');const sc=Field.world().scene;let shafts=null;sc.traverse(o=>{if(o.name==='light-shafts')shafts=o;});const cam=Field.world().camera;const d=new THREE.Vector3();cam.getWorldDirection(d);window.__SH.down={op:+(shafts.material.opacity).toFixed(3),down:+Math.max(0,-d.y).toFixed(3)};return JSON.stringify(window.__SH.down);})()"},
+    {"shot": "02-shaft-down"},
+    {"assert": "window.__SH.down.op > window.__SH.level.op + 0.02 || window.__SH.level.op < 0.05", "msg": "volume fades when looking level (or already near-invisible at level)"},
+    {"eval": "JSON.stringify(window.__SH)"}
+  ]
+}

@@ -136,12 +136,12 @@ export const CAM_DEFAULT = Object.freeze({ orbit: 0, pitch: 13, dist: 5.4, fov: 
  * the walls are the frame). `floor` is how far the lens stays clear of the hillside.
  */
 export const CAM_MODES = Object.freeze({
-  field:    Object.freeze({ pitch: 26, fov: 47, frame: Object.freeze({ hero: 20, horizon: 17, feetMax: 82 }),
-    talk: Object.freeze({ hero: 27, feet: 64, pitch: 22 }), behind: 1.0, lead: 1.0, floor: 0.8 }),
-  town:     Object.freeze({ pitch: 25, fov: 47, frame: Object.freeze({ hero: 22, horizon: 19, feetMax: 80 }),
-    talk: Object.freeze({ hero: 29, feet: 63, pitch: 21 }), behind: 0.9, lead: 0.85, floor: 0.8 }),
-  world:    Object.freeze({ pitch: 28, fov: 48, frame: Object.freeze({ hero: 18, horizon: 18, feetMax: 82 }),
-    talk: Object.freeze({ hero: 27, feet: 64, pitch: 23 }), behind: 1.0, lead: 1.2, floor: 0.85 }),
+  field:    Object.freeze({ pitch: 22, fov: 47, frame: Object.freeze({ hero: 20, horizon: 22, feetMax: 82 }),
+    talk: Object.freeze({ hero: 27, feet: 64, pitch: 20 }), behind: 1.0, lead: 1.0, floor: 0.8 }),
+  town:     Object.freeze({ pitch: 22, fov: 47, frame: Object.freeze({ hero: 22, horizon: 24, feetMax: 80 }),
+    talk: Object.freeze({ hero: 29, feet: 63, pitch: 19 }), behind: 0.9, lead: 0.85, floor: 0.8 }),
+  world:    Object.freeze({ pitch: 24, fov: 48, frame: Object.freeze({ hero: 18, horizon: 22, feetMax: 82 }),
+    talk: Object.freeze({ hero: 27, feet: 64, pitch: 21 }), behind: 1.0, lead: 1.2, floor: 0.85 }),
   interior: Object.freeze({ pitch: 42, fov: 45, frame: Object.freeze({ hero: 26, feet: 74 }),
     talk: Object.freeze({ hero: 32, feet: 63, pitch: 41 }), behind: 0.4, lead: 0.5, floor: 0.5 }),
   dungeon:  Object.freeze({ pitch: 30, fov: 47, frame: Object.freeze({ hero: 24, feet: 78 }),
@@ -1063,7 +1063,16 @@ function createFadePass({ hero = () => null } = {}) {
     return worst ? Object.assign(worst, { n }) : null;
   }
 
-  const targetOf = (obj) => ((obj.inside || obj.melt) ? 0 : (obj.hitT > 0 ? FADE.alpha * smooth(FADE.melt, FADE.solid, obj.ramp ?? obj.surf ?? 9) : 1));
+  // Melt / lens-inside used to drive alpha to 0 (hard vanish). For merged town buckets that dismembered a
+  // cottage into invisible plaster and a lone opaque door (P05 gap #2). Solids always floor at FADE.alpha
+  // (35–45% band) whenever they are ghosting — no near-lens ramp to nothing. Instanced foliage may still melt
+  // to 0 when the lens is inside a crown.
+  const targetOf = (obj) => {
+    if (obj.inside || obj.melt) return obj.kind === 'solid' ? FADE.alpha : 0;
+    if (!(obj.hitT > 0)) return 1;
+    if (obj.kind === 'solid') return FADE.alpha;
+    return FADE.alpha * smooth(FADE.melt, FADE.solid, obj.ramp ?? obj.surf ?? 9);
+  };
 
   function ease(obj, dt) {
     const target = targetOf(obj);

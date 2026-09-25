@@ -414,7 +414,7 @@ function openChest(live, entry) {
   };
   if (entry.locked) {
     safe('sfx', () => Sfx.play('door_open'));
-    talk([str('door.unlock')], { onClose: run });
+    talk([str('chest.unlock')], { onClose: run });
   } else run();
 }
 
@@ -454,11 +454,9 @@ function search(entry, propText) {
   grant(entry, id);
   spawnPrize(null, entry, prizeKindOf(entry));
   safe('sfx', () => Sfx.play(entry.gold ? 'gold_coins' : 'item_get'));
-  // the words of the find: the prop's own line, then what the container itself was WRITTEN to say. `found` is the
-  // line for the moment it gives something up; a container that only has `text` (every layer entry, where propText
-  // is null) keeps that, instead of losing its whole setup to the reward line — the secrets are the prose.
-  const own = pagesOf(entry.found);
-  const head = pagesOf(propText).concat(own.length ? own : pagesOf(entry.text));
+  // the words of the find: prop line (if bolted), then the container's own setup prose, then `found`.
+  // Dropping entry.text whenever found existed was P30 #4 — meadow_log_seed / bridge stone lost their setup.
+  const head = pagesOf(propText).concat(pagesOf(entry.text)).concat(pagesOf(entry.found));
   const ok = talk(head.concat(rewardPages(entry, false)), { name: entry.name || null, onClose: () => { L.busy = false; } });
   if (!ok) L.busy = false;
 }

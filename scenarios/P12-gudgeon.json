@@ -1,0 +1,22 @@
+{
+  "name": "P12 talk framing — gudgeon pond is not a black void",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready && typeof __DQ.teleport==='function'", "timeout": 60000},
+    {"wait": 1200},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 1800},
+    {"eval": "JSON.stringify(__DQ.teleport('meadow'))"},
+    {"wait": 2000},
+    {"eval": "(()=>{try{__DQ.timeOfDay(10);}catch(e){}return 10;})()"},
+    {"wait": 300},
+
+    {"eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const skip=async()=>{for(let k=0;k<14;k++){try{__DQ.press('confirm');}catch(_){}await sleep(80);}await sleep(200);};for(const id of ['pell','hen1','tansy','sausage']){try{await __DQ.talkTo(id);}catch(e){}await sleep(400);await skip();}const gudgeon=(__DQ.npcs()||[]).find(n=>n.id==='gudgeon');if(gudgeon)__DQ.walkTo(gudgeon.x+1.2,gudgeon.z+0.4);await sleep(1600);try{await __DQ.talkTo('gudgeon');}catch(e){}await sleep(1100);for(let i=0;i<60;i++)__DQ.advance(16.6667);const shot=__DQ.talkShot();const canvas=document.querySelector('canvas');let lum=null;if(canvas){const c=document.createElement('canvas');c.width=160;c.height=90;const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(canvas,0,0,160,90);const d=g.getImageData(0,0,160,54);let s=0,dark=0,n=d.data.length/4;for(let i=0;i<d.data.length;i+=4){const Y=0.2126*d.data[i]+0.7152*d.data[i+1]+0.0722*d.data[i+2];s+=Y;if(Y<55)dark++;}lum={mean:+(s/n).toFixed(1),darkFrac:+(dark/n).toFixed(3),n};}window.__G={shot,lum,framed:shot&&shot.framed};return JSON.stringify(window.__G);})()"},
+    {"shot": "01-gudgeon-talk"},
+    {"assert": "window.__G.shot && window.__G.shot.talking===true && window.__G.shot.id==='gudgeon'", "msg": "Gudgeon conversation is open"},
+    {"assert": "window.__G.shot.clear!==false", "msg": "talk camera eye is not buried"},
+    {"assert": "window.__G.shot.onScreen===true", "msg": "speaker onScreen with clear eye"},
+    {"assert": "window.__G.lum && window.__G.lum.mean>=70", "msg": "frame mean luminance >=70 (was 43.9 void)"},
+    {"assert": "window.__G.lum && window.__G.lum.darkFrac<=0.55", "msg": "not a solid dark frame (was darkFrac 1.0)"},
+    {"eval": "JSON.stringify(window.__G)"}
+  ]
+}

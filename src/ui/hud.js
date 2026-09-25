@@ -147,7 +147,7 @@ export function install(ctx = {}) {
       if (words && String(words).toLowerCase() === String(name).toLowerCase()) words = '';
       S.card = UI.window({
         id: 'hud-card', centerX: true, top: 34, origin: '50% 0%', pop: 'down', className: 'hud-card',
-        minWidth: 340, destroyOnClose: true, openMs: 380, closeMs: 320,
+        minWidth: 340, destroyOnClose: true, openMs: 420, closeMs: 360,
         content: UI.h('div.hud-cardbody', [
           UI.h('div.hud-place', String(name)),
           words ? UI.h('div.hud-sub', String(words)) : null,
@@ -156,6 +156,8 @@ export function install(ctx = {}) {
       S.cardName = String(name);
       S.cardT = CARD_HOLD;
       S.card.open();
+      // Soft arrival chime so the card is a beat, not a silent label (P29 gap #1).
+      try { ctx.Sfx && ctx.Sfx.play('confirm', { vol: 0.45 }); } catch (_) {}
       return true;
     } catch (e) { oops('hud place card', e); return false; }
   }

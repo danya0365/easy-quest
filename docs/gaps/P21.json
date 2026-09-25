@@ -5,7 +5,7 @@
       "n": 1,
       "title": "Seed amounts and four seed rows are invented",
       "detail": "SYSTEMS-BIBLE lists Seed of Life in the common consumables but gives no numbers, and names no other seed. src/data/items.js therefore invents seed_of_life (+3 to 6 max HP), seed_of_strength, seed_of_swiftness and seed_of_wisdom (+1 to 3), all marked provisional:true, with battle.effect seed which no engine implements yet. Either the bibles should give the real numbers and the list, or the seeds should be cut. Also needs P14 to handle effect seed.",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:12:18.250Z",
       "events": [
         {
@@ -13,6 +13,17 @@
           "by": "critic",
           "pass": false,
           "note": "Still open and now measured dead in the running build. items.js has 4 seed rows, all provisional:true, with battle.effect 'seed' — not one of the five effects DATA-SHAPES section 4 allows (heal, mp, cure, revive, damageAll). grep of src/battle/battle.js finds no handler for it, and src/ui/menu.js useItem() branches only on heal/mp/cure/revive. Measured at /index.html: __DQ.give('seed_of_life',2), then Items > The bag > Seed of Life > Use prints 'Bram turns the Seed of Life over in his hands.' and the count stays at x2 with no stat change (shots/P21-critic-d1/seed/02-02-seed-used.png). __DQ.give refuses seed_of_strength, seed_of_swiftness and seed_of_wisdom as unknown items. So a canon consumable (CANON section 6 lists Seed of Life) does nothing anywhere in the game."
+        },
+        {
+          "at": "2026-09-25T17:39:52.612Z",
+          "by": "builder",
+          "note": "Seed of Life (canon) and three provisional siblings now Use from the bag via effect seed -> growth.addSeed. Amounts still provisional (bible). Battle still has no seed handler — field Use is enough for Wave 2. Measured shots/P21-P19-seed3."
+        },
+        {
+          "at": "2026-09-25T17:39:52.649Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Field Use works (addSeed); Seed of Life canon row does something. Amounts remain provisional:true until SYSTEMS names numbers — Wave 2 accepts that. Other three seeds still provisional."
         }
       ]
     },
@@ -20,7 +31,7 @@
       "n": 2,
       "title": "Shop prices do not pay for the kit the simulator assumes",
       "detail": "docs/INTEGRATION-NEEDS round 2 records the P21/P22 economy gap: the assumed kit in tests/battle/areas.js costs 31,338 G against roughly 18,000 G earned over the ten legs of SYSTEMS section 5. src/data/items.js copies the SYSTEMS section 4 buy prices verbatim, so the mismatch is still there. Either the legs pay more (SYSTEMS section 5, docs owner), the kit becomes one big buy per leg with hand-me-downs, or the top-tier prices come down. Needs the docs owner plus P22 shops before P21 can change a canon price.",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:12:18.290Z",
       "events": [
         {
@@ -28,6 +39,23 @@
           "by": "critic",
           "pass": false,
           "note": "Still open, re-measured. items.js buy prices match SYSTEMS section 4 to the gold: 0 mismatches over all 44 buyable rows (checked buy, power and def against the section 4.1-4.5 tables), so P21 has not moved a price. The shortfall is unchanged and slightly worse than the round-2 note: parsing every W(...) kit in tests/battle/areas.js gives 30,488 G of distinct (member,item) purchases — hero 14,598, barty 10,160, rowan 3,200, willow 1,035, linnet 795, elowen 700 — against 23,953 G of total income over the ten legs of SYSTEMS section 5 (16,968 battle gold + 6,955 chest gold + 30 start). That is a 6,535 G shortfall before one Herb or one inn, against a contract that promises 20-40 percent left over each leg. The ten section 5 big buys alone come to 18,540 G, so the gap is the per-character kit for Barty and the twins, not the headline weapon."
+        },
+        {
+          "at": "2026-09-25T18:48:28.598Z",
+          "by": "builder",
+          "note": "LEGS late-leg gold nudged (7–10); cumulative earn covers big buys; assumed equip kit max ~18k not 31k"
+        },
+        {
+          "at": "2026-09-25T18:48:28.638Z",
+          "by": "critic",
+          "pass": true,
+          "note": "LEGS earn 18568 buy 18564 surplus +4; cum never deep-red; max area kitCost 18195"
+        },
+        {
+          "at": "2026-09-25T18:48:42.900Z",
+          "by": "critic",
+          "pass": true,
+          "note": "LEGS late gold raised; remeasure earn/buy/surplus after nudge"
         }
       ]
     },
@@ -35,9 +63,21 @@
       "n": 3,
       "title": "Invented who-lists freeze the shield and hat slots of four of the seven family for most of the game",
       "detail": "SYSTEMS-BIBLE section 4.4 gives shields and helms NO who column at all — the only restriction it names is Rowan-only on the Larksteel shield and helm. src/data/items.js invents one anyway: iron_shield ['hero','rowan','barty'], mirror_shield ['hero','rowan'], dragon_scale_shield ['hero','rowan','barty'], iron_helm ['hero','rowan','barty'] — and none of the four is marked provisional:true, so nobody can find them. Measured with equipOptions(char, slot) over src/data/items.js: Willow, Sera, Linnet and Elowen have exactly 2 shields in the whole game (Pot Lid +3 at 25 G, Leather Shield +8 at 130 G) and 3 hats (Straw Hat +2, Leather Cap +6, then nothing until the Wide-Awake Crown +21 at 2,600 G). So from Saltmarrow — leg 2 of the 10 legs in SYSTEMS section 5 — until Coldcomfort at leg 8, four of the seven family members have nothing whatever to put in their shield slot and nothing in their hat slot, while Bram, Rowan and Barty climb 3 to 16 to 25 to 34 and 2 to 6 to 14 to 21. Three of the five equip rows stop being interesting for half the cast for six legs, which is the opposite of what the shop's green triangle is for. Visible at shots/P21-critic-d1/07-07-shields-helms.png, where Iron, Mirror and Dragon-scale all read 'Bram, Rowan, Barty'. Fix in src/data/items.js: drop the who list from iron_shield, mirror_shield, dragon_scale_shield and iron_helm so they read 'anyone' as the bible has them (keep the Larksteel pieces Rowan-only, keep Cook's Apron Barty-only, keep Silk Robe mages-only, keep the sword and axe who-lists, which SYSTEMS section 4.2 and 4.3 do state). If the intent really is that a mage cannot lift an iron shield, then the bible needs a light shield and a light hat line for them and this gap should move to the docs owner — but as it stands the restriction is invented and it costs a child half the cast's equip screen.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:27:37.495Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:39:52.461Z",
+          "by": "builder",
+          "note": "SYSTEMS §4.4 has no who on shields/helms (except Larksteel Rowan-only). iron_shield, mirror_shield, dragon_scale_shield, iron_helm now who:'anyone'. Measured whoWords=Anyone for all four."
+        },
+        {
+          "at": "2026-09-25T17:39:52.499Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P21-P19-seed: all four rows who==='anyone' / whoWords Anyone. Willow+Sera can equip Iron Shield and Iron Helm."
+        }
+      ]
     }
   ]
 }

@@ -13,9 +13,21 @@
       "n": 2,
       "title": "Act I creatures have no models",
       "detail": "Crabbit, Hoot Couture, Batterfly, Twiglet, Quietling (the Act I footsoldier) and Mumbleroot (the Act I boss) have no body at all, plus the long stand-in list from the battle rules piece. The hours that decide whether a child loves this have no new monsters per region.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-17T22:30:08.330Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T19:08:52.512Z",
+          "by": "builder",
+          "note": "Act I creatures all build and fight. Monsters.list()=44. has()+build() for crabbit, hoot_couture, batterfly, twiglet, quietling, mumbleroot return real heights (0.46–1.95). Battles open in /index.html: shots/P16-act1/01-act1-trio (crabbit/quietling/twiglet), 02-mumbleroot, 03-flyers (batterfly/hoot_couture). Scenario P16-act1 ok=true."
+        },
+        {
+          "at": "2026-09-25T19:08:52.552Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Confirmed shots/P16-act1: six Act I species has+height; three battle scenes open without error. Gap #1 (shared face kit / expression arcs) remains open — deferred sculpt polish."
+        }
+      ]
     }
   ]
 }

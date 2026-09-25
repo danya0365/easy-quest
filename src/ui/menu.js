@@ -7,6 +7,7 @@
  *   Talk     closes the menu and talks to whatever the hero faces (ctx.talk)
  *   Spells   whose magic → which spell (MP, one plain line of what it does) → who to cast it on
  *   Status   one page per character: a little 3D portrait, level, EXP to the next one, every stat, kit and spells
+ *   Party    who walks, who rides — opens the same roster window the wagon opens (P18)
  *   Items    the bag, the KEYS you carry, and each person's pockets → Use / Hand over / Equip / Throw away
  *   Equip    five slots, every thing that fits, and what each one does to your numbers (▲ green / ▼ red)
  *   Tactics  how each friend fights when you are not telling them (DATA-SHAPES §5 `tactic`)
@@ -43,6 +44,7 @@ import { Debug, reportError } from '../engine/debug.js';
 import { Bus } from '../engine/events.js';
 import { Save } from '../engine/save.js';
 import { Roster } from '../battle/scene.js';
+import { Party } from '../world/party.js';
 import DATA from '../../tests/battle/data.js';
 import CANON_ITEMS from '../data/items.js';
 import { SPELLS as CANON_SPELLS } from '../data/spells.js';
@@ -57,7 +59,7 @@ import { Field } from '../world/field.js';
 import { CHURCHES } from '../world/encounter.js';
 import {
   CHARACTERS, PERSONALITIES,
-  statsFor, spellsKnownAt, learnsetFor, mpOverrides, capFor, expForLevel, expToNext,
+  statsFor, spellsKnownAt, learnsetFor, mpOverrides, capFor, expForLevel, expToNext, addSeed,
 } from '../data/growth.js';
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -325,9 +327,23 @@ function loadSettings() {
 function saveSettings() {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS)); } catch (_) {}
 }
+/** Bigger words grows the letters via UI.setScale (F4: layout --u stays viewport-fit; type tokens grow). */
+function applyWordScale(sc) {
+  const s = Number(sc);
+  const k = Number.isFinite(s) && s > 0.3 ? Math.min(s, 3) : 1;
+  try { UI.setScale(k); } catch (e) { reportError('menu settings (scale)', e); }
+  let layer = null;
+  try { layer = document.querySelector('.dq-ui'); } catch (_) { layer = null; }
+  if (layer) {
+    try {
+      layer.classList.toggle('dq-words-big', k > 1.01 && k < 1.2);
+      layer.classList.toggle('dq-words-biggest', k >= 1.2);
+    } catch (_) {}
+  }
+}
 function applySettings() {
   try { Text.setSpeed(SETTINGS.speed); } catch (e) { reportError('menu settings (speed)', e); }
-  try { UI.setScale(SETTINGS.scale); } catch (e) { reportError('menu settings (scale)', e); }
+  try { applyWordScale(SETTINGS.scale); } catch (e) { reportError('menu settings (scale)', e); }
   try { Audio.setVolume('music', SETTINGS.music); } catch (e) { reportError('menu settings (music)', e); }
   try { Audio.setVolume('sfx', SETTINGS.sfx); Audio.setVolume('ui', Math.min(1, SETTINGS.sfx * 0.95)); }
   catch (e) { reportError('menu settings (sfx)', e); }
@@ -591,8 +607,9 @@ const TOP_IDS = ['m-cmd', 'm-party', 'm-gold'];
 const CMD = [
   { id: 'talk', label: 'Talk' }, { id: 'items', label: 'Items' },
   { id: 'spells', label: 'Spells' }, { id: 'equip', label: 'Equip' },
-  { id: 'status', label: 'Status' }, { id: 'tactics', label: 'Tactics' },
-  { id: 'search', label: 'Search' }, { id: 'misc', label: 'Misc' },
+  { id: 'status', label: 'Status' }, { id: 'party', label: 'Party' },
+  { id: 'tactics', label: 'Tactics' }, { id: 'search', label: 'Search' },
+  { id: 'misc', label: 'Misc' },
 ];
 
 function menuScene() {
@@ -940,6 +957,26 @@ function menuScene() {
         await say(g, `${target.name} opens one eye.{wait:300}{n}{gold}"Was I asleep?"{/gold}`);
         return true;
       }
+    }
+    if (eff === 'seed') {
+      const target = await pickMember(g, 'Who eats it?', () => true);
+      if (!live(g) || !target) return false;
+      const stat = (it.battle && it.battle.stat) || 'maxHp';
+      const raw = it.battle && it.battle.amount;
+      const amt = Array.isArray(raw)
+        ? (raw[0] + Math.floor(Math.random() * (Math.max(0, (raw[1] | 0) - (raw[0] | 0)) + 1)))
+        : (raw | 0) || 1;
+      // items.js uses maxHp/might/…; growth.addSeed / treasure use hp/str/…
+      const seedStat = stat === 'maxHp' ? 'hp' : stat === 'might' ? 'str' : stat === 'nimble' ? 'agi' : stat;
+      const before = maxOf(target);
+      addSeed(target, seedStat, amt);
+      c.take(it.id, 1);
+      const after = maxOf(target);
+      try { Sfx.play('item_get'); } catch (_) {}
+      const label = stat === 'maxHp' ? 'Max HP' : stat === 'might' ? 'Might' : stat === 'nimble' ? 'Nimbleness' : stat === 'wis' ? 'Wisdom' : String(stat);
+      const gained = (stat === 'maxHp' ? after.maxHp - before.maxHp : amt);
+      await say(g, `${target.name} eats the ${it.name}.{wait:280}{n}{gold}+${gained} ${label}{/gold}, for ever.`);
+      return true;
     }
     if (it.slot) return equipFromBag(g, c, it);
     await say(g, `Now is not the moment for the ${it.name}.`);
@@ -1306,17 +1343,23 @@ function menuScene() {
     await Promise.all(tops.map(w => w.close()));
     if (!live(g)) return false;
     const win = mkWin({
-      id: 'm-status', title: 'Status', left: 70, top: 96, width: 1140, origin: '50% 0%', className: 'dq-status',
+      id: 'm-status', title: 'Status', left: 70, top: 96, width: 1140, origin: '50% 0%',
+      className: 'dq-status' + ((SETTINGS.scale || 1) > 1 ? ' dq-status-tight' : ''),
       content: statusContent(who[i], pbox),
     });
     // Whatever a page ends up holding — a boy with one spell or a grown mage with a dozen — the whole page,
     // footer and all, has to be on the screen. Measure the real height in design units and slide it up to suit.
+    // At Bigger words the page can still outgrow 720 even at top:30 (P13 gap #1) — then we tighten once more.
     const fit = () => {
       try {
         const u = win.u || 1;
         const hU = (win.el.offsetHeight || 0) / u;       // offsetHeight ignores the open tween's scale
         if (!(hU > 0)) return null;
-        const top = Math.max(30, Math.min(96, DESIGN.h - 14 - hU));
+        let top = Math.max(24, Math.min(96, DESIGN.h - 14 - hU));
+        if (top + hU > DESIGN.h - 8 && win.el && !win.el.classList.contains('dq-status-tight')) {
+          win.el.classList.add('dq-status-tight');
+          return fit();
+        }
         win.place({ top });
         return { hU: Math.round(hU), top: Math.round(top), bottom: Math.round(top + hU) };
       } catch (e) { reportError('menu status fit', e); return null; }
@@ -1412,13 +1455,20 @@ function menuScene() {
 
   async function flowMisc(g) {
     at('command', 'misc');
+    // Bigger words grows row height (not --u): the six-row Misc list gets taller and can cover the blurb
+    // strip (P13 gap #5). Sit the list higher as the word scale grows; blurb stays a fixed width that fits.
+    const sc = SETTINGS.scale || 1;
+    const miscTop = sc >= 1.26 ? 168 : sc >= 1.12 ? 220 : 286;
+    // Bigger type makes the longest Misc labels spill the 668-wide list (P13 #5 spill). Widen with the words.
+    const miscLeft = sc >= 1.26 ? 250 : sc >= 1.12 ? 286 : 322;
+    const miscW = sc >= 1.26 ? 820 : sc >= 1.12 ? 740 : 668;
     const blurb = mkWin({ id: 'm-blurb', left: 348, bottom: 24, width: 890, slim: true, origin: '0% 100%',
       className: 'dq-blurb', content: 'Left and right change a setting. Confirm tries the next one.' });
     blurb.open();
     const list = mkMenu({
       // six rows is the tallest list in the menu: it sits higher than the others so it never covers the line
       // underneath that explains what the highlighted setting does
-      id: 'm-misc', title: 'Misc', left: 322, top: 286, width: 668, origin: '0% 0%', items: miscRows(),
+      id: 'm-misc', title: 'Misc', left: miscLeft, top: miscTop, width: miscW, origin: '0% 0%', items: miscRows(),
       onChange: (i) => { try { blurb.setContent(MISC_WORDS[i.id] || ' '); } catch (_) {} },
     });
     // left / right nudge the highlighted setting without leaving the row: one press, one change
@@ -1561,6 +1611,11 @@ function menuScene() {
       initial = it.id;
       if (it.id === 'talk') { leave(ctx.talk); return; }
       if (it.id === 'search') { leave(ctx.search); return; }
+      if (it.id === 'party') {
+        // P18: same roster window the wagon opens — close the command strip first so the child sees one job.
+        leave(() => { try { Party.wagonMenu(); } catch (e) { reportError('menu party', e); } });
+        return;
+      }
       subflow = true;
       try {
         if (it.id === 'items') { if (!(await flowItems(g))) return; }
@@ -1691,8 +1746,10 @@ const CSS = `
 .dq-party .dq-col.dq-pick .dq-pname{color: var(--dq-gold)}
 .dq-party .dq-col.dq-pick{background: color-mix(in srgb, var(--dq-ink) 9%, transparent); border-radius: calc(9 * var(--u))}
 .dq-goldrow{display:flex; align-items:baseline; gap: calc(12 * var(--u))}
-.dq-win.dq-blurb{padding: calc(9 * var(--u)) calc(20 * var(--u)); font-size: calc(23 * var(--u)); color: var(--dq-ink);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis}
+.dq-win.dq-blurb{padding: calc(9 * var(--u)) calc(20 * var(--u));
+  font-size: calc(23 * var(--u) * var(--dq-word-scale, 1)); color: var(--dq-ink);
+  white-space: normal; overflow: hidden; text-overflow: ellipsis;
+  max-height: calc(72 * var(--u) * var(--dq-word-scale, 1)); line-height:1.25}
 .dq-statfoot{margin-top: calc(10 * var(--u)); padding-top: calc(8 * var(--u)); text-align:center;
   font-size: calc(21 * var(--u)); color: var(--dq-label); border-top: calc(1.6 * var(--u)) solid var(--dq-hair)}
 .dq-arrow{margin-left: calc(12 * var(--u)); font-size: .82em; font-variant-numeric: tabular-nums}
@@ -1700,7 +1757,12 @@ const CSS = `
 .dq-numbers .dq-row{min-height: calc(34 * var(--u)); line-height: calc(34 * var(--u))}
 /* Status holds three dense columns, so it reads a size down from the command windows — and that is what keeps
    a grown mage's page (fourteen spells and a full kit) inside the 720-tall frame, footer and all. */
-.dq-win.dq-status{font-size: calc(26 * var(--u)); line-height:1.3}
+.dq-win.dq-status{font-size: calc(26 * var(--u) * var(--dq-word-scale, 1)); line-height:1.3}
+.dq-win.dq-status.dq-status-tight{font-size: calc(22 * var(--u) * var(--dq-word-scale, 1)); line-height:1.22}
+.dq-status.dq-status-tight .dq-row{min-height: calc(26 * var(--u))}
+.dq-status.dq-status-tight .dq-portrait{width: calc(176 * var(--u)); height: calc(214 * var(--u))}
+.dq-status.dq-status-tight .dq-statleft .dq-pname{font-size: calc(30 * var(--u))}
+.dq-status.dq-status-tight .dq-spelllist.dq-two{max-height: calc(180 * var(--u))}
 .dq-status .dq-col{padding: 0 calc(22 * var(--u))}
 .dq-status .dq-row{min-height: calc(32 * var(--u))}
 .dq-status .dq-cols > .dq-col:last-child{max-width: calc(430 * var(--u))}
@@ -1818,6 +1880,8 @@ export function registerFieldMenu() {
     Scenes.push('menu', {});
     return { ok: true, open: Scenes.top() === 'menu' };
   });
+  /** Set one Misc option by hand (demos / shoots): __DQ.setOption('scale', 1.26). */
+  Debug.expose('setOption', (key, value) => Menu.setOption(key, value));
   Debug.expose('menuPath', () => { try { return window.__DQ.state().menu.path; } catch (_) { return []; } });
   /** Drive the menu the way a child does: __DQ.menuPick('items') puts the cursor there and presses Confirm. */
   Debug.expose('menuPick', (id) => menuChoose('m-cmd', id));

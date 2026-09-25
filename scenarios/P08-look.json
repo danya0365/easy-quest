@@ -1,0 +1,18 @@
+{
+  "name": "P08 lookAt wired — NPC gaze at hero",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready && typeof __DQ.teleport==='function'", "timeout": 60000},
+    {"wait": 1200},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 1800},
+    {"eval": "JSON.stringify(__DQ.teleport('puddlewick'))"},
+    {"wait": 2000},
+    {"waitFor": "(__DQ.npcs()||[]).some(n=>n.id==='hob' && n.height>1)", "timeout": 20000},
+    {"eval": "(()=>{const hob=(__DQ.npcs()||[]).find(n=>n.id==='hob');if(hob)__DQ.walkTo(hob.x,hob.z);return JSON.stringify(hob&&{x:hob.x,z:hob.z});})()"},
+    {"wait": 2500},
+    {"eval": "(()=>{for(let i=0;i<90;i++)__DQ.advance(16.6667);const L=__DQ.npcLook?__DQ.npcLook():[];const near=L.filter(n=>n.looking==='you');window.__LOOK={lookingYou:near.map(n=>n.id),sample:L.slice(0,8)};return JSON.stringify(window.__LOOK);})()"},
+    {"assert": "window.__LOOK.lookingYou.length>=1", "msg": "at least one NPC looks at you when close"},
+    {"assert": "window.__LOOK.lookingYou.includes('hob') || window.__LOOK.lookingYou.length>=2", "msg": "Hob or several villagers track the hero"},
+    {"eval": "JSON.stringify(window.__LOOK)"}
+  ]
+}

@@ -724,13 +724,9 @@ async function runStep(s) {
     case 'flag': Flags.set(s.name, s.value); return;
     case 'join': {
       const q = dq();
-      // Idempotent: never put a second Bobble (or Papa) in the wagon. Story beats call join once; saves and
-      // demos may call them again.
-      const st = q ? guard('state', () => q.state(), null) : null;
-      const ros = st && st.roster;
-      const want = String(castName(s.id) || s.id).toLowerCase();
-      const there = ros && [].concat(ros.party || [], ros.wagon || []).some((m) => m && (m.id === s.id || String(m.name || '').toLowerCase() === want));
-      if (!there && q && q.party) guard('join', () => q.party(s.id));
+      // Do NOT call q.state() here — buildState re-enters every provider (story/quest/act2/menu) and blows the stack.
+      // Story flags are the authority for "already joined"; Party.add is itself idempotent for known ids.
+      if (!Flags.has('party.' + s.id) && q && q.party) guard('join', () => q.party(s.id));
       Flags.set('party.' + s.id, true);
       guard('party.join', () => Bus.emit('party.join', { id: s.id, name: castName(s.id) }));
       playSfx(s.sound || 'befriend');
@@ -1065,6 +1061,16 @@ export const Story = {
     import('./chapters/ch1.js')
       .then((m) => { const c = m && (m.Chapter1 || m.default); if (c && c.install) guard('ch1 install', () => c.install(Object.assign({ Story, Flags, Quests }, ctx))); })
       .catch((e) => reportError('story: src/story/chapters/ch1.js did not load', e));
+
+    // ── Act II (P25). Loads after Act I; arms only once ch2.start is set. ───────────────────────────────
+    import('./chapters/ch2.js')
+      .then((m) => { const c = m && (m.Chapter2 || m.default); if (c && c.install) guard('ch2 install', () => c.install(Object.assign({ Story, Flags, Quests }, ctx))); })
+      .catch((e) => reportError('story: src/story/chapters/ch2.js did not load', e));
+
+    // ── Act III (P25). Arms only once ch3.start is set (end of B19). ─────────────────────────────────
+    import('./chapters/ch3.js')
+      .then((m) => { const c = m && (m.Chapter3 || m.default); if (c && c.install) guard('ch3 install', () => c.install(Object.assign({ Story, Flags, Quests }, ctx))); })
+      .catch((e) => reportError('story: src/story/chapters/ch3.js did not load', e));
 
     guard('quest refresh', () => Quests.refresh());
     return Story;

@@ -67,6 +67,8 @@ export default function puddlewickPeople(base = {}) {
   const catSpot = spot(base, 'cat', 0.34, 0.68, 200);
   const duckSpot = spot(base, 'duck', 0.47, 0.62, 90);
   const potSpot = spot(base, 'cactuddle', 0.55, 0.64, 0);
+  const papaSpot = spot(base, 'halvard', 0.72, 0.48, 200);
+  const wagonSpot = spot(base, 'wagon', 0.78, 0.52, 140);
   const homeBakery = door(base, 'puddlewick_bakery', nanSpot);
   const homeTwins = door(base, 'puddlewick_twins', dotSpot);
   const homeHob = door(base, 'puddlewick_hob', hobSpot);
@@ -76,6 +78,23 @@ export default function puddlewickPeople(base = {}) {
   const notAct2 = (api) => api.act() !== 2;
 
   const npcs = [
+    // ── Act I: Papa at the lane with the wagon (between B1 and B2) ─────────────────────────────────────────
+    {
+      id: 'pw-halvard', name: 'Papa', char: 'halvard', voice: 'halvard', scale: 1.08, girth: 1.1,
+      x: papaSpot.x, z: papaSpot.z, facing: papaSpot.facing, idle: 'stand', radius: 0.75,
+      look: [wagonSpot.x, wagonSpot.z], when: '!ch1.left_home',
+      script: [{
+        first: [
+          'There you are. Boots?',
+          'Climb up when you are ready.\nParsnip has opinions about late\nstarts, and I share them.',
+        ],
+        again: [{ cycle: [
+          'The Long Lane is waiting, lad.\nIf you would.',
+          'Barty will keep the fire. He\nalways does. That is not an\nexcuse to dawdle.',
+          'We are for Saltmarrow by dusk.\nOr we are not, and I shall be\ncross in either case.',
+        ] }],
+      }],
+    },
     // ── the four constant villagers (VOICE-BIBLE §5b) ──────────────────────────────────────────────────────
     {
       // both hands on the well he has leaned on since before the well: no pitchfork to get in the way of it
@@ -193,7 +212,7 @@ export default function puddlewickPeople(base = {}) {
     {
       // THE IRONMONGER. A big bald ruddy man in a leather apron is exactly the right body for him — but he was
       // holding the innkeeper's tankard of ale while the narration had him taking a sword down off the wall.
-      id: 'hammond', name: 'Mr Hammond', char: 'villager', variant: 'innkeeper', voice: 'low:0.86', wear: 'ink', scale: 1.06, girth: 1.14, hold: 'hammer',
+      id: 'hammond', name: 'Mr Hammond', char: 'villager', variant: 'farmer', voice: 'low:0.86', wear: 'ink', scale: 1.06, girth: 1.14, hold: 'hammer',
       x: shopSpot.x, z: shopSpot.z, facing: shopSpot.facing, idle: 'sell', radius: 0.8, when: '!ch2.start',
       schedule: [{ from: 7, to: 19, at: [shopSpot.x, shopSpot.z], idle: 'sell', facing: shopSpot.facing }],
       home: [homeShop.x, homeShop.z],

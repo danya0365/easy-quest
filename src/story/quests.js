@@ -123,7 +123,7 @@ export const WHY_NOT = {
   'ch3.cloudstair': 'The stair only comes down for the Larksteel Sword.',
 };
 
-const S = { current: null, installed: false, off: null, map: null };
+const S = { current: null, installed: false, off: null, map: null, describing: false, lastDescribe: null };
 
 function pick() {
   const act = Flags.act();
@@ -186,8 +186,15 @@ export const Quests = {
   },
 
   describe() {
-    const q = Quests.current();
-    return Object.assign({ hint: q ? q.hint : null, progress: Quests.log().done.length + '/' + QUESTS.length }, q || {});
+    // buildState can re-enter providers; never let a nested __DQ.state() blow the stack (P10 overnight)
+    if (S.describing) return S.lastDescribe || { hint: null, progress: '0/' + QUESTS.length };
+    S.describing = true;
+    try {
+      const q = Quests.current();
+      const out = Object.assign({ hint: q ? q.hint : null, progress: Quests.log().done.length + '/' + QUESTS.length }, q || {});
+      S.lastDescribe = out;
+      return out;
+    } finally { S.describing = false; }
   },
 
   install(ctx = {}) {

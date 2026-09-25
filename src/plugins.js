@@ -23,5 +23,7 @@ export const PLUGINS = [
   ['battle.present', () => import('./battle/present.js')],
   ['battle.scene', () => import('./battle/scene.js')],
   ['story', () => import('./story/script.js')],
+  ['access', () => import('./ui/access.js')],
+  ['perf', () => import('./engine/perf.js')],
   ['title', () => import('./ui/title.js')],
 ];

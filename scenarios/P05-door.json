@@ -1,0 +1,19 @@
+{
+  "name": "P05 open door shows a room, not meadow through a card",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready && typeof __DQ.teleport==='function'", "timeout": 60000},
+    {"wait": 1200},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 1800},
+    {"eval": "JSON.stringify(__DQ.teleport('puddlewick'))"},
+    {"wait": 2200},
+    {"eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const Field=(await import('/src/world/field.js')).Field;const w=Field.world();const kit=w&&w.view&&w.view.kit;const ids=(kit&&kit.doors||[]).map(d=>d.id);const want=['puddlewick_chapel','puddlewick_inn','hollybank','puddlewick_shop'];let opened=null;for(const id of want){if(kit&&kit.setDoor&&kit.setDoor(id,1)){opened=id;break;}}if(!opened&&ids[0]){kit.setDoor(ids[0],1);opened=ids[0];}const d=kit&&kit.doorAt&&kit.doorAt(opened);if(d&&d.front)__DQ.walkTo(d.front.x,d.front.z);else if(d)__DQ.walkTo(d.x+(d.nx||0)*2.0,d.z+(d.nz||0)*2.0);await sleep(1400);for(let i=0;i<120;i++){__DQ.advance(16.6667);if(i%8===0&&kit&&kit.doorsUpdate)kit.doorsUpdate(0.016, {x:__DQ.test&&0});}const amt=d&&d.amount;window.__DOOR={opened,ids:ids.slice(0,10),amount:amt,front:d&&d.front};return JSON.stringify(window.__DOOR);})()"},
+    {"shot": "01-open-door"},
+    {"eval": "(()=>{const canvas=document.querySelector('canvas');const c=document.createElement('canvas');c.width=220;c.height=124;const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(canvas,0,0,220,124);const d=g.getImageData(80,30,60,42);let green=0,dark=0,warm=0,n=d.data.length/4;for(let i=0;i<d.data.length;i+=4){const r=d.data[i],gv=d.data[i+1],b=d.data[i+2];const Y=0.2126*r+0.7152*gv+0.0722*b;if(gv>r+18&&gv>b+12&&gv>75)green++;if(Y<60)dark++;if(r>gv+5&&r>50&&Y<150)warm++;}window.__DOOR.pix={greenFrac:+(green/n).toFixed(3),darkFrac:+(dark/n).toFixed(3),warmFrac:+(warm/n).toFixed(3),n};return JSON.stringify(window.__DOOR.pix);})()"},
+    {"assert": "!!window.__DOOR.opened", "msg": "forced a town door open"},
+    {"assert": "Number(window.__DOOR.amount)>0.5", "msg": "door leaf swung open"},
+    {"assert": "window.__DOOR.pix.greenFrac<0.40", "msg": "doorway sample is not mostly outdoor grass"},
+    {"assert": "window.__DOOR.pix.darkFrac+window.__DOOR.pix.warmFrac>0.20", "msg": "doorway has interior dark/warm tones"},
+    {"eval": "JSON.stringify(window.__DOOR)"}
+  ]
+}

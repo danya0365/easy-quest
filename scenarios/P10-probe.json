@@ -1,0 +1,38 @@
+{
+  "name": "P10 player movement probe",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+    {"wait": 1200},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 1800},
+    {"eval": "JSON.stringify(__DQ.teleport('meadow',0,8))"},
+    {"wait": 1000},
+    {"eval": "(()=>{for(let i=0;i<10;i++){try{__DQ.press('confirm',80);}catch(e){}}return 'skip';})()"},
+    {"wait": 500},
+    {"eval": "JSON.stringify((()=>{const p=__DQ.state().player||{};return {x:p.x,z:p.z,anim:p.anim,facing:p.facing,ground:p.ground,heroY:p.y};})())"},
+    {"shot": "01-stand"},
+
+    {"note": "walk forward 1.2s"},
+    {"eval": "(async()=>{const p0=__DQ.state().player;const t0=performance.now();__DQ.hold('up',1200);await new Promise(r=>setTimeout(r,1400));const p1=__DQ.state().player;const dt=(performance.now()-t0)/1000;const moved=Math.hypot(p1.x-p0.x,p1.z-p0.z);window.__WALK={moved:+moved.toFixed(3),dt:+dt.toFixed(3),speed:+(moved/dt).toFixed(3),p0:{x:p0.x,z:p0.z},p1:{x:p1.x,z:p1.z,speed:p1.speed,running:p1.running,steps:p1.steps,anim:p1.anim}};return JSON.stringify(window.__WALK);})()"},
+    {"shot": "02-after-walk"},
+
+    {"note": "run forward 1.0s"},
+    {"eval": "(async()=>{const p0=__DQ.state().player;const t0=performance.now();__DQ.hold('run',1000);__DQ.hold('up',1000);await new Promise(r=>setTimeout(r,1200));const p1=__DQ.state().player;const dt=(performance.now()-t0)/1000;const moved=Math.hypot(p1.x-p0.x,p1.z-p0.z);window.__RUN={moved:+moved.toFixed(3),dt:+dt.toFixed(3),speed:+(moved/dt).toFixed(3),running:p1.running,steps:p1.steps};return JSON.stringify(window.__RUN);})()"},
+    {"shot": "03-after-run"},
+
+    {"note": "collision slide into cottage"},
+    {"eval": "JSON.stringify(__DQ.teleport('meadow',-12.6,3.2))"},
+    {"wait": 700},
+    {"eval": "(async()=>{__DQ.face(180);const p0=__DQ.state().player;__DQ.hold('up',1100);await new Promise(r=>setTimeout(r,1300));const p1=__DQ.state().player;window.__HIT={p0:{x:p0.x,z:p0.z},p1:{x:p1.x,z:p1.z,blocked:p1.blocked},moved:+Math.hypot(p1.x-p0.x,p1.z-p0.z).toFixed(3)};return JSON.stringify(window.__HIT);})()"},
+    {"shot": "04-collision"},
+
+    {"note": "turn-in-place: face left without walking far"},
+    {"eval": "(async()=>{__DQ.teleport('meadow',2,10);await new Promise(r=>setTimeout(r,400));__DQ.release();const p0=__DQ.state().player;__DQ.hold('left',180);await new Promise(r=>setTimeout(r,350));__DQ.release();await new Promise(r=>setTimeout(r,200));const p1=__DQ.state().player;window.__PIVOT={p0face:p0.facing,p1face:p1.facing,moved:+Math.hypot(p1.x-p0.x,p1.z-p0.z).toFixed(3)};return JSON.stringify(window.__PIVOT);})()"},
+    {"shot": "05-pivot"},
+
+    {"eval": "JSON.stringify({walk:window.__WALK,run:window.__RUN,hit:window.__HIT,pivot:window.__PIVOT,errors:(__DQ.errors||[]).slice(-8),player:(()=>{const p=__DQ.state().player||{};return {anim:p.anim,y:p.y,near:p.near};})()})"},
+    {"assert": "window.__WALK && window.__WALK.moved > 1.5", "msg": "walk moves >1.5u in ~1.2s"},
+    {"assert": "window.__RUN && window.__RUN.speed > window.__WALK.speed", "msg": "run faster than walk"},
+    {"assert": "__DQ.errors.filter(e=>String(e).includes('Maximum call')).length===0", "msg": "no stack overflow errors"}
+  ]
+}

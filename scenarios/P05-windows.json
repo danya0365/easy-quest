@@ -1,0 +1,45 @@
+{
+  "name": "P05 windows: no z-fight, daylight from inside, dusk glow outside",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready && typeof __DQ.teleport==='function'", "timeout": 60000},
+    {"wait": 1000},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 1600},
+
+    {"eval": "JSON.stringify(__DQ.teleport('puddlewick_inn'))"},
+    {"wait": 1800},
+    {"eval": "(()=>{for(let i=0;i<8;i++){try{__DQ.press&&__DQ.press('Enter');}catch(e){}}return 'skip';})()"},
+    {"wait": 400},
+    {"eval": "(()=>{__DQ.walkTo(3.6,1.2);return 'east';})()"},
+    {"wait": 1100},
+    {"eval": "(()=>{if(__DQ.cameraOrbit)__DQ.cameraOrbit(85);return 'look-east';})()"},
+    {"wait": 800},
+    {"shot": "01-inn-east-window"},
+    {"eval": "(async()=>{const Field=(await import('/src/world/field.js')).Field;const sc=Field.world()&&Field.world().scene;const names=[];if(sc)sc.traverse(o=>{if(o.name)names.push(o.name);});window.__WIN={innGlow:names.includes('roomglow'),innShaft:names.includes('light-pools'),names:names.filter(n=>/glow|shaft|pool|window/i.test(n))};return JSON.stringify(window.__WIN);})()"},
+    {"assert": "window.__WIN.innGlow===true", "msg": "inn room has roomglow (daylight in window hole)"},
+    {"assert": "window.__WIN.innShaft===true", "msg": "inn has light pool from window"},
+
+    {"eval": "JSON.stringify(__DQ.teleport('hollybank'))"},
+    {"wait": 1800},
+    {"eval": "(()=>{for(let i=0;i<16;i++){try{__DQ.press&&__DQ.press('Enter');}catch(e){}}return 'skip';})()"},
+    {"wait": 500},
+    {"eval": "(()=>{__DQ.walkTo(-4.5,1.0);return 'west';})()"},
+    {"wait": 1200},
+    {"eval": "(()=>{if(__DQ.cameraOrbit)__DQ.cameraOrbit(-85);return 'look-west';})()"},
+    {"wait": 800},
+    {"shot": "02-hollybank-west-window"},
+    {"eval": "(async()=>{const Field=(await import('/src/world/field.js')).Field;const sc=Field.world()&&Field.world().scene;const names=[];if(sc)sc.traverse(o=>{if(o.name)names.push(o.name);});window.__WIN.hollyGlow=names.includes('roomglow');window.__WIN.hollyShaft=names.includes('light-pools');return JSON.stringify({glow:window.__WIN.hollyGlow,shaft:window.__WIN.hollyShaft});})()"},
+    {"assert": "window.__WIN.hollyGlow===true", "msg": "hollybank room has roomglow daylight"},
+
+    {"eval": "JSON.stringify(__DQ.teleport('puddlewick'))"},
+    {"wait": 2000},
+    {"eval": "(()=>{for(let i=0;i<10;i++){try{__DQ.press&&__DQ.press('Enter');}catch(e){}}return 'skip';})()"},
+    {"wait": 400},
+    {"eval": "(async()=>{__DQ.timeOfDay(12);for(let i=0;i<40;i++)__DQ.advance(16.6667);await new Promise(r=>setTimeout(r,250));const Field=(await import('/src/world/field.js')).Field;const sc=Field.world()&&Field.world().scene;const mesh=sc&&sc.getObjectByName('window-lit');window.__WIN.dayLit=mesh&&mesh.material?+mesh.material.opacity.toFixed(3):-1;window.__WIN.hasLitMesh=!!mesh;return JSON.stringify({dayLit:window.__WIN.dayLit,has:window.__WIN.hasLitMesh});})()"},
+    {"eval": "(async()=>{__DQ.timeOfDay(20.5);for(let i=0;i<55;i++)__DQ.advance(16.6667);await new Promise(r=>setTimeout(r,350));const Field=(await import('/src/world/field.js')).Field;const sc=Field.world()&&Field.world().scene;const mesh=sc&&sc.getObjectByName('window-lit');window.__WIN.duskLit=mesh&&mesh.material?+mesh.material.opacity.toFixed(3):-1;return JSON.stringify({duskLit:window.__WIN.duskLit});})()"},
+    {"shot": "03-puddlewick-dusk-windows"},
+    {"assert": "window.__WIN.hasLitMesh===true", "msg": "exterior window-lit mesh exists"},
+    {"assert": "window.__WIN.duskLit>window.__WIN.dayLit+0.15", "msg": "window glow stronger at dusk than noon"},
+    {"eval": "JSON.stringify(window.__WIN)"}
+  ]
+}

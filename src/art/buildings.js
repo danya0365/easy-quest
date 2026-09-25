@@ -38,6 +38,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PAL, C3, css, smooth, lerp, mixHex } from './palette.js';
 import { Tex, mulberry, vnoise, mkCanvas, ctx2 } from './tex.js';
 import { makeToon, TOON_PRESETS, See, hullGeometry } from './toon.js';
+import { ENV } from './weather.js';
 import { M4, boxUV, scaleUV, wrapUV, prep, hashJ } from './props.js';
 import { Font } from '../ui/font.js';
 import { reportError } from '../engine/debug.js';
@@ -125,10 +126,12 @@ export function buildingRecipes(kit) {
   const CLOTH = new Map();            // texture key -> {tex, geos: []}    awnings, bunting, stall roofs
   const INTERIOR = [];                // the dark warm room you see through an open door
   const GLOW = [];                    // unshaded warm light INSIDE a room: firelight, lamps, daylight in a door
+  const WIN_LIT = [];                 // exterior window panes that warm up at dusk (P05 gap #5)
   const DOORS = [];                   // every registered door leaf group
   const SIGNS = [];                   // hanging boards (each swings, so each is its own small mesh)
   const BOARDS = [];                  // sign board geometries waiting for their pivot groups
   let signAtlas = null;
+  let winLitMesh = null;
 
   const beam = PAL.wood.beam;
   const woodMat = () => kit.seeSurface('wood', { vertexColors: true });
@@ -803,15 +806,26 @@ export function buildingRecipes(kit) {
       add('stone', boxUV(1.4, 0.2, 0.7, 1.2), M4(dx, 0.1, D / 2 + 0.45));
     }
 
-    // ── windows ──
+    // ── windows (P05 #5): recessed pane, mullions proud of glass, shutters with depth; dusk glow via WIN_LIT ──
     const win = (lx, ly, face, zOff = 0) => {
       const fm = face === 'front' ? M4(lx, ly, D / 2 + zOff) : face === 'back' ? M4(lx, ly, -D / 2 - zOff, Math.PI)
         : face === 'left' ? M4(-W / 2, ly, lx, -Math.PI / 2) : M4(W / 2, ly, lx, Math.PI / 2);
       const a = (b, g, m, c) => add(b, g, fm.clone().multiply(m), c);
-      a('wood', boxUV(0.96, 0.9, 0.14, 1.2), M4(0, 0, 0.04), beam);
-      a('paint', new THREE.BoxGeometry(0.72, 0.66, 0.1), M4(0, 0, 0.08), PAL.paint.glass);
-      a('wood', boxUV(0.07, 0.66, 0.08, 1), M4(0, 0, 0.14), beam); a('wood', boxUV(0.72, 0.07, 0.08, 1), M4(0, 0, 0.14), beam);
-      for (const s of [-1, 1]) a('paint', new THREE.BoxGeometry(0.4, 0.8, 0.06), M4(s * 0.7, 0, 0.1, s * 0.25), o.shutter || PAL.paint.shutterGreen);
+      // oak surround proud of the plaster
+      a('wood', boxUV(0.96, 0.9, 0.16, 1.2), M4(0, 0, 0.02), beam);
+      // dark daytime glass set BACK into the reveal — never coplanar with the mullions
+      a('paint', new THREE.BoxGeometry(0.68, 0.62, 0.05), M4(0, 0, -0.04), PAL.paint.glass);
+      // mullions sit in front of the glass
+      a('wood', boxUV(0.06, 0.62, 0.06, 1), M4(0, 0, 0.06), beam);
+      a('wood', boxUV(0.68, 0.06, 0.06, 1), M4(0, 0, 0.06), beam);
+      // warm lamp-tint that only reads after dusk (merged + animated in flushBuildings)
+      {
+        const g = prep(new THREE.BoxGeometry(0.62, 0.56, 0.04), mixHex(PAL.interior.lamp, PAL.flower.yellow, 0.35));
+        g.applyMatrix4(base.clone().multiply(fm).multiply(M4(0, 0, -0.01)));
+        WIN_LIT.push(g);
+      }
+      // shutters with their own depth, swung open clear of the glass
+      for (const s of [-1, 1]) a('paint', new THREE.BoxGeometry(0.38, 0.78, 0.08), M4(s * 0.72, 0, 0.14, s * 0.28), o.shutter || PAL.paint.shutterGreen);
       windowSill(a, o.sill || 'flowers', Math.abs(lx * 100 + ly * 7 + o.x * 13 + o.z * 3) | 0);
     };
     for (const wx of (o.frontWindows || [])) win(wx, P + 1.25, 'front');
@@ -1547,7 +1561,7 @@ export function buildingRecipes(kit) {
       }
     }
 
-    // ── the four walls, each split around its openings ──
+    // ── the four walls, each split around its doors AND windows (P05 #5: a window is a hole, not a plank) ──
     const wallSlab = (w, h, lx, ly, lz, ry) => {
       if (w <= 0.02 || h <= 0.02) return;
       const g = addTo(bucket, boxUV(w, h, T, Tex.worldSize(texName), [Math.max(2, Math.round(w)), 3, 1]), base.clone().multiply(M4(lx, ly, lz, ry)));
@@ -1564,42 +1578,69 @@ export function buildingRecipes(kit) {
         const lx = at * c + off * s, lz = -at * s + off * c;
         wallSlab(w, h, lx, yc, lz, ry);
       };
-      const cuts = openings.filter(op => op.side === side).sort((a, b) => (a.at || 0) - (b.at || 0));
+      const cuts = [
+        ...openings.filter(op => op.side === side).map(op => ({
+          kind: 'door', at: op.at ?? 0, w: (op.w ?? 1.2) + 0.06, h: (op.h ?? 2.05) + 0.04, yMid: null,
+        })),
+        ...(o.windows || []).filter(wn => wn.side === side).map(wn => ({
+          kind: 'window', at: wn.at ?? 0, w: (wn.w ?? 1.0) + 0.06, h: (wn.h ?? 0.9) + 0.06, yMid: wn.y ?? 1.35,
+        })),
+      ].sort((a, b) => a.at - b.at);
       let x0 = -span / 2 - T;
-      for (const op of cuts) {
-        const ow = (op.w ?? 1.2) + 0.06, oh = (op.h ?? 2.05) + 0.04, oa = op.at ?? 0;
-        const l = (oa - ow / 2) - x0;
+      for (const cut of cuts) {
+        const left = cut.at - cut.w / 2, right = cut.at + cut.w / 2;
+        const l = left - x0;
         if (l > 0.02) put(l, H, x0 + l / 2, H / 2);
-        if (H - oh > 0.04) put(ow, H - oh, oa, oh + (H - oh) / 2);
-        x0 = oa + ow / 2;
-        // the reveal: the doorway has thickness, lined in oak, with a threshold under it
-        const c = Math.cos(ry), s = Math.sin(ry);
-        const jx = oa * c + off * s, jz = -oa * s + off * c;
-        for (const sg of [-1, 1]) add('wood', boxUV(0.08, oh, T, 1), M4((oa + sg * (ow / 2 - 0.04)) * c + off * s, oh / 2, -(oa + sg * (ow / 2 - 0.04)) * s + off * c, ry), PAL.wood.dark);
-        add('wood', boxUV(ow + 0.16, 0.12, T + 0.02, 1), M4(jx, oh + 0.06, jz, ry), PAL.wood.beam);
-        add('wood', boxUV(ow, 0.06, T + 0.06, 1), M4(jx, 0.03, jz, ry), PAL.wood.dark);
+        if (cut.kind === 'door') {
+          if (H - cut.h > 0.04) put(cut.w, H - cut.h, cut.at, cut.h + (H - cut.h) / 2);
+          // the reveal: the doorway has thickness, lined in oak, with a threshold under it
+          const c = Math.cos(ry), s = Math.sin(ry);
+          const jx = cut.at * c + off * s, jz = -cut.at * s + off * c;
+          for (const sg of [-1, 1]) add('wood', boxUV(0.08, cut.h, T, 1), M4((cut.at + sg * (cut.w / 2 - 0.04)) * c + off * s, cut.h / 2, -(cut.at + sg * (cut.w / 2 - 0.04)) * s + off * c, ry), PAL.wood.dark);
+          add('wood', boxUV(cut.w + 0.16, 0.12, T + 0.02, 1), M4(jx, cut.h + 0.06, jz, ry), PAL.wood.beam);
+          add('wood', boxUV(cut.w, 0.06, T + 0.06, 1), M4(jx, 0.03, jz, ry), PAL.wood.dark);
+        } else {
+          // window hole: keep the sill wall below and the lintel above
+          const yBot = Math.max(0.08, cut.yMid - cut.h / 2);
+          const yTop = Math.min(H - 0.08, cut.yMid + cut.h / 2);
+          if (yBot > 0.06) put(cut.w, yBot, cut.at, yBot / 2);
+          if (H - yTop > 0.06) put(cut.w, H - yTop, cut.at, yTop + (H - yTop) / 2);
+        }
+        x0 = right;
       }
-      const l = (span / 2 + T) - x0;
-      if (l > 0.02) put(l, H, x0 + l / 2, H / 2);
+      const rem = (span / 2 + T) - x0;
+      if (rem > 0.02) put(rem, H, x0 + rem / 2, H / 2);
     }
 
-    // ── windows: a splayed reveal, a frame, glass, and the daylight it lets in ──
+    // ── windows: a real reveal through the wall, daylight beyond, mullions that do not z-fight (P05 #5) ──
+    // Local +z points OUT of the room. The hole is cut in the wall; the glow sits at the outer face so from
+    // inside you look through oak jambs onto a blown-out day card (and an optional tinted view).
     for (const wn of (o.windows || [])) {
       const ry = SIDES[wn.side] ?? 0;
-      const off = (wn.side === 'south' || wn.side === 'north') ? D / 2 : W / 2;
+      const off = (wn.side === 'south' || wn.side === 'north') ? D / 2 + T / 2 : W / 2 + T / 2;
       const ww = wn.w ?? 1.0, wh = wn.h ?? 0.9, wy = wn.y ?? 1.35, at = wn.at ?? 0;
       const c = Math.cos(ry), s = Math.sin(ry);
       const fm = M4(at * c + off * s, wy, -at * s + off * c, ry);
       const a = (b, g, m, col) => add(b, g, fm.clone().multiply(m), col);
-      a('wood', boxUV(ww + 0.22, wh + 0.22, 0.12, 1.2), M4(0, 0, 0.06), PAL.wood.beam);
-      kit.addGlow(new THREE.BoxGeometry(ww, wh, 0.08), fm.clone().multiply(M4(0, 0, 0.1)).premultiply(base), mixHex(PAL.sky.horizon, PAL.plaster.light, 0.5));
-      a('wood', boxUV(0.06, wh, 0.06, 1), M4(0, 0, 0.02), PAL.wood.beam);
-      a('wood', boxUV(ww, 0.06, 0.06, 1), M4(0, 0, 0.02), PAL.wood.beam);
-      a('wood', boxUV(ww + 0.34, 0.1, 0.3, 1.2), M4(0, -wh / 2 - 0.09, -0.08), PAL.wood.light);        // the sill
+      // oak lining of the hole (depth = wall thickness, proud of neither face)
+      for (const sg of [-1, 1]) a('wood', boxUV(0.07, wh + 0.02, T * 0.94, 1), M4(sg * (ww / 2 - 0.01), 0, 0), PAL.wood.dark);
+      a('wood', boxUV(ww + 0.06, 0.07, T * 0.94, 1), M4(0, wh / 2 - 0.01, 0), PAL.wood.beam);
+      a('wood', boxUV(ww + 0.18, 0.1, T * 0.94 + 0.14, 1.2), M4(0, -wh / 2 - 0.02, -0.05), PAL.wood.light); // sill into the room
+      // outer frame lip on the street face
+      a('wood', boxUV(ww + 0.2, wh + 0.2, 0.08, 1.2), M4(0, 0, T / 2 + 0.02), PAL.wood.beam);
+      // mullions at mid-thickness — clear of the day cards
+      a('wood', boxUV(0.05, wh * 0.88, 0.05, 1), M4(0, 0, 0.01), PAL.wood.beam);
+      a('wood', boxUV(ww * 0.88, 0.05, 0.05, 1), M4(0, 0, 0.01), PAL.wood.beam);
+      // daylight at the outer face, then a brighter blown-out card (optional view tint, e.g. chestnut green)
+      const day = mixHex(PAL.sky.horizon, PAL.plaster.light, 0.48);
+      const view = wn.view || day;
+      kit.addGlow(new THREE.BoxGeometry(ww * 0.9, wh * 0.9, 0.05), fm.clone().multiply(M4(0, 0, T / 2 - 0.03)).premultiply(base), day);
+      kit.addGlow(new THREE.BoxGeometry(ww * 0.82, wh * 0.82, 0.03), fm.clone().multiply(M4(0, 0, T / 2 + 0.05)).premultiply(base), mixHex(view, PAL.char.white, 0.28));
+      // shutters OUTSIDE with depth, swung clear
       if (wn.shutter !== false) for (const sg of [-1, 1]) {
-        const sm = M4(sg * (ww / 2 + ww * 0.28), 0, -0.04, sg * 0.28);
-        a('paint', boxUV(ww * 0.52, wh + 0.14, 0.05, 1), sm, wn.shutter || PAL.paint.shutterGreen);
-        for (const by of [-wh * 0.28, wh * 0.28]) a('paint', boxUV(ww * 0.5, 0.07, 0.03, 1), sm.clone().multiply(M4(0, by, 0.04)), mixHex(wn.shutter || PAL.paint.shutterGreen, PAL.wood.dark, 0.45));
+        const sm = M4(sg * (ww / 2 + ww * 0.3), 0, T / 2 + 0.1, sg * 0.32);
+        a('paint', boxUV(ww * 0.5, wh + 0.12, 0.07, 1), sm, wn.shutter || PAL.paint.shutterGreen);
+        for (const by of [-wh * 0.28, wh * 0.28]) a('paint', boxUV(ww * 0.48, 0.07, 0.03, 1), sm.clone().multiply(M4(0, by, 0.04)), mixHex(wn.shutter || PAL.paint.shutterGreen, PAL.wood.dark, 0.45));
       }
     }
 
@@ -2104,6 +2145,27 @@ export function buildingRecipes(kit) {
       mesh.name = 'roomglow'; mesh.castShadow = false; mesh.receiveShadow = false;
       scene.add(mesh); out.push(mesh);
       GLOW.length = 0;
+    }
+    if (WIN_LIT.length) {
+      // Exterior panes warm up after dusk (P05 #5). Daytime opacity ~0 so the dark glass in the paint bucket reads;
+      // dusk/night bring a lamp-tint so a lit window means somebody is home.
+      const mat = new THREE.MeshBasicMaterial({
+        vertexColors: true, transparent: true, opacity: 0, depthWrite: false, fog: true,
+      });
+      mat.onBeforeCompile = (sh) => See.patch(sh);
+      mat.customProgramCacheKey = () => 'bldwinlit|see';
+      const mesh = new THREE.Mesh(mergeGeometries(WIN_LIT), mat);
+      mesh.name = 'window-lit'; mesh.castShadow = false; mesh.receiveShadow = false;
+      mesh.renderOrder = 2;
+      scene.add(mesh); out.push(mesh);
+      winLitMesh = mesh;
+      WIN_LIT.length = 0;
+      animators.push((t, dt) => {
+        if (!winLitMesh || !winLitMesh.material) return;
+        const w = ENV.weights || {};
+        const want = Math.max(0, Math.min(1, (w.dusk || 0) * 0.55 + (w.night || 0) * 0.92));
+        winLitMesh.material.opacity += (want - winLitMesh.material.opacity) * Math.min(1, (dt || 0.016) * 4);
+      });
     }
     if (INTERIOR.length) {
       const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, fog: true });

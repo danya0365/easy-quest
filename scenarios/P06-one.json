@@ -1,0 +1,19 @@
+{
+  "name": "P06 exit object dump + single door enter",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 600 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title)return JSON.stringify(__DQ.title('game'));return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene!=='title'", "timeout": 30000 },
+    { "wait": 800 },
+    { "eval": "JSON.stringify(__DQ.teleport('puddlewick'))" },
+    { "wait": 1500 },
+    { "eval": "(async()=>{const world=(await import('/src/world/field.js')).Field.world();const doors=world.map.exits.filter(e=>e.kind==='door').map(e=>({to:e.to,x:+e.x.toFixed(2),z:+e.z.toFixed(2),w:+(+e.w).toFixed(2),h:+(+e.h).toFixed(2),tx:e.tx,tz:e.tz,has: !!(await import('/src/world/map.js')).Maps.has(e.to)}));return JSON.stringify(doors);})()" },
+    { "note": "enter inn only" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const world=(await import('/src/world/field.js')).Field.world();const ex=world.map.exits.find(e=>e.to==='puddlewick_inn');__DQ.teleport('puddlewick',ex.x,ex.z);await sleep(2000);return JSON.stringify({stood:{x:+__DQ.state().player.x.toFixed(2),z:+__DQ.state().player.z.toFixed(2)},map:__DQ.state().map.id,loading:__DQ.state().field&&__DQ.state().field.loading,transit:__DQ.state().transitions,exitAt:world.map.exitAt(__DQ.state().player.x,__DQ.state().player.z)&&world.map.exitAt(__DQ.state().player.x,__DQ.state().player.z).to,errors:__DQ.errors.slice(-5)});})()" },
+    { "note": "enter bakery only from meadow first" },
+    { "eval": "JSON.stringify(__DQ.teleport('meadow'))" },
+    { "wait": 1000 },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));__DQ.teleport('puddlewick');await sleep(1500);const world=(await import('/src/world/field.js')).Field.world();const ex=world.map.exits.find(e=>e.to==='int_bakery');__DQ.teleport('puddlewick',ex.x,ex.z);await sleep(2000);return JSON.stringify({map:__DQ.state().map.id,stood:{x:+__DQ.state().player.x.toFixed(2),z:+__DQ.state().player.z.toFixed(2)},exitAt:(world.map.id==='puddlewick'&&world.map.exitAt(__DQ.state().player.x,__DQ.state().player.z)||{}).to});})()" }
+  ]
+}

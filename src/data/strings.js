@@ -39,7 +39,8 @@ export const STR = {
   'item.get.key': '%HERO% has got the %ITEM%.{n}Doors everywhere shift uneasily.',
   'item.use': '%NAME% uses the %ITEM%.',
   'item.full': 'The bag is full. Something\nin there would have to go,\nand nothing wants to.',
-  'gold.found': '%N% gold coins, found in a boot.',
+  'gold.found': '%N% gold coins.',
+  'chest.unlock': 'The old lock gives up.',
   'map.enter': '%PLACE%',
 
   // ── church, inn, shop ─────────────────────────────────────────────────────────────────────────────────────

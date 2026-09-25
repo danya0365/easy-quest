@@ -453,11 +453,13 @@ export function ringPlacements({ pointAt, rows = [], clear = () => false, seed =
       if (!gap && !clear(x, z, ri, row)) {
         const kind = row.pick ? row.pick(x, z, rnd, arc) : null;
         if (row.kind === 'card') cards.push({ x, z, w: size, v: (rnd() * 4) | 0, haze: (row.haze ?? 0) + rnd() * 0.03, row: ri });
-        // sx is along the run (aligned species keep it near 1 so a hedgerow never opens a gap); sy/sz vary widely,
-        // which is what stops a row of the same species reading as one shape stamped out over and over
-        else if (kind) trees.push({ kind, x, z, s: size, r: rnd() * Math.PI * 2, c: 0.84 + rnd() * 0.2, tint: (rnd() - 0.5) * 1.4,
-          sx: 0.99 + rnd() * 0.14, sy: 0.82 + rnd() * 0.42, sz: 0.84 + rnd() * 0.36,
-          ryaw: Math.atan2(-tz, tx) + (rnd() - 0.5) * 0.22, row: ri });
+        // sx is along the run; for hedges allow 0.72–1.35 so the rim gaps instead of stamping one length
+        else if (kind) {
+          const hedge = kind === 'hedge' || kind === 'hedgeb' || kind === 'bush' || kind === 'bushb';
+          trees.push({ kind, x, z, s: size, r: rnd() * Math.PI * 2, c: 0.80 + rnd() * 0.28, tint: (rnd() - 0.5) * (hedge ? 2.2 : 1.4),
+            sx: hedge ? (0.72 + rnd() * 0.63) : (0.99 + rnd() * 0.14), sy: 0.78 + rnd() * 0.48, sz: hedge ? (0.78 + rnd() * 0.48) : (0.84 + rnd() * 0.36),
+            ryaw: Math.atan2(-tz, tx) + (rnd() - 0.5) * (hedge ? 0.55 : 0.22), row: ri });
+        }
       }
       sAt += row.spacing * (0.8 + rnd() * 0.4);
     }

@@ -1,0 +1,47 @@
+{
+  "name": "P18 party menu + roster cursor + wagon clearance",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready", "timeout": 45000},
+    {"wait": 500},
+    {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+    {"waitFor": "__DQ.state().scene==='field'", "timeout": 45000},
+    {"wait": 500},
+
+    {"note": "1. Stock six friends so four walk and the wagon rolls; check clearance."},
+    {"eval": "(__DQ.teleport('meadow', 4, 2), 'meadow')"},
+    {"wait": 700},
+    {"eval": "JSON.stringify(__DQ.friendsStock(6))"},
+    {"wait": 800},
+    {"key": "ArrowUp", "hold": 1000},
+    {"wait": 400},
+    {"shot": "01-followers"},
+    {"eval": "JSON.stringify({followers:(__DQ.state().companions.followers||[]).map(f=>({id:f.id,x:f.x,z:f.z,gap:f.gap})), wagon:__DQ.state().companions.wagon, party:(__DQ.friends().party||[]).map(m=>m.name), wagonList:(__DQ.friends().wagon||[]).map(m=>m.name)})"},
+    {"assert": "__DQ.state().companions.followers.length >= 2", "msg": "at least two followers walk behind Bram"},
+    {"assert": "!!__DQ.state().companions.wagon", "msg": "the wagon is on the field"},
+    {"assert": "(()=>{ const c=__DQ.state().companions; const f=c.followers||[]; const w=c.wagon; if(!w||!f.length) return false; let best=0; for(const x of f){ best=Math.max(best, Math.hypot(x.x-w.x, x.z-w.z)); } return best >= 0.9; })()", "msg": "followers stay clear of the wagon wheels"},
+
+    {"note": "2. Main menu lists Party."},
+    {"eval": "__DQ.menuOpen()"},
+    {"waitFor": "__DQ.state().menu && __DQ.state().menu.open", "timeout": 10000},
+    {"wait": 350},
+    {"shot": "02-menu-party"},
+    {"assert": "(__DQ.menuWindows()||[]).some(w=>w.id==='m-cmd' && (w.items||[]).indexOf('party')>=0)", "msg": "main menu lists Party"},
+
+    {"note": "3. Pick Party → roster opens."},
+    {"eval": "__DQ.menuPick('party')"},
+    {"waitFor": "__DQ.state().ui.windows.some(w => w.id === 'party-wagon')", "timeout": 10000},
+    {"wait": 500},
+    {"shot": "03-roster"},
+    {"assert": "__DQ.state().ui.windows.some(w => w.id === 'party-wagon')", "msg": "roster window opens from Party"},
+    {"assert": "(() => { const w = __DQ.state().ui.windows.find(x => x.id === 'party-wagon'); return !!w && w.items.length >= 4; })()", "msg": "roster lists the walking party"},
+
+    {"note": "4. Confirm on the leader — note must speak; cursor must stay on him."},
+    {"eval": "(async()=>{ const sleep=ms=>new Promise(r=>setTimeout(r,ms)); window.__said0=(__DQ.friends().roster&&__DQ.friends().roster.said)||''; __DQ.press('confirm'); await sleep(450); window.__said1=(__DQ.friends().roster&&__DQ.friends().roster.said)||''; const w2=__DQ.state().ui.windows.find(x=>x.id==='party-wagon'); window.__sel1=w2&&w2.selectedLabel; window.__title=(w2&&w2.title)||''; const note=document.querySelector('[data-dq=\"party-wagon-note\"]'); window.__noteDom=(note&&(note.textContent||note.innerText))||''; return JSON.stringify({said0:window.__said0,said1:window.__said1,sel1:window.__sel1,title:window.__title,noteDom:window.__noteDom}); })()"},
+    {"assert": "/leads the way|stays|own way/i.test(window.__said1||window.__noteDom||'')", "msg": "refusing the leader shows a spoken note, not silence"},
+    {"assert": "/Who walks/i.test(window.__title||'')", "msg": "title stays on the roster, not a blank rebuild"},
+    {"assert": "/Bram/i.test(window.__sel1||'')", "msg": "cursor stays on Bram after the refuse"},
+
+    {"press": "Escape"},
+    {"wait": 500}
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "P11 identity — scale, dye, hold props, distinct bodies",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready && typeof __DQ.teleport==='function'", "timeout": 60000},
+    {"wait": 1200},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 1800},
+
+    {"eval": "JSON.stringify(__DQ.teleport('puddlewick'))"},
+    {"wait": 2000},
+    {"waitFor": "(__DQ.npcs()||[]).some(n=>n.id==='hammond' && n.height>1)", "timeout": 20000},
+    {"eval": "(()=>{const ids=['hammond','pottle','dot','bel','bernard','hob','nan','brim','honeysett'];const out={};for(const id of ids){const m=__DQ.npcModel(id)||{};out[id]={look:m.look||null,height:m.height??null,scale:m.scale??null,holding:m.holding??null,props:(m.meshes||[]).filter(x=>/^npc:/.test(x)),ok:m.ok!==false};}window.__ID={pw:out};return JSON.stringify(out);})()"},
+    {"assert": "window.__ID.pw.hammond.look==='villager:farmer' && window.__ID.pw.hammond.holding==='hammer'", "msg": "Hammond is farmer+hammer, not bald innkeeper+tankard"},
+    {"assert": "window.__ID.pw.pottle.look==='villager:granny'", "msg": "Mrs Pottle is granny body"},
+    {"assert": "Math.abs(window.__ID.pw.dot.height-window.__ID.pw.bel.height)>0.04", "msg": "Dot and Bel different scaled heights"},
+    {"assert": "window.__ID.pw.bernard.holding==='hook'", "msg": "Bernard holds his hook"},
+    {"assert": "window.__ID.pw.honeysett.holding==='honeypot'", "msg": "Honeysett holds honeypot"},
+
+    {"eval": "JSON.stringify(__DQ.teleport('meadow'))"},
+    {"wait": 2000},
+    {"waitFor": "(__DQ.npcs()||[]).some(n=>n.id==='thurl' && n.height>1)", "timeout": 20000},
+    {"eval": "(()=>{const ids=['thurl','budge','tansy','nib','dimity','pell','gudgeon'];const out={};for(const id of ids){const m=__DQ.npcModel(id)||{};out[id]={look:m.look||null,height:m.height??null,scale:m.scale??null,holding:m.holding??null,props:(m.meshes||[]).filter(x=>/^npc:/.test(x))};}window.__ID.meadow=out;return JSON.stringify(out);})()"},
+    {"assert": "window.__ID.meadow.thurl.look==='villager:farmer' && window.__ID.meadow.thurl.holding==='jug'", "msg": "Mrs Thurl farmer+jug (washerwoman), not baker+bun"},
+    {"assert": "window.__ID.meadow.budge.holding==='pan'", "msg": "Budge holds pan"},
+    {"assert": "window.__ID.meadow.nib.holding==='jar' && window.__ID.meadow.dimity.holding==='posy'", "msg": "Nib jar + Dimity posy"},
+    {"assert": "new Set(['tansy','nib','dimity'].map(id=>window.__ID.meadow[id].height)).size===3", "msg": "three meadow children have three heights"},
+
+    {"eval": "JSON.stringify(window.__ID)"}
+  ]
+}

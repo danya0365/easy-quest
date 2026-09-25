@@ -215,8 +215,18 @@ function layer() {
   const fit = () => {
     const w = el.clientWidth || innerWidth || DESIGN.width;
     const h = el.clientHeight || innerHeight || DESIGN.height;
-    R.uPx = Math.min(w / DESIGN.width, h / DESIGN.height) * R.scale;
+    // LAYOUT unit only — never multiply by text scale. Multiplying --u by R.scale made the
+    // whole 1280×720 design frame larger than the screen (F4 gap #1 / P13 #1/#5). Bigger words
+    // bump the type tokens below instead.
+    const fitU = Math.min(w / DESIGN.width, h / DESIGN.height);
+    R.uPx = fitU;
+    const k = (Number.isFinite(R.scale) && R.scale > 0.3) ? Math.min(R.scale, 3) : 1;
     el.style.setProperty('--u', `${R.uPx}px`);
+    el.style.setProperty('--dq-word-scale', String(k));
+    el.style.setProperty('--dq-text', String(Math.round(33 * k)));
+    el.style.setProperty('--dq-menu', String(Math.round(30 * k)));
+    el.style.setProperty('--dq-small', String(Math.round(22 * k)));
+    el.style.setProperty('--dq-line', String(Math.round(43 * k)));
     for (const wdg of R.widgets.values()) { try { wdg.onResize && wdg.onResize(); } catch (e) { reportError('UI resize', e); } }
   };
   R.fit = fit;

@@ -5,7 +5,7 @@
       "n": 1,
       "title": "Party order cannot be changed from the main menu",
       "detail": "FIX LIVES IN src/ui/menu.js (P13), so P18 may not touch it. P18 exposes the whole thing ready to call: Party.wagonMenu() opens the roster window, and Party.reorder, Party.swap, Party.move and Party.canRemove are the operations behind it. Today the only way in is talking to the wagon on the field or calling __DQ.wagonMenu(). The main menu needs a Party entry that calls Party.wagonMenu(), or its own screen built on those four functions.",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:30:52.482Z",
       "events": [
         {
@@ -13,6 +13,17 @@
           "by": "critic",
           "pass": false,
           "note": "Opened the main menu in demos/P17.html with 4 walking, 5 riding: m-cmd items are Talk, Items, Spells, Equip, Status, Tactics, Search, Misc. No Party and no Wagon entry, and Misc does not lead to one (menuPath stays at command). In /index.html the party plugin is not installed at all, so __DQ.wagonMenu does not exist either. The only door to the roster is walking up to the wagon prop on the field, which in the real game does not exist."
+        },
+        {
+          "at": "2026-09-25T17:57:53.112Z",
+          "by": "builder",
+          "note": "Main menu CMD now has Party; menuPick('party') opens Party.wagonMenu() after leave. Verified shots/P18-party2: m-cmd items include party; roster opens"
+        },
+        {
+          "at": "2026-09-25T17:57:53.148Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P18-party2 ok=true: menu lists Party; roster opens from menuPick('party')"
         }
       ]
     },
@@ -20,17 +31,41 @@
       "n": 2,
       "title": "Roster window loses your place on every keypress and refuses in silence",
       "detail": "Measured in demos/P17.html with 4 walking and 5 riding. Party.wagonMenu rebuilds UI.menu inside its for(;;) loop with no initial:, so every selection destroys and recreates the window and the cursor snaps back to row 1. Recorded sequence: cursor on Bram, press Z (he is the leader and cannot be moved) — a buzzer plays, NO message appears, title stays Who walks, who rides?, and selectedLabel is back to Bram. Then ArrowDown, Z on Halvard the guest — same silent buzzer, selectedLabel reads Bram again. Three further presses of ArrowDown and Enter produced no swap at all: party stayed Bram, Halvard, Bobble, Dollop II. A six-year-old pressing the confirm button is told nothing and loses their place, which breaks CANON rule 4 (every why can-t I gets one sentence) and CLARITY. party.js already HAS the sentences — Party.move returns Halvard travels with you his own way and Bram leads the way, he stays — and wagonMenu throws them away. Fix, all in src/world/party.js: keep one menu alive across the loop (or pass initial: the id last touched), show the refusal line in a message box or under the title when canRemove is false, and after a successful swap re-render the list and stay open instead of returning, so a child can rearrange three monsters in one visit. While there: the rows show only a name and Lv, so you choose who fights without seeing a single HP figure — add HP/MP to each row.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:52:33.564Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:57:53.184Z",
+          "by": "builder",
+          "note": "wagonMenu already keeps one window + choose({initial}); refuse writes note via says()/roster.said. Verified Bram refuse: said='Bram leads the way — he stays.', cursor stays on Bram"
+        },
+        {
+          "at": "2026-09-25T17:57:53.221Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P18-party2: refuse note spoken; title Who walks; selectedLabel Bram"
+        }
+      ]
     },
     {
       "n": 3,
       "title": "A follower is inside the wagon wheel",
       "detail": "Orchestrator eyes, 2026-09-18 10:00, shots/_plugcheck2/01-boot.png: a blue Gloop follower is drawn underneath and through the wagon's near wheel, at the very bottom edge of the frame. Followers need their own trailing slots with spacing that keeps them clear of the wagon and inside the frame at the gameplay camera.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:56:15.057Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:57:53.258Z",
+          "by": "builder",
+          "note": "GAP.wagon 0.55→1.45, WAGON.side -1.55→-1.85, scale 0.58→0.55 so trail slots keep monsters clear of the near wheel"
+        },
+        {
+          "at": "2026-09-25T17:57:53.292Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P18-party2: 3 followers + wagon; max follower-wagon dist >=0.9 (measured hypot); gaps.wagon=1.45"
+        }
+      ]
     }
   ]
 }

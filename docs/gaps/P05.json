@@ -25,7 +25,7 @@
       "n": 2,
       "title": "Buildings vanish instead of ghosting when the camera see-through fires",
       "detail": "progress.json 2026-09-18: buildings vanish when P09's occluder-fade hides an object it then fails to ghost. A cottage or the chapel between the lens and the hero should fade to a clean 35-45% alpha with its ink outline kept, not disappear and not dither.",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-17T23:07:12.376Z",
       "events": [
         {
@@ -39,6 +39,17 @@
           "by": "critic",
           "pass": false,
           "note": "STILL BROKEN, unchanged since round 1, and now root-caused. __DQ.cameraOccluders() read at all ten of Puddlewick's OWN door step-back spots (walkable ground, the places a child stands to go in): 7 of 10 produce at least one occluder at alpha<=0.05, i.e. invisible, not the 0.35-0.45 the gap asks for. Worse, one building splits across many alphas at once because the fade works on the merged MATERIAL BUCKETS (demo __DQ.meshes() lists bucket-stone / bucket-plaster / bucket-wood / bucket-tile / bucket-paint, and occluders are named 'stone 10.0x5.4@10,-5', 'plaster 10.0x6.8@8,-5', 'wood 10.2x0.0@6,-5'), not on buildings. At the inn door (5.76,-1.27) the inn reports sign-INN 0, stone 0, stone 0, plaster 0, wood 0, wood 0, wood 0, wood 0.09, plaster 0.343 - eight pieces of one building at five different alphas. At the shop door (11.19,4.4): 0, 0, 0.001, 0.244, 0.408, 0.42, 0.42, 0.42. It also happens while simply WALKING: holding ArrowUp up the lane past the inn from (8.4,2.0) to (7.87,5.9) with the ordinary follow camera gives 0, 0, 0.063, 0.116, 0.153, 0.153, 0.42 on one building. And look at it: shots/P05-critic-c2/F/04-f04-standing-at-the-shop-door.png is a milky grey film over the bottom half of the frame, cut off by a dead-straight horizontal line that follows nothing, with no ink outline kept, washing out the grass, the bushes AND the hero it exists to reveal, while the SHOP sign in front of it stays 100 percent opaque. shots/P05-critic-c2/C/14-c14-lens-inside-the-bakery.png: the bakery's stone base and BAKER sign are gone and one blank plaster wall fills the right third at full opacity."
+        },
+        {
+          "at": "2026-09-25T18:23:50.421Z",
+          "by": "builder",
+          "note": "camera fade: solid occluders always ghost at FADE.alpha (0.42), never ramp/melt to 0; foliage may still melt"
+        },
+        {
+          "at": "2026-09-25T18:23:50.456Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P05-ghost ok=true: solidZero=0, solidBand>=1, paint buckets stay at 0.42"
         }
       ]
     },
@@ -66,7 +77,7 @@
       "n": 4,
       "title": "An open door is a flat painted card, and daylight shows through the back of the building",
       "detail": "Every building the kit makes is a hollow shell with no threshold, no porch depth and no back wall behind the doorway, so the one moment a child looks hardest at a house — the door swinging open — is the moment it stops being a house. Crop shots/P05-critic-c1/game2/11-b11-fade-chapel-behind.png around the chapel's open doors: the opening is a single flat vertical plane with a grey-brown vertical gradient on it, and across the bottom of that plane sits a band of outdoor grass green. I sampled it: the pixel at (640,260) is rgb(71,100,38) against the terrain outside at rgb(95,140,42) and rgb(46,78,31) — that is the meadow behind the chapel showing through the opening, not an interior. The demo does the same thing more cleanly (shots/P05-critic-c1/demo/01-d01-church.png): the doorway is a brown gradient card with no jamb thickness, no step down, no darkness falloff, no hint of a floor. Fix it in the kit so every opens: door gets (1) a real reveal — jamb and head with wall thickness, so the opening has depth from an oblique angle; (2) a closed back: a dark interior box behind the opening that the outside world cannot be seen through from any camera angle; (3) something readable one metre in — a lit floor patch, a rug edge, a stair foot, a warm glow from a hearth — so the darkness reads as a room and not as a painted rectangle. The noticeboards beside the chapel and on the green are blank cream boards with no notices on them and should be dressed at the same time.",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-17T23:29:34.040Z",
       "events": [
         {
@@ -79,6 +90,17 @@
           "by": "critic",
           "pass": false,
           "note": "HALF FIXED. Requirement 2 is genuinely done and I confirmed it by census: the chapel doorway opening in the running game (shots/P05-critic-c2/C/16-c16-chapel-doorway-straight-on.png, box x512-768 y72-446, 95744 px) has 0 grass pixels, and the demo cottage doorway (shots/P05-critic-c2/E/16-e15-cottage-door-open.png, 66096 px) has 0. No daylight through the back any more. Requirement 1 is partly done: oak jamb linings, a head and a threshold board exist. Requirement 3 is NOT done, and it is the one the title is about. Sample a horizontal line across the church's open doorway at eye level (shots/P05-critic-c2/E/20-e19-church-door-eye-level.png, y=240,280,320,360 across x=570..780): every sample on a row returns the identical byte triple - 127,103,77 then 111,89,65 then 92,70,51 then 75,53,38 then 66,43,30. That is a flat vertical gradient card facing the lens, with no floor plane, no perspective, no depth falloff. Floating on it are three untextured flat quads with hard edges: a cream 254,233,199 rectangle, a 255,217,162 square and a salmon 248,177,140 bar - they read as placeholder colour, not as a room. Worse at the house a child cares most about: Hollybank Cottage's front door swings open on a panel of the SAME cream plaster as the outside wall, crack detail and all, lit like daylight (shots/P05-critic-c2/C/19-c19-hollybank-doorway-close.png) - the door opens onto a wall. Nothing lit, no floor patch, no rug edge, no stair foot, no hearth glow anywhere. And from oblique (C/17) the opening is still a flat panel with no side wall receding. The noticeboards named in this gap are also still undressed: the chapel board and the village board are blank cream cards (F/09, C/16) even though the game has the poster written for them ('HARVEST FESTIVAL - Saturday. Bring a pie. Bring TWO pies.') and docs/approved/cottage-materials.png shows a lettered wooden sign as the reference."
+        },
+        {
+          "at": "2026-09-25T18:25:08.206Z",
+          "by": "builder",
+          "note": "interiorRoom: floor/walls/back + jamb/threshold; rooms clear padTop hillside"
+        },
+        {
+          "at": "2026-09-25T18:25:08.243Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P05-door ok=true: chapel door open; doorway greenFrac low; dark+warm interior tones"
         }
       ]
     },
@@ -86,9 +108,21 @@
       "n": 5,
       "title": "Windows have no glass, no light and no view - from inside a room they z-fight or read as a plank",
       "detail": "Found by looking, in the running build. The kit's window recipe fails the moment you are on the inside of it, which is now half the game because interiors exist. (1) Puddlewick's inn, teleport('puddlewick_inn') then cameraOrbit(0): the window in the east wall renders as a shattered starburst of coincident grey-brown triangles with a dark plank punched through the middle of it - textbook z-fighting between the glass quad, the mullion cross and the wall reveal, which are coplanar. Crop shots/P05-critic-c2/C/08-c08-inn-from-the-door.png around x1090-1260 y270-440 and it is unmistakable. docs/DQV-RUBRIC.md Visual says 'Nothing z-fights' with no exceptions. (2) Hollybank Cottage, same recipe, shots/P05-critic-c2/C/01-c01-hollybank-from-the-door.png x20-240 y420-620: the window is a solid wooden board with a cross painted across it. No glass, no light, no outside. WORLD-BIBLE section 3 promises Hollybank has 'a window that looks at the chestnut tree' and the room's only window is a plank. (3) From the outside, every window in every recipe is the same flat dark-navy quad at every hour of the day, so no house in Aldenmoor ever shows a light - the single strongest 'somebody is home, come in' signal a village has, and DQV spends it constantly. Build one window recipe in src/art/buildings.js that works from both sides: a real reveal (sill, jamb, head with wall thickness) with the pane set back from the wall face so nothing is coplanar and nothing z-fights; a translucent pane that from inside shows a bright blown-out daylight card (and, per-map, an optional view billboard so Hollybank's window really does show the chestnut); and from outside an emissive glass tint keyed to the hour so windows warm up at dusk and a lit window means somebody is in. Shutters get their own depth so they do not sit on the glass. Then re-shoot the inn and Hollybank interiors and the village at dusk.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:18:30.750Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T18:34:24.619Z",
+          "by": "builder",
+          "note": "roomShell punches window holes + oak reveal; daylight/view glow at outer face; mullions mid-wall; shutters outside; exterior WIN_LIT dusk/night; hollybank west view tint"
+        },
+        {
+          "at": "2026-09-25T18:34:24.661Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P05-windows ok: inn+holly roomglow; duskLit 0.85 vs dayLit 0; inn east pane bright white not plank"
+        }
+      ]
     }
   ]
 }

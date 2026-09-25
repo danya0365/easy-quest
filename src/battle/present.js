@@ -43,6 +43,8 @@ import { reportError } from '../engine/debug.js';
 import { PAL, C3 } from '../art/palette.js';
 import { Toon, makeLightRig } from '../art/toon.js';
 import { Monsters } from '../art/monsters.js';
+import { FX } from '../art/fx.js';
+import { SPELLS } from '../data/spells.js';
 import { UI } from '../ui/window.js';
 import { Transitions } from '../ui/transitions.js';
 
@@ -228,7 +230,7 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
   const S = {
     scene: null, camera: null, borrowed: false, own: null, rig: null, map: null, terrain, light,
     origin: new THREE.Vector3(), anchor: null, range: 5, yaw: 0, models: new Map(), fitTop: 0.9, dist: 6, look: 1.2,
-    shake: 0, push: 0, pushTo: 0, drift: 0, t: 0, activeId: null, targetId: null, vm: {},
+    shake: 0, shakePeak: 0, freeze: 0, fxPlayed: 0, lastFx: null, push: 0, pushTo: 0, drift: 0, t: 0, activeId: null, targetId: null, vm: {},
     order: { party: [], wagon: [], enemies: [] }, partyKey: '', foeKey: '', built: false, buildMs: 0,
     panel: null, dropped: 0, disposed: false, layer: null, els: {}, pops: 0, instant: false,
     deaths: [], tally: null, hidden: [],
@@ -289,6 +291,24 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
     S.built = true;
     S.buildMs = Math.round(performance.now() - t0);
     placeCamera(1);
+    // P15 gaps #2/#5: attach the FX pools to the battle stage so spells draw, not only sound.
+    guard('fx attach', () => {
+      FX.attach(S.scene, {
+        camera: S.camera,
+        sound: (id, opts) => sfx(id, opts),
+      });
+      FX.setCamera && FX.setCamera(S.camera);
+    });
+    if (ctx.Bus && !S._fxShake) {
+      S._fxShake = (p) => {
+        try {
+          const a = (p && p.amp) || 0.35;
+          S.shake = Math.max(S.shake, a);
+          S.shakePeak = Math.max(S.shakePeak || 0, a);
+        } catch (_) {}
+      };
+      guard('fx.shake', () => ctx.Bus.on('fx.shake', S._fxShake));
+    }
   }
 
   /** No field on the stack (a demo page, __DQ.goto('battle')): a warm little diorama, never a black screen. */
@@ -631,7 +651,31 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
           S.pushTo = ev.kind === 'attack' ? 1 : 0.4;
         }
         setTimeout(() => { S.pushTo = 0; }, 440);
-        if (ev.kind === 'spell') { sfx('spell_cast'); if (HOLD_SFX[ev.element]) setTimeout(() => sfx(HOLD_SFX[ev.element]), 180); }
+        if (ev.kind === 'spell') {
+          sfx('spell_cast');
+          if (HOLD_SFX[ev.element]) setTimeout(() => sfx(HOLD_SFX[ev.element]), 180);
+          // Picture for the spell (P15 #2/#5): prefer the canon fx id, else a school fallback.
+          guard('spell fx', () => {
+            const sp = (ev.spell && SPELLS[ev.spell]) || (ev.id && SPELLS[ev.id]) || null;
+            const fxId = (sp && sp.fx) || ({ fire: 'fire_burst', ice: 'ice_shards', wind: 'wind_slash', lightning: 'lightning', heal: 'heal_sparkle' }[ev.element]) || 'flash';
+            const scale = 0.7 * ((sp && sp.fxScale) || 1);
+            let at = toward();
+            const tgt = model(ev.target) || (ev.targets && model(ev.targets[0]));
+            if (tgt && tgt.m && tgt.m.root) at = tgt.m.root.position.clone().setY((tgt.m.root.position.y || 0) + 0.9);
+            else if (v && v.m && v.m.root) at = v.m.root.position.clone().setY((v.m.root.position.y || 0) + 1.0);
+            const played = FX.play(fxId, { at, scale, sound: false });
+            S.fxPlayed = (S.fxPlayed || 0) + 1;
+            S.lastFx = fxId;
+            const heavy = /fire_big|lightning|frost|shockwave|level_pillar/.test(fxId)
+              || ev.element === 'fire' || ev.element === 'lightning';
+            if (heavy) {
+              S.shake = Math.max(S.shake, 0.55);
+              S.shakePeak = Math.max(S.shakePeak || 0, S.shake);
+              S.freeze = Math.max(S.freeze || 0, 0.07); // a few frames of hit-stop
+            }
+            if (played && played.ms) { /* keep the beat */ }
+          });
+        }
         if (ev.kind === 'defend') sfx('buff');
         if (ev.kind === 'item') sfx('item_get', { vol: 0.7 });
         break;
@@ -649,14 +693,18 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
           pulse(elOf(ev.target), 'hit', 250);
           popOn(ev.target, String(ev.amount), 'hurt');
           sfx(ev.poison ? 'poison' : 'player_hurt');
-          if (!ev.poison) S.shake = Math.max(S.shake, 0.6);
+          if (!ev.poison) { S.shake = Math.max(S.shake, 0.6); S.shakePeak = Math.max(S.shakePeak || 0, S.shake); }
         } else {
           const v = model(ev.target);
           if (v) guard('hit', () => v.m.onHit(toward()));
           popOn(ev.target, String(ev.amount), ev.crit ? 'crit' : '');
           sfx(ev.crit ? 'sword_crit' : ev.element ? 'monster_hurt' : 'sword_hit');
           S.shake = Math.max(S.shake, ev.crit ? 1 : 0.42);
-          if (ev.crit) guard('flash', () => Transitions.flash({ ms: 130, alpha: 0.5 }));
+          S.shakePeak = Math.max(S.shakePeak || 0, S.shake);
+          if (ev.crit) {
+            S.freeze = Math.max(S.freeze || 0, 0.09);
+            guard('flash', () => Transitions.flash({ ms: 130, alpha: 0.5 }));
+          }
         }
         break;
       }
@@ -684,7 +732,16 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
           // remember WHERE it fell: the +EXP and +G of the tally are thrown from the monsters' own spots
           const spot = screenOf(ev.target, 'center');
           if (spot) S.deaths.push(spot);
-          if (v) { v.gone = true; guard('defeat', () => v.m.play('defeat', { vanish: true })); }
+          if (v) {
+            v.gone = true;
+            guard('defeat', () => v.m.play('defeat', { vanish: true }));
+            guard('defeat fx', () => {
+              const at = v.m.root.position.clone().setY((v.m.root.position.y || 0) + 0.7);
+              FX.play('defeat_poof', { at, scale: 0.85, sound: false });
+              S.fxPlayed = (S.fxPlayed || 0) + 1;
+              S.lastFx = 'defeat_poof';
+            });
+          }
           setTimeout(() => sfx('monster_defeat'), 130);
           renderFoes(true);
         } else sfx('player_hurt', { pitch: 0.7 });
@@ -740,6 +797,13 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
         sfx('level_up_sparkle');
         pulse(elOf(ev.who), 'lvup', 1350);
         popOn(ev.who, 'LEVEL UP!', 'lv');
+        guard('level fx', () => {
+          const at = { x: S.origin.x, y: S.origin.y + 0.2, z: S.origin.z + 2.2 };
+          FX.play('level_pillar', { at, scale: 0.9, sound: false });
+          S.fxPlayed = (S.fxPlayed || 0) + 1;
+          S.lastFx = 'level_pillar';
+          S.shake = Math.max(S.shake, 0.35);
+        });
         break;
       case 'victory':
         // SYSTEMS §10.1: the whole tally is a window of its own — see victory() below, which the scene awaits.
@@ -839,10 +903,10 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
   function skipTally() {
     const T = S.tally;
     if (!T) return false;
-    // SYSTEMS §10.1: "some moments belong to the game" — the fanfare's own first beat is not skippable, and a child
-    // mashing Confirm cannot fill and dismiss the tally in the same breath.
-    if (T.t < 0.32) return true;
-    if (T.done && T.t - T.holdT < 0.26) return true;
+    // SYSTEMS §10.1: a short unskippable beat, then Confirm fills / dismisses. Kept short so a mashing child
+    // is not stuck staring at "Victory" for a minute (P14 gap #1).
+    if (T.t < 0.14) return true;
+    if (T.done && T.t - T.holdT < 0.12) return true;
     if (!T.done) {
       T.done = true;
       const node = T.win && T.win.body;
@@ -966,6 +1030,12 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
   // ── per-frame ──────────────────────────────────────────────────────────────────────────────────────────────
   function update(dt) {
     if (S.disposed) return;
+    // Hit-stop: a few frames of freeze so a big spell / crit lands with WEIGHT (P15 #4).
+    if (S.freeze > 0) {
+      S.freeze = Math.max(0, S.freeze - dt);
+      guard('fx update', () => FX.update(dt * 0.35));
+      return;
+    }
     S.t += dt;
     if (S.tally) tickTally(dt);
     if (S.panel) tickPanel(dt);
@@ -985,6 +1055,7 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
       guard('monster update', () => v.m.update(dt));
     }
     placeCamera(dt);
+    guard('fx update', () => FX.update(dt));
   }
 
   function render(alpha) {
@@ -1013,6 +1084,19 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
         if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose && m.dispose());
       });
     });
+    guard('fx detach', () => {
+      // Borrowed battles share the field scene — put the FX pools back so chests / footsteps keep drawing.
+      if (S.borrowed && ctx.Field && typeof ctx.Field.world === 'function') {
+        FX.clear();
+        const w = ctx.Field.world();
+        if (w && w.scene) FX.attach(w.scene, { camera: w.camera });
+        else FX.detach();
+      } else {
+        FX.detach();
+      }
+    });
+    if (S._fxShake && ctx.Bus && ctx.Bus.off) guard('fx.shake off', () => ctx.Bus.off('fx.shake', S._fxShake));
+    S._fxShake = null;
     if (S.layer) guard('layer remove', () => S.layer.remove());
     S.layer = null; S.els = {}; S.scene = null; S.own = null;
   }
@@ -1032,7 +1116,7 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
     /** While a fight is being resolved with no animation (a simulation, a critic's autoplay), draw no pops. */
     setInstant(v) { S.instant = !!v; if (S.instant && S.els.pops) S.els.pops.innerHTML = ''; },
     setTarget(id) { S.targetId = id || null; },
-    shake(n = 1) { S.shake = Math.max(S.shake, n); },
+    shake(n = 1) { S.shake = Math.max(S.shake, n); S.shakePeak = Math.max(S.shakePeak || 0, S.shake); },
     flash(o) { return Transitions.flash(o); },
     skipPanel() { if (!S.panel) return false; if (S.panel.t < 0.55) return true; nextPanelPhase(); return true; },
     clearFx() { guard('clear fx', () => Transitions.vignette(BASE_VIG, { ms: 300 })); },
@@ -1040,7 +1124,9 @@ export function createPresenter({ ctx = {}, terrain = 'grass', light = null, onS
       return {
         built: S.built, buildMs: S.buildMs, borrowed: S.borrowed, terrain: S.terrain,
         camera: { dist: Math.round(S.dist * 10) / 10, range: Math.round((S.range || 0) * 10) / 10, height: Math.round(S.fitTop * 100) / 100,
-          drift: Math.round(S.drift * 10) / 10, shake: Math.round(S.shake * 100) / 100 },
+          drift: Math.round(S.drift * 10) / 10, shake: Math.round(S.shake * 100) / 100,
+          shakePeak: Math.round((S.shakePeak || 0) * 100) / 100 },
+        fx: { played: S.fxPlayed || 0, last: S.lastFx, freeze: Math.round((S.freeze || 0) * 1000) / 1000 },
         origin: { x: Math.round(S.origin.x * 10) / 10, y: Math.round(S.origin.y * 10) / 10, z: Math.round(S.origin.z * 10) / 10 },
         dropped: S.dropped, pops: S.pops, panel: S.panel ? { who: S.panel.ev.name, level: S.panel.ev.level, phase: S.panel.phase, shown: S.panel.shown, learned: S.panel.learned.map((l) => l.name) } : null,
         tally: S.tally ? { rows: S.tally.rows.map((r) => r.lab + ' ' + r.n), drops: S.tally.drops.length,
@@ -1065,6 +1151,8 @@ export function install(ctx = {}) {
   injectCss();
   if (ctx.Debug) {
     ctx.Debug.provide('battlePresent', () => (LIVE.presenter ? LIVE.presenter.state() : null));
+    // Critic / scenario hook: fire a presentation event on the live fight (spell VFX, shake, etc.).
+    ctx.Debug.expose('battlePlay', (ev) => { if (LIVE.presenter) { LIVE.presenter.play(ev); return true; } return false; });
   }
   return { createPresenter };
 }

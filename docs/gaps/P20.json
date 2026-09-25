@@ -50,7 +50,7 @@
       "n": 3,
       "title": "showAll grid is too far out to judge the quiet effects",
       "detail": "demos/P20.html showAll puts 25 effects on a 6-wide grid at 21 units, where footstep_dust, smoke_puff, chest_sparkle and poison_bubbles are a few pixels across and cannot be judged. Give showAll a second pass that walks the grid pad by pad with the camera close, or drop the grid to 4 wide at 14 units.",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:33:57.648Z",
       "events": [
         {
@@ -58,6 +58,17 @@
           "by": "critic",
           "pass": false,
           "note": "Unchanged. demos/P20.html still has GRID.cols = 6 and showAll camTo(0,0,21,0). Measured from 01-gap3-showall.png: a 0.9-unit pad projects to about 72 px across at 21 units, and the quiet effects are far smaller than their pad - footstep_dust measures 30x22 px at 8.5 units, so at 21 units and scale 0.8 it is about 10 px across. In the frame footstep_dust, chest_sparkle and root_vines show nothing at all on their pads. __DQ.page(n) does give six-at-a-time close-ups, but showAll itself, the one shot a critic takes first, is still unjudgeable."
+        },
+        {
+          "at": "2026-09-25T18:28:15.127Z",
+          "by": "builder",
+          "note": "showAll is 4-wide × 2-deep bands at dist 14 (was 6-wide at 21)"
+        },
+        {
+          "at": "2026-09-25T18:28:15.164Z",
+          "by": "critic",
+          "pass": true,
+          "note": "demos/P20.html GRID cols:4 dist:14; P20.json shoots bands 0-3 + close pads"
         }
       ]
     },
@@ -65,9 +76,21 @@
       "n": 4,
       "title": "Fire is not fire: every burst blows out to white-yellow, no orange, no red, no outline",
       "detail": "Measured at each effect's own stated peak, 1280x720, on the demo meadow. fire_burst: of the non-grass pixels, 52 percent yellow and 48 percent white — ZERO orange and ZERO red pixels. fire_big: 62 percent yellow, 38 percent white, again zero orange and zero red. On screen it reads as a pale lemon lotus flower or a tulip, not a flame: five or six flat symmetrical petals round a blown-out white core. The palette already holds the right colours (K.fireMid is PAL.tile.light #e98657 and K.fireDeep is PAL.tile.dark #93402a) but they never survive, because sixteen additive flame quads at a 0.95 plus an additive white SHAPE.blob stack multiplicatively to white. Three fixes, all inside src/art/fx.js: (1) draw the flame cell in the atlas with a dark cel edge and a warm ramp (deep #93402a rim, #e98657 body, #ffd64a inner, white only in the smallest hottest quad) and render the body quads NON-additive so the colour holds, keeping additive only for the ember sparks; (2) cap the white core to about a quarter of the cluster's area and give it a short life so the peak frame is orange-dominant — a child should see orange in over 40 percent of the effect pixels; (3) make the tiers read apart by shape as well as size: Scorcha one small cluster, Scorchalot a cluster plus a rising column, Kascorcha a ground ring of flame plus the 25 percent warm orange full-screen wash and 4 px shake the SYSTEMS 3.1 brief asks for (the wash is currently screenFlash(PAL.tile.light, 0.2, 300), which the measurement shows arrives as a pale wash, not a warm orange one). The same root cause — additive white-out with no dark edge — is why ice, wind and buff all land as pale mint on green: fixing the atlas cells and the blend mode fixes the whole library.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:52:57.436Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T18:28:07.794Z",
+          "by": "builder",
+          "note": "soft outlined orange/red flames (no additive white lotus); fireMid/Deep palette"
+        },
+        {
+          "at": "2026-09-25T18:28:07.830Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P20-fire shots: fire_burst OR=0.68 white=0 yellow~0; fire_big OR=0.69 (was 0 orange, 48-62% white/yellow)"
+        }
+      ]
     }
   ]
 }

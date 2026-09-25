@@ -1,0 +1,25 @@
+{
+  "name": "P13 Bigger words stays on screen",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 300 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'leaving';}return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene==='field'", "timeout": 45000 },
+    { "wait": 500 },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));\nfunction cssBox(id){const el=document.querySelector('[data-dq=\"'+id+'\"]'); if(!el) return null; const r=el.getBoundingClientRect(); const vw=innerWidth, vh=innerHeight; return {overR:Math.max(0,+(r.right-vw).toFixed(1)),overB:Math.max(0,+(r.bottom-vh).toFixed(1)),right:+r.right.toFixed(1),bottom:+r.bottom.toFixed(1),top:+r.top.toFixed(1)};}\nfunction measure(){const fit=__DQ.state().menu.fit||[]; const by=Object.fromEntries(fit.map(x=>[x.id,x])); const misc=cssBox('m-misc'); const blurb=cssBox('m-blurb'); const st=cssBox('m-status'); return {misc,blurb,st,fitMisc:by['m-misc']||null,fitBlurb:by['m-blurb']||null,fitSt:by['m-status']||null,gapDes:(by['m-misc']&&by['m-blurb'])?(by['m-blurb'].top-by['m-misc'].bottom):null,settings:Object.assign({},__DQ.state().menu.settings)};}\nconst out={}; const set=__DQ.setOption;\nasync function openMisc(){__DQ.menuOpen(false);await sleep(350);__DQ.menuOpen(true);await sleep(450);__DQ.menuPick('misc');await sleep(700);}\nasync function openStatus(){__DQ.menuOpen(false);await sleep(350);__DQ.menuOpen(true);await sleep(450);__DQ.menuPick('status');await sleep(900);}\nfor (const sc of [1,1.12,1.26]) { set('scale',sc); await sleep(220); await openMisc(); out['misc_'+String(sc)]=measure(); await openStatus(); out['status_'+String(sc)]=measure(); }\nwindow.__CSS=out; return 'done';})()" },
+    { "eval": "__DQ.setOption('scale',1.26)" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));__DQ.menuOpen(false);await sleep(300);__DQ.menuOpen(true);await sleep(400);__DQ.menuPick('misc');await sleep(600);return 'misc';})()" },
+    { "shot": "misc-biggest" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));__DQ.menuOpen(false);await sleep(300);__DQ.menuOpen(true);await sleep(400);__DQ.menuPick('status');await sleep(800);return 'status';})()" },
+    { "shot": "status-biggest" },
+    { "eval": "JSON.stringify(window.__CSS)" },
+    { "assert": "window.__CSS['misc_1.26'].gapDes>=8", "msg": "Biggest Misc clears blurb" },
+    { "assert": "window.__CSS['misc_1.26'].misc.overR<=2 && window.__CSS['misc_1.26'].blurb.overR<=2", "msg": "Biggest Misc/blurb in viewport" },
+    { "assert": "window.__CSS['misc_1.26'].fitMisc.over===0 && window.__CSS['misc_1.26'].fitMisc.spill<=8", "msg": "Biggest Misc no design spill" },
+    { "assert": "window.__CSS['misc_1.12'].gapDes>=8 && window.__CSS['misc_1.12'].blurb.overR<=2", "msg": "Bigger Misc clears blurb" },
+    { "assert": "window.__CSS['status_1.26'].st.overB<=2 && window.__CSS['status_1.26'].st.overR<=2", "msg": "Biggest Status in viewport" },
+    { "assert": "window.__CSS['status_1.26'].fitSt.bottom<=720 && window.__CSS['status_1.26'].fitSt.over===0", "msg": "Biggest Status design fit" },
+    { "assert": "window.__CSS['status_1.12'].fitSt.bottom<=720", "msg": "Bigger Status design fit" },
+    { "eval": "__DQ.setOption('scale',1)" }
+  ]
+}

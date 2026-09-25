@@ -1,0 +1,19 @@
+{
+  "name": "P16 Act I monsters exist",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+    {"wait": 800},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 1200},
+    {"eval": "(async()=>{for(let i=0;i<12;i++){__DQ.press('cancel',40);await new Promise(r=>setTimeout(r,40));}const need=['crabbit','hoot_couture','batterfly','twiglet','quietling','mumbleroot'];const m=await import('/src/art/monsters.js');const M=m.Monsters||m.default;const out={};for(const id of need){const ok=M.has(id);let h=null,name=null;if(ok){const b=M.build(id);h=b&&b.height;name=b&&b.name;}out[id]={has:ok,height:h,name};}window.__ACT1=out;return JSON.stringify(out);})()"},
+    {"eval": "(async()=>{__DQ.teleport('meadow',6,2);await new Promise(r=>setTimeout(r,500));for(let i=0;i<6;i++){__DQ.press('cancel',40);await new Promise(r=>setTimeout(r,40));}__DQ.battle(['crabbit','quietling','twiglet']);await new Promise(r=>setTimeout(r,1800));window.__B1={scene:__DQ.state().scene,battle:__DQ.state().battle};return JSON.stringify(window.__B1);})()"},
+    {"shot": "01-act1-trio"},
+    {"eval": "(async()=>{for(let i=0;i<8;i++){__DQ.press('cancel',60);await new Promise(r=>setTimeout(r,100));}__DQ.battle(['mumbleroot']);await new Promise(r=>setTimeout(r,1800));window.__B2={scene:__DQ.state().scene,battle:__DQ.state().battle};return JSON.stringify(window.__B2);})()"},
+    {"shot": "02-mumbleroot"},
+    {"eval": "(async()=>{for(let i=0;i<8;i++){__DQ.press('cancel',60);await new Promise(r=>setTimeout(r,100));}__DQ.battle(['batterfly','hoot_couture']);await new Promise(r=>setTimeout(r,1800));window.__B3={scene:__DQ.state().scene};return JSON.stringify(window.__B3);})()"},
+    {"shot": "03-flyers"},
+    {"assert": "window.__ACT1 && Object.values(window.__ACT1).every(o=>o.has && o.height>0.2)", "msg": "six Act I species build with real height"},
+    {"assert": "window.__B1 && window.__B1.scene==='battle'", "msg": "crabbit/quietling/twiglet battle opens"},
+    {"assert": "window.__B2 && window.__B2.scene==='battle'", "msg": "mumbleroot boss battle opens"}
+  ]
+}

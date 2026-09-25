@@ -1,0 +1,19 @@
+{
+  "name": "P06 press Z at every door on the green",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 600 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title)return JSON.stringify(__DQ.title('game'));return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene!=='title'", "timeout": 30000 },
+    { "wait": 1000 },
+    { "eval": "(async()=>{const m=await import('/src/world/maps/puddlewick.js');const r=await import('/src/world/maps/int_rooms.js');window.__doors=m.puddlewickLayout().doors;window.__rooms=r.DOORS;return String(window.__rooms.length);})()" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const out=[];for(const D of window.__rooms){__DQ.teleport('meadow');await sleep(700);const d=window.__doors[D.plot];__DQ.teleport('puddlewick',d.x,d.z);await sleep(1400);const deg=d.facing*180/Math.PI;__DQ.face(deg);await sleep(200);const near=__DQ.state().player.near;__DQ.press('confirm');await sleep(1600);out.push({plot:D.plot,want:D.room,near:near&&near.name,went:__DQ.state().map.id,ok:__DQ.state().map.id===D.room});}window.__Z=out;return JSON.stringify(out);})()" },
+    { "eval": "JSON.stringify({zOk:window.__Z.filter(d=>d.ok).length,fail:window.__Z.filter(d=>!d.ok)})" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const out=[];for(const D of window.__rooms){__DQ.teleport('meadow');await sleep(600);__DQ.teleport(D.room);await sleep(1200);for(let k=0;k<18&&__DQ.state().scene!=='field';k++){__DQ.press('confirm');await sleep(300);}__DQ.face(0);await sleep(200);__DQ.press('confirm');await sleep(1400);if(__DQ.state().map.id===D.room){__DQ.cameraOrbit(180);await sleep(200);__DQ.hold('up',2000);await sleep(2400);}out.push({room:D.room,landed:__DQ.state().map.id,ok:__DQ.state().map.id==='puddlewick'});}window.__OUT=out;return JSON.stringify(out);})()" },
+    { "eval": "JSON.stringify({outOk:window.__OUT.filter(d=>d.ok).length,outFail:window.__OUT.filter(d=>!d.ok)})" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const ids=['hollybank','puddlewick_inn','int_bakery','int_shop','int_chapel','int_mill','int_barn','int_twins','int_hob','int_cottage'];const out=[];for(const id of ids){__DQ.teleport(id);await sleep(700);const t=__DQ.state().treasure||{};out.push({id,holding:t.holding||0});}return JSON.stringify({total:out.reduce((a,m)=>a+m.holding,0),empty:out.filter(m=>!m.holding).map(m=>m.id),per:out});})()" },
+    { "assert": "window.__Z && window.__Z.every(d=>d.ok)", "msg": "Z opens every door" },
+    { "assert": "window.__OUT && window.__OUT.every(d=>d.ok)", "msg": "every room walks/Z out" },
+    { "assert": "__DQ.errors.length===0", "msg": "no errors" }
+  ]
+}

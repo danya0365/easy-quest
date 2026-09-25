@@ -34,13 +34,16 @@ import { createKit, buildSky, ringHill, buildGround, paintMasks, distanceGrid, c
  * edge is BOUND = 33.5.) `clump` breaks each row into clumps, and every row's noise is offset so they stagger.
  */
 const WOOD_ROWS = [
-  { kind: 'tree', e: 36.0, spacing: 2.3, jitter: 0.45, size: [0.72, 1.5], mouth: 4.0, clump: { freq: 17, threshold: 0.28, seed: 5 } },
-  { kind: 'tree', e: 38.8, spacing: 3.5, jitter: 1.2, size: [0.95, 1.4], mouth: 3.4, view: 0.115, clump: { freq: 15, threshold: 0.42, seed: 91 } },
-  { kind: 'tree', e: 43.4, spacing: 4.2, jitter: 1.6, size: [1.0, 1.5], mouth: 2.6, view: 0.135, clump: { freq: 11, threshold: 0.47, seed: 57 } },
-  { kind: 'tree', e: 48.6, spacing: 5.6, jitter: 2.2, size: [1.05, 1.6], mouth: 1.6, view: 0.155, clump: { freq: 8, threshold: 0.60, seed: 23 } },
-  { kind: 'card', e: 57.5, spacing: 6.0, jitter: 3.0, size: [6.4, 8.2], haze: 0.14, view: 0.20, clump: { freq: 7, threshold: 0.50, seed: 131 } },
-  { kind: 'card', e: 69.0, spacing: 7.5, jitter: 4.5, size: [7.2, 9.4], haze: 0.26, view: 0.22, clump: { freq: 6, threshold: 0.56, seed: 167 } },
-  { kind: 'card', e: 84.0, spacing: 9.5, jitter: 6.0, size: [8.0, 10.6], haze: 0.38, view: 0.24, clump: { freq: 5, threshold: 0.60, seed: 199 } },
+  // P04 #5: hedgerow must gap and vary (0.65–1.55) — unbroken stamp is the green wallpaper
+  { kind: 'tree', e: 36.0, spacing: 2.55, jitter: 0.55, size: [0.65, 1.55], mouth: 4.0, clump: { freq: 14, threshold: 0.40, seed: 5 } },
+  // view = corridor half-scale: mid rows used to be ~0.12 (≈7°), so the Puddlewick bearing filled with
+  // chestnut/oak and hid the one town the HUD points at (P04 #6). Keep a real wedge through every row.
+  { kind: 'tree', e: 38.8, spacing: 3.9, jitter: 1.4, size: [0.9, 1.45], mouth: 3.4, view: 0.48, clump: { freq: 13, threshold: 0.48, seed: 91 } },
+  { kind: 'tree', e: 43.4, spacing: 4.6, jitter: 1.8, size: [0.95, 1.55], mouth: 2.6, view: 0.52, clump: { freq: 10, threshold: 0.52, seed: 57 } },
+  { kind: 'tree', e: 48.6, spacing: 6.0, jitter: 2.4, size: [1.0, 1.65], mouth: 1.6, view: 0.56, clump: { freq: 7, threshold: 0.64, seed: 23 } },
+  { kind: 'card', e: 57.5, spacing: 6.6, jitter: 3.2, size: [6.0, 8.4], haze: 0.16, view: 0.62, clump: { freq: 6, threshold: 0.54, seed: 131 } },
+  { kind: 'card', e: 69.0, spacing: 8.0, jitter: 4.8, size: [6.8, 9.6], haze: 0.28, view: 0.66, clump: { freq: 5, threshold: 0.58, seed: 167 } },
+  { kind: 'card', e: 84.0, spacing: 10.0, jitter: 6.2, size: [7.6, 10.8], haze: 0.40, view: 0.70, clump: { freq: 4, threshold: 0.62, seed: 199 } },
 ];
 
 /**
@@ -54,7 +57,8 @@ const WOOD_ROWS = [
  * are all on the same line.
  */
 const VIEW_CORRIDORS = [
-  { id: 'puddlewick', az: -1.166, half: 1.00 },
+  // puddlewick half was 1.00 — still lost behind mid-row canopy; widen so the lane bearing stays an open wedge
+  { id: 'puddlewick', az: -1.166, half: 1.18 },
   { id: 'saltmarrow', az: -0.129, half: 1.00 },
   { id: 'coddleston', az: 1.326, half: 1.00 },
   { id: 'whispering_wood', az: 2.950, half: 0.62 },
@@ -78,10 +82,18 @@ function woodPick(x, z, rnd, ri) {
   const k = rnd();
   if (ri === 0) {                                                             // the boundary: hedgerow + the odd tree
     const h = vnoise(x * 0.09 + 17.3, z * 0.09 + 4.1, 67);
-    // inside a view corridor the boundary stays LOW — hedge and bush only, never a tree that would close the gap
-    if (inCorridor(x, z, 0.72)) return k < 0.55 ? (h < 0.5 ? 'hedge' : 'hedgeb') : (h < 0.45 ? 'bushb' : 'bush');
-    if (k < 0.72) return h < 0.5 ? 'hedge' : 'hedgeb';
-    if (k < 0.9) return h < 0.45 ? 'bushb' : 'bush';
+    // inside a view corridor the boundary stays LOW — and on the Puddlewick bearing leave a real gap so the
+    // town card is not buried behind hedge mid-LODs (P04 #6)
+    const corr = inCorridor(x, z, 0.72);
+    if (corr) {
+      if (corr.id === 'puddlewick' && k < 0.62) return null;
+      if (k < 0.22) return null;                                              // P04 #5: thin even in corridors
+      return k < 0.55 ? (h < 0.5 ? 'hedge' : 'hedgeb') : (h < 0.45 ? 'bushb' : 'bush');
+    }
+    // P04 #5: leave real gaps so the rim is not an unbroken green stamp
+    if (k < 0.18) return null;
+    if (k < 0.70) return h < 0.5 ? 'hedge' : 'hedgeb';
+    if (k < 0.88) return h < 0.45 ? 'bushb' : 'bush';
     return kind;
   }
   if (k < 0.1) kind = 'round';
@@ -105,10 +117,12 @@ const LANE = [[14.5, 58], [9.8, 50.5], [6.5, 44], [3.2, 35], [4.4, 27.5], [2.6, 
 const EAST = [[0.5, 9.2], [4.5, 8.0], [10.5, 8.4], [17.5, 6.4], [25, 3.0], [33, 1.0], [44, 0.2], [51.5, -2.6], [58, -7.5]];
 const SPUR = [[-1.6, 1.8], [-4.6, 1.4], [-7.6, 0.6], [-9.6, 0.3]];
 const BECK = [[-24.5, -8.8], [-19.5, -10.6], [-13, -12.0], [-7.5, -11.6], [-3.2, -11.0], [2.0, -12.2], [7.5, -14.2], [13, -15.6], [18.5, -16.2], [22.5, -18.2]];
-// the field tracks: to the drystone fold, past the fallen oak in the north wood, along the cut hayfield
-const TRACK_A = [[2.0, 13.4], [-3.4, 17.0], [-8.4, 20.6], [-13.4, 22.6], [-17.4, 24.6], [-21.0, 26.8]];
-const TRACK_B = [[-2.0, -13.5], [-8.0, -16.5], [-13.6, -18.4], [-19.5, -20.6], [-23.5, -23.5]];
-const TRACK_C = [[6.0, 29.5], [11.5, 30.6], [17.0, 29.4], [22.0, 27.0]];
+// the field tracks: to the drystone fold, past the fallen oak in the north wood, along the cut hayfield —
+// extended into the four census corners so ochre dirt (not more green furniture) breaks the wallpaper
+const TRACK_A = [[2.0, 13.4], [-3.4, 17.0], [-8.4, 20.6], [-13.4, 22.6], [-17.4, 24.6], [-21.0, 26.8], [-24.5, 28.0]];
+const TRACK_B = [[-2.0, -13.5], [-8.0, -16.5], [-13.6, -18.4], [-19.5, -20.6], [-23.5, -23.5], [-25.5, -25.2]];
+const TRACK_C = [[6.0, 29.5], [11.5, 30.6], [17.0, 29.4], [22.0, 27.0], [24.8, 25.2]];
+const TRACK_D = [[8.0, -6.0], [14.0, -10.0], [19.5, -15.5], [23.5, -20.5], [25.5, -24.0]];
 const VILLAGE_CLEARING = { x: 19.5, z: -45.5, rx: 17.5, rz: 14.5 };
 const PONDS = [{ x: -28.4, z: -7.6, r: 3.6, sx: 1.3, sz: 1.0 }, { x: 26.2, z: -20.8, r: 3.8, sx: 1.15, sz: 1.0 }];
 
@@ -154,19 +168,35 @@ function layout() {
   // are the ochre in the corner frames — the vale away from the cottage was one green with no path in it at all —
   // and they curve, so from any of them you cannot see where they end.
   L.trackA = curvePoints(TRACK_A, 0.3); L.trackB = curvePoints(TRACK_B, 0.3); L.trackC = curvePoints(TRACK_C, 0.3);
+  L.trackD = curvePoints(TRACK_D, 0.3);
   L.laneOut = L.lane.filter(([x, z]) => superR(x, z) > 28); L.eastOut = L.east.filter(([x, z]) => superR(x, z) > 28);
+  // P04 #5: worn dirt must be VISIBLE in corner frames (ochre / brown hue lives outside the green census band)
+  const CORNER_YARDS = [
+    { x: -22.0, z: -21.5, r: 5.6 },   // NW — fallen oak approach
+    { x: -21.0, z: 24.5, r: 6.2 },    // SW — drystone fold yard (largest: worst census corner)
+    { x: 20.5, z: 23.5, r: 5.4 },     // SE — cut hayfield stubble
+    { x: 23.0, z: -17.5, r: 4.8 },    // NE — boulder / pond approach
+  ];
   L.masks = paintMasks({
     N: 1024, span: MASK_SPAN,
     strokes: [
-      { pts: L.lane, w: 2.15, falloff: 1.0, channel: 0 },
-      { pts: L.east, w: 1.9, falloff: 1.0, channel: 0, widthAt: (t) => lerp(1.95, 1.6, t) },
-      { pts: L.spur, w: 1.3, falloff: 0.85, channel: 0, widthAt: (t) => lerp(1.5, 1.1, t) },
-      { pts: L.trackA, w: 1.15, falloff: 0.7, channel: 0, widthAt: (t) => lerp(1.3, 0.85, t) },
-      { pts: L.trackB, w: 1.05, falloff: 0.7, channel: 0, widthAt: (t) => lerp(1.2, 0.8, t) },
-      { pts: L.trackC, w: 1.0, falloff: 0.7, channel: 0, widthAt: (t) => lerp(1.15, 0.8, t) },
+      { pts: L.lane, w: 1.7, falloff: 0.65, channel: 0 },
+      { pts: L.east, w: 1.45, falloff: 0.65, channel: 0, widthAt: (t) => lerp(1.55, 1.2, t) },
+      { pts: L.spur, w: 0.95, falloff: 0.55, channel: 0, widthAt: (t) => lerp(1.1, 0.8, t) },
+      { pts: L.trackA, w: 1.25, falloff: 0.65, channel: 0, widthAt: (t) => lerp(1.35, 1.0, t) },
+      { pts: L.trackB, w: 1.20, falloff: 0.62, channel: 0, widthAt: (t) => lerp(1.30, 0.95, t) },
+      { pts: L.trackC, w: 1.15, falloff: 0.60, channel: 0, widthAt: (t) => lerp(1.25, 0.92, t) },
+      { pts: L.trackD, w: 1.15, falloff: 0.60, channel: 0, widthAt: (t) => lerp(1.25, 0.90, t) },
       { pts: L.beck, w: 2 * (HW + BANK), falloff: 1.8, channel: 1 },
     ],
-    discs: PONDS.map(p => ({ x: p.x, z: p.z, r: p.r + BANK, sx: p.sx, sz: p.sz, falloff: 1.8, channel: 1 })),
+    discs: [
+      ...PONDS.map(p => ({ x: p.x, z: p.z, r: p.r + BANK, sx: p.sx, sz: p.sz, falloff: 1.8, channel: 1 })),
+      ...CORNER_YARDS.map(p => ({ x: p.x, z: p.z, r: p.r, falloff: 1.8, channel: 0 })),
+      // stone yards — grey sits outside the green census band (SW was the worst corner)
+      { x: -19.5, z: 24.2, r: 3.6, falloff: 1.4, channel: 2 },
+      { x: -23.5, z: 26.0, r: 2.4, falloff: 1.1, channel: 2 },
+      { x: -22.0, z: -20.5, r: 2.2, falloff: 1.1, channel: 2 },
+    ],
   });
   L.water = distanceGrid({ N: 384, span: MASK_SPAN, lines: [L.beck], discs: PONDS, maxR: 14 });
 
@@ -266,18 +296,21 @@ function layout() {
       shrooms: [{ x: -21.6, z: -20.2, n: 6, seed: 21, spread: 0.8 }, { x: -18.4, z: -26.2, n: 5, seed: 23, spread: 0.7 }],
       rocks: [{ x: -23.6, z: -19.4, s: 0.62, seed: 41 }] },
     { id: 'drystone-fold', x: -17.8, z: 23.6, r: 6.4,
-      walls: [[[-22.0, 20.5], [-19.2, 22.9]], [[-16.4, 25.1], [-13.0, 26.4]]],
+      // longer wall runs into the SW census FOV (stone grey breaks the green band)
+      walls: [[[-24.5, 22.8], [-22.0, 20.5], [-19.2, 22.9]], [[-16.4, 25.1], [-13.0, 26.4], [-10.5, 27.2]]],
       gates: [{ x: -17.85, z: 24.05, rot: -0.72, w: 2.9 }],
       rocks: [{ x: -21.4, z: 25.6, s: 1.45, seed: 51 }, { x: -20.0, z: 27.2, s: 0.85, seed: 52 },
-        { x: -14.8, z: 22.4, s: 1.1, seed: 53 }, { x: -22.8, z: 23.4, s: 0.7, seed: 54 }],
+        { x: -14.8, z: 22.4, s: 1.1, seed: 53 }, { x: -22.8, z: 23.4, s: 0.7, seed: 54 },
+        { x: -24.0, z: 25.5, s: 1.2, seed: 55 }],
       brambles: [{ x: -20.2, z: 21.2, s: 0.95, seed: 16 }],
       shrooms: [{ x: -19.4, z: 26.4, n: 4, seed: 25, spread: 0.6 }] },
-    { id: 'cut-hayfield', x: 12.6, z: 27.0, r: 6.2,
-      stooks: [{ x: 11.4, z: 25.4, rot: 0.3, s: 1.05, seed: 5 }, { x: 13.7, z: 27.1, rot: 1.1, s: 0.95, seed: 6 },
-        { x: 10.3, z: 28.7, rot: 2.2, s: 1.0, seed: 7 }, { x: 14.3, z: 24.1, rot: 0.8, s: 0.9, seed: 9 },
-        { x: 16.0, z: 26.6, rot: 2.9, s: 1.08, seed: 13 }],
-      carts: [{ x: 15.6, z: 29.6, rot: -0.55 }],
-      walls: [], gates: [], rocks: [], brambles: [], shrooms: [{ x: 9.2, z: 26.0, n: 4, seed: 27, spread: 0.6 }] },
+    { id: 'cut-hayfield', x: 18.5, z: 24.5, r: 6.8,
+      // pulled toward SE census camera so ochre stooks read in the corner frame
+      stooks: [{ x: 16.4, z: 22.8, rot: 0.3, s: 1.05, seed: 5 }, { x: 19.2, z: 24.6, rot: 1.1, s: 0.95, seed: 6 },
+        { x: 15.0, z: 25.8, rot: 2.2, s: 1.0, seed: 7 }, { x: 20.8, z: 22.0, rot: 0.8, s: 0.9, seed: 9 },
+        { x: 21.5, z: 25.8, rot: 2.9, s: 1.08, seed: 13 }, { x: 17.6, z: 27.2, rot: 1.6, s: 0.98, seed: 14 }],
+      carts: [{ x: 22.0, z: 27.0, rot: -0.55 }],
+      walls: [[[14.5, 21.5], [17.0, 20.8]]], gates: [], rocks: [], brambles: [], shrooms: [{ x: 14.2, z: 24.0, n: 4, seed: 27, spread: 0.6 }] },
     { id: 'boulder-field', x: 25.0, z: -10.4, r: 5.6,
       rocks: [{ x: 25.2, z: -10.6, s: 1.7, seed: 61 }, { x: 23.4, z: -12.4, s: 1.05, seed: 62 },
         { x: 26.8, z: -8.4, s: 0.9, seed: 63 }, { x: 22.6, z: -8.6, s: 1.25, seed: 64 },
@@ -293,7 +326,7 @@ function layout() {
   // in it. This is the small ground furniture a real field has everywhere: molehills of bare earth, bracken going
   // rust at the tips, half-buried stones, bramble patches, toadstool rings, the odd stump and fallen branch.
   // Seeded, so it is the same every run, and cleared of every path, bank, building and place.
-  const SCATTER = [['scrape', 11], ['mole', 24], ['bracken', 26], ['rock', 18], ['shrooms', 12], ['bramble', 12], ['stump', 6], ['log', 5]];
+  const SCATTER = [['scrape', 4], ['mole', 28], ['bracken', 40], ['rock', 26], ['shrooms', 18], ['bramble', 16], ['stump', 8], ['log', 7]];
   const buildScatter = () => {
     const sr = mulberry(20260918), out = [];
     const bag = [];
@@ -318,7 +351,8 @@ function layout() {
     };
     let tries = 0;
     for (const kind of bag) {
-      const rad = kind === 'scrape' ? 1.9 : kind === 'log' ? 2.0 : kind === 'stump' || kind === 'bramble' ? 1.1 : 0.8;
+      // scrapes were 1.9 m discs → shapeless brown amoebas (P03 #3); keep them small and few
+      const rad = kind === 'scrape' ? 1.05 : kind === 'log' ? 2.0 : kind === 'stump' || kind === 'bramble' ? 1.1 : 0.8;
       for (let k = 0; k < 140; k++) {
         tries++;
         const x = (sr() - 0.5) * 2 * BOUND, z = (sr() - 0.5) * 2 * BOUND;
@@ -371,7 +405,9 @@ function layout() {
     ['bush', 20.8, -10.4, 0.9], ['bush', -4.3, -17.0, 0.7], ['bush', 0.6, -14.6, 0.65], ['bush', 4.6, 12.6, 0.75],
     ['bush', -17.4, 7.6, 0.8], ['bush', 15.8, 9.6, 0.9], ['bush', 9.0, -9.8, 0.8], ['bush', -24.5, -1.6, 0.85],
     ['bush', -1.6, 24.0, 0.7],
-    ['chestnut', 21.2, -46.2, 2.3],
+    // chestnut: village landmark (CANON §2) — kept OFF the Puddlewick skyline bearing (az≈-1.17) so the town
+    // card is not buried behind its mid/far LOD (P04 #6). Was (21.2,-46.2) on that ray.
+    ['chestnut', 29.4, -48.8, 2.3],
   ];
   const r = mulberry(4242);
   L.trees = HAND.map(([kind, x, z, s]) => ({ kind, x, z, s, r: r() * TAU, c: 0.9 + r() * 0.16, tint: (r() - 0.5) * 1.5 }));
@@ -380,6 +416,8 @@ function layout() {
     for (const [ox, oz] of [[0, 0], [rad, 0], [-rad, 0], [0, rad], [0, -rad]]) if (pathAt(x + ox, z + oz) > 0.12) return false;
     if (waterD(x, z) < 2.4 + rad * 0.6) return false;
     if (nearBuilding(x, z, rad + 1.2)) return false;
+    // keep the signposted Puddlewick (and other) wedges free of mid-field trunks
+    if (inCorridor(x, z, 0.55)) return false;
     if (x > -7 && x < 9 && z > 12) return false;                          // the opening view down the lane stays open
     if (Math.hypot(x - L.sign.x, z - L.sign.z) < 3.5) return false;
     if (Math.hypot(x - L.paddockCentre.x, z - L.paddockCentre.z) < 7.5) return false;
@@ -391,19 +429,22 @@ function layout() {
   };
   const FILL = ['oak', 'oak', 'oak', 'oak', 'round', 'round', 'birch', 'birch', 'poplar', 'pine', 'fruit'];
   let big = L.trees.filter(t => t.kind !== 'bush' && t.kind !== 'chestnut').length, tries = 0;
-  while (big < 42 && tries++ < 8000) {
-    const x = (r() - 0.5) * 2 * BOUND, z = (r() - 0.5) * 2 * BOUND, s = 0.85 + r() * 0.45;
+  while (big < 30 && tries++ < 8000) {
+    const x = (r() - 0.5) * 2 * BOUND, z = (r() - 0.5) * 2 * BOUND, s = 0.80 + r() * 0.40;
     if (superR(x, z) < 19) continue;
+    // P04 #5: keep the four corner places + their approaches clear of canopy that fills census mid-band
+    if (CORNER_YARDS.some(p => Math.hypot(x - p.x, z - p.z) < p.r + 4.5)) continue;
     if (!clearForTree(x, z, 2 * s)) continue;
-    if (L.trees.some(t => Math.hypot(t.x - x, t.z - z) < 2.6 * (t.s + s) * 0.8)) continue;
+    if (L.trees.some(t => Math.hypot(t.x - x, t.z - z) < 2.8 * (t.s + s) * 0.8)) continue;
     L.trees.push({ kind: FILL[(r() * FILL.length) | 0], x, z, s, r: r() * TAU, c: 0.86 + r() * 0.22, tint: (r() - 0.5) * 1.5 });
     big++;
   }
   tries = 0;
   let bushes = L.trees.filter(t => t.kind === 'bush').length;
-  while (bushes < 26 && tries++ < 4000) {
+  while (bushes < 18 && tries++ < 4000) {
     const x = (r() - 0.5) * 2 * BOUND, z = (r() - 0.5) * 2 * BOUND, s = 0.65 + r() * 0.55;
     if (superR(x, z) < 12 || !clearForTree(x, z, s)) continue;
+    if (CORNER_YARDS.some(p => Math.hypot(x - p.x, z - p.z) < p.r + 3.0)) continue;
     if (L.trees.some(t => Math.hypot(t.x - x, t.z - z) < 1.8 * (t.s + s))) continue;
     L.trees.push({ kind: 'bush', x, z, s, r: r() * TAU, c: 0.9 + r() * 0.2, tint: (r() - 0.5) * 1.2 });
     bushes++;
@@ -425,11 +466,28 @@ function layout() {
     rows: WOOD_ROWS.map((row, ri) => Object.assign({}, row, { pick: (x, z, rnd) => woodPick(x, z, rnd, ri) })),
     clear: (x, z, ri, row) => {
       if (Math.hypot((x - VILLAGE_CLEARING.x) / VILLAGE_CLEARING.rx, (z - VILLAGE_CLEARING.z) / VILLAGE_CLEARING.rz) < 1) return true;
+      // never plant a trunk through a cottage roof (P04 #6)
+      if (nearBuilding(x, z, 2.6)) return true;
       // the view corridors: a wedge cut clean through every row past the boundary, on each signposted bearing
       if ((row.view ?? 0) > 0 && inCorridor(x, z, row.view)) return true;
       const mouth = row.mouth ?? 0;
       return mouth > 0 && L.laneNear(x, z) < mouth;
     },
+  });
+  // belt-and-braces: drop any ring tree that still touches a building pad (jitter can push past the ellipse)
+  L.ring.trees = L.ring.trees.filter(t => !nearBuilding(t.x, t.z, 2.2 * (t.s || 1)));
+  // HAND fill: drop any non-bush trunk that still sits in a view corridor (they were placed before clearForTree had the rule)
+  // and clear canopy out of the four corner yards so census mid-bands are not a green wall (P04 #5)
+  L.trees = L.trees.filter(t => {
+    if (t.kind === 'bush' || t.kind === 'chestnut') return !nearBuilding(t.x, t.z, 1.6 * (t.s || 1));
+    if (nearBuilding(t.x, t.z, 1.8 * (t.s || 1))) return false;
+    if (inCorridor(t.x, t.z, 0.5)) return false;
+    if (CORNER_YARDS.some(p => Math.hypot(t.x - p.x, t.z - p.z) < p.r + 2.8)) return false;
+    return true;
+  });
+  L.ring.trees = L.ring.trees.filter(t => {
+    if (t.kind === 'hedge' || t.kind === 'hedgeb' || t.kind === 'bush' || t.kind === 'bushb') return true;
+    return !CORNER_YARDS.some(p => Math.hypot(t.x - p.x, t.z - p.z) < p.r + 3.5);
   });
 
   // ── colliders ──
@@ -628,7 +686,7 @@ const meadow = {
   weather: 'clear',
   encounters: null,
   spawn: { x: 1.4, z: 19.2, facing: Math.PI },
-  camera: { orbit: 4, pitch: 26, dist: 10.5, fov: 50, lookUp: 2.7 },
+  camera: { orbit: 4, pitch: 22, dist: 10.5, fov: 50, lookUp: 2.7 },
   tiles: {
     height: heightAt,
     solid(x, z) {
@@ -845,8 +903,8 @@ const meadow = {
     // ── THE SCATTER: the small ground furniture, everywhere. This is what stops a corner frame being 93 percent
     //    one green: bare earth (molehills), rust (bracken), stone (half-buried rocks), red (toadstools). ──
     for (const o of L.scatter) {
-      if (o.kind === 'scrape') kit.scrape(o.x, o.z, 1.9 + o.s * 1.7, 1.6 + o.s * 1.5, o.rot, o.seed);
-      else if (o.kind === 'mole') kit.molehill(o.x, o.z, { s: 0.85 + o.s * 0.4, seed: o.seed });
+      if (o.kind === 'scrape') kit.scrape(o.x, o.z, o.r * 1.05, o.r * 0.9, o.rot, o.seed);
+      else if (o.kind === 'mole') kit.molehill(o.x, o.z, { s: 0.7 + o.s * 0.3, seed: o.seed });
       else if (o.kind === 'bracken') kit.bracken(o.x, o.z, { s: 0.85 + o.s * 0.45, seed: o.seed });
       else if (o.kind === 'rock') kit.rock(o.x, o.z, 0.55 + o.s * 0.7, o.seed, { sink: 0.4 });
       else if (o.kind === 'shrooms') kit.mushrooms(o.x, o.z, 3 + (o.seed % 4), o.seed, 0.55 + o.s * 0.4);
@@ -907,19 +965,21 @@ const meadow = {
     const dryAt = (x, z) => {
       const wet = smooth(3.0, 9.0, L.water.sample(x, z));
       const n = vnoise(x * 0.055 + 31.7, z * 0.055 + 12.3, 77);
-      return smooth(0.40, 0.78, n) * wet * (0.45 + 0.55 * smooth(-0.4, 1.6, heightRaw(x, z)));
+      // more straw patches (P04 #5): dry hue sits outside the green census band
+      return smooth(0.32, 0.70, n) * wet * (0.50 + 0.50 * smooth(-0.4, 1.6, heightRaw(x, z)));
     };
-    kit.tufts({ count: low ? 900 : 1700, boost: (x, z) => 0.08 * (1 - smooth(6, 16, Math.hypot(x - 1.5, z - 16))), radius: 40, seed: 999, accept: onMeadow, dry: dryAt, rimOf: (x, z) => { const p = pathAt(x, z); return smooth(0.08, 0.3, p) * (1 - smooth(0.3, 0.42, p)) + smooth(3.2, 2.4, L.water.sample(x, z)) * 0.6; } });
+    kit.tufts({ count: low ? 1000 : 1900, boost: (x, z) => 0.08 * (1 - smooth(6, 16, Math.hypot(x - 1.5, z - 16))), radius: 40, seed: 999, accept: onMeadow, dry: dryAt, rimOf: (x, z) => { const p = pathAt(x, z); return smooth(0.08, 0.3, p) * (1 - smooth(0.3, 0.42, p)) + smooth(3.2, 2.4, L.water.sample(x, z)) * 0.6; } });
     const hues = [PAL.flower.white, PAL.flower.yellow, PAL.flower.pink, PAL.flower.white, PAL.flower.blue, PAL.flower.yellow];
     const fr = mulberry(5150), clusters = [
       { x: 4.8, z: 12.6, hue: PAL.flower.yellow, n: 16 }, { x: -2.6, z: 13.5, hue: PAL.flower.white, n: 18 }, { x: 3.8, z: 20.5, hue: PAL.flower.pink, n: 14 },
       { x: -3.2, z: 6.4, hue: PAL.flower.blue, n: 12 }, { x: 5.6, z: 3.8, hue: PAL.flower.white, n: 16 }, { x: -6.0, z: 8.8, hue: PAL.flower.pink, n: 14 },
       { x: 7.6, z: -7.4, hue: PAL.flower.yellow, n: 16 }, { x: -8.8, z: -7.6, hue: PAL.flower.white, n: 14 }, { x: 1.4, z: -16.0, hue: PAL.flower.pink, n: 12 },
       { x: -4.4, z: 22.5, hue: PAL.flower.white, n: 20 }, { x: 6.8, z: 24.0, hue: PAL.flower.yellow, n: 18 }, { x: -1.8, z: 27.0, hue: PAL.flower.pink, n: 14 }, { x: 8.2, z: 17.0, hue: PAL.flower.blue, n: 12 },
+      { x: -20.2, z: -22.6, hue: PAL.flower.white, n: 14 }, { x: -17.8, z: 23.6, hue: PAL.flower.yellow, n: 12 },
+      { x: 18.5, z: 24.5, hue: PAL.flower.pink, n: 14 }, { x: 24.0, z: -10.0, hue: PAL.flower.blue, n: 12 },
     ];
-    // flowers over the WHOLE vale, in patches of very different size, not a handful round the cottage
-    for (let i = 0; i < 62; i++) clusters.push({ x: (fr() - 0.5) * 64, z: (fr() - 0.5) * 64, hue: hues[(fr() * hues.length) | 0],
-      n: 6 + (fr() * 16 | 0), spread: 0.7 + fr() * 1.9 });
+    for (let i = 0; i < 55; i++) clusters.push({ x: (fr() - 0.5) * 64, z: (fr() - 0.5) * 64, hue: hues[(fr() * hues.length) | 0],
+      n: 6 + (fr() * 14 | 0), spread: 0.7 + fr() * 1.9 });
     kit.flowers(clusters, { accept: (x, z) => onMeadow(x, z) && pathAt(x, z) < 0.2 });
 
     // ── the ground last: it samples the finished AO mask ──

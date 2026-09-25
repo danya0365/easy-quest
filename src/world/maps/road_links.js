@@ -61,6 +61,21 @@ export const AREA_OF = Object.freeze({
   cobwell_upper: 'cobwell_manor',
   cobwell_cellar: 'cobwell_manor',
   cobwell_belfry: 'cobwell_manor',
+  // Act II/III stubs — field/dungeon bowls use long_lane until dedicated areas land
+  quiet_quarry: 'long_lane',
+  whistling_caves: 'whispering_wood',
+  gogglestone_caves: 'whispering_wood',
+  marbleford: null,
+  ambergarde: null,
+  sighing_grotto: 'long_lane',
+  fairweather_hall: null,
+  marbleford_chapel: null,
+  ambergarde_keep: null,
+  stone_garden: 'long_lane',
+  bellhollow_abbey: null,
+  highfeather: 'long_lane',
+  whistfell_abbey: 'cobwell_manor',
+  quiet_deep: 'cobwell_manor',
 });
 
 let done = false;

@@ -64,7 +64,11 @@ export default interiorMap({
     { type: 'hay', name: 'the hay', x: SPOTS.hay.x - 1.5, z: SPOTS.hay.z, line: 'hay', reach: 2.0, height: 1.2 },
     { type: 'sign', name: "Parsnip's harness", x: SPOTS.harness.x, z: SPOTS.harness.z + 0.7, line: 'harness', reach: 1.8, height: 1.8 },
     { type: 'sign', name: 'the empty space', x: SPOTS.wagon.x, z: SPOTS.wagon.z, line: 'wagon-space', reach: 1.9, height: 1.4 },
-    { type: 'stairs', name: 'the loft ladder', x: SPOTS.loft.x - 1.1, z: SPOTS.loft.z + 1.3, line: 'loft', reach: 1.9, height: 2.2 },
+    { type: 'stairs', name: 'the loft ladder', x: SPOTS.loft.x - 1.1, z: SPOTS.loft.z + 1.3, line: 'loft', reach: 1.9, height: 2.2,
+      talk({ field }) {
+        try { field.teleport('int_barn_loft'); } catch (e) { /* field reports */ }
+        return null;
+      } },
   ],
 
   lines: {

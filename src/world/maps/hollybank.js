@@ -223,7 +223,9 @@ const hollybank = {
       windows: [
         { side: 'south', at: -5.0, y: 1.35, w: 1.0, h: 0.9, shutter: PAL.paint.shutterGreen },
         { side: 'south', at: 2.2, y: 1.35, w: 1.0, h: 0.9, shutter: PAL.paint.shutterGreen },
-        { side: 'west', at: 1.4, y: 1.35, w: 0.9, h: 0.85, shutter: PAL.paint.shutterGreen },
+        // west: the window that looks at the chestnut (WORLD-BIBLE §3)
+        { side: 'west', at: 1.4, y: 1.35, w: 0.9, h: 0.85, shutter: PAL.paint.shutterGreen,
+          view: mixHex(PAL.hill.near, PAL.flower.yellow, 0.22) },
         { side: 'east', at: SPOTS.loftWindow.z, y: SPOTS.loftWindow.y, w: 0.9, h: 0.72, shutter: false },
       ],
     }));

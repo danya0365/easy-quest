@@ -257,14 +257,16 @@ export function buildGround(scene, { heightAt, masks, ao, shade = null, inner = 
                      + ( texture2D( tDqNoise, vDqWorld.xz * 0.55 + vec2( 0.21, 0.77 ) ).r - 0.5 ) * 0.17;
     diffuseColor.rgb = mix( diffuseColor.rgb, mix( diffuseColor.rgb, uLush * 0.88, 0.60 ), smoothstep( 0.02, 0.26, wetB ) );
     vec3 bankCol = mix( uBank, mix( uBank, uCrown, 0.55 ), smoothstep( 0.42, 0.88, texture2D( tDirtMap, vDqWorld.xz / 1.7 ).r ) );
-    diffuseColor.rgb = mix( diffuseColor.rgb, bankCol, smoothstep( 0.13, 0.45, wetB ) * 0.90 );
-    diffuseColor.rgb = mix( diffuseColor.rgb, uBank * 0.68, smoothstep( 0.45, 0.55, wetB ) );
+    // bank dirt was reading as huge bare-mud patches from gameplay height (P03 #3): keep a damp lip, lose the
+    // wide brown shelf. Approved frame is ~13% bare earth; wetB mix used to push 40–60% of the lower frame mud.
+    diffuseColor.rgb = mix( diffuseColor.rgb, bankCol, smoothstep( 0.28, 0.52, wetB ) * 0.55 );
+    diffuseColor.rgb = mix( diffuseColor.rgb, uBank * 0.68, smoothstep( 0.50, 0.62, wetB ) * 0.7 );
     // worn path
     float pd = mk.r + edgeN;
     float aa = fwidth( pd ) * 0.8 + 0.003;
     float isPath = smoothstep( 0.5 - aa, 0.5 + aa, pd );
     float rim = smoothstep( 0.24, 0.5, pd ) * ( 1.0 - isPath );
-    diffuseColor.rgb = mix( diffuseColor.rgb, mix( diffuseColor.rgb, uDry, 0.65 ), rim * 0.85 );
+    diffuseColor.rgb = mix( diffuseColor.rgb, mix( diffuseColor.rgb, uDry, 0.40 ), rim * 0.55 );
     vec3 dirt = texture2D( tDirtMap, vDqWorld.xz / 3.3 ).rgb;
     dirt = mix( dirt, mix( dirt, uCrown, 0.45 ), smoothstep( 0.74, 0.98, mk.r ) * ( 0.4 + 0.6 * nB.r ) );
     dirt = mix( dirt, uLip * 0.92, ( 1.0 - smoothstep( 0.5, 0.58, pd ) ) * 0.45 );
@@ -451,9 +453,9 @@ export function terrainRecipes(kit) {
       h0 += ( rings * 0.07 + splash * 0.12 );
       ringAmt = max( 0.0, rings ) + splash * 0.8;
     }
-    float amp = 0.048;
+    float amp = 0.11;   // was 0.048 — too flat at gameplay boom (P03 #2 luminance SD ~4 vs grass ~19)
     vec3 N = normalize( vec3( -grad.x * amp, 1.0, -grad.y * amp ) );
-    float ripple = ( h0 - 0.5 ) * 1.3;
+    float ripple = ( h0 - 0.5 ) * 1.85;
     // ── the bed, read through the water ───────────────────────────────────────────────────────────────────
     float d = max( vDqDepth, 0.0 ) + ripple * 0.05;
     float shallow = 1.0 - smoothstep( 0.02, uDqShore * 1.3, d );
@@ -493,18 +495,18 @@ export function terrainRecipes(kit) {
     // one very fine train, about a hand's breadth across, so there is still something happening on the surface
     // when the camera is right down on it — and so the sun path sparkles instead of being a sheet
     float spark = dqN( W * 9.5 + vec2( uEnvTime * 0.26, -uEnvTime * 0.19 ) );
-    col *= 0.972 + 0.054 * spark;
+    col *= 0.94 + 0.12 * spark;
     // and a last, very fine chop for when the camera is right down on the water: without it the near half of the
     // Beck measured a micro high-pass of 0.56 against 3.9 for the grass beside it — glass, not water. It fades
-    // out by 18 m so it can never alias into shimmer on the far surface.
-    float nearW = 1.0 - smoothstep( 5.0, 18.0, length( vDqWPos - cameraPosition ) );
+    // out by 22 m so mid-field water still has chop at the play boom (~6–10 m), not only at kissing distance.
+    float nearW = 1.0 - smoothstep( 4.0, 22.0, length( vDqWPos - cameraPosition ) );
     if ( nearW > 0.004 ) {
       // 5.5 and 12 cycles a metre, not 24 and 41: a noise tile squeezed below a few pixels is minified back to
       // flat grey by the GPU, so pushing the frequency higher buys nothing and costs a fetch.
       float chop = dqN( W * 5.5 + vec2( -uEnvTime * 0.16, uEnvTime * 0.12 ) ) * 0.58
                  + dqN( mat2( 0.6, 0.8, -0.8, 0.6 ) * W * 12.0 - vec2( uEnvTime * 0.21, 0.0 ) ) * 0.42;
-      col *= 1.0 + ( chop - 0.5 ) * 0.26 * nearW;
-      col += uEnvSun * smoothstep( 0.84, 1.0, chop ) * pow( toSun, 6.0 ) * 0.35 * lit * nearW;
+      col *= 1.0 + ( chop - 0.5 ) * 0.42 * nearW;
+      col += uEnvSun * smoothstep( 0.78, 1.0, chop ) * pow( toSun, 6.0 ) * 0.45 * lit * nearW;
     }
     col += uEnvSun * smoothstep( 0.80, 0.99, spark ) * pow( toSun, 7.0 ) * 0.55 * lit;
     col = min( col, vec3( 1.12 ) );
@@ -516,7 +518,9 @@ export function terrainRecipes(kit) {
     col = mix( col, uDqFoam, clamp( foam, 0.0, 1.0 ) * 0.34 );
     col += uDqFoam * ringAmt * 0.30;                  // the crest of each ring catches the light
     // the fine train also shades the colour directly, so a wavelet reads even when it is too small to tilt
-    col *= 0.905 + 0.195 * fineRip;
+    col *= 0.86 + 0.28 * fineRip;
+    // wave-height tone so luminance SD rises at gameplay distance (P03 #2)
+    col *= 0.88 + 0.24 * h0;
     // keep the blue BLUE: the reflection, the caustics and the foam all pull toward white, and a river that goes
     // grey stops reading as water at all
     col = mix( vec3( dot( col, vec3( 0.2126, 0.7152, 0.0722 ) ) ), col, 1.22 );

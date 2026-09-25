@@ -1,0 +1,15 @@
+{
+  "name": "P06 debug door props on live map",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 600 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title)return JSON.stringify(__DQ.title('game'));return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene!=='title'", "timeout": 30000 },
+    { "wait": 800 },
+    { "eval": "JSON.stringify(__DQ.teleport('puddlewick'))" },
+    { "wait": 1500 },
+    { "eval": "(async()=>{const w=(await import('/src/world/field.js')).Field.world();const doors=w.map.props.filter(p=>p.type==='door').map(p=>({name:p.name,x:+p.x.toFixed(2),z:+p.z.toFixed(2),talk:typeof p.talk,reach:p.reach}));const near=w.map.nearestInteractable(5.76,-1.27,0,-1);return JSON.stringify({doorProps:doors.length,doors,nearInn:near&&{name:near.target.name,type:near.target.type,dist:+near.dist.toFixed(2)},mapsHasBarn:(await import('/src/world/map.js')).Maps.has('int_barn')});})()" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const r=__DQ.teleport('int_barn');await sleep(1000);return JSON.stringify({teleport:r,map:__DQ.state().map.id});})()" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));__DQ.teleport('puddlewick',-16.9,-1.2);await sleep(1000);const w=(await import('/src/world/field.js')).Field.world();const near=w.map.nearestInteractable(__DQ.state().player.x,__DQ.state().player.z,Math.sin(__DQ.state().player.facing*Math.PI/180),Math.cos(__DQ.state().player.facing*Math.PI/180));const before=__DQ.state().map.id;if(near&&near.target.talk)near.target.talk({field:(await import('/src/world/field.js')).Field});await sleep(1500);return JSON.stringify({before,near:near&&{name:near.target.name,type:near.target.type,dist:+near.dist.toFixed(2)},after:__DQ.state().map.id,player:{x:+__DQ.state().player.x.toFixed(2),z:+__DQ.state().player.z.toFixed(2)}});})()" }
+  ]
+}

@@ -51,7 +51,7 @@ const STRIDE = 0.55;                    // world units in one pace
  */
 const SAFE_RADIUS = 5;                  // an exit / a town gate / a church door
 const SPAWN_RADIUS = 4;                 // where the map put you down
-const MOVING = 0.8;                     // the look-around rule
+const MOVING = 0.45;                    // look-around rule — was 0.8 and ignored a child's normal walk speed (~0.5)
 
 /** SYSTEMS §9: triangular(min, mode, max) paces between fights, by terrain. */
 export const RATES = {

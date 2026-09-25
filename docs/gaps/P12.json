@@ -5,7 +5,7 @@
       "n": 1,
       "title": "The camera never frames the person speaking",
       "detail": "Measured in the real game (index.html), 15 conversations in the meadow: state().field.camera.current stayed at 4.0 deg in 13 of 15 while the hero's facing swung from 23 to 326 deg, and camera.talkFraming reads 0 throughout. Nothing moves the lens when a conversation opens, so who is on screen is an accident of where the camera happened to be. Measured consequences in shots/P12-critic-c1/meadow: talkTo('nib') -> the ONLY face in frame is the hero's own, Nib Tolley is entirely off screen while his nameplate is up (11-m-nib.png); talkTo('thurl') and talkTo('wat') -> a different villager's bald head covers 15-25 percent of the frame and the speaker's nameplate sits over that stranger's chest (13-m-thurl.png, 14-m-wat.png); talkTo('budge') -> Fennick Quiddle's backpack covers the hero (09-m-budge.png); talkTo('tansy') -> Tansy is half off the bottom-right corner behind the text box (05-m-tansy.png); talkTo('cactuddle') in Puddlewick leaves it at the right edge behind the well. BUILD: when Dialogue opens with an npc, ease the field camera over 0.4-0.6s into a two-shot - orbit to (heroFacing +/- 20-25 deg), dist about 3.0-3.5, lookAt the midpoint of hero and speaker lifted to chest height, fov unchanged - hold it for the conversation, and release back to the walk orbit when it closes. Also add NPC bodies to the see-through candidate set: cameraOccluders(true) at orbit 250 with Mr Budge's head over 20 percent of the frame reports fading=[stone, wood] and tested=[], and the nearest list contains butterflies and robins but not one person, so a villager between the lens and the hero can never fade.",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-17T23:42:32.187Z",
       "events": [
         {
@@ -18,6 +18,17 @@
           "by": "critic",
           "pass": false,
           "note": "Mostly solved but NOT closed, and the fix introduced a worse failure. Good news first, measured over 30 conversations in the real game (13 meadow + 17 Puddlewick): talkShot().onScreen is true 30/30, the speaker lands 31-67 percent across the frame and 9.7-51.6 percent down it, camera.talkFraming reads 1 while the box is up, and npcFacing = heroFacing +/- 180.0 in all 17 Puddlewick cases, so people do turn and face you. The failure: the new solve swings the lens without testing what it will be standing inside, and at the pond it buries the camera in geometry for the whole conversation. Deterministic repro, index.html, timeOfDay 10, talkTo in this order - pell, hen1, tansy, sausage, gudgeon: the Gudgeon frame is a flat dark-olive void. Measured over the 60 percent of the frame above the text box: mean luminance 43.9, fraction of pixels below luminance 55 = 1.00 (every other frame in the same run reads 95-107 mean, 0.11-0.25 dark). Camera at orbit 356.4, dist 4.185, pitch 22. cameraOccluders(true).fading is EMPTY and nothing reports inside:true, so the see-through system never notices; talkShot() still reports onScreen true, xPct 35.2, headPct 25.0 - the probe the builder measures with says pass while the player sees nothing at all. Shots: shots/P12-critic-c2/replay/05-05-gudgeon.png, shots/P12-critic-c2/frame-meadow/10-05-m-gudgeon-p1.png and 11-05-m-gudgeon-p2.png (both frames of the conversation)."
+        },
+        {
+          "at": "2026-09-25T18:21:00.748Z",
+          "by": "builder",
+          "note": "two-shot + eye proof; talkFraming held while box up"
+        },
+        {
+          "at": "2026-09-25T18:21:00.782Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P12-gudgeon: gudgeon framed why=clear orbit=ideal phi=-128; onScreen true; speaker visible with nameplate"
         }
       ]
     },
@@ -45,9 +56,21 @@
       "n": 3,
       "title": "A conversation can play out against a solid black screen, and the probe reports it as a pass",
       "detail": "The talk two-shot swings the lens to phi = +/-128 and pushes in without ever asking what it will be standing inside, and the see-through system does not catch it. DETERMINISTIC REPRO, real game, index.html, timeOfDay 10, no walking, talkTo in this exact order: pell, hen1, tansy, sausage, gudgeon. The Gudgeon conversation renders as a flat dark-olive void - the pond, the man, the sky, the whole world gone, only the message window left. Measured over the 60 percent of the frame above the box: mean luminance 43.9 and fraction of pixels below luminance 55 = 1.00, against 95-107 mean and 0.11-0.25 dark for the four conversations immediately before it in the same run. It holds for the entire conversation - both captured pages are identical voids (shots/P12-critic-c2/replay/05-05-gudgeon.png, shots/P12-critic-c2/frame-meadow/10-05-m-gudgeon-p1.png, 11-05-m-gudgeon-p2.png). State at that moment: camera orbit 356.4, dist 4.185, pitch 22; cameraOccluders(true).fading is EMPTY and nothing anywhere reports inside:true; talkShot() reports onScreen true, xPct 35.2, headPct 25.0, talkFraming 1. That last part is the important half of this gap: the instrument the builder measures the camera with is blind to the failure, so every future pass will claim 30/30 onScreen while a child gets a black screen. BUILD, in this order. (1) Make the camera prove the shot before it commits: after solving the two-shot, cast from the chosen eye position to the midpoint of hero and speaker, and also test whether the eye point itself is inside any collider, terrain volume or instanced canopy bounds. If it is, walk the orbit round in 15 degree steps (nearer side first) and pull dist out toward 6.0 until a clear eye point is found; if no orbit is clear, keep the walk camera rather than committing to a buried one. (2) The occluder set is missing whole classes of geometry - at the pond it reported nothing while the lens was fully enclosed. Add terrain/ground volumes and far-LOD tree instances to the candidate set, and add a cheap last-resort guard: if the rendered depth at screen centre is under about 0.3 units for more than 0.2s while a conversation is open, treat it as buried and run (1) again. (3) Make the probe honest: talkShot() must return a new field clear:false (or visible:false) whenever the speaker is occluded or the eye is inside geometry, so onScreen:true can never again be reported for a black frame. A conversation that cannot be framed clearly should fall back to the ordinary over-the-shoulder walk camera - never to the inside of a hill.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:06:56.911Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T18:21:00.676Z",
+          "by": "builder",
+          "note": "solveShot proves eye clear (buried/enclosed/travel); refuses black void poses"
+        },
+        {
+          "at": "2026-09-25T18:21:00.713Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P12-gudgeon ok=true: critic order pell→gudgeon; clear+onScreen; luminance ok; frame shows pond+sky+Gudgeon"
+        }
+      ]
     }
   ]
 }

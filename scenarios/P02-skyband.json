@@ -1,0 +1,28 @@
+{
+  "name": "P02 sky band share of frame",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready && typeof __DQ.teleport==='function'", "timeout": 60000},
+    {"wait": 900},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 1500},
+    {"eval": "JSON.stringify(__DQ.teleport('meadow',1.4,19.2))"},
+    {"wait": 1800},
+    {"eval": "(()=>{for(let i=0;i<10;i++){try{__DQ.press&&__DQ.press('Enter');}catch(e){}}return 'skip';})()"},
+    {"wait": 500},
+    {"eval": "(async()=>{const orbs=[0,90,180,270];const out=[];for(const o of orbs){if(__DQ.cameraOrbit)__DQ.cameraOrbit(o);for(let i=0;i<35;i++)__DQ.advance(16.6667);await new Promise(r=>setTimeout(r,80));const rig=__DQ.cameraRig&&__DQ.cameraRig();out.push({o,pitch:rig&&rig.pitch,horizon:rig&&rig.frame&&rig.frame.horizon});}window.__SKY=out;return JSON.stringify(out);})()"},
+    {"eval": "(()=>{if(__DQ.cameraOrbit)__DQ.cameraOrbit(0);return 'n';})()"},
+    {"wait": 500},
+    {"shot": "01-sky-north"},
+    {"eval": "(()=>{if(__DQ.cameraOrbit)__DQ.cameraOrbit(90);return 'e';})()"},
+    {"wait": 500},
+    {"shot": "02-sky-east"},
+    {"eval": "(()=>{if(__DQ.cameraOrbit)__DQ.cameraOrbit(180);return 's';})()"},
+    {"wait": 500},
+    {"shot": "03-sky-south"},
+    {"eval": "(()=>{if(__DQ.cameraOrbit)__DQ.cameraOrbit(270);return 'w';})()"},
+    {"wait": 500},
+    {"shot": "04-sky-west"},
+    {"assert": "window.__SKY.every(r=>Number(r.pitch)<24.5)", "msg": "field pitch under 24.5 (was 26)"},
+    {"eval": "JSON.stringify(window.__SKY)"}
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "name": "P09 look up/down — sky look axis tips the lens (P02/P09)",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready", "timeout": 45000},
+    {"wait": 400},
+    {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+    {"waitFor": "__DQ.state().scene==='field'", "timeout": 45000},
+    {"wait": 500},
+    {"eval": "(__DQ.teleport('meadow', 4, 2), 'meadow')"},
+    {"wait": 700},
+    {"eval": "window.__p0 = (__DQ.state().field.camera && __DQ.state().field.camera.pitch) || 0"},
+    {"eval": "window.__look0 = __DQ.look ? __DQ.look() : null"},
+    {"shot": "01-pitch-default"},
+    {"assert": "window.__p0 >= 20 && window.__p0 <= 32", "msg": "field pitch starts near the DQV outdoor band"},
+    {"assert": "!!__DQ.look", "msg": "__DQ.look is published"},
+
+    {"note": "Hold PageUp — tip toward the sky (pitch falls toward -16)."},
+    {"key": "PageUp", "hold": 1800},
+    {"wait": 300},
+    {"eval": "window.__pUp = (__DQ.state().field.camera && __DQ.state().field.camera.pitch) || 0"},
+    {"eval": "window.__lookUp = __DQ.look ? __DQ.look() : null"},
+    {"shot": "02-looking-up"},
+    {"assert": "window.__pUp < window.__p0 - 8", "msg": "looking up tips the ground angle toward the sky"},
+    {"assert": "window.__lookUp && (window.__lookUp.axis > 0.4 || window.__lookUp.v > 0.4)", "msg": "look axis reports a strong upward ask"},
+
+    {"note": "Home snaps back (or PageDown toward the ground)."},
+    {"key": "Home", "hold": 200},
+    {"wait": 1200},
+    {"eval": "window.__pHome = (__DQ.state().field.camera && __DQ.state().field.camera.pitch) || 0"},
+    {"shot": "03-home"},
+    {"assert": "Math.abs(window.__pHome - window.__p0) < 6", "msg": "Home eases pitch back toward the map framing"},
+    {"eval": "JSON.stringify({p0:window.__p0, pUp:window.__pUp, pHome:window.__pHome, look0:window.__look0, lookUp:window.__lookUp, lookNow:__DQ.look&&__DQ.look()})"}
+  ]
+}

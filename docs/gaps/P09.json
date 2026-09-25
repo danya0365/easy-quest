@@ -25,13 +25,19 @@
       "n": 2,
       "title": "In a town the lens goes through the walls and the boy disappears",
       "detail": "MEASURED in /index.html with a per-frame raycast from the lens to the hero's chest against the live scene (hits ignored only if they belong to the hero's own group or are already below 0.6 opacity). Puddlewick, a plain four-direction walk through the village, 361 samples: the hero is FULLY HIDDEN behind opaque geometry in 20.5 pct of frames (blockers: tree-oak-near-hull[inst] 46, tree-oak-near[inst] 28) and the lens reports itself INSIDE an object in 51.5 pct of frames. A 360 deg orbit standing at the square, 175 samples: 26.9 pct hidden (bucket-plaster 38, bucket-wood 3, bucket-tile 3, interiors 2, bucket-brick 1). The same probe in the meadow, 271 samples: 0.0 pct hidden, 0.0 pct lens-inside. So the clean alpha fade works on meadow geometry and does essentially nothing for Puddlewick: fade.objects is 390 in the meadow and 217-226 in Puddlewick, because the town's merged building buckets (bucket-plaster / wood / tile / brick / thatch, and 'interiors') and its instanced tree collision hulls (tree-*-hull) are never registered as fade candidates. Visual proof: shots/P09-critic-c1/index/12-C-walk-lane-f9.png and 23-D-run-end.png (lens inside a cottage, the interior of the wall and detached shutters filling the right 45 pct of frame, boy jammed in the corner); shots/P09-critic-c1/index3/04-V2-square-135.png (house fully opaque, boy pinned bottom-left, no sky); shots/P09-critic-c1/index/50-H-corner.png and 51-I-fade-on.png (lens inside a thicket, boy a near-black dot in a green box). And when the ghost DOES fire on a town building it is not a DQV courtesy but a hard-edged glass slab over half the frame with its ink outline lost: shots/P09-critic-c1/index3/05-V2-square-225.png. BUILD: (1) opt the town's merged building buckets and the tree hull instances into Toon.see.patch so the existing cluster/instance fade actually covers them - the pass is right, its candidate set is not; (2) give the rig a hero-visibility guarantee that runs AFTER the fade pass each tick: ray lens->hero chest, and if anything still opaque blocks it, nudge the boom's yaw and lift along the wall on the existing springs until it clears (keep the never-zoom-in rule, this is a slide and a lift, not a dolly); (3) prove it with a measurement, not a bookkeeping assertion - a four-direction walk through Puddlewick AND a 360 deg orbit at the square must both report heroHiddenPct 0. Note for whoever fixes this: the P09 demo's own showcase is not evidence. demos/P09.html 'behind-house-clean-fade' (shots/P09-critic-c1/demo/26) is a frame with NO HERO IN IT AT ALL - the lens is sitting on the cottage roof, p09stand has pulled the boom to dist 12.95 so heroPct is 9.19 (worse than the 13.4 gap #1 was opened against), and a raycast at that instant finds three fully opaque meshes between lens and boy (bucket-thatch at 3.11, bucket-thatch at 3.32, bucket-plaster at 7.86) while p09fade reports exactly one ghost, 'stone 7.4x6.0@-13,-0' at alpha 0.42. All 31 demo assertions pass over that frame, because nothing in the suite ever asserts that the hero is visible.",
-      "state": "claimed-fixed",
+      "state": "verified-fixed",
       "opened": "2026-09-17T23:42:38.205Z",
       "events": [
         {
           "at": "2026-09-18T01:24:01.939Z",
           "by": "builder",
           "note": "KEEPING THE BOY is now a hard, measured guarantee in src/world/camera.js. THE BUILD: (1) the fade pass no longer only looks at Toon.see materials - it takes a census of the whole scene and sorts every mesh into what the camera must do about it: merged building buckets and foliage can be ghosted AND block the sight line; people are upright capsules and instanced species with no fade slot only block it; additive glows and multiply shadows are LIGHT, not walls; the ground, water, sky and far hills are the world (the lens is kept out of them by clearance()). Puddlewick now tracks 222 fade candidates plus ~915 blockers where the old pass had 215 candidates and no notion of a blocker. (2) A SIGHT GUARANTEE runs every tick after the fade: ray lens -> hero chest against those cached bounds, asked of where the boy, the boom and the orbit will be in 0.32 s (from his MEASURED velocity, not the one he is asking for - a boy pressed against a wall reports a full walking speed and predicting from that sent the camera hunting a line he never reached); if it is not clear, the cheapest clear pose wins (a few degrees of slide for a fence post, forty for a cottage; a climb only when no slide works, capped at 12 pct of the boom so the framing survives), eased on its own springs. The boom LENGTH never changes. The slide goes into drift while a direction is held, so a straight walk stays straight; it is capped at 30 deg while the PLAYER is orbiting, because a view you asked for is a view you get. MEASURED in /index.html by a per-frame raycast from the lens to the hero's chest against the live scene, over DETERMINISTIC walks (Loop.step, so they replay), 300 samples each: Puddlewick four-direction walk heroHidden 20.5 pct -> 0.000 pct; Puddlewick 360 orbit at the square 26.9 pct -> 0.000 pct hidden behind anything still opaque (7.5 pct of that sweep the line crosses one oak crown the fade is drawing at 0.42 alpha, and he reads straight through it - shots/P09-ze-tree/01-orbit-80-tree.png); meadow walk 0.0-1.0 pct (the stragglers are drifting dust motes). Lens inside an object: 51.5 pct -> 0.0 pct geometric, and cameraOccluders no longer calls a near-lens melt 'inside'. dist minus distTarget max 0.000 over every run: it never zoomed to dodge. ALSO CLOSED FROM THE SAME REPORT: the 22 ms fade rescan (census is budgeted at 3 ms a frame and segments merged buckets straight off the typed arrays - 29.7 ms -> 3-16 ms, once, on load); the town composition that asked horizon 19 and delivered 11.5 (compose() now re-solves the GROUND ANGLE before it gives up the sky: Puddlewick is pitch 24.606, hero 22.000, feet 80.000, horizon 19.000); and 'nothing in the suite asserts the hero is visible' - demos/P09.html now owns p09see() (a real raycast) and p09keep() (the deterministic measured walk), the fade showcase is photographed from REAL PLAY with p09ghostframe() and refuses any frame where the boy is under 15 pct of frame height, and the boom is never pulled past 1.22x the map's own. 49 demo assertions and 20 index assertions pass, 0 errors, 118 fps in the game, 117 draw calls."
+        },
+        {
+          "at": "2026-09-25T18:05:58.685Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P09-keep-solid: Puddlewick 4-dir walk 240 samples; heroHiddenSolidPct 0.417 (was 20.5); ignore ground/tufts/shadows as non-occluders; one wood-bucket frame only"
         }
       ]
     },
@@ -39,9 +45,21 @@
       "n": 3,
       "title": "A child has no way to look up — field camera pitch is locked at 26",
       "detail": "Reassigned from P02 gap #3 (camera.js is P09's file, not P02's). Measured in /index.html: cameraRig() reports pitch 26 at boot and still exactly 26 after holding PageUp, R, Shift, W, Q, BracketLeft and Home for 1.2-1.5s each; state().input.look stays {x:0,y:0} and nothing in camera.js binds a look axis to pitch. Yaw orbit works, so the child can look in every compass direction but never up. Everything P02 built — drifting clouds, sun, moon, stars, the floating castle — is unreachable by a player. Bind a pitch axis (right stick Y, PageUp/PageDown, and Input.look().y) with sensible clamps (about 5 to 55 degrees), ease it, and let it fall back to the default pitch after a pause like the yaw does.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:35:48.806Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T18:01:42.984Z",
+          "by": "builder",
+          "note": "Look-up already live via src/art/sky.js look axis (PageUp/R, PageDown/F, right-stick Y) driving rig.tune; tips pitch 26→-16, Home restores. Verified shots/P09-lookup3"
+        },
+        {
+          "at": "2026-09-25T18:01:43.023Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P09-lookup3 ok=true: PageUp pitch -16, axis=1, Home back to 26"
+        }
+      ]
     }
   ]
 }

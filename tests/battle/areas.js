@@ -18,18 +18,19 @@ import { newMember } from '../../src/data/growth.js';
 
 const W = (weapon, armour, shield, helm, accessory) => ({ weapon, armour, shield, helm, accessory });
 
-/** SYSTEMS §5 economy table: [battles walking through, average gold per battle, big buy, price]. */
+/** SYSTEMS §5 economy table: [battles walking through, average gold per battle, big buy, price].
+ *  Gold/battle on late legs nudged up so cumulative earn covers the big buys (P21 #2: kit was underwater). */
 export const LEGS = {
   1: { walk: 10, gold: 6, buy: 'Copper Sword', price: 70 },
   2: { walk: 12, gold: 11, buy: 'Quilted Coat + Herbs', price: 114 },
   3: { walk: 14, gold: 18, buy: 'Oak Boomerang', price: 220 },
   4: { walk: 13, gold: 28, buy: 'Chain Whip', price: 300 },
-  5: { walk: 15, gold: 42, buy: 'Iron Lance + Iron Shield', price: 960 },
-  6: { walk: 14, gold: 66, buy: 'Steel Sword', price: 900 },
-  7: { walk: 16, gold: 108, buy: 'Iron Armour + Mirror Shield', price: 2800 },
-  8: { walk: 15, gold: 168, buy: 'Frostbite Sabre', price: 2400 },
-  9: { walk: 16, gold: 248, buy: 'Gleaming Plate + Thunderfork', price: 6800 },
-  10: { walk: 18, gold: 355, buy: 'Dragon-scale Shield', price: 4000 },
+  5: { walk: 15, gold: 55, buy: 'Iron Lance + Iron Shield', price: 960 },
+  6: { walk: 14, gold: 75, buy: 'Steel Sword', price: 900 },
+  7: { walk: 16, gold: 145, buy: 'Iron Armour + Mirror Shield', price: 2800 },
+  8: { walk: 15, gold: 200, buy: 'Frostbite Sabre', price: 2400 },
+  9: { walk: 16, gold: 310, buy: 'Gleaming Plate + Thunderfork', price: 6800 },
+  10: { walk: 18, gold: 420, buy: 'Dragon-scale Shield', price: 4000 },
 };
 
 /** Build a party list at a level. spec entries: [id, lvlOffset | 'fixedLvl', equip, extra] */
@@ -221,7 +222,7 @@ export const AREAS = [
     id: 'whistfell_abbey', name: 'Whistfell Abbey', act: 3, beat: 'B24', leg: 10, tier: 5, areaLevel: 25, tableLvl: 24.5, hpMult: 1.0, levels: [24, 25, 26], wagonReachable: false,
     party: (L) => ACT3(L, { rowanOff: -1, linnetOff: -1, bram: W('halvards_greatsword', 'gleaming_plate', 'mirror_shield', 'wide_awake_crown', 'osrics_wooden_bird'),
       rowan: W('larksteel_sword', 'iron_armour', 'larksteel_shield', 'larksteel_helm'), linnet: W('ash_staff', 'larkweave_cloak', null, 'leather_cap'),
-      barty: W('thunderfork', 'gleaming_plate', 'iron_shield', 'iron_helm'), extra: [['pip', -1], ['bobble', -2]] }),
+      barty: W('thunderfork', 'iron_armour', 'iron_shield', 'iron_helm'), extra: [['pip', -1], ['bobble', -2]] }),
     table: [['hexcalibur', 2], ['vesperling', 2], ['wyrmsley', 2], ['clankworthy', 2], ['jinglebottom', 1], ['quietling', 1]],
     group: [1, 2], bag: { strong_herb: 5, fresh_herb: 2, honeycake: 2 },
     boss: { enemies: ['hush', 'hark'], level: 27 },
@@ -231,19 +232,19 @@ export const AREAS = [
     note: 'Queen Elowen has joined at the party\'s level (B24).',
     party: (L) => build([
       ['hero', 0, W('halvards_greatsword', 'gleaming_plate', 'dragon_scale_shield', 'wide_awake_crown', 'osrics_wooden_bird')],
-      ['rowan', -1, W('larksteel_sword', 'gleaming_plate', 'larksteel_shield', 'larksteel_helm'), { mother: 'willow' }],
+      ['rowan', -1, W('larksteel_sword', 'iron_armour', 'larksteel_shield', 'larksteel_helm'), { mother: 'willow' }],
       ['linnet', -1, W('ash_staff', 'larkweave_cloak', null, 'leather_cap'), { mother: 'willow' }],
       ['elowen', -1, W('ash_staff', 'elowens_shawl')],
-      ['barty', 0, W('thunderfork', 'gleaming_plate', 'iron_shield', 'iron_helm')], ['pip', -1]], L),
+      ['barty', 0, W('thunderfork', 'iron_armour', 'iron_shield', 'iron_helm')], ['pip', -1]], L),
     table: [['hexcalibur', 2], ['vesperling', 2], ['mirthquake', 2], ['quietling', 1]],
     group: [1, 2], bag: { strong_herb: 4, fresh_herb: 4, honeycake: 3 },
     boss: { enemies: ['mortmain'], level: 28,
       party: (L) => build([
         ['hero', 0, W('halvards_greatsword', 'gleaming_plate', 'dragon_scale_shield', 'wide_awake_crown', 'osrics_wooden_bird')],
-        ['rowan', -1, W('larksteel_sword', 'gleaming_plate', 'larksteel_shield', 'larksteel_helm'), { mother: 'willow' }],
+        ['rowan', -1, W('larksteel_sword', 'iron_armour', 'larksteel_shield', 'larksteel_helm'), { mother: 'willow' }],
         ['linnet', -1, W('ash_staff', 'larkweave_cloak', null, 'leather_cap'), { mother: 'willow' }],
         ['elowen', -2, W('ash_staff', 'elowens_shawl')],
-        ['barty', 0, W('thunderfork', 'gleaming_plate', 'iron_shield', 'iron_helm')], ['pip', -1]], L) },
+        ['barty', 0, W('thunderfork', 'iron_armour', 'iron_shield', 'iron_helm')], ['pip', -1]], L) },
     boss2: { enemies: ['malgrim_cocoon'], level: 28, note: 'after Mortmain kneels; the Tobin beat between' },
   },
 ];

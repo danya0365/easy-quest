@@ -1,0 +1,17 @@
+{
+  "name": "P04 puddlewick corridor verify",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready && typeof __DQ.teleport==='function'", "timeout": 60000},
+    {"wait": 800},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 1400},
+    {"eval": "(async()=>{const pts=[[0,0],[6,-14],[10,-24],[14.6,-34],[20,-28],[18,-40]];const out=[];for(const [x,z] of pts){__DQ.teleport('meadow',x,z);await new Promise(r=>setTimeout(r,750));if(__DQ.cameraOrbit)__DQ.cameraOrbit(336.8);for(let i=0;i<25;i++)__DQ.advance(16.6667);await new Promise(r=>setTimeout(r,120));const ls=(__DQ.landmarkScreen&&__DQ.landmarkScreen())||[];const p=ls.find(l=>l.id==='puddlewick')||{};out.push({x,z,hiddenPct:p.hiddenPct,visible:p.visible,visiblePx:p.visiblePx});}window.__LM=out;const med=out.map(o=>o.hiddenPct).sort((a,b)=>a-b);window.__MED=med[Math.floor(med.length/2)];window.__VIS=out.filter(r=>r.visible).length;return JSON.stringify({med:window.__MED,vis:window.__VIS,out});})()"},
+    {"eval": "(()=>{__DQ.teleport('meadow',14.6,-34);return 'pos';})()"},
+    {"wait": 800},
+    {"eval": "(()=>{if(__DQ.cameraOrbit)__DQ.cameraOrbit(336.8);if(__DQ.cameraZoom)try{__DQ.cameraZoom(9);}catch(e){}return 'look';})()"},
+    {"wait": 600},
+    {"shot": "01-village-and-landmark"},
+    {"assert": "window.__MED < 60", "msg": "median puddlewick hiddenPct under 60 along the lane (was ~95)"},
+    {"assert": "window.__VIS >= 2", "msg": "at least two lane points see the landmark card"}
+  ]
+}

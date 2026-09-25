@@ -347,8 +347,9 @@ export class GameMap {
       // A door underfoot always wins: a child on a doorstep must go in, not talk to the stall / hen / follower
       // two paces away (shots/P06-zdoors: inn→stall, bakery→hen, chapel→Halvard).
       let score = d * (1.6 - dot * 0.6);
-      // Doors always beat folk/stalls/animals in reach — discovery verb #1 is "go in" (shots/P06-zdoors).
-      if (t.type === 'door') score -= 20;
+      // Bias ONLY on the doorstep. Any far-range door bonus (even -2) still beat a closer barrel/herb at the
+      // mill yard (P30 #6 / shots/P30-face: door d=2.25 scored under barrel d=1.2).
+      if (t.type === 'door' && d < 1.2) score -= 20;
       if (score < bestScore) { bestScore = score; best = { target: t, dist: d, dot }; }
     }
     return best;

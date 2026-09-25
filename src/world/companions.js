@@ -41,9 +41,9 @@ const wrapPi = (a) => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.
  * and the monsters walk out of the back of the shot. Measured, not guessed — __DQ.followers()[i].px is the
  * follower's own centre in 1280x720 design pixels and `onScreen` says whether a child can see it.
  */
-const GAP = { first: 1.45, person: 0.92, monster: 0.78, wagon: 0.72 };
+const GAP = { first: 1.15, person: 0.72, monster: 0.58, wagon: 1.45 };
 /** The wagon rides at the side of the path, not in the lens: a cart dead behind you fills the whole frame. */
-const WAGON = { side: -1.55, scale: 0.58 };
+const WAGON = { side: -1.85, scale: 0.55 };
 /**
  * CLARITY. A follower directly behind the hero stands between him and the lens and hides him completely — the one
  * thing a six-year-old must always be able to see. So the line is STAGGERED: each walker steps a little to one

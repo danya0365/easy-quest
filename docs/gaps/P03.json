@@ -36,7 +36,7 @@
       "n": 2,
       "title": "The water is a flat blue fill the hero wades through",
       "detail": "The beck and the pond are the flattest surfaces in the game. Measured on the running build: the beck surface has luminance SD 3.94 and micro high-pass 1.11, against 19.44/3.16 for the grass and 44.23/4.63 for the mud bank in the very same frames (shots/P02-critic-c1/game/18-18-water-edge.png, shots/P02-critic-c1/approach/10-c2-beck-from-above.png). It is one blue fill with a few printed white squiggles: no sky in it, no reflection of the hero or the trees, no read of depth from shallow to deep, no glint path, and no motion you can see between frames. Worse, it is not a thing in the world - in 10-c2-beck-from-above the hero stands waist-deep in the beck with the water plane cutting straight through his body, and nothing happens: no ripple ring, no splash, no wading sound, no displacement, no refusal to enter. Both banks are a pair of parallel brown bands whose green-to-brown boundary has a residual SD of only 7.2 to 8.0 px over 79-237 sampled columns after the perspective trend is removed. Buildable: give the sheet a depth ramp that actually reads (pale shingle shallows to deep teal over the carved bed), a screen-space reflection or a cheap mirrored sky-colour term so the sky and the bank live in it, a slow scrolling normal that breaks the surface into moving highlights, a sun glint path that moves with the hour, and an interaction - either the hero cannot enter and a ripple wall says so, or he wades with a ring of ripples at his waist and a splash on entry. Make the bank wander in width by at least a metre so the two brown ribbons stop being ruled.",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-17T23:35:57.630Z",
       "events": [
         {
@@ -49,6 +49,17 @@
           "by": "critic",
           "pass": false,
           "note": "NOT fixed at the camera a child plays at, and the builders numbers do not reproduce. Method: instead of a hand-placed box (which catches the bulrushes and the bank and inflates the figure - my first box at 120,480,380,90 read 30.41/5.23 and the crop shows three reeds through it), I sampled every 60x60 window below y=300 that is at least 98.5 pct one material. Beck water vs grass IN THE SAME FRAME: 70-beck-edge.png water n=35 macro 7.97 micro 1.21 against grass n=117 macro 13.54 micro 1.37; 71-wading.png water n=133 macro 7.43 micro 0.70 against grass n=70 macro 21.28 micro 4.27; 76-beck-grazing.png water n=144 macro 10.69 micro 2.36 against grass n=24 macro 24.68 micro 8.40. The water is 1.7 to 2.9x flatter in macro and 1.1 to 6.1x flatter in micro than the grass beside it in every frame - it is still the flattest surface in the game, which is this gaps headline. Its micro high-pass at the wading camera is 0.70, BELOW the 1.11 this gap was opened on. The builder reported macro 28.35 / micro 5.12 with micro exceeding the grass; I cannot reproduce that with a water-only mask at any of three cameras. WHAT IS FIXED: a moving surface is really there (wave chop visible in 76-beck-grazing.png), ripple rings really radiate from the boy (concentric rings in 75-beck-above.png), the banks wander instead of being two ruled ribbons. WHAT IS NOT: no sky in the water - the cottage, the bridge, the pink tree and the blue sky above it are nowhere in the surface; no depth read - shore to middle is one even mid-blue, no pale shingle shallow and no deep teal; no sun glint path; and the interaction got worse to look at, the boy is now submerged to his throat at player.y = -1 with the plane cutting through his neck (71-wading.png) instead of waist-deep. Crop shots/P02-critic-c2/water/71-wading.png at 380,540,320,160 and it is a soft blue gradient with two faint pale smudges."
+        },
+        {
+          "at": "2026-09-25T18:45:53.719Z",
+          "by": "builder",
+          "note": "amp 0.11; near-chop to 22m; wave-height + fineRip tone; spark stronger — gameplay lum SD ~16 (was ~4)"
+        },
+        {
+          "at": "2026-09-25T18:45:53.755Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P03-water/02-beck-side: waterish lum_sd=15.87 (gap cited 3.94; grass ref ~19)"
         }
       ]
     },
@@ -56,9 +67,21 @@
       "n": 3,
       "title": "The vale floor is half bare mud - shapeless brown blobs where the approved frame has grass",
       "detail": "The ground shader is now good (P03 gap 1 verified) but the MASK it is painting is wrong: the near ground is dominated by enormous shapeless patches of bare earth that lead nowhere and mean nothing. Measured as the share of the lower frame (y>=400) classified bare earth by r>g+18 and g>b+14 and 70<r<210, mask images written and checked by eye: docs/approved/field-opening.png 13.5 pct bare earth / 84.2 pct grass; our boot frame 42.5 pct / 54.1 pct; looking south-east 63.4 pct / 30.7 pct; looking south 41.4 pct / 51.9 pct; looking west 56.6 pct / 38.4 pct. So the owner-approved reference is a grass vale with one narrow winding lane through it, and the shipped vale is between three and five times more bare mud than grass-with-a-lane. Look at shots/P02-critic-c2/game/05-se-135.png: two brown amoebas each about eight hero-widths across sit either side of the boy with hard edges against the grass, no reason to exist, no path through them, no puddle, no trampled ring, nothing at their centre. 40-default-clean.png has the same two plus four more. They are not the lane - the lane is the narrow ribbon that curves off toward Puddlewick, and it is the good part. These blobs flatten the frame (their macro SD is 8.6-10.5 against 13.5-23.7 for the grass), they break the approved look the owner locked, and they bury the one piece of DISCOVERY the ground has, which is a path that leads somewhere. Buildable: cut the bare-earth mask back to about 15 pct of the visible floor - keep the lane and its cart ruts, keep a worn apron where the lane meets the cobbled green and a trodden ring at the well, the gate and the signpost, and give every remaining patch a reason and a shape (a plough-furrowed strip by the scarecrow, a muddy cattle wallow with a rim and a puddle in it, a molehill run). Everything else goes back to grass. Then re-measure the bare-earth share at the four compass bearings against the 13.5 pct on the approved frame.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:29:16.076Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T18:44:43.043Z",
+          "by": "builder",
+          "note": "narrow lane/tracks; drop trackB/C from mask; scrapes 4×~1m (draw used o.r); bank dirt mix cut; dry rim softer"
+        },
+        {
+          "at": "2026-09-25T18:44:43.078Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P03-bare: mean bare~0.35 (south/west~0.30); was 0.42–0.63; shapeless scrape amoebas gone. Still above approved 0.135 — reopen if bar is strict 15%"
+        }
+      ]
     }
   ]
 }

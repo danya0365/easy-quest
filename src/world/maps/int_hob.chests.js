@@ -1,11 +1,24 @@
 /**
  * int_hob.chests.js — what a child finds in Old Hob's cottage.   (P06 seed; P30 owns treasure/ceremony from here)
+ *
+ * The bookshelf is bolted onto the prop int_hob.js already draws (`searches`): a second interactable on the same
+ * tile made map.nearestInteractable() pick the no-talk furniture forever (P30 gap #6). Prop name is "the books".
  */
+import { Treasure } from '../treasure.js';
+
+/** Props the room already stands — searchable in place. */
+export const searches = [
+  { id: 'hb_books', name: 'the books', kind: 'shelf',
+    text: ['%HERO% pulls out the book about\nthe sea.{wait:400}{n}It falls open on its own, at a\npicture of a harbour.',
+      'Inside the cover, in pencil:\n"ONE DAY. — H."{p}The pencil is very old.'] },
+];
+
+Treasure.boot({ searches: { int_hob: searches } });
+
 export default {
   chests: [
     { id: 'hb_drawer', x: -5.0, z: -1.3, kind: 'drawer', name: 'the dresser drawer', line: 'search-drawer', reach: 1.6 },
     { id: 'hb_pots', x: -5.4, z: 2.2, kind: 'pot', name: 'the pots', line: 'search-pots', reach: 1.5 },
-    { id: 'hb_books', x: 2.4, z: -4.2, kind: 'shelf', name: 'the bookshelf', line: 'search-books', reach: 1.6 },
     { id: 'hb_bed', x: 3.4, z: -2.6, kind: 'bed', name: 'under the bed', line: 'search-bed', reach: 1.6,
       gold: 12, found: ['%HERO% looks under the bed.{wait:350}{n}A wooden box. In it: {gold}12 gold\ncoins{/gold}, and a soldier\'s buckle,\ngreen with age.',
         'He puts the box back exactly\nwhere it was, and straightens\nthe blanket.'] },
@@ -15,8 +28,6 @@ export default {
     'search-drawer': ['%HERO% opens the dresser drawer.{n}String, a spare bootlace, and a\nsmall stack of buttons, all\ndifferent, all kept.'],
     'search-pots': ['%HERO% looks in the pots.{n}Salt. Tea. And one with water\nand a single flower in it.',
       'Somebody put a flower in a pot\nin a room nobody visits.'],
-    'search-books': ['%HERO% pulls out the book about\nthe sea.{wait:400}{n}It falls open on its own, at a\npicture of a harbour.',
-      'Inside the cover, in pencil:\n"ONE DAY. — H."{p}The pencil is very old.'],
     'search-bed': ['%HERO% looks under the bed again.{n}The wooden box is still there.\nEmpty now, except for the buckle.',
       'He leaves the buckle. It is not\nhis to take.'],
     'search-crate': ['%HERO% opens the crate.{n}Rope. Good rope, coiled the way\nsomebody was taught once and\nnever stopped doing.'],

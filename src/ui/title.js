@@ -352,14 +352,24 @@ function createTitleScene() {
   function startMusic() {
     if (!ctx.Audio || !ctx.Music) return;
     S.music = 'waiting';
-    guard('music', () => ctx.Audio.onUnlock(() => {
+    const play = () => {
       if (S.phase === 'off') return;
       S.music = 'loading';
       ctx.Music().then((M) => {
         if (!M || S.phase === 'off') return;
         guard('music play', () => { M.play('title', { fade: 1.4 }); S.music = 'title'; });
       }, (e) => { oops('music load', e); S.music = 'failed'; });
-    }));
+    };
+    guard('music', () => {
+      if (ctx.Audio.ready) play();
+      else ctx.Audio.onUnlock(play);
+    });
+    // First Confirm / cursor blip also unlocks — kick the theme then too (P01 gap #1 silent title).
+    guard('music kick', () => {
+      if (!ctx.Bus || !ctx.Bus.on) return;
+      const once = () => { try { play(); } catch (_) {} try { ctx.Bus.off && ctx.Bus.off('ui.select', once); } catch (_) {} };
+      ctx.Bus.on('ui.select', once);
+    });
   }
 
   // ── little widgets ─────────────────────────────────────────────────────────────────────────────────────────
@@ -530,11 +540,15 @@ function createTitleScene() {
       guard('vignette off', () => Transitions.vignette(0, { ms: 300 }));
     } catch (e) { oops('intro', e); }
     if (S.phase !== 'intro') return;
-    await intoTheGame(() => {
-      guard('newGame', () => Save && Save.newGame());
-      setHeroName(heroName);
-      Scenes.replace('field', { map: 'meadow' });
-    });
+    {
+      const keep = heroName;
+      await intoTheGame(() => {
+        guard('newGame', () => Save && Save.newGame());
+        setHeroName(keep);                                    // newGame's hero.reset() puts Bram back — re-paint
+        Scenes.replace('field', { map: 'meadow' });
+      });
+      setHeroName(keep);
+    }
   }
 
   /** Fade to white, swap in the field (which builds the map behind the cover), fade up. */
@@ -667,7 +681,12 @@ function createTitleScene() {
       if (phase === 'intro') { run(toIntro()); return api.describe(); }
       if (phase === 'game') {
         closeAll();
-        run(intoTheGame(() => { guard('newGame', () => Save && Save.newGame()); setHeroName(heroName); Scenes.replace('field', { map: 'meadow' }); }));
+        const keep = heroName;
+        run(intoTheGame(() => {
+          guard('newGame', () => Save && Save.newGame());
+          setHeroName(keep);
+          Scenes.replace('field', { map: 'meadow' });
+        }).then(() => { setHeroName(keep); }));
         return { phase: 'leaving' };
       }
       return { ok: false, reason: `no title phase "${phase}"`, phases: ['sweep', 'menu', 'slots', 'options', 'naming', 'intro', 'game'] };
@@ -684,16 +703,21 @@ function setHeroName(name) {
   const clean = String(name || '').replace(/[^\p{L}\p{N}'’-]/gu, '').slice(0, MAX_NAME) || DEFAULT_NAME;
   heroName = clean;
   guard('vars', () => { if (CTX && CTX.vars) CTX.vars.HERO = clean; });
-  // P14 owns the roster; renaming its hero is best-effort and never fatal (see "needs" in the P01 report)
-  import('../battle/scene.js').then((m) => {
-    guard('roster rename', () => {
-      const R = m && m.Roster;
-      if (!R || typeof R.ensure !== 'function') return;
-      const party = R.ensure();
-      const h = Array.isArray(party) ? (party.find((p) => p && p.id === 'hero') || party[0]) : null;
-      if (h) h.name = clean;
-    });
-  }, (e) => oops('roster import', e));
+  // Apply now (Roster may already be loaded) and again after a short tick so Save.newGame() cannot wipe it
+  // by finishing after this call returns (P01 gap #2).
+  const paint = () => {
+    import('../battle/scene.js').then((m) => {
+      guard('roster rename', () => {
+        const R = m && m.Roster;
+        if (!R || typeof R.ensure !== 'function') return;
+        const party = R.ensure();
+        const h = Array.isArray(party) ? (party.find((p) => p && p.id === 'hero') || party[0]) : null;
+        if (h) h.name = clean;
+      });
+    }, (e) => oops('roster import', e));
+  };
+  paint();
+  try { setTimeout(paint, 80); setTimeout(paint, 400); } catch (_) {}
   return clean;
 }
 

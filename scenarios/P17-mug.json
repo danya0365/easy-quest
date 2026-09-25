@@ -1,0 +1,23 @@
+{
+  "name": "P17 naming mugshot — monster turns beside the name",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready", "timeout": 45000},
+    {"wait": 400},
+    {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+    {"waitFor": "__DQ.state().scene==='field'", "timeout": 45000},
+    {"wait": 500},
+    {"eval": "(__DQ.recruit('cactuddle', {auto: true, heroLvl: 6}), 'offered')"},
+    {"waitFor": "__DQ.state().ui.windows.some(w => w.id === 'recruit-name')", "timeout": 15000},
+    {"wait": 900},
+    {"shot": "01-naming-mug"},
+    {"eval": "JSON.stringify({mugs: document.querySelectorAll('.p17-mug').length, canvases: document.querySelectorAll('.p17-mug canvas').length, allCanvas: document.querySelectorAll('canvas').length, recruit: __DQ.state().recruit, frames: (__DQ.state().recruit&&__DQ.state().recruit.mugshot&&__DQ.state().recruit.mugshot.frames)||null})"},
+    {"assert": "document.querySelectorAll('.p17-mug').length >= 1", "msg": "naming window has the mugshot frame"},
+    {"assert": "document.querySelectorAll('.p17-mug canvas').length >= 1", "msg": "a WebGL canvas sits inside the mugshot"},
+    {"assert": "document.querySelectorAll('canvas').length >= 2", "msg": "game canvas + mugshot canvas"},
+    {"assert": "(__DQ.state().recruit && __DQ.state().recruit.mugshot && (__DQ.state().recruit.mugshot.live || __DQ.state().recruit.mugshot.frames > 0 || __DQ.state().recruit.mugshot.species))", "msg": "mugshot is live / has rendered frames"},
+    {"press": "Enter"},
+    {"wait": 1400},
+    {"press": "Enter"},
+    {"wait": 800}
+  ]
+}

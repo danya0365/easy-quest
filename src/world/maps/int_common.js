@@ -61,15 +61,24 @@ export function interiorMap(o) {
   /** Everything a scenario, a critic or a layer file needs to know about this room. */
   const R = { W, D, H, HW, HD, T: ROOM.T, DX, DW, DH, spawn, spots: o.spots || {} };
 
+  /** Town + doorstep: Puddlewick by default; Saltmarrow (etc.) override via o.exitTo / o.doorstep. */
+  const exitTo = o.exitTo || 'puddlewick';
+  const stepOf = () => {
+    if (typeof o.doorstep === 'function') {
+      try { const s = o.doorstep(); if (s && Number.isFinite(+s.x)) return s; } catch (e) { reportError(`${o.id}: doorstep`, e); }
+    }
+    return puddlewickDoorstep(o.plot);
+  };
+
   /** The door, as something to press Z at. `field` comes from field.js's interact(). */
   const doorProp = () => ({
     type: 'door', name: o.doorName || 'the door', solid: false,
     x: DX, z: HD - 0.75, ix: DX, iz: HD - 1.9, reach: 2.6, height: DH * 0.9,
     talk({ field }) {
-      const b = puddlewickDoorstep(o.plot);
+      const b = stepOf();
       // Field.teleport takes facing in degrees; doorstep.facing is radians (face out of the house).
       const deg = Number.isFinite(+b.facing) ? (+b.facing * 180 / Math.PI) : undefined;
-      try { field.teleport('puddlewick', b.x, b.z, deg); } catch (e) { reportError(`${o.id}: door out`, e); }
+      try { field.teleport(exitTo, b.x, b.z, deg); } catch (e) { reportError(`${o.id}: door out`, e); }
       return null;                                   // the door just opens; no window in the way
     },
   });
@@ -121,12 +130,12 @@ export function interiorMap(o) {
      * The pad starts 0.55 past spawn and runs to the south wall — arrival is safe, one step south leaves.
      */
     get exits() {
-      const back = puddlewickDoorstep(o.plot);
+      const back = stepOf();
       const z0 = spawn.z + 0.55, z1 = HD - 0.25;
       const zMid = (z0 + z1) / 2, h = Math.max(1.4, z1 - z0);
       return [{
         x: DX, z: zMid, w: Math.min(W - 0.8, DW + 6.0), h,
-        to: 'puddlewick', tx: back.x, tz: back.z, facing: back.facing,
+        to: exitTo, tx: back.x, tz: back.z, facing: back.facing,
         kind: 'door', name: o.doorName || 'the door', line: 'door-out',
         back: { x: DX, z: HD - 2.3 },
       }];
@@ -148,8 +157,9 @@ export function interiorMap(o) {
       const { scene, rig } = ctx;
       const safe = (name, fn) => { try { return fn(); } catch (e) { reportError(`${o.id}: ${name}`, e); return null; } };
 
-      safe('rig', () => interiorRig({ rig, scene, dir: o.sunDir || [0.22, 0.96, 0.26], sun: o.sun ?? 1.7,
-        hemi: o.hemi ?? 1.45, extent: Math.max(W, D) + 6, surround: o.surround ?? 0.55, fill: o.fill ?? 0.5 }));
+      // P06 gap #3: warmer surround + fill so the strip past the shell is haze, not black void.
+      safe('rig', () => interiorRig({ rig, scene, dir: o.sunDir || [0.22, 0.96, 0.26], sun: o.sun ?? 1.85,
+        hemi: o.hemi ?? 1.55, extent: Math.max(W, D) + 6, surround: o.surround ?? 0.78, fill: o.fill ?? 0.72 }));
 
       const ao = makeAOMask({ span: Math.max(W, D) + 18, size: 512, center: [0, 0] });
       const kit = createKit({ scene, heightAt: () => 0, ao });

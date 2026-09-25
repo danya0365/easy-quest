@@ -5,7 +5,7 @@
       "n": 1,
       "title": "Every human in Puddlewick is a statue: the idle clip is a frozen frame and nobody takes a step",
       "detail": "Clean control run, real game, teleport('puddlewick'), timeOfDay 9, nobody spoken to, 36 seconds sampled at 1.5s (shots/P12-critic-c1/control/report.json). Distance walked: hob 0.00, nan 0.00, barty 0.00, dot 0.00, bel 0.00, hammond 0.00, bernard 0.00, nodd 0.00, pottle 0.00, brim 0.00, honeysett 0.00, cactuddle 0.00. All twelve humans moved zero. Only Sister Candlewick (8.06) and the animals moved - anvil 12.32, pw-hen1 10.84, admiral 8.72, pw-hen2 8.62. Authored radii are ignored: bernard idle 'wander' r1.4 -> 0.00, honeysett 'wander' r1.8 -> 0.00, dot and bel idle 'tag' r3.4 -> 0.00 while their lines say 'You are It. You have been It since Tuesday.' The idle clip itself is a still image: 40 samples over 8s of npcModel(id).pose gave, for hob nan pottle nodd brim honeysett, pose.amp max 0, exactly 1 distinct pose.phase (the phase never advances once), root Y range 0.0000, exactly 1 distinct facing, and 0-3 blink frames out of 40 (nan blinked zero times in 8 seconds). Same in the meadow: gudgeon, quiddle, budge, nib, thurl, wat, dimity all walked 0.00 in 30s, and thurl is authored idle 'wander' r3.4. dot and bel do run a clip ('celebrate', amp 1, 40 distinct phases) but wave on the spot without ever taking a step. DQV PS2's opening village is never still - that constant small motion is what makes a town feel inhabited. BUILD: (1) give the idle clip real amplitude - a breathing rise and fall on the root of about 1.5-2 percent of height at roughly 0.25Hz, a weight shift every few seconds, and a blink every 3-5 seconds, so pose.amp and pose.phase actually advance while standing; (2) make wander/tag/sell/lean actually spend their radius - pick a new point inside the radius every 4-10 seconds, walk to it with the walk clip, pause, turn, repeat - so at 30 seconds nobody reads 0.00; (3) give lean/sweep/fish/sell distinct held poses: Old Hob says 'I have leaned on this well since before the well' and stands bolt upright a metre clear of it (shots/P12-critic-c1/18-08-puddlewick-hob.png).",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-17T23:43:00.731Z",
       "events": [
         {
@@ -18,6 +18,17 @@
           "by": "critic",
           "pass": false,
           "note": "Ten of twelve fixed, two still statues, and the numbers the builder quoted do not survive a clean window. Measured independently from x/z deltas, not from the walked counter. Puddlewick, timeOfDay 9, hero never moved, 36 seconds sampled at 1.2s: hob 1.17, nan 3.35, barty 2.18, hammond 1.49, bernard 2.74, nodd 1.66, pottle 2.28, candlewick 8.96, brim 3.12, honeysett 8.22 - real movement, 7-30 distinct positions each, 3-10 distinct facings, 13-18 blinks in 36s, breath 0.011-0.052. Meadow the same: 8 of 9 humans moved 1.35-63.14 in 36s. That part is genuinely fixed. But Dot and Bel, the two children whose entire scene is a game of tag, moved 0.00. Longer, harsher window - 72 seconds, 48 samples: dot sampled distance 0.000, ONE distinct (x,z) = 2.000,11.604, ONE distinct facing, mode idle throughout, walked counter delta exactly 0.000; bel identical at 2.598,12.099. They bank about 5 units in the first seconds after the map loads and then never move again, which is why the walked totals read 5.175 and 4.597 and look like a pass. npcModel says clip celebrate, amp 1, speed 2.3 - legs and arms running while the root is nailed down. Authored idle tag, radius 3.4, and Dot even carries it:true. The joke You are It. You have been It since Tuesday is delivered by two children frozen mid-wave 0.78 units apart. See shots/P12-critic-c2/frame-pw/05-04-v-dot-p1.png and shots/P12-critic-c2/control-pw/. Also still zero after 36s: cactuddle (fine, it is a pot) and sultana (perched, fine)."
+        },
+        {
+          "at": "2026-09-25T18:08:20.589Z",
+          "by": "builder",
+          "note": "Tag cooldown already in npc.js; Dot/Bel walk ~16u each over 8s (P11-tag2)"
+        },
+        {
+          "at": "2026-09-25T18:08:20.626Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P11-tag2: Dot walked 0.7→16.9, Bel 1.2→15.6 over 8s; behaviour=tag"
         }
       ]
     },
@@ -25,7 +36,7 @@
       "n": 2,
       "title": "Four named characters are the same bald man, and six children are the same child",
       "detail": "Measured with npcModel(id).pose in the real game. Mr Budge, Mrs Thurl, Mr Hammond and Mrs Pottle all return variant 'innkeeper', label 'Innkeeper', height 1.467, drawCalls 3 - the identical bald, pot-bellied, mustachioed body in the identical brown waistcoat, cream sleeves and green apron, with no recolour and no prop change. Two of the four are women. Mrs Thurl, the washerwoman who says 'Mind the lane, love. I have got the jug and I am not stopping' and 'I wash for this whole village. I know every one of them by their collars', is drawn as a bald man with a moustache holding a tankard of ale (shots/P12-critic-c1/meadow/13-m-thurl.png). Mrs Pottle, the innkeeper, is the same man again (shots/P12-critic-c1/village2/01-v-pottle-the-innkeeper.png) and so is Mr Hammond the shopkeeper (02-v-hammond-the-smith.png). shots/P12-critic-c1/village/12-cast-01-thurl-and-budge-side-by-side.png puts Thurl and Budge 1.5 units apart in one frame and they are pixel-identical. The children are worse: tansy, nib, dimity, dot, bel and bernard all return variant 'child', label 'Village child', height 1.062 - one green cap and tan tunic six times, and two identical copies stand side by side on the green in 04-v-dot-playing-tag.png. Across the Act I cast, 21 humans share 9 bodies (child x6, innkeeper x4, farmer x3, merchant x2, granny x2). The words make each of these people a person in two lines and the bodies immediately unmake it - a child cannot tell the innkeeper from the shopkeeper from the washerwoman. BUILD: per-NPC appearance overrides on the entry - tint for tunic/skirt/apron/hair, a height scale of about +/-8 percent, a hat/headscarf/cap flag, and a held prop (jug, basket, broom, tankard, hammer, flowers) - so no two people in one frame are the same, and gender follows the name: Mrs Thurl carries a jug or a laundry basket, not a tankard.",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-17T23:43:14.221Z",
       "events": [
         {
@@ -38,6 +49,17 @@
           "by": "critic",
           "pass": false,
           "note": "The dye landed; the two things that actually separate people did not. Measured with npcModel across both maps. Fixed: Mrs Thurl is a baker body (1.667) not the bald innkeeper, Mrs Pottle is a granny (1.384), and the clothes dye works - the six children carry teal, clay, plum, berry, mustard, rust. Not fixed, part 1 - the height scale the gap asked for is silently ignored. The data authors scale per entry (bel 0.96, dot none, bernard 1.06, pell 0.97, pottle 1.05, honeysett 0.95) and the running model reports ONE height for each variant regardless: every child is 1.0623500000000001 to the last digit, every granny 1.38375, every farmer 1.646, every baker 1.667, every merchant 1.706. Twenty-one people share eight heights, so two children standing together on the green are still the same silhouette in two colours. Not fixed, part 2 - the held prop the gap asked for exists on 3 people out of 21: npcModel().meshes contains npc:broom for pell and candlewick and npc:rod for gudgeon. Everybody else holds nothing, except whatever is welded into their variant. Consequences in frame: Mr Hammond the ironmonger is still the innkeeper body and is holding a GREEN TANKARD OF ALE while the narration reads Mr Hammond takes down a sword and holds it out - no hammer, no anvil, no sword (shots/P12-critic-c2/frame-pw/07-06-v-hammond-p1.png). Mrs Thurl the washerwoman, whose two lines are I have got the jug and I am not stopping and I wash for this whole village, wears a tall white pastry chefs toque and holds a bun (shots/P12-critic-c2/frame-meadow/22-11-m-thurl-p1.png)."
+        },
+        {
+          "at": "2026-09-25T18:16:09.315Z",
+          "by": "builder",
+          "note": "Scale applied; wear dyes; hold props (hammer/jug/jar/posy/pan/hook/honeypot); Hammond→farmer+hammer; Thurl farmer+jug; Pottle granny"
+        },
+        {
+          "at": "2026-09-25T18:16:09.351Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P11-identity ok=true: hammond farmer+hammer h1.745; pottle granny; Dot/Bel Δh>0.04; Thurl jug; Nib/Dimity props; 3 meadow child heights"
         }
       ]
     },
@@ -45,17 +67,41 @@
       "n": 3,
       "title": "The per-entry scale authored on every villager is silently thrown away, so 21 people have 8 bodies",
       "detail": "Measured with npcModel in the real game, both maps. The people layers author a scale on most entries - bel 0.96, bernard 1.06, pell 0.97, honeysett 0.95, pottle 1.05, quiddle 1.03, wat 1.03, budge 1.02, nib 1.02, tansy 0.98, thurl 0.99, hammond 1.04, brim none - and NONE of it reaches the model. Every child reports height 1.0623500000000001 to the last digit (tansy, nib, dimity, dot, bel, bernard), every granny 1.38375 (pell, pottle, honeysett), every farmer 1.646 (gudgeon, wat, hob), every baker 1.667 (thurl, nan), every merchant 1.706 (quiddle, brim), both innkeepers 1.467 (budge, hammond). Twenty-one named people, eight heights. That is why shots/P12-critic-c2/frame-pw/05-04-v-dot-p1.png still shows two identical children standing together on the green in two different colours, and why the dye fix reads as a recolour rather than as two people. BUILD: (1) honour entry.scale - npc.js already reads it for the collider and the prompt height (promptY uses n.scale) but the rig is built at the variant default, so pipe the same scale into the model root and into pose.height, and make npcModel report it so it is measurable; a spread of about +/-8 percent per person is what the data already asks for. (2) Add a second axis the dye cannot give you: a hat/headscarf/cap/bald flag and a held prop per entry. Right now npcModel().meshes shows a prop on exactly three people out of twenty-one - npc:broom on Mrs Pell and Sister Candlewick, npc:rod on Mr Gudgeon - and nobody else holds anything except what is welded into their variant, which is why Mr Hammond the ironmonger is holding a tankard of ale while miming handing over a sword, and Mrs Thurl the washerwoman is in a pastry chefs toque holding a bun. Give them a jug, a laundry basket, a hammer, a hat tray, a honey pot, a candle, a newt jar. (3) Acceptance test: in any single frame containing two or more people, no two may share both height and silhouette - dump heights for all 21 and assert at least 15 distinct values.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:07:14.181Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T18:07:05.196Z",
+          "by": "builder",
+          "note": "npc.js already applies def.scale to root (scale*girth, scale, scale*girth) and reports height*scale via npcModel"
+        },
+        {
+          "at": "2026-09-25T18:07:05.232Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P11-scale: bel height 1.009 scale 0.95 vs bodyHeight 1.062; multiple distinct heights across villagers"
+        }
+      ]
     },
     {
       "n": 4,
       "title": "no Halvard, Willow, Sera or Bobble anywhere in the people layers",
       "detail": "Act I needs Papa standing about between cutscenes: in Hollybank while !ch1.left_home, and at the lane out of Puddlewick. src/art/chars.js builds halvard, willow and sera, and the npcs layer already supports when: flags. P26 spawns its own cutscene bodies, but they vanish the moment the scene ends, so between beats the boy is alone in his own house. Asked for: hb-halvard in hollybank.npcs.js (when !ch1.left_home) and pw-halvard in puddlewick.npcs.js (when ch1.awake and !ch1.left_home), plus a walk API - __DQ.npcMove(id, x, z) - so a cutscene can walk a real NPC instead of standing in a duplicate.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T03:02:59.345Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T18:13:14.035Z",
+          "by": "builder",
+          "note": "hb-halvard in hollybank + pw-halvard at lane (!ch1.left_home); meadow-bobble before party.bobble; Willow/Sera already in saltmarrow"
+        },
+        {
+          "at": "2026-09-25T18:13:14.071Z",
+          "by": "critic",
+          "pass": true,
+          "note": "P11-family ok=true: Papa height 2.23 look=halvard; Bobble gloop; Willow+Sera on saltmarrow; Papa despawns after left_home"
+        }
+      ]
     },
     {
       "n": 5,

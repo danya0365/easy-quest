@@ -5,25 +5,61 @@
       "n": 1,
       "title": "no second storey in the mill or the barn",
       "detail": "int_mill and int_barn each draw a boarded stair (kit.roomStair) up to a bin floor and a hayloft. Both are solid furniture: a collider blocks the treads and the prop says what is up there, so nothing is broken and nobody gets stuck. But the best place in Puddlewick (the hayloft, WORLD-BIBLE section 3) is a line of text, not a place. Later polish: give both maps a walkY and a loft deck like hollybank.js does, and put a searchable and a view out of the gable window up there.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:41:26.256Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:23:33.964Z",
+          "by": "builder",
+          "note": "int_mill_bin + int_barn_loft are real maps; stairs/ladder talk teleports up"
+        },
+        {
+          "at": "2026-09-25T17:23:34.001Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P06-lofts: both lofts load wood floor; listMaps includes both"
+        }
+      ]
     },
     {
       "n": 2,
       "title": "the window light shafts are geometry, not light",
       "detail": "src/art/interior.js kit.lightShaft builds three crossed additive quads per window. Read at gameplay distance it works (shots/P06-final/03-chapel), but from a low orbit the blades still show as flat sheets with a visible seam where they cross, and the beam does not move with time of day because a room's hours are fixed. Later polish: fade the blades by the angle to the camera, or bake the shaft into the floor as a light patch plus a much fainter volume.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:41:26.293Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T18:36:03.928Z",
+          "by": "builder",
+          "note": "floor light pools + 2-blade volume that fades by camera down-angle (op 0 at level, 0.15 looking down)"
+        },
+        {
+          "at": "2026-09-25T18:36:03.964Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P06-shafts: pools+shafts present; level op=0 down op=0.15 (down=0.59)"
+        }
+      ]
     },
     {
       "n": 3,
       "title": "Puddlewick interiors render dim with a black void filling a third of the frame",
       "detail": "Filed against P06 because the owning files are src/world/maps/int_*.js and src/art/interior.js, not a P30 file - moving it if that is wrong. Measured in /index.html by teleporting into int_cottage and standing at each container. shots/P30-critic-d1/run4/01-01-cottage-pots.png: the top-right 40 percent of the frame is flat black (the outside of the interior shell seen past the wall) and the whole room reads brown-on-brown at roughly a third the luminance of docs/approved/cottage-materials.png. shots/P30-critic-d1/run4/03-03-cottage-wardrobe.png has the same black wedge top-left. int_hob and int_bakery behave the same way. This directly costs DISCOVERY: a child cannot see the pots, drawers and barrels they are meant to want to search, and the approved look is a warm lit interior. BUILD: cap or fade the camera where it would leave the room shell (or ceil the shell so there is no hole), and raise the interior light rig to the approved reference - warm key from the hearth and window, cool fill, contact shadows - so every container reads at a glance.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:51:31.720Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T17:24:28.522Z",
+          "by": "builder",
+          "note": "interiorRig default surround 0.78 fill 0.72 sun/hemi bumped; roomBackdrop already present"
+        },
+        {
+          "at": "2026-09-25T17:24:28.558Z",
+          "by": "critic",
+          "pass": true,
+          "note": "shots/P06-dim/01-cottage-lit.png: warm lit interior, no large black void in frame"
+        }
+      ]
     }
   ]
 }

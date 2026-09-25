@@ -1,0 +1,17 @@
+{
+  "name": "P05 building ghost — solid melt floors at 0.42 not 0",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready && typeof __DQ.teleport==='function'", "timeout": 60000},
+    {"wait": 1200},
+    {"eval": "(()=>{if(__DQ.title)try{__DQ.title('game');}catch(e){}return 'go';})()"},
+    {"wait": 1800},
+    {"eval": "JSON.stringify(__DQ.teleport('puddlewick'))"},
+    {"wait": 2200},
+    {"eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const rows=[];const walk=async(btn,ms)=>{__DQ.hold(btn,ms);const t0=performance.now();while(performance.now()-t0<ms){__DQ.advance(16.6667);await sleep(0);}__DQ.hold(btn,0);};const snap=()=>{const cam=typeof __DQ.cameraOccluders==='function'?__DQ.cameraOccluders():[];const list=Array.isArray(cam)?cam:(cam&&cam.list)||[];for(const o of list){if(!o||typeof o!=='object')continue;rows.push({name:o.name,alpha:o.alpha,inside:!!o.inside,melted:!!o.melted,kind:o.kind});}};__DQ.walkTo(8.4,2.0);await sleep(1200);snap();await walk('up',2400);snap();await walk('left',2000);snap();__DQ.walkTo(5.8,-1.2);await sleep(1500);for(let i=0;i<50;i++)__DQ.advance(16.6667);snap();__DQ.walkTo(11.2,4.4);await sleep(1500);for(let i=0;i<50;i++)__DQ.advance(16.6667);snap();const solids=rows.filter(r=>r.kind==='solid');const solidZero=solids.filter(r=>r.alpha<=0.05);const solidBand=solids.filter(r=>r.alpha>=0.35&&r.alpha<=0.5);window.__BG={rows,solids:solids.length,solidZero:solidZero.length,solidBand:solidBand.length,zeroNames:solidZero.slice(0,6),bandSample:solidBand.slice(0,6)};return JSON.stringify(window.__BG);})()"},
+    {"shot": "01-ghost-band"},
+    {"assert": "window.__BG.solids>=1", "msg": "sampled solid occluders"},
+    {"assert": "window.__BG.solidZero===0", "msg": "no solid building bucket vanishes (alpha<=0.05)"},
+    {"assert": "window.__BG.solidBand>=1", "msg": "at least one solid ghost in the 35-50% band"},
+    {"eval": "JSON.stringify(window.__BG)"}
+  ]
+}
