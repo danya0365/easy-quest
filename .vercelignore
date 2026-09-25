@@ -1,11 +1,8 @@
 .claude/
 .p02tmp/
-# Keep tests/battle/: src/battle/scene.js imports data.js + areas.js from there.
-# Ignoring the whole tests/ folder 404s those modules on Vercel, so the battle +
-# party plugins never install and Papa/Bobble cannot join (stub __DQ.party).
-tests/**
-!tests/battle/
-!tests/battle/**
+# Do NOT ignore tests/: src/battle/scene.js (and menu/shop) import tests/battle/data.js
+# and areas.js. Excluding tests/ 404s those modules on Vercel, battle+party plugins
+# never install, and story joinParty (Papa/Bobble) is a no-op stub.
 tools/
 shots/
 node_modules/
