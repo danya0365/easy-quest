@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-25T14:43:16.359Z",
+  "updated": "2026-09-25T15:31:34.113Z",
   "wave": 2,
   "waveTitle": "Breadth wave: interiors, shops, treasure, spells, items, recruitment, party/wagon, story, more maps — target 65-75 per piece",
   "pieces": {
@@ -344,12 +344,12 @@
     },
     "P13": {
       "id": "P13",
-      "status": "iterating",
-      "score": 64,
+      "status": "--status",
+      "score": null,
       "best": 64,
       "rounds": 1,
       "gap": "Excellent DQ menu at the default text size, but Bigger words takes every page off the screen (Equip Numbers panel 303px, every blurb 280px, Status footer gone) and Use on the Retreat Bell now lies instead of greying out",
-      "note": "Menus read src/data/items.js (73 rows) and spells.js; a Keys page shows what you carry; status fits at 661/720; live in /index.html, 0 errors, 89 fps",
+      "note": "--score",
       "history": [
         {
           "at": "2026-09-18T04:25:15.044Z",
@@ -532,12 +532,12 @@
     },
     "P22": {
       "id": "P22",
-      "status": "building",
-      "score": 0,
+      "status": "--status",
+      "score": null,
       "best": 0,
       "rounds": 0,
       "gap": "",
-      "note": "Live in /index.html from src/plugins.js: talk to Mr Hammond, Mrs Pottle or Sister Candlewick and the counter opens over the real town. Buy with a stat preview and equip-on-buy, sell at the outgrown rate, inn priced by party size with a night that keeps the town visible at 0.94 and everyone waking mended, church save via Save.write with F5 words plus free mending, uncursing and calling somebody back. Economy rebalanced: the whole family kit of 34,978 G is now affordable leg by leg with hand-me-downs (Economy.audit ok, worst purse 100 G, 9,543 G left). Demo shots/P22-r6 ok 118 fps 0 errors; game shots/P22-g8 ok 113 fps 0 errors, 9 of 9 assertions.",
+      "note": "--score",
       "history": [],
       "name": "Shops, inns, churches, economy"
     },
@@ -921,6 +921,14 @@
     {
       "at": "2026-09-25T14:43:16.359Z",
       "t": "P23#7 outdoor Puddlewick rewards verified (hay herb, mill barrel 14G); 10/10 doors enter rooms (talk or walk-in) shots/P06-talktest5"
+    },
+    {
+      "at": "2026-09-25T15:24:35.394Z",
+      "t": "P22 verified in real game (shop/inn/church); score 72. Moving to P13 key-item Use + Equip blurbs."
+    },
+    {
+      "at": "2026-09-25T15:31:34.113Z",
+      "t": "P22 verified 72. P13#9/#10: key Use warps + Equip blurbs (shots/P13-use-equip4). Church wake spot moved off chapel door."
     }
   ]
 }

@@ -182,7 +182,7 @@
       "n": 9,
       "title": "Use on a key item in the bag is greyed out, so the Retreat Bell and the Homing Feather do nothing",
       "detail": "src/data/items.js builds every kind:key row with field:false, so src/ui/menu.js usable() greys out Use for them and the bag explains There is nothing to do with the Retreat Bell out here. But their own words promise something: Ring it and you are outside, blinking at the daylight and Blow it and the wind carries you back to the last church. A child reads the promise and finds a greyed row. Two halves to the fix: (1) the menu should treat a key with a warp field as usable and (2) something has to perform the warp - Field.teleport to the map exit for retreat_bell, and to the last church for homing_feather (the church list does not exist yet). Not broken, no dead end, but a promise the game does not keep. Polish wave.",
-      "state": "still-open",
+      "state": "claimed-fixed",
       "opened": "2026-09-18T03:53:02.785Z",
       "events": [
         {
@@ -190,6 +190,11 @@
           "by": "critic",
           "pass": false,
           "note": "Half-fixed in the worse direction. Use is no longer greyed for key items - measured computed colour rgb(255,255,255) and no dq-disabled class on the Use row for the Rusty Key and the Retreat Bell. But pressing Use does nothing at all: the Retreat Bell prints 'Bram turns the Retreat Bell over in his hands. Ring it and you are outside, blinking at the daylight.' and scene stays 'menu', map stays 'puddlewick'. Homing Feather the same: 'Blow it and the wind carries you back to the last church.' and the map does not change. Bag count unchanged. So the row now looks live and lies, which is worse for a child than a grey row that tells the truth."
+        },
+        {
+          "at": "2026-09-25T15:31:33.998Z",
+          "by": "builder",
+          "note": "Use on Homing Feather and Retreat Bell now warps. Feather lands on the chapel forecourt (CHURCHES at 2,-14 so the door pad cannot swallow you); Bell walks out via the map exit (cobwell_manor -> road_wood). Rusty Key / keepsakes stay grey with an honest refuse. Measured shots/P13-use-equip4."
         }
       ]
     },
@@ -197,9 +202,15 @@
       "n": 10,
       "title": "Equip is the one page with no words: choosing a sword shows numbers and no blurb",
       "detail": "src/ui/menu.js. The bag, the Keys page, Spells, Tactics and Misc all open an m-blurb window and put the item-s own line in it. Equip does not: measured in /index.html, on the kit list for Bram-s weapon slot the open windows were m-cmd, m-party, m-gold, m-slots, m-stats, m-kit and NO m-blurb, and __CR.blurb() returned null on every row of the list. See shots/P13-critic-e1/27-27-stat-arrows-on-a-copper-sword.png.\n\nSo the moment a child is actually choosing what their hero wears, the only thing on the screen is -Copper Sword +11- and -Attack 12 up-arrow 21-. The words P21 wrote for that sword - -Your first real sword. It goes green if you sulk.- - and the line that says -only Bram or Rowan can wear it- are both available (the bag prints them two windows earlier) and both withheld here. It is the page where the charm would land hardest and it is the only page with none.\n\nIt also costs CLARITY. Because there is no blurb, a slot with nothing that fits shows a list whose only entry is -Take it off-, with no sentence saying why: at level 1 with an empty bag that is exactly what a child sees, and one press of Confirm takes their sword off and drops their Attack from 12 to 10 with nothing on screen explaining it.\n\nFIX: open the same m-blurb window on the Equip flow (kitRows already knows the item id) and set it on every cursor move to describe(id) - the item-s blurb, its bonus line and who may wear it - exactly as bagRows does. For -Take it off- write a line of its own, e.g. -Hands free. Your Attack goes back down.- Assert in the scenario that m-blurb is open and non-empty on every Equip row.",
-      "state": "open",
+      "state": "claimed-fixed",
       "opened": "2026-09-18T04:21:25.479Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-25T15:31:34.035Z",
+          "by": "builder",
+          "note": "Equip opens the same m-blurb strip as Items/Spells/Misc. Cursor on a kit row sets itemWords (blurb + bonus + who); Take it off has its own line. Measured shots/P13-use-equip4: m-blurb open with sword words."
+        }
+      ]
     }
   ]
 }

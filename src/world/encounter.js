@@ -74,10 +74,12 @@ export function terrainOf(def) {
   return 'field';
 }
 
-/** Where a wipe puts you down again: the chapel of Saint Alden, in the home village. */
+/** Where a wipe puts you down again: the chapel of Saint Alden, in the home village.
+ *  Land on the forecourt dirt (measured clear of the Beck and of the chapel door exit — the old
+ *  (0, -14.6) / (0, -16.5) sat on the door pad and walked a child into int_chapel on every wake). */
 export const CHURCHES = {
-  meadow: { map: 'puddlewick', x: 0, z: -14.6, facing: 180 },      // the stone path up to the chapel of Saint Alden
-  puddlewick: { map: 'puddlewick', x: 0, z: -14.6, facing: 180 },
+  meadow: { map: 'puddlewick', x: 2.0, z: -14.0, facing: 180 },
+  puddlewick: { map: 'puddlewick', x: 2.0, z: -14.0, facing: 180 },
 };
 /** SYSTEMS §6.2: warm, a little funny, different every time. Never the words "game over". */
 const PRIEST = [

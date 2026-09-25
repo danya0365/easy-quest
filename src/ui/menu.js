@@ -53,6 +53,8 @@ import { Chars } from '../art/chars.js';
 import { Monsters } from '../art/monsters.js';
 import { PAL, C3 } from '../art/palette.js';
 import { derive } from '../battle/formulas.js';
+import { Field } from '../world/field.js';
+import { CHURCHES } from '../world/encounter.js';
 import {
   CHARACTERS, PERSONALITIES,
   statsFor, spellsKnownAt, learnsetFor, mpOverrides, capFor, expForLevel, expToNext,
@@ -139,8 +141,10 @@ const titleCase = (id) => String(id).replace(/_/g, ' ').replace(/\b[a-z]/g, (c) 
 function keyDefEnsure(id) {
   if (KEYCACHE[id]) return KEYCACHE[id];
   const k = KEYDEFS[id] || {};
+  // Treasure keys open chests by poking the chest — they are not "Use" items out here. field:false keeps Use grey
+  // with a honest refuse line, instead of a live row that only reads the blurb (P13 gap #9).
   KEYCACHE[id] = {
-    id, name: k.name || titleCase(id), kind: 'key', buy: 0, key: true, noSell: true, field: true,
+    id, name: k.name || titleCase(id), kind: 'key', buy: 0, key: true, noSell: true, field: false,
     blurb: String(k.blurb || 'Something worth keeping.').replace(/\s*\n\s*/g, ' '),
   };
   return KEYCACHE[id];
@@ -809,25 +813,93 @@ function menuScene() {
     } finally { await closeWin(acts); void listWin; }
   }
 
-  const usable = (it) => !!(it.field !== false && (isKey(it) || it.blurb || (it.battle && ['heal', 'mp', 'cure', 'revive'].includes(it.battle.effect)) || it.kind === 'consumable'));
+  /** True only when Use will DO something (heal, warp, read) — never a live row that only prints the blurb. */
+  const usable = (it) => {
+    if (!it || it.field === false) return false;
+    if (it.warp || it.id === 'retreat_bell' || it.readable) return true;
+    if (it.battle && ['heal', 'mp', 'cure', 'revive', 'seed'].includes(it.battle.effect)) return true;
+    if (it.kind === 'consumable') return true;
+    return false;
+  };
   /** Why a greyed-out action is greyed out — in the words of the action a child just tried to press. */
   function refuseWhy(it, c, act) {
     if (act === 'equip') return it.slot ? `Nobody here can wear the ${it.name}.` : 'Nothing about it is wearable.';
     if (act === 'give' && c && c.readonly) return 'A key is not something to hand round. It stays with you.';
     if (act === 'toss' && c && c.readonly) return 'Keys are never thrown away. You might want that door again.';
     if (act === 'toss' && isKey(it)) return 'This one is too important to throw away.';
+    if (act === 'use' && isKey(it)) return `The ${it.name} is for a keyhole, not for ringing out here.`;
     if (act === 'use') return `There is nothing to do with the ${it.name} out here.`;
     if (act === 'give') return 'There is nobody else to hand it to.';
     return 'Not just now.';
   }
 
+  /** Spot the Homing Feather / Homeward land on: last known church, else Saint Alden's in Puddlewick. */
+  function churchSpot() {
+    try {
+      const world = Field.world && Field.world();
+      const id = world && world.map && world.map.id;
+      return CHURCHES[id] || CHURCHES.puddlewick || CHURCHES.meadow;
+    } catch (_) { return CHURCHES.puddlewick || CHURCHES.meadow; }
+  }
+
+  /** Spot the Retreat Bell walks you to: an exit off this map, else the home village lane. */
+  function retreatSpot() {
+    try {
+      const world = Field.world && Field.world();
+      const map = world && world.map;
+      if (!map) return { map: 'puddlewick', x: 14.8, z: 23.4 };
+      const kind = map.kind || (map.def && map.def.kind);
+      // Already in the open: ringing it does nothing (reusable, so we do not consume it).
+      if (kind === 'town' || kind === 'field' || map.id === 'meadow' || map.id === 'puddlewick') return null;
+      const exits = map.exits || [];
+      const edge = exits.find((e) => e && e.to && (e.kind === 'edge' || e.kind === 'door')) || exits.find((e) => e && e.to);
+      if (edge) return { map: edge.to, x: edge.tx, z: edge.tz };
+      return { map: 'puddlewick', x: 14.8, z: 23.4 };
+    } catch (_) { return { map: 'puddlewick', x: 14.8, z: 23.4 }; }
+  }
+
   /** Use an item out of battle. A refusal never costs you the item. */
   async function useItem(g, c, it) {
     const eff = it.battle && it.battle.effect;
-    if (it.kind === 'key' || (!eff && !it.slot)) {
-      const words = it.blurb || ITEM_WORDS[it.id] || 'Nothing happens, but it was nice to hold.';
-      await say(g, `${heroName()} turns the ${it.name} over in his hands.{n}{grey}${words}{/grey}`);
+
+    // ── warps: Homing Feather / Retreat Bell actually move the party (P13 gap #9) ─────────────────────────
+    if (it.warp === 'church' || it.id === 'homing_feather') {
+      const ch = churchSpot();
+      if (!ch) {
+        await say(g, `There is no church to fly home to yet.{n}{grey}The ${it.name} waits, politely.{/grey}`);
+        return false;
+      }
+      await say(g, `${heroName()} blows the ${it.name}.{wait:320}{n}The wind takes everyone by the collar.`);
+      if (!it.reusable && c && typeof c.take === 'function') c.take(it.id, 1);
+      try { Sfx.play('flee'); } catch (_) {}
+      leave(() => {
+        try { Field.teleport(ch.map, ch.x, ch.z, ch.facing); } catch (e) { reportError('menu homing', e); }
+      });
       return true;
+    }
+    if (it.id === 'retreat_bell') {
+      const spot = retreatSpot();
+      if (!spot) {
+        await say(g, `${heroName()} rings the ${it.name}.{wait:280}{n}The daylight is already here.{n}{grey}Nowhere to walk out of.{/grey}`);
+        return false;
+      }
+      await say(g, `${heroName()} rings the ${it.name}.{wait:320}{n}The stone answers. Everyone is suddenly outside.`);
+      try { Sfx.play('flee'); } catch (_) {}
+      leave(() => {
+        try { Field.teleport(spot.map, spot.x, spot.z); } catch (e) { reportError('menu retreat', e); }
+      });
+      return true;
+    }
+    if (it.readable) {
+      const words = it.blurb || ITEM_WORDS[it.id] || 'The words are too worn to read.';
+      await say(g, `${heroName()} reads the ${it.name}.{wait:280}{n}${words}`);
+      return true;
+    }
+
+    // Key with no field use (Rusty Key, keepsakes): honest refuse — never a fake "turns it over" success.
+    if (it.kind === 'key' || (isKey(it) && !eff && !it.slot && !it.warp)) {
+      await say(g, refuseWhy(it, c, 'use'));
+      return false;
     }
     if (eff === 'heal' || eff === 'mp' || eff === 'cure' || eff === 'revive') {
       const target = await pickMember(g, 'On whom?', (m) => (eff === 'revive' ? !alive(m) : true));
@@ -961,13 +1033,33 @@ function menuScene() {
     const slots = mkMenu({ id: 'm-slots', title: m.name, left: 34, top: 360, width: 524, fontSize: 27, origin: '0% 0%', items: kitRows(m) });
     const panel = mkWin({ id: 'm-stats', title: 'Numbers', left: 994, top: 360, width: 262, className: 'dq-numbers', origin: '0% 0%',
       content: statPanel(m, undefined, null) });
+    // Same blurb strip every other page uses — Equip was the only flow without the item's own words (P13 gap #10).
+    const blurb = mkWin({ id: 'm-blurb', left: 348, bottom: 24, width: 890, slim: true, origin: '0% 100%',
+      className: 'dq-blurb', content: 'Pick a slot, then something that fits.' });
+    const setEquipBlurb = (id, slot) => {
+      try {
+        if (id === '__off') {
+          blurb.setContent('Hands free. The numbers on the right go back to what they were without it.');
+          return;
+        }
+        const it = item(id);
+        if (!it) {
+          const worn = m.equip && m.equip[slot] ? item(m.equip[slot]) : null;
+          blurb.setContent(worn ? itemWords(worn) : 'Nothing in this slot yet.');
+          return;
+        }
+        blurb.setContent(itemWords(it));
+      } catch (_) {}
+    };
     panel.open();
+    blurb.open();
     try {
       for (;;) {
         const s = await slots.choose();
         if (!live(g)) return 'dead';
         if (!s) return 'back';
         const slot = s.id;
+        setEquipBlurb(m.equip && m.equip[slot], slot);
         const cands = ownedEquipment(m.id).map(r => item(r.id)).filter(it => it && it.slot === slot && fits(it, m));
         const rows = [{ id: '__off', label: 'Take it off', disabled: !m.equip[slot] }]
           .concat(cands.map(it => ({
@@ -979,10 +1071,14 @@ function menuScene() {
           id: 'm-kit', title: SLOT_LIST.find(x => x[0] === slot)[1], left: 576, top: 360, width: 400, fontSize: 26,
           maxRows: rows.length > 5 ? 5 : 0, origin: '0% 0%',
           items: rows,
-          onChange: (i) => { try { panel.setContent(statPanel(m, i.id === '__off' ? null : i.id, slot)); } catch (_) {} },
+          onChange: (i) => {
+            try { panel.setContent(statPanel(m, i.id === '__off' ? null : i.id, slot)); } catch (_) {}
+            setEquipBlurb(i.id, slot);
+          },
         });
         const first = rows[1] || rows[0];
         try { panel.setContent(statPanel(m, first.id === '__off' ? null : first.id, slot)); } catch (_) {}
+        setEquipBlurb(first.id, slot);
         const c = await list.choose(cands.length ? { initial: Math.min(1, rows.length - 1) } : {});
         if (!live(g)) { await closeWin(list); return 'dead'; }
         if (c) {
@@ -1002,9 +1098,10 @@ function menuScene() {
         }
         await closeWin(list);
         try { panel.setContent(statPanel(m, undefined, null)); } catch (_) {}
+        try { blurb.setContent('Pick a slot, then something that fits.'); } catch (_) {}
         if (!live(g)) return 'dead';
       }
-    } finally { await closeWin(slots); await closeWin(panel); }
+    } finally { await closeWin(slots); await closeWin(panel); await closeWin(blurb); }
   }
 
   // ── SPELLS ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -1112,9 +1209,20 @@ function menuScene() {
       lanternlight: 'A small warm light settles over the party{n}like a hand on your shoulder.',
       sniff: 'Nothing buried anywhere near here.{n}{grey}Somebody has been before you.{/grey}',
       whistle_down: 'A low whistle goes out over the grass.{n}{grey}The monsters keep their heads down for a while.{/grey}',
-      homeward: 'There is no church to fly home to yet.{n}{grey}The spell waits, politely.{/grey}',
     };
-    if (sp.id === 'homeward') { await say(g, LINES.homeward); return; }      // refused: costs nothing
+    if (sp.id === 'homeward') {
+      const ch = churchSpot();
+      if (!ch) {
+        await say(g, `There is no church to fly home to yet.{n}{grey}The spell waits, politely.{/grey}`);
+        return;
+      }
+      spend();
+      await say(g, `${caster.name} casts {gold}${sp.name}{/gold}.{wait:280}{n}The wind takes everyone by the collar.`);
+      leave(() => {
+        try { Field.teleport(ch.map, ch.x, ch.z, ch.facing); } catch (e) { reportError('menu homeward', e); }
+      });
+      return;
+    }
     spend();
     await say(g, `${caster.name} casts {gold}${sp.name}{/gold}.{wait:280}{n}` + (LINES[sp.id] || 'Something happens, quietly.'));
   }
