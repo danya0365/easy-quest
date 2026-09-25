@@ -295,11 +295,20 @@ function createSystem(ctx, Party) {
     S.blobs = null; S.group = null; S.map = null; S.scene = null; S.trail.length = 0;
   }
 
+  /** Load model libs if the line needs them, then rebuild once they arrive (spawn and party.join). */
+  function ensureLibs(need) {
+    const waits = [];
+    if (need && need.chars && !CharsLib) waits.push(loadChars());
+    if (need && need.monsters && !MonLib) waits.push(loadMonsters());
+    if (!waits.length) return;
+    const gen = S.gen;
+    Promise.all(waits).then(() => { if (gen === S.gen && S.group) guard('rebuild after lib', () => build()); });
+  }
+
   function spawn(map, scene) {
     despawn();
     S.map = map; S.scene = scene;
     S.gen++;
-    const gen = S.gen;
     S.group = new THREE.Group(); S.group.name = 'companions';
     scene.add(S.group);
     const kind = String(map.kind || 'field');
@@ -308,12 +317,7 @@ function createSystem(ctx, Party) {
     const p = w && w.player ? w.player.p : null;
     S.head = { x: p ? p.x : 0, z: p ? p.z : 0, y: p ? p.y : 0, yaw: p ? p.yaw : 0, speed: 0, run: false };
     resetTrail(S.head.x, S.head.y, S.head.z, S.head.yaw);
-
-    const need = build();
-    const waits = [];
-    if (need.chars) waits.push(loadChars());
-    if (need.monsters) waits.push(loadMonsters());
-    if (waits.length) Promise.all(waits).then(() => { if (gen === S.gen) guard('rebuild', () => build()); });
+    ensureLibs(build());
   }
 
   /** (Re)build the line from the roster. Safe to call whenever the roster changes. */
@@ -332,6 +336,9 @@ function createSystem(ctx, Party) {
     const party = guard('members', () => Party.members()) || [];
     const line = party.filter((m) => m && !Party.isLeader(m)).slice(0, MAX_FOLLOWERS);
     const need = { chars: line.some((m) => m.kind !== 'monster'), monsters: line.some((m) => m.kind === 'monster') };
+    // Papa/Bobble often join AFTER the map spawned with an empty line — chars.js was never fetched. Kick the
+    // load here so a party.join refresh does not leave invisible hollow walkers (model:false forever).
+    ensureLibs(need);
 
     let dist = GAP.first, backAt = 0;
     line.forEach((m, i) => {
