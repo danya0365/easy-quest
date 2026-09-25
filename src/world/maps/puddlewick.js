@@ -735,6 +735,7 @@ const puddlewick = {
           bridge: { x: +L.bridge.cx.toFixed(2), z: +L.bridge.cz.toFixed(2) }, sheep: flockState.length, see: Object.assign({}, kit.seeState) };
       },
       dispose() { kit.onDoor = null; },
+      kit,
     };
   },
 };
@@ -788,13 +789,23 @@ function furnish() {
       });
     } else {
       const dest = room;
-      // Interact on the doorstep (far). nearestInteractable scores by distance to (ix??x).
+      const doorId = o.id;
+      // Interact on the doorstep (far). Confirm opens the leaf, then the room loads.
       props.push({
         type: 'door', name: o.name || 'the door', solid: false,
-        x: d.far.x, z: d.far.z,
+        x: d.far.x, z: d.far.z, doorId,
         reach: 2.8, height: 2.15,
         talk({ field }) {
-          try { field.teleport(dest); } catch (e) { reportError('puddlewick: door in ' + dest, e); }
+          try {
+            const w = field.world && field.world();
+            const kit = w && w.view && w.view.kit;
+            // setDoor(1) swings the leaf; kit.onDoor plays the knock. Then the room loads.
+            if (kit && typeof kit.setDoor === 'function') kit.setDoor(doorId, 1);
+            else { try { Sfx.play('door_open', { vol: 0.5 }); } catch (e) { reportError('puddlewick: door sfx', e); } }
+            setTimeout(() => {
+              try { field.teleport(dest); } catch (e) { reportError('puddlewick: door in ' + dest, e); }
+            }, 320);
+          } catch (e) { reportError('puddlewick: door in ' + dest, e); }
           return null;
         },
       });

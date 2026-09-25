@@ -1,0 +1,21 @@
+{
+  "name": "P06 door leaf stays shut until Confirm",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 400 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'leaving';}return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene==='field'", "timeout": 45000 },
+    { "wait": 700 },
+    { "eval": "(()=>{__DQ.teleport('puddlewick',5.8,-1.3);return 'ok';})()" },
+    { "waitFor": "__DQ.state().map && __DQ.state().map.id==='puddlewick'", "timeout": 15000 },
+    { "wait": 1200 },
+    { "eval": "JSON.stringify((()=>{const v=__DQ.state().field&&__DQ.state().field.view;const b=v&&v.buildings;const doors=(b&&b.doors)||[];const open=doors.filter(d=>d.open>0.15).map(d=>d.id);return {n:doors.length,open,allShut:open.length===0};})())" },
+    { "assert": "(()=>{const v=__DQ.state().field&&__DQ.state().field.view;const doors=(v&&v.buildings&&v.buildings.doors)||[];return doors.length>0 && doors.every(d=>d.open<0.15);})()", "msg": "standing near doors keeps leaves shut" },
+
+    { "note": "Confirm opens the inn leaf then enters" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const Field=(await import('/src/world/field.js')).Field;const w=Field.world();const door=(w.map.props||[]).find(p=>p.doorId==='puddlewick_inn'||(p.type==='door'&&/inn/i.test(p.name||'')));if(!door)return 'no-door';door.talk({field:Field});await sleep(200);const kit=w.view&&w.view.kit;const amt=kit&&kit.doorAt&&kit.doorAt('puddlewick_inn')&&kit.doorAt('puddlewick_inn').amount;window.__DOORAMT=amt;for(let i=0;i<30&&__DQ.state().map.id==='puddlewick';i++)await sleep(100);return JSON.stringify({amt:window.__DOORAMT,map:__DQ.state().map.id});})()" },
+    { "assert": "__DQ.state().map.id==='puddlewick_inn'", "msg": "Confirm enters the inn" },
+    { "assert": "window.__DOORAMT > 0.05", "msg": "leaf started opening on Confirm" },
+    { "assert": "__DQ.errors.length===0", "msg": "no errors" }
+  ]
+}

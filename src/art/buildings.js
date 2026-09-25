@@ -318,8 +318,8 @@ export function buildingRecipes(kit) {
 
   kit.doors = DOORS;
   kit.doorAt = (id) => DOORS.find(d => d.id === id) || null;
-  /** Force a door open (1), shut (0) or back to automatic (null) — demos and cutscenes. */
-  kit.setDoor = (id, v) => { const d = kit.doorAt(id); if (d) d.force = v == null ? null : Math.max(0, Math.min(1, +v)); return !!d; };
+  /** Force a door open (1) or shut (0). null also means shut — doors no longer auto-open on approach. */
+  kit.setDoor = (id, v) => { const d = kit.doorAt(id); if (d) d.force = v == null ? 0 : Math.max(0, Math.min(1, +v)); return !!d; };
   kit.onDoor = null;
 
   let doorMeshes = [];
@@ -370,20 +370,16 @@ export function buildingRecipes(kit) {
   };
 
   /**
-   * Doors open as you walk up to them and shut behind you (a little spring, so they land with a knock).
+   * Doors stay shut until something asks — kit.setDoor(id, 1) from Confirm on the door prop.
+   * Proximity auto-open used to swing every leaf as you walked the green (owner, 2026-09-25).
    * Wired into kit.update, so every map that calls kit.update(t, dt, camera, focus) gets it.
    */
   kit.doorsUpdate = (dt, focus) => {
     if (!DOORS.length) return;
+    void focus;
     const step = Math.max(0, Math.min(0.06, dt || 0));
     for (const d of DOORS) {
-      let want = 0;
-      if (d.force != null) want = d.force;
-      else if (focus) {
-        const dx = focus.x - d.x, dz = focus.z - d.z, dist = Math.hypot(dx, dz);
-        const front = dist > 1e-4 ? (dx * d.nx + dz * d.nz) / dist : 1;
-        if (dist < d.reach && front > -0.35) want = 1;
-      }
+      const want = d.force != null ? d.force : 0;
       if (want > 0.5 && d.target < 0.5) { d.opens++; if (typeof kit.onDoor === 'function') { try { kit.onDoor(d, true); } catch (e) { reportError('kit.onDoor', e); } } }
       d.target = want;
       const a0 = d.amount;
