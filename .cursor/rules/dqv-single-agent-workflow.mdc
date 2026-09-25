@@ -1,0 +1,41 @@
+---
+description: DQV browser rebuild — how to work (single agent, breadth wave, priorities)
+alwaysApply: true
+---
+
+# Dragon Quest V — agent workflow (owner, 2026-09-24)
+
+## Mode
+- **One main chat agent** does the work. **Do not spawn sub-agents** (Task/explore/parallel piece owners) unless the user explicitly asks.
+- **Incremental**: finish one cohesive slice (build → verify → gaps/progress) before jumping to unrelated pieces.
+- On a **new chat**, read before acting: `docs/DQV-RUBRIC.md`, `docs/PIECES.md`, `docs/progress.json`, and skim `docs/CANON.md` for names.
+
+## Bar (Wave 2 — breadth before depth)
+- Owner direction in rubric: **round-one pass at score ≥65**; polish toward 85 only after every piece is ≥65 and the game exists end-to-end.
+- **Playable first for testers**: systems and loops must work end-to-end (maps, doors, discovery, shops, battle, story flags, save, HUD). Testers want to **play now**; they accept that model fidelity will come later.
+- **BROKEN always blocks**: crash, console error, black frame, unreachable place, soft-lock, dead end a child can hit.
+- Visual floor: **approved look** (`docs/approved/`) — keep current procedural art **good enough**; never regress to flatter/older DQV PS2 limitations.
+- **Gap ledger is law**: `node tools/gaps.mjs list|verify|open|fixed <PIECE>` — fix open gaps for the piece you touch; file gaps against the **owning** piece id (`docs/PIECES.md`).
+
+## Model sculpt — defer until playable (owner, 2026-09-24)
+- **Do not invest token in deep model work** while core play is incomplete. Wrong investment = polishing `chars.js` / `monsters.js` when the game still cannot be played through.
+- **Deferred unless user explicitly asks** (or a gap is reclassified as BROKEN): P07 character mesh canon (360° profiles, tell-tale props), P08 cosmetic animation polish, P16 monster sculpt/expression arcs, large edits to `buildings.js` / `props.js` / `interior.js` for beauty-only gaps.
+- **Still allowed now**: wiring (player/party placement, collision), camera/occlusion fixes that unblock town play, placeholder or minimal fixes that remove BROKEN (sink into ground, clip through wagon), using **existing** built models as-is.
+- **Model polish wave** starts only after the owner says the core loop is ready for testers and asks to raise model scores toward 85 — then one character or species at a time via its demo scenario.
+
+## Build & verify
+- Run game: `pnpm serve` → `/index.html`. Dashboard: `/progress.html` (reads `docs/progress.json`).
+- **Own files only** per `docs/PIECES.md`. Shared integrator files → describe under `NEEDS:` in report; do not edit unless user asks you to integrate.
+- Plugins go live via `src/plugins.js`; maps use `<id>.js` + `.npcs.js` + `.chests.js`.
+- After meaningful work: `node tools/shoot.mjs` with the piece scenario; update progress via `node tools/progress.mjs` (not hand-editing `docs/progress.json` unless tooling fails).
+
+## Priority queue (unless user reorders)
+1. **P23 + P06 + P30** — Puddlewick loop: every door → real interior map; searchable containers and chest rewards (~1-in-4); chest ceremony wired in game.
+2. **P22** — shops/inns/churches live; critic round + remaining economy/UX gaps.
+3. **P21 → P13** — item data and copy reach menus/equip/battle.
+4. **P32** — field HUD ribbon shows the **current** map’s quest hint (not the map you left).
+5. **P24 / P26 + P23 maps** — Act I beats on real maps (roads, Saltmarrow, Cobwell, etc.).
+6. **Defer for now** (unless blocking BROKEN): **model sculpt** (see above), deep polish on P02/P09 sky-camera, P27 music composition, P28 SFX tails.
+
+## Commits
+- Commit only when the user asks.
