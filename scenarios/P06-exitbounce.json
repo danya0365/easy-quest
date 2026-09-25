@@ -1,0 +1,13 @@
+{
+  "name": "P06 exit bounce check",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 400 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'leaving';}return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene==='field'", "timeout": 45000 },
+    { "wait": 700 },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const pw=await import('/src/world/maps/puddlewick.js');const doors=pw.puddlewickLayout().doors;const rooms=[['hollybank','hollybank'],['puddlewick_inn','puddlewick_inn'],['puddlewick_bakery','int_bakery'],['puddlewick_shop','int_shop'],['puddlewick_chapel','int_chapel'],['puddlewick_mill','int_mill'],['hollybank_barn','int_barn'],['puddlewick_twins','int_twins'],['puddlewick_hob','int_hob'],['puddlewick_cottage','int_cottage']];const out=[];for(const [plot,room] of rooms){const d=doors[plot];const step=pw.puddlewickDoorstep(plot);__DQ.teleport(room);await sleep(800);__DQ.teleport('puddlewick',step.x,step.z);await sleep(400);for(let i=0;i<12;i++)await sleep(150);const after=__DQ.state().map.id;const p=__DQ.state().player;out.push({plot,room,step,after,ok:after==='puddlewick',x:p&&+p.x.toFixed(2),z:p&&+p.z.toFixed(2)}); }window.__EXIT=out;return JSON.stringify(out);})()" },
+    { "eval": "JSON.stringify({ok:window.__EXIT.filter(d=>d.ok).length,bounce:window.__EXIT.filter(d=>!d.ok)})" },
+    { "assert": "window.__EXIT.every(d=>d.ok)", "msg": "doorstep landing stays outside" }
+  ]
+}

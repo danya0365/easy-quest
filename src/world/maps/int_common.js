@@ -67,7 +67,9 @@ export function interiorMap(o) {
     x: DX, z: HD - 0.75, ix: DX, iz: HD - 1.9, reach: 2.6, height: DH * 0.9,
     talk({ field }) {
       const b = puddlewickDoorstep(o.plot);
-      try { field.teleport('puddlewick', b.x, b.z); } catch (e) { reportError(`${o.id}: door out`, e); }
+      // Field.teleport takes facing in degrees; doorstep.facing is radians (face out of the house).
+      const deg = Number.isFinite(+b.facing) ? (+b.facing * 180 / Math.PI) : undefined;
+      try { field.teleport('puddlewick', b.x, b.z, deg); } catch (e) { reportError(`${o.id}: door out`, e); }
       return null;                                   // the door just opens; no window in the way
     },
   });
@@ -124,8 +126,8 @@ export function interiorMap(o) {
       const zMid = (z0 + z1) / 2, h = Math.max(1.4, z1 - z0);
       return [{
         x: DX, z: zMid, w: Math.min(W - 0.8, DW + 6.0), h,
-        to: 'puddlewick', tx: back.x, tz: back.z, kind: 'door',
-        name: o.doorName || 'the door', line: 'door-out',
+        to: 'puddlewick', tx: back.x, tz: back.z, facing: back.facing,
+        kind: 'door', name: o.doorName || 'the door', line: 'door-out',
         back: { x: DX, z: HD - 2.3 },
       }];
     },

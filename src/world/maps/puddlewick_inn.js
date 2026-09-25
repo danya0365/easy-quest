@@ -74,7 +74,7 @@ const puddlewickInn = {
     // Same spawn-relative pad as int_common — never cover the arrival spot.
     const z0 = SPOTS.door.z + 0.55, z1 = HD - 0.25;
     return [{ x: DX, z: (z0 + z1) / 2, w: Math.min(W - 0.8, DW + 6.0), h: Math.max(1.4, z1 - z0),
-      to: 'puddlewick', tx: back.x, tz: back.z,
+      to: 'puddlewick', tx: back.x, tz: back.z, facing: back.facing,
       kind: 'door', name: 'the inn door', line: 'door-out', back: { x: DX, z: HD - 2.3 } }];
   },
 
@@ -83,7 +83,8 @@ const puddlewickInn = {
     { type: 'door', name: 'the inn door', solid: false, x: DX, z: HD - 0.75, ix: DX, iz: HD - 1.9, reach: 2.6, height: DH * 0.9,
       talk({ field }) {
         const b = puddlewickDoorstep('puddlewick_inn');
-        try { field.teleport('puddlewick', b.x, b.z); } catch (e) { reportError('inn: door out', e); }
+        const deg = Number.isFinite(+b.facing) ? (+b.facing * 180 / Math.PI) : undefined;
+        try { field.teleport('puddlewick', b.x, b.z, deg); } catch (e) { reportError('inn: door out', e); }
         return null;
       } },
     { type: 'counter', name: 'the bar', x: SPOTS.counter.x, z: SPOTS.counter.z + 0.7, line: 'bar', reach: 2.0, height: 1.3 },

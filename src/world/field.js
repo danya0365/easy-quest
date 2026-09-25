@@ -190,7 +190,11 @@ function createFieldScene() {
 
   function onExit(ex) {
     if (ex.to && Maps.has(ex.to)) {
-      changeMap({ kind: ex.kind || 'edge', from: S.map ? S.map.id : null, to: ex.to, exit: ex }, () => loadMap(ex.to, ex.tx, ex.tz));
+      // Prefer the exit's own facing (e.g. doorsteps face out of the house) so a held stick does not
+      // walk a child straight back through the door they just left.
+      const face = Number.isFinite(+ex.facing) ? +ex.facing : (Number.isFinite(+ex.tfacing) ? +ex.tfacing : undefined);
+      changeMap({ kind: ex.kind || 'edge', from: S.map ? S.map.id : null, to: ex.to, exit: ex },
+        () => loadMap(ex.to, ex.tx, ex.tz, face));
       return;
     }
     // an exit to somewhere not built yet speaks instead, and nudges you back the way you came
