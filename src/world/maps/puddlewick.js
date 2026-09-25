@@ -768,30 +768,27 @@ function furnish() {
     // ...and a door whose room is one of P06's eight (src/world/maps/int_*.js) points at that room id instead of
     // at the plot id. Every one of the ten doors on the green is now real, so `built` is never false here.
     //
-    // Trigger geometry (shots/P06-lens + P06-probe2 + P06-exitbounce2):
-    //   · doorway+0.45 was INSIDE the building collider — walking Up from the doorstep never entered.
-    //   · a 2 m pad on `out` covered the doorstep (`far`, 2.1 m) — leaving a room landed you back in the
-    //     same (or a neighbour's) exit and bounced you indoors again; shop→twins was that overlap.
-    //   · far (2.1) still sat on the exit fringe for three cottages (twins/hob/cottage): teleporting onto
-    //     the doorstep re-fired the walk-in and soft-locked a child outdoors (shots/P06-exitbounce2).
-    //   · centre ~1.0 m out, thin along the door normal; return landing is `spur` (3.1 m) facing away.
+    // Built interiors: NO walk-in exit pad. Accidental steps kept swallowing a child into a house (owner
+    // 2026-09-25). Enter only by pressing Confirm / Z on the door prop below. Unbuilt doors still keep a
+    // speak-and-step-back exit so the jamb is not a silent wall.
+    //
+    // Return landing for interiors is `spur` (3.1 m out), facing the green — clear of any door interact.
     const room = ROOM_OF[o.id] || o.id;
     const built = BUILT_INTERIORS.has(o.id) || !!ROOM_OF[o.id];
-    // Walk trigger: just outside the building collider, well short of the return landing.
-    const depth = 1.0, along = 0.85, across = Math.max(1.15, d.dw + 0.35);
-    const anx = Math.abs(d.nx), anz = Math.abs(d.nz);
-    exits.push(Object.assign({
-      x: d.doorway.x + d.nx * depth, z: d.doorway.z + d.nz * depth,
-      w: along * anx + across * anz, h: along * anz + across * anx,
-      to: room, kind: 'door', name: o.name || o.id, line: 'door-' + o.id, back: { x: d.spur.x, z: d.spur.z },
-      // Face out of the door so a held stick does not walk you straight back in after leaving.
-      facing: d.face + Math.PI,
-    }, built ? {} : { tx: d.spur.x, tz: d.spur.z }));
-    // Return landing for interiors: spur (3.1 m out), facing the green — not the jamb.
     L.spots.doors[o.id] = { x: d.spur.x, z: d.spur.z, facing: d.face + Math.PI };
-    if (built) {
+    if (!built) {
+      const depth = 1.0, along = 0.85, across = Math.max(1.15, d.dw + 0.35);
+      const anx = Math.abs(d.nx), anz = Math.abs(d.nz);
+      exits.push({
+        x: d.doorway.x + d.nx * depth, z: d.doorway.z + d.nz * depth,
+        w: along * anx + across * anz, h: along * anz + across * anx,
+        to: room, kind: 'door', name: o.name || o.id, line: 'door-' + o.id,
+        back: { x: d.spur.x, z: d.spur.z }, tx: d.spur.x, tz: d.spur.z,
+        facing: d.face + Math.PI,
+      });
+    } else {
       const dest = room;
-      // Interact point stays on the doorstep itself (far) so Z still finds the door; landing uses spur above.
+      // Interact on the doorstep (far). nearestInteractable scores by distance to (ix??x).
       props.push({
         type: 'door', name: o.name || 'the door', solid: false,
         x: d.far.x, z: d.far.z,

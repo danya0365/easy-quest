@@ -350,7 +350,8 @@ export function install(ctx = {}) {
     try { if (map.chests && map.chests.includes(t)) return 'Open it'; } catch (_) {}
     const type = String(t.type || t.kind || '').toLowerCase();
     if (/sign/.test(type)) return 'Read the sign';
-    if (/door|stair|gate/.test(type)) return 'Go in';
+    if (/door|gate/.test(type)) return 'Open the door';
+    if (/stair/.test(type)) return 'Go up';
     if (/pot|barrel|drawer|wardrobe|shelf|sack|crate|basket|urn/.test(type)) return 'Search it';
     if (/well/.test(type)) return 'Look down the well';
     if (/bed/.test(type)) return 'Have a lie down';

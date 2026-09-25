@@ -1,0 +1,20 @@
+{
+  "name": "P06 doors need Confirm — no walk-in",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 400 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'leaving';}return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene==='field'", "timeout": 45000 },
+    { "wait": 700 },
+
+    { "note": "Standing on a doorstep must NOT auto-enter — walk triggers are gone" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const pw=await import('/src/world/maps/puddlewick.js');const L=pw.puddlewickLayout();const Field=(await import('/src/world/field.js')).Field;const plots=['hollybank','puddlewick_inn','puddlewick_shop','puddlewick_twins','puddlewick_chapel'];const out=[];for(const plot of plots){const far=L.spots.doors[plot];const doorProp=()=>{const w=Field.world();const d=L.buildings.find(b=>b.id===plot);void d;return (w.map.props||[]).find(p=>p.type==='door'&&Math.hypot(p.x-(L.doors[plot]?.x||far.x),p.z-(L.doors[plot]?.z||far.z))<4);};__DQ.teleport('puddlewick',far.x,far.z);await sleep(900);out.push({plot,afterStand:__DQ.state().map.id,stood:__DQ.state().map.id==='puddlewick'});}window.__STAND=out;return JSON.stringify(out);})()" },
+    { "assert": "window.__STAND.every(d=>d.stood)", "msg": "standing on doorsteps stays outside" },
+
+    { "note": "Confirm / door.talk still enters every room" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const m=await import('/src/world/maps/puddlewick.js');const r=await import('/src/world/maps/int_rooms.js');const Field=(await import('/src/world/field.js')).Field;const doors=m.puddlewickLayout().doors;const out=[];for(const D of r.DOORS){__DQ.teleport('meadow',0,0);await sleep(700);const d=doors[D.plot];__DQ.teleport('puddlewick',d.x,d.z);for(let i=0;i<20&&__DQ.state().map.id!=='puddlewick';i++)await sleep(150);await sleep(350);if(__DQ.state().map.id!=='puddlewick'){out.push({plot:D.plot,want:D.room,err:'left puddlewick without talk',map:__DQ.state().map.id,ok:false});continue;}const w=Field.world();const door=(w.map.props||[]).find(p=>p.type==='door'&&Math.hypot(p.x-d.x,p.z-d.z)<2.5)||(w.map.props||[]).find(p=>p.type==='door');if(!door){out.push({plot:D.plot,want:D.room,err:'no door prop',ok:false});continue;}door.talk({field:Field});for(let i=0;i<25&&__DQ.state().map.id==='puddlewick';i++)await sleep(150);await sleep(300);out.push({plot:D.plot,want:D.room,went:__DQ.state().map.id,ok:__DQ.state().map.id===D.room,how:'talk'});}window.__TALK=out;return JSON.stringify(out);})()" },
+    { "eval": "JSON.stringify({ok:window.__TALK.filter(d=>d.ok).length,fail:window.__TALK.filter(d=>!d.ok)})" },
+    { "assert": "window.__TALK && window.__TALK.length===10 && window.__TALK.every(d=>d.ok)", "msg": "Confirm enters every room" },
+    { "assert": "__DQ.errors.length===0", "msg": "no errors" }
+  ]
+}
