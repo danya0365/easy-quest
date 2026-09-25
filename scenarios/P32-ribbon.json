@@ -1,0 +1,29 @@
+{
+  "name": "P32 ribbon matches current map hint",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 400 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'leaving';}return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene==='field'", "timeout": 45000 },
+    { "wait": 800 },
+
+    { "note": "Stand in the meadow: ribbon must match quest.hint for meadow, not the generic beat line" },
+    { "eval": "(()=>{__DQ.teleport('meadow');return 'ok';})()" },
+    { "waitFor": "__DQ.state().map && __DQ.state().map.id==='meadow'", "timeout": 15000 },
+    { "wait": 4200 },
+    { "eval": "JSON.stringify({map:__DQ.state().map.id, hint:__DQ.state().quest&&__DQ.state().quest.hint, next:__DQ.state().hud&&__DQ.state().hud.nextStep, from:__DQ.state().hud&&__DQ.state().hud.nextStepFrom, ribbon:__DQ.state().hud&&__DQ.state().hud.ribbon})" },
+    { "assert": "__DQ.state().hud.nextStep === __DQ.state().quest.hint", "msg": "meadow ribbon equals quest.hint" },
+    { "assert": "/lane|Puddlewick/i.test(__DQ.state().hud.nextStep||'')", "msg": "meadow hint names the lane/village" },
+
+    { "note": "Cross into Puddlewick: after the place card, ribbon must switch to the cottage sentence" },
+    { "eval": "(()=>{__DQ.teleport('puddlewick');return 'ok';})()" },
+    { "waitFor": "__DQ.state().map && __DQ.state().map.id==='puddlewick'", "timeout": 15000 },
+    { "wait": 4200 },
+    { "eval": "JSON.stringify({map:__DQ.state().map.id, hint:__DQ.state().quest&&__DQ.state().quest.hint, next:__DQ.state().hud&&__DQ.state().hud.nextStep, from:__DQ.state().hud&&__DQ.state().hud.nextStepFrom})" },
+    { "assert": "__DQ.state().hud.nextStep === __DQ.state().quest.hint", "msg": "puddlewick ribbon equals quest.hint" },
+    { "assert": "/Hollybank|boots/i.test(__DQ.state().hud.nextStep||'')", "msg": "puddlewick hint names Hollybank/boots" },
+    { "assert": "!/Walk up the lane/i.test(__DQ.state().hud.nextStep||'')", "msg": "puddlewick ribbon is not the meadow sentence" },
+
+    { "assert": "__DQ.errors.length===0", "msg": "no errors" }
+  ]
+}

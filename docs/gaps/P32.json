@@ -85,7 +85,7 @@
       "n": 5,
       "title": "the HUD ribbon has its own quest table instead of the story's",
       "detail": "src/ui/hud.js keeps a hard-coded QUESTS array. P26 now publishes the single authority at __DQ.state().quest = {id, beat, act, title, hint, map, mapName} (src/story/quests.js, one entry per CANON section 4 beat, all 28). The ribbon should prefer that hint when it is present and fall back to its own table when the story module is missing, so the sentence a child reads and the beat that is actually next can never disagree.",
-      "state": "still-open",
+      "state": "claimed-fixed",
       "opened": "2026-09-18T03:02:59.306Z",
       "events": [
         {
@@ -98,6 +98,11 @@
           "by": "critic",
           "pass": false,
           "note": "nextStepFrom says 'story (B1)' but the sentence is NOT the story's sentence - it is the sentence for the map you just left, every time. Measured twice in /index.html: on the meadow the ribbon read 'Go home to Hollybank Cottage and take Papa his boots.' while state().quest.hint read 'Walk up the lane into Puddlewick. Home is the cottage on the green.'; 2.2 s after arriving in Puddlewick the ribbon read 'Walk up the lane into Puddlewick...' while quest.hint read 'Home is Hollybank Cottage, the door on the green. Papa wants his boots.' Cause: Bus.on('map.enter') calls ribbonFor() while Field is still on the old map, caches the answer in S.ribbonText and shows it 3.45 s later; nextStep reports the cache. Fix: call ribbonFor() inside the setTimeout, at the moment the ribbon is shown."
+        },
+        {
+          "at": "2026-09-25T15:43:27.335Z",
+          "by": "builder",
+          "note": "Ribbon asks ribbonFor() at SHOW time, not on map.enter. Crossing meadow→puddlewick: nextStep === quest.hint both times (lane sentence on meadow, Hollybank/boots on puddlewick). Measured shots/P32-ribbon."
         }
       ]
     },

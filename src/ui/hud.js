@@ -432,12 +432,23 @@ export function install(ctx = {}) {
       if (S.mapOpen && S.map && !S.map.destroyed) { S.map.setTitle(m.name || ''); drawMap(); }
       const last = S.seen.get(m.id) || -1e9;
       const now = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
-      if (now - last < CARD_COOLDOWN) { S.seen.set(m.id, now); return; }
+      const cool = now - last < CARD_COOLDOWN;
       S.seen.set(m.id, now);
-      showCard(m.name || m.id);
-      const words = ribbonFor();
-      // one thing at a time: the ribbon waits until the place card has had its moment and gone
-      if (words) { S.ribbonText = words; setTimeout(() => { try { if (!S.hidden && S.cardT <= 0) showRibbon(words); } catch (_) {} }, (CARD_HOLD + 0.45) * 1000); }
+      // Never ask for the ribbon sentence HERE. Quests.hintOn is keyed by the map you are ON, and on
+      // map.enter that module may still be one door behind — caching the answer and showing it 3 s
+      // later prints the sentence for the map you just left every time (P32 gap #5). Ask again at
+      // show time, after the place card has had its moment (or immediately on a cool re-cross).
+      S.ribbonText = null;
+      if (!cool) showCard(m.name || m.id);
+      const delay = cool ? 80 : (CARD_HOLD + 0.45) * 1000;
+      setTimeout(() => {
+        try {
+          if (S.hidden) return;
+          if (!cool && S.cardT > 0) return;
+          const words = ribbonFor();
+          if (words) showRibbon(words);
+        } catch (_) {}
+      }, delay);
     } catch (e) { oops('hud map.enter', e); }
   });
   // The story turning is exactly when a child needs telling where to go next: P26 emits 'quest.change' when the

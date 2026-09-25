@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-25T15:31:34.113Z",
+  "updated": "2026-09-25T15:43:27.416Z",
   "wave": 2,
   "waveTitle": "Breadth wave: interiors, shops, treasure, spells, items, recruitment, party/wagon, story, more maps — target 65-75 per piece",
   "pieces": {
@@ -723,12 +723,12 @@
     },
     "P32": {
       "id": "P32",
-      "status": "iterating",
-      "score": 63,
+      "status": "--status",
+      "score": null,
       "best": 63,
       "rounds": 1,
       "gap": "Card, plan, compass, legend and prompt are all right and survive Bigger words, but the ribbon shows the sentence for the map you just left on every single crossing while claiming it came from the story",
-      "note": "Field HUD: place card, ribbon now from the story quest hint (story B1), painted minimap, prompt with no 'the the'; live in /index.html, 0 errors",
+      "note": "--score",
       "history": [
         {
           "at": "2026-09-18T04:25:15.098Z",
@@ -929,6 +929,10 @@
     {
       "at": "2026-09-25T15:31:34.113Z",
       "t": "P22 verified 72. P13#9/#10: key Use warps + Equip blurbs (shots/P13-use-equip4). Church wake spot moved off chapel door."
+    },
+    {
+      "at": "2026-09-25T15:43:27.416Z",
+      "t": "P32#5: HUD ribbon refreshes hint after place card for the map you are ON (shots/P32-ribbon)."
     }
   ]
 }
