@@ -22,13 +22,14 @@
  */
 import {
   Story, say, narrate, move, face, wait, camera, fade, music, sfx, give, gold, flag, joinParty, choice,
-  shake, battle, card, spawn, despawn,
+  shake, battle, card, spawn, despawn, act,
 } from '../script.js';
 import { Flags } from '../flags.js';
 import { Quests } from '../quests.js';
 import { Maps } from '../../world/map.js';
 import { Field } from '../../world/field.js';
 import { Bus } from '../../engine/events.js';
+import { Scenes } from '../../engine/states.js';
 import { reportError } from '../../engine/debug.js';
 
 const has = (id) => { try { return Maps.has(id); } catch (_) { return false; } };
@@ -40,14 +41,14 @@ const ROAD = { at: 'meadow', zone: { x: 3.6, z: 31.8, r: 4.0 } };
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 const b1 = () => [
   music('village'),
-  spawn('halvard', 'halvard', 'at:Father’s chair'),
+  spawn('halvard', 'halvard', "at:Father's chair"),
   face('halvard', 'hero'),
   camera.two('halvard'),
   narrate('It is morning in Hollybank Cottage,\nand somebody has left a boot\non the stairs. Again.'),
   say('halvard', 'Morning, lad. There you are.'),
   say('halvard', 'Boots, if you would. Both of them.\nThen we are off down the lane.'),
   say('halvard', 'Have a poke about on the way.\nPots, baskets, drawers — that is\nwhere a house keeps its secrets.'),
-  move('hero', 'at:Papa’s boots'),
+  move('hero', "at:Papa's boots"),
   sfx('search'),
   narrate('%HERO% picks up two boots.\nThey are enormous.\nHe carries one under each arm.'),
   move('hero', 'halvard'),
@@ -56,6 +57,7 @@ const b1 = () => [
   flag('ch1.awake'),
   say('halvard', 'I shall walk on to the lane.\nCome and find me when you have\nsaid goodbye to the village.'),
   move('halvard', 'at:the front door'),
+  sfx('door_open'),
   despawn('halvard'),
   narrate('{gold}Papa is waiting at the lane\nout of Puddlewick.{/gold}'),
   camera.follow(),
@@ -282,10 +284,13 @@ const b9 = () => [
   music('overworld'),
   fade('in', { ms: 700 }),
   spawn('halvard', 'halvard', { ahead: 2.8, side: -0.2 }),
+  // EVERYBODY IS STANDING BEFORE THE LENS MOVES. The Bishop used to arrive after the shot was locked, and he
+  // arrived exactly where the boom was: the whole throat-tightener played as one enormous grey nose.
+  spawn('mortmain', 'villager:nun', { ahead: 4.6, side: -2.4 }),
+  face('hero', 'halvard'),
   narrate('Papa has beaten forty of the grey\npeople. He is on one knee,\nbreathing like a bellows, winning.'),
-  // T1: locked WIDE AND LOW, from the ground beside the boy, so Papa is enormous against the sky
-  camera.two('halvard', 'hero', { dist: 4.6, height: 0.45, fov: 38, duration: 2.6 }),
-  spawn('mortmain', 'villager:nun', { ahead: 4.2, side: -2.0 }),
+  // T1: locked WIDE AND LOW, from the ground beside the boy, looking UP, so Papa is enormous against the sky
+  camera.two('halvard', 'hero', { dist: 5.0, height: 0.7, lookY: 1.55, fov: 38, duration: 2.6 }),
   music('silence'),
   say('mortmain', 'There now. Put it down, child.\nYou have a boy in each hand\nand so have I.'),
   wait(900),
@@ -352,14 +357,30 @@ export function nextBeat() { return BEATS.find(ready) || null; }
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 const S = { installed: false, map: null, cool: 0, poll: 0, armed: true };
 
+const here = () => { try { const w = Field.world(); return (w && w.map && w.map.id) || S.map; } catch (_) { return S.map; } };
+
 async function playBeat(b) {
   const place = placeOf(b);
   const steps = [];
+  const away = !place.journey && place.map && here() !== place.map;
   if (place.journey) {
     // the beat's own map is not built yet: go there by road, and come back to the lane afterwards
     steps.push(fade('out', { ms: 520 }));
     steps.push(card(Quests.placeName(b.at) || b.name, 'the road takes you there'));
     steps.push(fade('in', { ms: 620 }));
+  } else if (away) {
+    // A BEAT ALWAYS PLAYS WHERE IT BELONGS. Normally a child walks in and the beat opens round them, but a
+    // whole-Act run, a save resumed somewhere odd, or __DQ.beat('b6') from a console can ask for a beat from the
+    // wrong place — and a scene about the quay at Saltmarrow playing in a turnip field is worse than a loading
+    // card. So: fade, travel, name the place, and play it there.
+    steps.push(fade('out', { ms: 460 }));
+    steps.push(act(() => {
+      const q = (typeof window !== 'undefined' && window.__DQ) || null;
+      if (q && q.teleport) q.teleport(place.map);
+    }));
+    steps.push(wait(800));
+    steps.push(card(Quests.placeName(b.at) || b.name, null, { ms: 1500 }));
+    steps.push(fade('in', { ms: 560 }));
   }
   steps.push(...b.steps());
   if (place.journey) {
@@ -415,6 +436,9 @@ export const Chapter1 = {
      */
     const tryHere = () => {
       if (!Story.auto || Story.running()) return;
+      // A BEAT MUST NEVER OPEN OVER SOMETHING ELSE. A wild fight, a shop, the menu or a signpost's words are all
+      // the child's business first; the story waits its turn and fires on the next poll.
+      try { if (Scenes.top() !== 'field') return; } catch (_) { /* no scene stack: the demo's own field */ }
       const b = nextBeat();
       if (!b) { S.armed = true; return; }
       const place = placeOf(b);

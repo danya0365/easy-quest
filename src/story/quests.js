@@ -30,11 +30,21 @@ const T = (n) => Flags.has(n);
 export const QUESTS = [
   // ── ACT I ──────────────────────────────────────────────────────────────────────────────────────────────────
   { id: 'wake', beat: 'B1', act: 1, map: 'hollybank', title: 'Papa’s boots',
-    hint: 'Take Papa his boots. Search things on the way.', until: 'ch1.awake' },
+    hint: 'Go home to Hollybank Cottage and take Papa his boots.', until: 'ch1.awake',
+    // A SIX-YEAR-OLD IS NEVER TOLD TO GO SOMEWHERE THEY CANNOT SEE. The one sentence changes with where the child
+    // is actually standing, so it is always the very next door, not the end of the errand.
+    hintOn: { hollybank: 'Take Papa his boots. Search things on the way.',
+      meadow: 'Walk up the lane into Puddlewick. Home is the cottage on the green.',
+      puddlewick: 'Home is Hollybank Cottage, the door on the green. Papa wants his boots.',
+      puddlewick_inn: 'Out of the inn, then home to Hollybank Cottage.' } },
   { id: 'village', beat: 'B2', act: 1, map: 'puddlewick', title: 'Out to the lane',
-    hint: 'Say goodbye round the village, then find Papa at the lane.', until: 'ch1.left_home' },
+    hint: 'Say goodbye round the village, then find Papa at the lane.', until: 'ch1.left_home',
+    hintOn: { hollybank: 'Out of the door and round the village, then out to the lane.',
+      meadow: 'Papa is waiting at the lane out of Puddlewick. Back up the path.' } },
   { id: 'lane', beat: 'B3', act: 1, map: 'meadow', title: 'The Long Lane',
-    hint: 'Follow the Long Lane. Papa is right behind you.', until: 'party.bobble' },
+    hint: 'Follow the Long Lane south. Papa is right behind you.', until: 'party.bobble',
+    hintOn: { puddlewick: 'Down the path out of the village, then south to the signpost.',
+      meadow: 'South along the lane to the signpost. Papa is right behind you.' } },
   { id: 'friends', beat: 'B4', act: 1, map: 'saltmarrow', title: 'Down to the water',
     hint: 'Take the lane to Saltmarrow, where the Beck meets the tide.', until: 'ch1.met_willow' },
   { id: 'dare', beat: 'B5', act: 1, map: 'saltmarrow', title: 'Willow’s dare',
@@ -119,6 +129,7 @@ function pick() {
   const act = Flags.act();
   for (const q of QUESTS) {
     if (q.act > act) break;                              // a later Act's business is not yours yet
+    if (q.act < act) continue;                            // …and an earlier Act's business is over: the story moved
     if (T(q.until)) continue;                            // already finished
     if (typeof q.when === 'function' && !q.when(Flags)) continue;
     return q;
@@ -126,12 +137,19 @@ function pick() {
   return null;
 }
 
+/** The sentence for where the child is standing right now, falling back to the beat's own. */
+function hintOf(q) {
+  if (!q) return null;
+  if (q.hintOn && S.map && q.hintOn[S.map]) return q.hintOn[S.map];
+  return q.hint;
+}
+
 function entryOut(q) {
   if (!q) return null;
   return {
-    id: q.id, beat: q.beat, act: q.act, title: q.title, hint: q.hint,
+    id: q.id, beat: q.beat, act: q.act, title: q.title, hint: hintOf(q),
     map: q.map || null, mapName: q.map ? (PLACE_NAMES[q.map] || q.map) : null,
-    until: q.until, done: false,
+    until: q.until, done: false, here: S.map || null,
   };
 }
 
@@ -139,7 +157,7 @@ export const Quests = {
   QUESTS, WHY_NOT, PLACE_NAMES,
 
   current() { return entryOut(S.current || pick()); },
-  hint() { const q = S.current || pick(); return q ? q.hint : null; },
+  hint() { return hintOf(S.current || pick()); },
   find(id) { return QUESTS.find((q) => q.id === id) || null; },
   done(id) { const q = Quests.find(id); return !!(q && T(q.until)); },
   placeName(mapId) { return PLACE_NAMES[mapId] || null; },
@@ -152,7 +170,7 @@ export const Quests = {
     return {
       act, current: entryOut(cur),
       done: mine.filter((q) => T(q.until)).map((q) => ({ id: q.id, beat: q.beat, title: q.title })),
-      todo: mine.filter((q) => !T(q.until) && q !== cur).map((q) => ({ id: q.id, beat: q.beat, title: q.title })),
+      todo: mine.filter((q) => !T(q.until) && q !== cur && q.act >= act).map((q) => ({ id: q.id, beat: q.beat, title: q.title })),
       of: QUESTS.length,
     };
   },
@@ -179,7 +197,12 @@ export const Quests = {
     const Bs = ctx.Bus || Bus;
 
     S.off = Flags.on('*', () => { try { Quests.refresh(); } catch (e) { reportError('quests refresh', e); } });
-    Bs.on('map.enter', (m) => { S.map = m && m.id; });
+    // the ribbon re-reads itself on arrival too, because the sentence depends on which door you are next to
+    Bs.on('map.enter', (m) => {
+      S.map = m && m.id;
+      try { Bus.emit('quest.change', { from: S.current ? S.current.id : null, quest: Quests.current() }); }
+      catch (e) { reportError('quest.change map', e); }
+    });
     Quests.refresh();
 
     // The HUD, the menu and a critic all read the same one sentence.

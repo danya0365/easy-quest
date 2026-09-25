@@ -72,6 +72,14 @@ const DEG = Math.PI / 180;
 const r3 = (v) => Math.round(v * 1000) / 1000;
 const guard = (where, fn, fallback) => { try { return fn(); } catch (e) { reportError('story ' + where, e); return fallback; } };
 const sleep = (ms) => new Promise((res) => setTimeout(res, Math.max(0, ms | 0)));
+const stackNow = () => guard('stack', () => Scenes.stack(), []) || [];
+const onStack = (name) => stackNow().indexOf(name) >= 0;
+/** A writer types "Papa’s boots" and the map file says "Papa's boots". One curly apostrophe must never cost a beat
+ *  its staging, so every `at:` lookup compares on this normal form. */
+const norm = (s) => String(s == null ? '' : s)
+  .replace(/[‘’ʼ`´]/g, "'")
+  .replace(/\s+/g, ' ')
+  .toLowerCase().trim();
 
 /** A sound the library does not have must not become a reported error — a scene is not broken by a missing tick. */
 let SFX_IDS = null;
@@ -169,7 +177,43 @@ function loadLibs() {
 }
 
 const ACTORS = new Map();                  // id -> actor
+const STANDINS = new Set();                // ids the story does NOT build a body for: they are already walking
 let blobNext = 1;                          // field blob 0 is the hero; actors take 1..capacity-1
+
+/**
+ * TWO PAPAS IS WORSE THAN NO CAMERA MOVE. Halvard is a party guest for the whole of Act I, so P18's walking line
+ * already has him trailing the boy — and B1 then built a SECOND Halvard by the hearth. A child sees that
+ * instantly. So a `spawn` of somebody who is already in the world keeps the one who is there: no body is built,
+ * and the scene's framing, its lines and its lens all point at the follower who is really standing in the room.
+ */
+function followerOf(id) {
+  const q = dq();
+  if (!q || typeof q.followers !== 'function' || !id) return null;
+  const list = guard('followers', () => q.followers(), null);
+  if (!Array.isArray(list)) return null;
+  const want = String(id).toLowerCase();
+  const hit = list.find((f) => f && (String(f.id || '').toLowerCase() === want
+    || String(f.name || '').toLowerCase() === String(castName(id) || id).toLowerCase()));
+  return hit && Number.isFinite(+hit.x) ? { x: +hit.x, z: +hit.z, y: +hit.y || 0 } : null;
+}
+
+/**
+ * A WILD MONSTER MUST NOT WALK INTO A CUTSCENE. The hero's legs are only driven while the field is the top scene,
+ * so a `move('hero', ...)` step has to take the overlay down for a second or two — and P31 counts those paces like
+ * any others. Three of the Act's beats put a fight on screen *over* the story that way. Resetting the pace counter
+ * before every scripted walk leaves a whole threshold of walking before the next wild fight.
+ *          NEEDS (P31 src/world/encounter.js): a real `Encounter.pause(token, on)` so this does not have to borrow
+ *          `soon()`, which also clears the post-defeat grace period.
+ */
+let EncLib = null;
+function calmEncounters() {
+  if (EncLib === null) {
+    EncLib = false;
+    import('../world/encounter.js').then((m) => { EncLib = (m && (m.Encounter || m.default)) || false; }).catch(() => { EncLib = false; });
+    return;
+  }
+  if (EncLib && typeof EncLib.soon === 'function') guard('calm encounters', () => EncLib.soon(1e6));
+}
 
 function makeActor(id, look, at = {}, opts = {}) {
   const w = Field.world();
@@ -186,8 +230,24 @@ function makeActor(id, look, at = {}, opts = {}) {
     body = guard('Chars.build', () => CharsLib.build(base, Object.assign({ variant }, opts.build || {})), null);
   }
   if (!body || !body.root) return null;
-  const spot = pointOf(at) || {};
-  const x = Number.isFinite(+spot.x) ? +spot.x : 0, z = Number.isFinite(+spot.z) ? +spot.z : 0;
+  // A NAME THE MAP DOES NOT KNOW MUST NOT PUT SOMEBODY AT THE ORIGIN. The first version spawned Papa at (0, 0)
+  // whenever a prop had been renamed, which in a 14x12 cottage is the middle of the floor. Fall back to a step in
+  // front of the boy, where a person standing is always legible.
+  const spot = pointOf(at) || pointOf({ ahead: 2.3, side: -0.8 }) || {};
+  let x = Number.isFinite(+spot.x) ? +spot.x : 0, z = Number.isFinite(+spot.z) ? +spot.z : 0;
+  // …and nobody arrives ON the lens either: a body that spawns where the camera is holding fills the whole frame
+  guard('spawn clear of lens', () => {
+    const cam = w.camera;
+    if (!cam) return;
+    for (let i = 0; i < 3; i++) {
+      const dx = x - cam.position.x, dz = z - cam.position.z, d = Math.hypot(dx, dz);
+      if (d > 1.3) return;
+      const ux = d > 0.01 ? dx / d : 0.7, uz = d > 0.01 ? dz / d : 0.7;
+      let nx = x + ux * 1.1, nz = z + uz * 1.1;
+      if (w.map && w.map.resolve) { const r = w.map.resolve(nx, nz, 0.4); nx = r.x; nz = r.z; }
+      x = nx; z = nz;
+    }
+  });
   const y = w.map ? w.map.walkY(x, z) : 0;
   body.root.position.set(x, y, z);
   // an actor with nowhere to look faces the boy: a spawned body standing with its back to the hero reads as a bug
@@ -215,7 +275,7 @@ function killActor(id) {
   ACTORS.delete(id);
   return true;
 }
-function killAllActors() { for (const id of Array.from(ACTORS.keys())) killActor(id); blobNext = 1; }
+function killAllActors() { for (const id of Array.from(ACTORS.keys())) killActor(id); STANDINS.clear(); blobNext = 1; }
 
 /**
  * Where is somebody, or something? A writer never types coordinates from another piece's map file into a scene:
@@ -246,16 +306,17 @@ function pointOf(target) {
   }
   const a = ACTORS.get(id);
   if (a) return { x: a.x, z: a.z };
+  if (STANDINS.has(id)) { const f = followerOf(id); if (f) return { x: f.x, z: f.z }; }
   const w = Field.world();
   const m = w && w.map;
   if (!m) return null;
   if (id === 'spawn') return { x: m.spawn.x, z: m.spawn.z };
   if (id.startsWith('at:')) {
-    const want = id.slice(3).toLowerCase().trim();
+    const want = norm(id.slice(3));
     const pool = [].concat(m.props || [], m.chests || [], m.exits || []);
-    const hit = pool.find((p) => String(p.name || '').toLowerCase() === want)
-      || pool.find((p) => String(p.name || '').toLowerCase().includes(want))
-      || pool.find((p) => String(p.type || p.kind || '').toLowerCase() === want);
+    const hit = pool.find((p) => norm(p.name) === want)
+      || pool.find((p) => want && norm(p.name).includes(want))
+      || pool.find((p) => norm(p.type || p.kind) === want);
     if (hit && Number.isFinite(+hit.x)) {
       // stand a step OFF the thing, never inside it
       const off = Number.isFinite(+hit.reach) ? Math.min(1.4, Math.max(0.9, +hit.reach * 0.6)) : 1.1;
@@ -285,6 +346,7 @@ const R = {
   letterbox: null, cardWin: null,
   history: [], installed: false, ctx: null, autoplay: true,
   shakeT: 0, shakeMs: 0, shakeAmp: 0,
+  keys: false, unstaging: null,
 };
 try { if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('story') === 'off') R.autoplay = false; } catch (_) {}
 
@@ -296,9 +358,11 @@ function installCss() {
   const el = document.createElement('style');
   el.id = 'story-css';
   el.textContent = `
-/* the bars sit BEHIND every DQ window inside #ui-root (z-index -1 there is still in front of the canvas), so a
-   letterbox never clips the message box the way the first version did */
-#story-bars{position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:0;transition:opacity .34s ease}
+/* The bars sit ABOVE the canvas and BELOW every DQ window. The canvas is a non-positioned block, so any fixed
+   element with z-index >= 0 paints over it; F4's window layer (.dq-ui) is z-index 10, so 5 puts the letterbox
+   between them. (z-index -1 put it behind the canvas in /index.html, where #game-root is the containing block —
+   the bars were invisible in the real game and only looked right in the demo.) */
+#story-bars{position:fixed;inset:0;pointer-events:none;z-index:5;opacity:0;transition:opacity .34s ease}
 #story-bars.on{opacity:1}
 #story-bars .bar{position:absolute;left:0;right:0;height:7%;background:var(--pal-ui-shadow,#0b0d17);
   box-shadow:0 0 calc(30 * var(--u,1px)) rgba(0,0,0,.55)}
@@ -306,8 +370,10 @@ function installCss() {
 #story-bars .bar.b{bottom:0;transform:translateY(100%);transition:transform .38s cubic-bezier(.2,.8,.25,1)}
 #story-bars.on .bar.t,#story-bars.on .bar.b{transform:translateY(0)}
 #story-bars .skip{position:absolute;right:calc(28 * var(--u,1px));bottom:calc(20 * var(--u,1px));
-  font:600 calc(20 * var(--u,1px))/1.2 var(--dq-font,system-ui,sans-serif);color:var(--pal-ui-text-dim,#cfd6ff);
-  letter-spacing:.04em;opacity:.75;text-shadow:0 calc(2 * var(--u,1px)) 0 rgba(0,0,0,.6)}
+  font:700 calc(20 * var(--u,1px))/1.2 var(--dq-font,system-ui,sans-serif);color:var(--pal-ui-text-dim,#cfd6ff);
+  letter-spacing:.04em;opacity:.8;text-shadow:0 calc(2 * var(--u,1px)) 0 rgba(0,0,0,.6);
+  pointer-events:auto;cursor:pointer;background:none;border:0;padding:calc(6 * var(--u,1px)) calc(10 * var(--u,1px))}
+#story-bars .skip:hover{opacity:1;color:var(--pal-ui-cursor,#fff)}
 #story-card{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;z-index:41;opacity:0;
   transition:opacity .5s ease}
 #story-card.on{opacity:1}
@@ -326,11 +392,61 @@ function bars(on) {
     const root = document.getElementById('ui-root') || document.body;
     const el = document.createElement('div');
     el.id = 'story-bars';
-    el.innerHTML = '<div class="bar t"></div><div class="bar b"></div><div class="skip">X skip</div>';
+    el.innerHTML = '<div class="bar t"></div><div class="bar b"></div><button type="button" class="skip">skip &#9654;</button>';
     root.appendChild(el);
+    // A CHILD MUST ALWAYS BE ABLE TO GET OUT. On a phone there is no X key, so the word itself is the button.
+    guard('skip button', () => el.querySelector('.skip').addEventListener('click', () => Story.skip()));
     R.letterbox = el;
   }
   R.letterbox.classList.toggle('on', !!on);
+}
+
+/**
+ * The skip key, listened for on the page and not only in the cutscene scene.
+ * Nearly every second of a cutscene has a Dragon Quest message box open, and the dialogue scene (P12) uses Cancel
+ * to close the page it is on — so it never reaches the cutscene scene underneath. Without this, the word "skip" on
+ * the letterbox was a lie for the whole of a conversation.
+ */
+function skipKey(e) {
+  if (!R.playing || !e || e.repeat) return;
+  const k = String(e.key || '');
+  if (k !== 'Escape' && k !== 'x' && k !== 'X' && k !== 'Backspace') return;
+  if (onStack('battle')) return;                 // a fight is the child's to finish, not the story's to unwind
+  Story.skip();
+}
+function installKeys() {
+  if (typeof document === 'undefined' || R.keys) return;
+  R.keys = true;
+  guard('skip key', () => document.addEventListener('keydown', skipKey, true));
+}
+
+/**
+ * The field HUD steps aside for a scene. A cutscene needs a clean frame: the ribbon, the place card, the minimap
+ * and above all the little "Z — Talk to Linnet" prompt (the field is briefly the top scene again while the hero's
+ * legs are driven) do not belong over the moment Papa hands over his boots. P32 already publishes the switch.
+ */
+function hud(on) {
+  const q = dq();
+  if (q && typeof q.hudShow === 'function') guard('hud', () => q.hudShow(!!on));
+}
+
+/** Take the overlay down WHEREVER it is in the stack. A battle or a menu that opened over a scene must never
+ *  leave the letterbox nailed across the screen for the rest of the game. */
+function unstage() {
+  // the bars stay up while a scene is still running: a `move('hero', ...)` step has to hand the field back for a
+  // second or two to drive his legs, and a letterbox that blinked off and on again at every walk looked broken
+  if (!R.playing) bars(false);
+  if (Scenes.top() === 'cutscene') { guard('pop cutscene', () => Scenes.pop()); return; }
+  if (!onStack('cutscene')) return;
+  if (R.unstaging) return;
+  R.unstaging = setInterval(() => {
+    if (!onStack('cutscene')) { clearInterval(R.unstaging); R.unstaging = null; return; }
+    if (R.staged) { clearInterval(R.unstaging); R.unstaging = null; return; }   // a new scene took it over
+    if (Scenes.top() === 'cutscene') {
+      guard('pop cutscene', () => Scenes.pop());
+      clearInterval(R.unstaging); R.unstaging = null;
+    }
+  }, 150);
 }
 
 async function showCard(title, sub, ms) {
@@ -375,8 +491,10 @@ const cutsceneScene = {
 function stage(on) {
   if (on === R.staged) return;
   R.staged = on;
-  if (on) { if (Scenes.has('cutscene') && Scenes.top() === 'field') guard('push cutscene', () => Scenes.push('cutscene')); else bars(true); }
-  else { if (Scenes.top() === 'cutscene') guard('pop cutscene', () => Scenes.pop()); }
+  if (!on) { unstage(); return; }
+  if (onStack('cutscene')) { bars(true); return; }        // already staged, just sitting under something
+  if (Scenes.has('cutscene') && Scenes.top() === 'field') guard('push cutscene', () => Scenes.push('cutscene'));
+  else bars(true);
 }
 /** The hero can only walk while the FIELD is the top scene (that is where his legs are driven), so a walk step
  *  takes the overlay down and locks the pad instead. Two seconds without a skip button beats a sliding statue. */
@@ -465,6 +583,19 @@ function tickActors(dt) {
   if (touched && w.blobs) guard('blob commit', () => w.blobs.commit());
 }
 
+/**
+ * A LENS INSIDE SOMEBODY'S HEAD is the worst frame the story can produce: B9's low, wide "look at the sky" shot
+ * put the boom exactly where the Bishop was standing, and the great throat-tightener of Act I played as one
+ * enormous nose. The lens must clear every body in the scene, not only the walls.
+ */
+function lensClear(x, z, gap = 1.0) {
+  const p = Field.player();
+  if (p && Math.hypot(p.x - x, p.z - z) < gap) return false;
+  for (const a of ACTORS.values()) if (Math.hypot(a.x - x, a.z - z) < gap) return false;
+  for (const id of STANDINS) { const f = followerOf(id); if (f && Math.hypot(f.x - x, f.z - z) < gap) return false; }
+  return true;
+}
+
 // ── the screen shake (CEREMONY, and the only way a stone door lands) ────────────────────────────────────────
 function tickShake(dt) {
   if (R.shakeT <= 0) return;
@@ -510,8 +641,9 @@ function runDialogue(script) {
     let done = false;
     const finish = () => { if (!done) { done = true; res(true); } };
     guard('dialogue push', () => Scenes.push('dialogue', { script, vars: { HERO: HERO_NAME() }, onClose: finish }), finish);
-    // belt and braces: if the dialogue scene never closes we must not hang the story for ever
-    setTimeout(() => { if (!done && Scenes.top() !== 'dialogue') finish(); }, 400);
+    // belt and braces: if the dialogue scene never even opened we must not hang the story for ever (the stack, not
+    // the top — a place card or a transition can legitimately sit over the box for a moment)
+    setTimeout(() => { if (!done && !onStack('dialogue')) finish(); }, 500);
   });
 }
 
@@ -535,6 +667,7 @@ async function runStep(s) {
       if (s.actor === 'hero' || s.actor === 'player') {
         // a held two-shot would watch him walk out of frame: hand the lens back to the follow camera first
         if (s.keepShot !== true) guard('move release', () => { const w = Field.world(); if (w && w.cameraRig) w.cameraRig.release(0.45); });
+        calmEncounters();
         stage(false); lockPad(true);
         await walkHero(s.to, s);
         lockPad(false); stage(true);
@@ -610,8 +743,12 @@ async function runStep(s) {
       return;
     }
     case 'card': { stage(true); await showCard(s.title, s.sub, s.ms); return; }
-    case 'spawn': { loadLibs(); makeActor(s.id, s.look, s.at || s, s); return; }
-    case 'despawn': killActor(s.id); return;
+    case 'spawn': {
+      if (!ACTORS.has(s.id) && followerOf(s.id)) { STANDINS.add(s.id); return; }   // he is already in the room
+      loadLibs(); makeActor(s.id, s.look, s.at || s, s);
+      return;
+    }
+    case 'despawn': STANDINS.delete(s.id); killActor(s.id); return;
     case 'do': { const more = await guard('do', () => s.fn({ Flags, Quests, Story, Field, actors: ACTORS }), null); if (Array.isArray(more)) await runList(more); return; }
     case 'branch': {
       const ok = typeof s.cond === 'function' ? !!guard('branch cond', () => s.cond(Flags), false) : Flags.has(s.cond);
@@ -647,19 +784,37 @@ async function runStep(s) {
         // A LENS INSIDE A WALL IS WORSE THAN NO SHOT. Hollybank is 14x12: the first version put the boom seven
         // units out through the cottage wall and the whole frame was one plank of wood. So: try the near side,
         // then the far side, then closer in, and only take the shot when the point is really in the room.
-        const want = Number.isFinite(+s.dist) ? +s.dist : Math.max(2.8, Math.min(5.6, d * 1.2 + 1.5));
-        let from = null;
+        // When the two of them are almost on the same spot — a party guest is glued a pace behind the boy — a
+        // 2.8-unit boom ends up inside the speaker's shoulder. Back off with a floor of 3.4.
+        const want = Number.isFinite(+s.dist) ? +s.dist : Math.max(3.4, Math.min(5.6, d * 0.9 + 2.6));
+        /**
+         * SWING BEFORE YOU SHRINK. The first version only ever pulled the boom in when the near side was blocked,
+         * so a scene with a third person standing in the way ended up two metres from the speakers with their
+         * heads out of frame. Try the asked distance all the way round first — a talk shot at the right distance
+         * from an odd angle beats the right angle from inside somebody's chin.
+         */
+        const dirs = [];
         for (const sign of [1, -1]) {
-          for (const k of [1, 0.8, 0.62, 0.48]) {
-            const x = mx + px * sign * want * k, z = mz + pz * sign * want * k;
-            if (!m || (m.inBounds(x, z) && m.clear(x, z, 0.45))) { from = { x, z }; break; }
+          for (const deg of [0, 25, -25, 50, -50, 75, -75]) {
+            const a = deg * DEG, c = Math.cos(a), sn = Math.sin(a);
+            dirs.push({ x: (px * c - pz * sn) * sign, z: (px * sn + pz * c) * sign });
+          }
+        }
+        let from = null;
+        for (const k of [1, 1.15, 0.85, 0.68, 0.52]) {
+          for (const u of dirs) {
+            const x = mx + u.x * want * k, z = mz + u.z * want * k;
+            if (m && !(m.inBounds(x, z) && m.clear(x, z, 0.45))) continue;
+            if (!lensClear(x, z)) continue;
+            from = { x, z }; break;
           }
           if (from) break;
         }
         if (!from) return;                                              // nowhere honest to stand: keep the follow camera
         const gy = m ? m.walkY(mx, mz) : 0;
         const eye = { x: from.x, y: (m ? m.walkY(from.x, from.z) : 0) + (Number.isFinite(+s.height) ? +s.height : 1.45), z: from.z };
-        const p = guard('camera two', () => rig.shot({ from: eye, lookAt: { x: mx, y: gy + 1.0, z: mz }, duration: s.duration == null ? 1.1 : s.duration, fov: s.fov, hold: s.hold !== false }), null);
+        const lookY = Number.isFinite(+s.lookY) ? +s.lookY : 1.0;       // raise it to look UP at a standing adult
+        const p = guard('camera two', () => rig.shot({ from: eye, lookAt: { x: mx, y: gy + lookY, z: mz }, duration: s.duration == null ? 1.1 : s.duration, fov: s.fov, hold: s.hold !== false }), null);
         if (p && typeof p.then === 'function') await Promise.race([p, sleep(((s.duration == null ? 1.1 : s.duration) * 1000) + 700)]);
         return;
       }
@@ -670,29 +825,39 @@ async function runStep(s) {
       if (s.what === 'snap') { guard('camera snap', () => rig.snap()); return; }
       return;
     }
+    /**
+     * A FIGHT INSIDE A SCENE. `battle.end` fires while the fight is still SAYING things — the victory tally, the
+     * level-up panel, and P17's "wants to join you" and naming windows — and the battle SCENE only pops when the
+     * child has read all of it. The first version gave up after nine seconds and spoke anyway: its dialogue box
+     * went on TOP of the live battle, the confirm presses went to the box, and the fight sat underneath for ever.
+     * That one mistake wedged the whole of Act I (the letterbox stayed up, Cancel could not reach the runner, and
+     * every later beat was refused with "a story scene is already playing"). So: wait for the battle to be really,
+     * properly over — the scene off the stack and no window holding the screen — and only then carry on.
+     */
     case 'battle': {
       const q = dq();
       if (!q) return;
-      await new Promise((res) => {
-        let done = false;
-        const finish = () => { if (!done) { done = true; res(true); } };
-        const off = Bus.on('battle.end', finish);
-        const started = guard('battle', () => (q.fight ? q.fight(s.area || null, Object.assign({ onEnd: finish }, s)) : q.battle(s.enemies || [])), null);
-        if (!started) { off(); finish(); return; }
-        // the battle scene pops itself; watch the stack too, in case it never emits
-        const iv = setInterval(() => { if (Scenes.top() !== 'battle' && Scenes.stack().indexOf('battle') < 0) { clearInterval(iv); off(); finish(); } }, 180);
-        setTimeout(() => { clearInterval(iv); off(); finish(); }, 240000);
-      });
-      // `battle.end` fires while the fight is still SAYING things — the victory tally, and P17's "wants to join
-      // you" and naming windows. Walking straight on from here stacked our next line on top of theirs. Wait for
-      // the screen to be the player's again (up to six seconds) before the scene speaks.
-      for (let i = 0; i < 60; i++) {
-        const top = Scenes.top();
-        const st2 = q ? guard('state', () => q.state(), null) : null;
-        const focused = st2 && st2.ui ? st2.ui.focus : null;          // a modal window (the join Yes/No, the tally)
-        if (top !== 'battle' && top !== 'dialogue' && top !== 'menu' && !focused) break;
+      let ended = false;
+      const off = Bus.on('battle.end', () => { ended = true; });
+      const started = guard('battle', () => (q.fight ? q.fight(s.area || null, Object.assign({}, s)) : q.battle(s.enemies || [])), null);
+      // it has to actually appear: a couple of seconds for the swirl and the scene push
+      let appeared = false;
+      for (let i = 0; i < 40 && !appeared && !ended; i++) {
+        if (onStack('battle')) appeared = true; else await sleep(100);
+      }
+      if (!appeared && !ended && !started) { off(); return; }          // no battle in this build: the scene goes on
+      const cap = Date.now() + 240000;
+      while (Date.now() < cap) {
+        if (!onStack('battle')) {
+          const top = Scenes.top();
+          const st2 = guard('state', () => q.state(), null);
+          const focused = st2 && st2.ui ? st2.ui.focus : null;         // a modal window (the join Yes/No, the tally)
+          if (top !== 'dialogue' && top !== 'menu' && !focused) break;
+        }
         await sleep(150);
       }
+      off();
+      calmEncounters();                                                // the fight the scene asked for, not one more
       await sleep(250);
       return;
     }
@@ -752,7 +917,11 @@ export const Story = {
    */
   autoplay(on) { if (on !== undefined) R.autoplay = !!on; return R.autoplay; },
   get auto() { return R.autoplay; },
-  actors() { return Array.from(ACTORS.values()).map((a) => ({ id: a.id, look: a.look, x: r3(a.x), z: r3(a.z), facing: r3(((a.yaw / DEG) % 360 + 360) % 360), walking: !!a.path })); },
+  actors() {
+    const out = Array.from(ACTORS.values()).map((a) => ({ id: a.id, look: a.look, x: r3(a.x), z: r3(a.z), facing: r3(((a.yaw / DEG) % 360 + 360) % 360), walking: !!a.path }));
+    for (const id of STANDINS) { const f = followerOf(id); out.push({ id, look: 'follower', standin: true, x: f ? r3(f.x) : null, z: f ? r3(f.z) : null }); }
+    return out;
+  },
 
   /** Play a registered scene by id (or a list of steps directly). */
   beat(id, opts = {}) {
@@ -763,11 +932,20 @@ export const Story = {
   },
 
   async play(steps, opts = {}) {
-    if (R.playing) return { ok: false, reason: 'a story scene is already playing', playing: R.playing.id };
+    if (R.playing) {
+      // A STORY MUST NOT BE ABLE TO WEDGE ITSELF. If something upstream really did strand a scene, let the next
+      // beat take the stage rather than refusing every beat for the rest of the child's afternoon.
+      if (Date.now() - R.playing.at > 300000) { Story.skip(); await sleep(700); }
+      if (R.playing) return { ok: false, reason: 'a story scene is already playing', playing: R.playing.id };
+    }
     const list = Array.isArray(steps) ? steps : [steps];
     const id = String(opts.id || 'scene');
     R.playing = { id, name: opts.name || id, steps: list.length, i: 0, skipped: false, at: Date.now() };
     R.skipReq = false; R.hurry = false;
+    installKeys();
+    stage(true);                                   // the bars and the locked controls come up BEFORE the first fade
+    hud(false);
+    calmEncounters();
     guard('busy on', () => Debug.busy('story', true));
     guard('story.start', () => Bus.emit('story.start', { id, steps: list.length }));
     try {
@@ -782,6 +960,7 @@ export const Story = {
       lockPad(false);
       stage(false);
       bars(false);
+      hud(true);                                   // and the ribbon comes straight back to say where to go next
       guard('camera back', () => { const w = Field.world(); if (w && w.cameraRig) w.cameraRig.release(0.6); });
       // A BLACK FRAME IS THE WORST FAILURE IN THIS PROJECT: a scene that ends (or is skipped) mid-fade or under a
       // chapter card must hand the screen back uncovered, every time.
@@ -807,7 +986,7 @@ export const Story = {
     R.skipReq = true;
     R.hurry = true;
     // close whatever window is up so the runner can unwind at once
-    if (Scenes.top() === 'dialogue') guard('skip dialogue', () => Scenes.pop());
+    for (let i = 0; i < 3 && Scenes.top() === 'dialogue'; i++) guard('skip dialogue', () => Scenes.pop());
     if (R.hero) { const f = R.hero.resolve; R.hero = null; if (f) f(false); }
     for (const a of ACTORS.values()) if (a.path) { const f = a.path.resolve; a.x = a.path.tx; a.z = a.path.tz; a.path = null; if (f) f(false); }
     guard('story.skip', () => Bus.emit('story.skip', { id: R.playing.id }));
@@ -816,8 +995,9 @@ export const Story = {
 
   state() {
     return {
-      playing: R.playing ? { id: R.playing.id, step: R.playing.i, of: R.playing.steps } : null,
+      playing: R.playing ? { id: R.playing.id, step: R.playing.i, of: R.playing.steps, ms: Date.now() - R.playing.at } : null,
       staged: R.staged, padLocked: R.blocked, autoplay: R.autoplay, actors: Story.actors(), scenes: Story.scenes().length,
+      skippable: !!R.playing && !onStack('battle'), stack: stackNow(),
       act: Flags.act(), quest: Quests.current(), flags: Flags.describe().set, history: R.history.slice(-5),
       chapters: Array.from(SCENES.keys()).filter((k) => k.startsWith('b')).length,
     };
@@ -859,6 +1039,7 @@ export const Story = {
     loadLibs();                                   // the cast's bodies, ready before the first scene asks for one
 
     installCss();
+    installKeys();
     Scenes.register('cutscene', cutsceneScene);
 
     // the story's own heartbeat rides the field's tick, so it stops dead when there is no world
