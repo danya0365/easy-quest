@@ -5,13 +5,25 @@
       "n": 1,
       "title": "Status page runs off the bottom of the screen",
       "detail": "A grown character's Status page was taller than the 720-tall frame: measured 729 design px tall at top=96, bottom=825, with the footer line (arrows somebody else - Cancel to go back) at y=800, entirely off screen. A child could not see how to leave the page or how to look at the next character. Fix: lay the page out so it always fits (smaller status type, spells in two columns, Next level and In a fight moved under the numbers), and measure the real height after every content change and slide the window up if it would ever overflow.",
-      "state": "claimed-fixed",
+      "state": "still-open",
       "opened": "2026-09-18T01:35:11.524Z",
       "events": [
         {
           "at": "2026-09-18T01:35:43.068Z",
           "by": "builder",
           "note": "Measured in the running build both in demos/P13.html and /index.html. Before: window height 729 design px at top 96, bottom 825, footer bottom 800 (80 px below the screen). After: Act II Bram 565 tall, bottom 661; Act III Bram 565/661; the Act III mage (11 spells, 5 kit slots) 576 tall, bottom 672 - and the fit guard would slide any taller page up to keep it inside 706. __DQ.state().menu.statusFit now reports {hU, top, bottom} and both scenarios assert bottom <= 720 for four different characters. Footer visible in every Status screenshot."
+        },
+        {
+          "at": "2026-09-18T04:18:08.236Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Measured in /index.html with my own tape (raw getBoundingClientRect, not state().menu.fit). Bram Act I Status: m-status top 96 bottom 661 of a 720 frame, footer line 'arrows somebody else - Cancel to go back' visible in shots/P13-critic-e1/29. Halvard and Bobble pages the same, offScreen 0. CAVEAT: Act III is unreachable in the real game so the grown-up page could only be checked at Act I."
+        },
+        {
+          "at": "2026-09-18T04:25:07.701Z",
+          "by": "critic",
+          "pass": false,
+          "note": "CORRECTING MY OWN EARLIER PASS. At the default text size the page fits (top 96, bottom 661, footer visible). But turn on Bigger words and this gap's exact symptom returns: at Biggest (u 1.26) m-status is 245 css px off the RIGHT and its bottom is off the screen too - 'Wooden Sword' is sliced to 'Wood', the Shield/Hat/Trinket values are gone, and the footer line 'arrows somebody else - Cancel to go back' is entirely off the bottom, so a child again cannot see how to leave the page or how to look at the next character. See shots/P13-critic-e1/57-status-at-biggest-words.png. WORSE: state().menu.statusFit still reports {top 96, bottom 661} at that scale, because it measures in design px - so the very instrument written to prove this gap fixed is blind to it. Measure statusFit against the viewport in css px, not against the 1280x720 design frame. Root cause filed as F4 #1."
         }
       ]
     },
@@ -19,13 +31,19 @@
       "n": 2,
       "title": "The little 3D portrait is empty on the second visit to Status",
       "detail": "Open Status once and the portrait renders. Leave it, do anything else in the menu and open Status again and the portrait frame is EMPTY - just the blue panel and a shadow blob. Cause: portraitEl() built a NEW canvas element every visit while the WebGLRenderer stayed bound to the first one, so the context painted into a detached node. Fix: keep one canvas for the life of the renderer and move it into the new frame.",
-      "state": "claimed-fixed",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:35:11.560Z",
       "events": [
         {
           "at": "2026-09-18T01:35:43.108Z",
           "by": "builder",
           "note": "One canvas is now kept on PORTRAIT.canvas for the life of the renderer and moved into each new frame; portraitDestroy clears it with the context. Verified by shooting Status a SECOND time in the same menu session (scenarios/P13.json step 13b, after Items, Equip and Spells have each opened and closed): __DQ.state().menu.portrait.live is true and the screenshot shots/P13-r8/16-13b-status-act-three.png shows the model. The same shot in shots/P13-r4 (before) is an empty blue panel."
+        },
+        {
+          "at": "2026-09-18T04:18:08.279Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Opened Status, left it, went to Items, came back to Status twice. Portrait box 212x258 design px, canvas 300x360, isConnected true on every visit; state().menu.portrait.frames climbed 237 -> 587 -> 816 across visits. shots/P13-critic-e1/15 and /29 both show Bram's face rendered, not an empty blue frame."
         }
       ]
     },
@@ -33,13 +51,19 @@
       "n": 3,
       "title": "Bram is drawn as a six-year-old in Acts II and III",
       "detail": "portraitLook() hardcoded age 6 for the hero, so the Status portrait showed the boy even at Level 24 with a wife and twins. Fix: pick the age from the member (age/act) or, failing that, from the company he keeps - Rowan and Linnet mean Act III, Papa walking as a guest means Act I.",
-      "state": "claimed-fixed",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:35:11.594Z",
       "events": [
         {
           "at": "2026-09-18T01:35:43.147Z",
           "by": "builder",
           "note": "portraitLook now calls heroAge(m): the member's own age or act if it has one, else Rowan or Linnet in the company means 26 and Halvard walking as a guest means 6, else 16. Verified by eye: shots/P13-r8/16-13b-status-act-three.png is a grown, broad-shouldered Bram at Level 24, while shots/P13-idx2/04-04-status.png (Act I, Halvard a guest, Level 1) is still the round-headed boy."
+        },
+        {
+          "at": "2026-09-18T04:18:20.584Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Cannot be falsified in the real game: Acts II and III are unreachable from /index.html, so the hero is age 6 everywhere I can get to and the portrait correctly shows the boy (shots/P13-critic-e1/29). heroAge(m) is present and Status reports the right epithet 'the Steady Oak'. Passing on the evidence available, not on the Act III case."
         }
       ]
     },
@@ -47,13 +71,19 @@
       "n": 4,
       "title": "A long item name runs out through the side of the window",
       "detail": "In Status > Wearing, the trinket The Sock of Considerable Power ran straight out through the right-hand border of the window and off the screen edge, because every row was white-space: nowrap. Fix: the label always reads in full and the value wraps inside its column; and the menu now reports a spill number per window so this is measurable.",
-      "state": "claimed-fixed",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:35:11.628Z",
       "events": [
         {
           "at": "2026-09-18T01:35:43.184Z",
           "by": "builder",
           "note": "The status label is now flex 0 1 auto and nowrap while the value is flex 1 1 auto and wraps. Verified: in shots/P13-r7 and r8 the trinket The Sock of Considerable Power wraps onto two lines inside the Wearing column with the window border intact, and the new __DQ.state().menu.fit report gives spill 0 for every open window in both the demo and /index.html (the real-game run reports over 0 and spill 0 for m-cmd, m-party, m-gold, m-slots, m-kit and m-stats together)."
+        },
+        {
+          "at": "2026-09-18T04:18:20.626Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Walked every row of an 8-row bag and the 5 Equip slots reading computed styles: my tape found 0 elements whose scrollWidth exceeded clientWidth with text-overflow ellipsis, and 0 clipped elements, in the bag, the Keys page, Equip, the kit list, Status and Misc. Longest label tested: Wayfarer's Clothes in the Armour row, which fits inside m-slots 34..558."
         }
       ]
     },
@@ -61,7 +91,7 @@
       "n": 5,
       "title": "The Misc window covers the line that explains the setting",
       "detail": "Misc is the tallest list in the menu (six rows plus a title). At top 360 it reached y=692 and sat straight on top of the blurb window at bottom 24, so the one line that tells a child what How fast the words come actually means was 90 per cent hidden, with only the last two words (xt one.) peeking out from behind. Fix: sit the Misc list higher, and assert in the scenario that the Misc window bottom is above the blurb top.",
-      "state": "claimed-fixed",
+      "state": "still-open",
       "opened": "2026-09-18T01:41:10.546Z",
       "events": [
         {
@@ -73,6 +103,12 @@
           "at": "2026-09-18T01:42:58.843Z",
           "by": "builder",
           "note": "Exact numbers from the real game after the fix: m-misc top 286 bottom 620, m-blurb top 635 bottom 696 - 15 design px of clear air, and both windows report over 0 and spill 0. (An earlier note said 648/28; 635/15 is what the build actually measures.)"
+        },
+        {
+          "at": "2026-09-18T04:18:20.668Z",
+          "by": "critic",
+          "pass": false,
+          "note": "REGRESSED, and only fixed at one text size. At Bigger words (scale 1.12) m-blurb runs 107 css px off the right of the 1280x720 screen AND overlaps m-misc by 642x60 design px - the exact gap this ticket describes. At Biggest (1.26) m-blurb is 280 css px off the right and m-misc is 61 css px off the bottom, so the gold row 'The tale-s secret code' is sliced by the screen edge (see shots/P13-critic-e1/37). Root cause: --u = min(W/1280,H/720) * textScale, so the usable design frame shrinks to 1143x643 then 1016x571 while every window keeps fixed 1280x720 coordinates. At Normal it is genuinely fixed: misc bottom 620, blurb top 635, 15 px of clear air, offScreen 0."
         }
       ]
     },
@@ -80,7 +116,7 @@
       "n": 6,
       "title": "Menu reads the fixture item table, not src/data/items.js",
       "detail": "src/ui/menu.js imports DATA from tests/battle/data.js, so the bag, Items and Equip windows show 58 fixture rows instead of the 73 canon rows in src/data/items.js (P21, now written). Measured in /index.html: Object.keys(Menu.items).length is 58 at boot; after calling (await import(/src/data/items.js)).install(ctx) it is 73, every row carries its own blurb and where, and the Equip window shows Copper Sword +11 with a green up-arrow 21 delta. Fix: in menu.js install(ctx) add import { ITEMS } from ../data/items.js and call Menu.useData({ items: ITEMS }) (the swap menu.js own header already promises). Then ITEM_WORDS can go, since every row has a blurb.",
-      "state": "still-open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:12:18.169Z",
       "events": [
         {
@@ -88,6 +124,17 @@
           "by": "critic",
           "pass": false,
           "note": "Re-measured from the P21 side and still open. At /index.html __DQ.state().items is null, so items.js install() never runs; src/main.js PLUGINS has no data/items.js entry and Menu.useData is never called. The bag therefore shows menu.js's own ITEM_WORDS copy, and 6 of its 17 lines have already drifted from items.js (sunbottle, retreat_bell, homing_feather, whiff_powder, seed_of_life, pot_lid). 41 of the 45 equippable rows fall through to describeGear: Copper Sword reads plus 11 Attack. Only Bram or Rowan can hold it, Mirror Shield reads plus 25 Defence with no word about reflecting Wobble and Snoozle. Note P13 #8, which I opened before spotting this one — it is the same defect with sharper numbers plus the shop case; the orchestrator should merge #8 into #6."
+        },
+        {
+          "at": "2026-09-18T03:51:59.592Z",
+          "by": "builder",
+          "note": "menu.js now imports src/data/items.js and src/data/spells.js directly, so plugin order cannot matter. Measured in BOTH builds: state().menu.tables = items 73, itemsFrom src/data/items.js, spells 28, spellsFrom src/data/spells.js (was 58 fixture rows). Bag reads real names (Wide-Awake Crown, The Sock of Considerable Power), Equip shows Copper Sword +11 against Iron Lance +28, and the line under the bag now reads the item words plus price and who may wear it: A green leaf that stops a graze stinging - 8 gold in a shop. shots/P13-game-r10 and shots/P13-r10, 0 errors."
+        },
+        {
+          "at": "2026-09-18T04:18:33.590Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Measured in /index.html: state().menu.tables = items 73, itemsFrom src/data/items.js, spells 28, spellsFrom src/data/spells.js. Then read the blurb line for 7 bag rows against the source: Herb 'A green leaf that stops a graze stinging. - 8 gold in a shop' = items.js con(herb,8); Copper Sword 'Your first real sword. It goes green if you sulk. - +11 Attack - only Bram or Rowan can wear it - 70 gold' = wpn(copper_sword,11,70,SWORD); Pot Lid '+3 Defence - anybody can wear it - 25 gold' = shd(pot_lid,3,25,ANY). Word for word and number for number."
         }
       ]
     },
@@ -95,23 +142,64 @@
       "n": 7,
       "title": "No way to see the keys you are carrying",
       "detail": "P30 gives the player a Rusty Key (found in the pot at the dead end in Puddlewick) which opens the two locked chests. Keys are not battle items so they are not in Roster.bag; treasure.js keeps them in its own ledger and reports them at __DQ.state().treasure.keys. A child therefore has no way to see that they are carrying a key, and no way to learn that the locked chest they could not open is now openable. Fix in src/ui/menu.js: add a Keys (or Important Items) row under Misc that reads the key list. The list is available as Treasure.state().keys from src/world/treasure.js, plus Treasure.KEYS for the display name and blurb of each one.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:26:39.861Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-18T03:52:07.814Z",
+          "by": "builder",
+          "note": "Items now offers a Keys page: containers() has a read-only Keys and keepsakes list that reads P30s ledger straight off src/world/treasure.js (Treasure.ledger().keys, never __DQ.state() - that recursed), with names and words from Treasure.KEYS. Measured in the REAL game: after treasureGive(rusty_key), state().menu.keys is [Rusty Key], the Whose window shows Keys 1 in gold, the page row is rusty_key and the line under it reads It opens anything with a keyhole and no opinions. Wear it, Hand over and Throw away are greyed with their own reason; only Use is offered. fit over 0 spill 0. shots/P13-game-r10/07 and shots/P13-r10/13-14."
+        },
+        {
+          "at": "2026-09-18T04:18:33.633Z",
+          "by": "critic",
+          "pass": true,
+          "note": "treasureGive('rusty_key') then Items shows a 'Keys 1' row; the Keys and keepsakes page lists Rusty Key in gold with its own words 'It opens anything with a keyhole and no opinions.' (shots/P13-critic-e1/23 and probe 02-C). state().menu.keys = ['Rusty Key'] and it agrees with state().treasure.keys. Better than asked: Wear it, Hand over and Throw away all carry dq-disabled, so a child cannot throw the key away and soft-lock the locked chests."
+        }
+      ]
     },
     {
       "n": 8,
       "title": "The bag and the shop show a stat line instead of the item's words, because menu.js keeps its own copy of the item table",
       "detail": "Filed against P13 because the file is src/ui/menu.js, whose own header says Menu.useData swaps in src/data/items.js 'the day P21 lands'. P21 has landed: src/data/items.js holds 73 rows, every one with a one-line blurb in voice, and it exports install(ctx) plus wire(Menu). Nothing calls either — src/main.js's PLUGINS list (transitions, dialogue, menu, hud, npc, encounter, battle.present, battle.scene, title) does not include data/items.js, so __DQ.state().items is null at /index.html and Menu.useData is never called. menu.js therefore keeps ITEMS = DATA.items from tests/battle/data.js (58 rows, 54 of them with no blurb at all) plus its own hand-copied ITEM_WORDS map of 17 lines. Measured at /index.html, walking the bag with __DQ.press('down') and reading .dq-blurb: Copper Sword -> '+11 Attack. Only Bram or Rowan can hold it.' (items.js: 'Your first real sword. It goes green if you sulk.'), Lucky Acorn -> '+8 Luck.', Chain Mail -> '+24 Defence, -2 Speed.', Mirror Shield -> '+25 Defence. Only Bram or Rowan can hold it.' — a 1,700 G shield whose whole point is reflecting Wobble and Snoozle, and the game never says so. All 45 equippable rows and 28 of the 73 rows overall have no words in the running game. The same happens in the shop: shots/P21-critic-d1/p22/03-03-buy-row2.png shows the Sling as '+7 Attack. Only Willow or Linnet can hold it.' instead of 'Willow can knock a pear off a wall with this at thirty paces.' The duplicate has already drifted: 6 of the 17 ITEM_WORDS lines no longer match items.js (sunbottle, retreat_bell, homing_feather, whiff_powder, seed_of_life, and pot_lid, where menu.js says 'Now it is a shield' and items.js says 'Barty would like it back'). Fix inside menu.js: import ITEMS from '../data/items.js' as the default table, delete ITEM_WORDS, and keep DATA.items only as the fallback if that import fails — itemWords() already prefers it.blurb, so the words appear the moment the table is right. Alternative one-liner for the integrator: add ['data.items', () => import('./data/items.js')] to src/main.js PLUGINS, which makes items.js call Menu.useData itself. Related: P14 gap about scene.js reading tests/battle/data.js is the same root — __DQ.give still refuses 12 of the 17 CANON section 6 key items (willows_ribbon, candle, music_box, papas_letter, mums_feather_hairpin, ambergarde_crest, tide_pearl, marsh_lily, stilt_boots, wolfscarf, emberbell, sunlarks_feather) and 3 of the 4 seeds.",
-      "state": "merged",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:27:54.811Z",
       "events": [
         {
           "at": "2026-09-18T03:22:19.241Z",
           "by": "orchestrator",
           "note": "Duplicate of P13 #6 (menu keeps its own item table instead of reading src/data/items.js). Work it under #6."
+        },
+        {
+          "at": "2026-09-18T04:18:44.833Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Merged into #6, and #6 is now verified-fixed by measurement (73 canon rows, itemsFrom src/data/items.js, and the bag shows the item's own words plus its shop price, not a bare stat line). Nothing left to do under this number."
         }
       ]
+    },
+    {
+      "n": 9,
+      "title": "Use on a key item in the bag is greyed out, so the Retreat Bell and the Homing Feather do nothing",
+      "detail": "src/data/items.js builds every kind:key row with field:false, so src/ui/menu.js usable() greys out Use for them and the bag explains There is nothing to do with the Retreat Bell out here. But their own words promise something: Ring it and you are outside, blinking at the daylight and Blow it and the wind carries you back to the last church. A child reads the promise and finds a greyed row. Two halves to the fix: (1) the menu should treat a key with a warp field as usable and (2) something has to perform the warp - Field.teleport to the map exit for retreat_bell, and to the last church for homing_feather (the church list does not exist yet). Not broken, no dead end, but a promise the game does not keep. Polish wave.",
+      "state": "still-open",
+      "opened": "2026-09-18T03:53:02.785Z",
+      "events": [
+        {
+          "at": "2026-09-18T04:18:33.678Z",
+          "by": "critic",
+          "pass": false,
+          "note": "Half-fixed in the worse direction. Use is no longer greyed for key items - measured computed colour rgb(255,255,255) and no dq-disabled class on the Use row for the Rusty Key and the Retreat Bell. But pressing Use does nothing at all: the Retreat Bell prints 'Bram turns the Retreat Bell over in his hands. Ring it and you are outside, blinking at the daylight.' and scene stays 'menu', map stays 'puddlewick'. Homing Feather the same: 'Blow it and the wind carries you back to the last church.' and the map does not change. Bag count unchanged. So the row now looks live and lies, which is worse for a child than a grey row that tells the truth."
+        }
+      ]
+    },
+    {
+      "n": 10,
+      "title": "Equip is the one page with no words: choosing a sword shows numbers and no blurb",
+      "detail": "src/ui/menu.js. The bag, the Keys page, Spells, Tactics and Misc all open an m-blurb window and put the item-s own line in it. Equip does not: measured in /index.html, on the kit list for Bram-s weapon slot the open windows were m-cmd, m-party, m-gold, m-slots, m-stats, m-kit and NO m-blurb, and __CR.blurb() returned null on every row of the list. See shots/P13-critic-e1/27-27-stat-arrows-on-a-copper-sword.png.\n\nSo the moment a child is actually choosing what their hero wears, the only thing on the screen is -Copper Sword +11- and -Attack 12 up-arrow 21-. The words P21 wrote for that sword - -Your first real sword. It goes green if you sulk.- - and the line that says -only Bram or Rowan can wear it- are both available (the bag prints them two windows earlier) and both withheld here. It is the page where the charm would land hardest and it is the only page with none.\n\nIt also costs CLARITY. Because there is no blurb, a slot with nothing that fits shows a list whose only entry is -Take it off-, with no sentence saying why: at level 1 with an empty bag that is exactly what a child sees, and one press of Confirm takes their sword off and drops their Attack from 12 to 10 with nothing on screen explaining it.\n\nFIX: open the same m-blurb window on the Equip flow (kitRows already knows the item id) and set it on every cursor move to describe(id) - the item-s blurb, its bonus line and who may wear it - exactly as bagRows does. For -Take it off- write a line of its own, e.g. -Hands free. Your Attack goes back down.- Assert in the scenario that m-blurb is open and non-empty on every Equip row.",
+      "state": "open",
+      "opened": "2026-09-18T04:21:25.479Z",
+      "events": []
     }
   ]
 }

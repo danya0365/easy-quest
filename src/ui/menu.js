@@ -7,7 +7,7 @@
  *   Talk     closes the menu and talks to whatever the hero faces (ctx.talk)
  *   Spells   whose magic → which spell (MP, one plain line of what it does) → who to cast it on
  *   Status   one page per character: a little 3D portrait, level, EXP to the next one, every stat, kit and spells
- *   Items    the bag AND each person's pockets → Use / Hand over / Equip / Throw away
+ *   Items    the bag, the KEYS you carry, and each person's pockets → Use / Hand over / Equip / Throw away
  *   Equip    five slots, every thing that fits, and what each one does to your numbers (▲ green / ▼ red)
  *   Tactics  how each friend fights when you are not telling them (DATA-SHAPES §5 `tactic`)
  *   Search   closes the menu and searches the ground at his feet (ctx.search)
@@ -19,13 +19,14 @@
  * ONE PARTY, ONE BAG. There is no second copy of the party here. `Roster` in src/battle/scene.js (P14) holds the
  * family, the wagon, the gold and the bag and saves them through the F5 keys; the menu reads and writes THAT, so
  * the sword you put on Bram is the sword he swings in the next fight, and a herb you hand to Bobble is gone from
- * the bag. Items and spells come from the same tables the battle runs on (tests/battle/data.js — docs/DATA-SHAPES
- * calls it "a working, complete example of every shape"); `Menu.useData({items, spells})` swaps in
- * src/data/items.js and src/data/spells.js the day P21 and P20 land. Stats, learnsets, EXP and level caps are
+ * the bag. Items and spells come from the CANON tables — src/data/items.js (P21, 73 rows) and src/data/spells.js
+ * (P20, 28 rows) — read straight off the modules, so every row carries its own words, its price and who may hold
+ * it whatever order the plugins load in; the tests/battle fixture is only the fallback, and
+ * `Menu.useData({items, spells})` still overrides both by hand. Stats, learnsets, EXP and level caps are
  * src/data/growth.js (P19); Attack and Defence come out of src/battle/formulas.js `derive` (P14/P19).
  * What the menu adds of its own: POCKETS (what each person carries, kept on the member so it saves with them).
  *
- * __DQ: state().menu = {open, stage, path, windows, party, gold, bag, pockets, settings, portrait,
+ * __DQ: state().menu = {open, stage, path, windows, party, gold, bag, keys, pockets, tables, settings, portrait,
  *       fit: [{id, left, top, w, h, over, spill}], statusFit: {hU, top, bottom}}  — every window measured in the
  *       1280x720 design frame, so a critic can PROVE nothing runs off the screen and no words run out of a window;
  *       extras __DQ.menuOpen(), __DQ.menuPick('items'), __DQ.menuChoose('m-bag','herb'), __DQ.menuWindows(),
@@ -43,6 +44,8 @@ import { Bus } from '../engine/events.js';
 import { Save } from '../engine/save.js';
 import { Roster } from '../battle/scene.js';
 import DATA from '../../tests/battle/data.js';
+import CANON_ITEMS from '../data/items.js';
+import { SPELLS as CANON_SPELLS } from '../data/spells.js';
 import { Input } from '../engine/input.js';
 import { Audio } from '../audio/audio.js';
 import { Sfx } from '../audio/sfx.js';
@@ -104,15 +107,68 @@ export const TACTICS = [
 const POCKET_MAX = 12;
 const BAG_MAX = 64;
 
-let ITEMS = (DATA && DATA.items) || {};
-let SPELLS = (DATA && DATA.spells) || {};
+/**
+ * THE REAL TABLES. P21's src/data/items.js (73 rows, every one with its own words, its price, and who may hold
+ * it) and P20's src/data/spells.js (28 rows) are the canon tables now, so the menu reads THEM and not the
+ * tests/battle fixture — a fixture row has no blurb, no price and no `where`, which is why the bag used to read
+ * out a stat line instead of the item's words. Both data modules import nothing and run no work at import time,
+ * so reading them here is free and cannot depend on plugin order; the fixture stays as the fallback for a build
+ * where the data files are missing, and `Menu.useData()` still overrides both by hand.
+ */
+const big = (o) => (o && typeof o === 'object' && Object.keys(o).length ? o : null);
+let ITEMS = big(CANON_ITEMS) || (DATA && DATA.items) || {};
+let SPELLS = big(CANON_SPELLS) || (DATA && DATA.spells) || {};
+let ITEMS_FROM = big(CANON_ITEMS) ? 'src/data/items.js' : 'tests/battle/data.js';
+let SPELLS_FROM = big(CANON_SPELLS) ? 'src/data/spells.js' : 'tests/battle/data.js';
 function stampIds() {
   for (const [k, v] of Object.entries(ITEMS)) if (v && v.id == null) v.id = k;
   for (const [k, v] of Object.entries(SPELLS)) if (v && v.id == null) v.id = k;
 }
 stampIds();
 
-const item = (id) => (id && ITEMS[id]) || null;
+/**
+ * KEYS AND KEEPSAKES. A key is not a battle item, so P30's treasure ledger keeps it rather than the bag
+ * (src/world/treasure.js `KEYS`, reported at __DQ.state().treasure.keys). The menu therefore learns the names
+ * from that module — lazily, never awaited, so a mid-edit treasure.js can never hold up a menu — and shows what
+ * it finds in the ledger as its own little list, so a child can SEE the Rusty Key in their pocket.
+ */
+let KEYDEFS = {};
+let TREASURE = null;                     // P30's module itself, loaded lazily in install()
+const KEYCACHE = {};
+const titleCase = (id) => String(id).replace(/_/g, ' ').replace(/\b[a-z]/g, (c) => c.toUpperCase());
+function keyDefEnsure(id) {
+  if (KEYCACHE[id]) return KEYCACHE[id];
+  const k = KEYDEFS[id] || {};
+  KEYCACHE[id] = {
+    id, name: k.name || titleCase(id), kind: 'key', buy: 0, key: true, noSell: true, field: true,
+    blurb: String(k.blurb || 'Something worth keeping.').replace(/\s*\n\s*/g, ' '),
+  };
+  return KEYCACHE[id];
+}
+/**
+ * What the treasure ledger says you are carrying, as {id: count}. Read straight off P30's module and NEVER off
+ * __DQ.state(): this runs inside the menu's own state provider, so asking __DQ for the state again would call
+ * every provider a second time and blow the stack. Safe before P30 is installed — you simply have no keys.
+ */
+function keyLedger() {
+  try {
+    const led = TREASURE && typeof TREASURE.ledger === 'function' && TREASURE.ledger();
+    const k = led && led.keys;
+    if (k && typeof k === 'object') return k;
+  } catch (_) { /* no treasure in this build: no keys to show */ }
+  return {};
+}
+function keyRows() {
+  const out = [];
+  for (const [id, n] of Object.entries(keyLedger())) {
+    if (!(n > 0)) continue;
+    keyDefEnsure(id);
+    out.push({ id, n });
+  }
+  return out;
+}
+
+const item = (id) => (id && (ITEMS[id] || KEYCACHE[id])) || null;
 const spell = (id) => (id && SPELLS[id]) || null;
 const itemName = (id) => (item(id) ? item(id).name : String(id || '\u2014'));
 const isKey = (it) => !!(it && (it.kind === 'key' || it.key || it.noSell));
@@ -168,15 +224,22 @@ function takeFrom(list, id, n = 1) {
   return took;
 }
 
-/** Every place a thing can be: the shared bag first, then each person's pockets. */
+/** Every place a thing can be: the shared bag, then the keys, then each person's pockets. */
 function containers() {
   const out = [{
-    key: 'bag', label: 'The bag', member: null, max: BAG_MAX,
+    key: 'bag', label: 'The bag', short: 'The bag', empty: 'Nothing at all', member: null, max: BAG_MAX,
     items: bagItems, size: () => bagItems().length, count: bagCount, add: bagAdd, take: bagTake,
+  }, {
+    // Keys are nobody's to hand round and nobody's to throw away: this page is a window, not a pocket.
+    key: 'keys', label: 'Keys and keepsakes', short: 'Keys', empty: 'No keys yet \u2014 they turn up in odd places',
+    member: null, max: 24, readonly: true,
+    items: keyRows, size: () => keyRows().length,
+    count: (id) => { const r = keyRows().find(x => x.id === id); return r ? r.n : 0; },
+    add: () => 0, take: () => 0,
   }];
   for (const m of allMembers()) {
     out.push({
-      key: m.id, label: m.name + '\u2019s pockets', member: m, max: POCKET_MAX,
+      key: m.id, label: m.name + '\u2019s pockets', short: m.name, empty: 'Empty pockets', member: m, max: POCKET_MAX,
       items: () => pocketsOf(m).map(e => ({ id: e.id, n: e.n })),
       size: () => pocketsOf(m).length,
       count: (id) => countIn(pocketsOf(m), id),
@@ -186,11 +249,13 @@ function containers() {
   }
   return out;
 }
+/** The places a thing can be moved to or out of \u2014 the keys page is read-only, so it is never one of them. */
+const pockets = () => containers().filter(c => !c.readonly);
 
 /** Everything the party owns that can be worn, wherever it is. */
 function ownedEquipment() {
   const out = new Map();
-  for (const c of containers()) {
+  for (const c of pockets()) {
     for (const e of c.items()) {
       const it = item(e.id);
       if (!it || !it.slot) continue;
@@ -591,7 +656,7 @@ function menuScene() {
   function bagRows(c) {
     const rows = [];
     const entries = c.items();
-    if (!entries.length) return [{ id: 'empty', label: 'Nothing at all', disabled: true, color: 'grey' }];
+    if (!entries.length) return [{ id: 'empty', label: c.empty || 'Nothing at all', disabled: true, color: 'grey' }];
     for (const e of entries) {
       const it = item(e.id);
       if (!it) continue;
@@ -604,7 +669,38 @@ function menuScene() {
     }
     return rows;
   }
-  const itemWords = (it) => (it ? (it.blurb || ITEM_WORDS[it.id] || describeGear(it)) : '');
+  /**
+   * The line under the bag: the item's OWN words first — that is what src/data/items.js is for — and then, after
+   * a dot, the things a child is actually deciding between: what it does to your numbers, who is allowed to wear
+   * it, and what a shop wants for it. A fixture row has none of that, which is why the bag used to read out a
+   * bare stat line instead of a sentence.
+   */
+  const STAT_WORDS = [['power', 'Attack'], ['def', 'Defence'], ['mdef', 'Magic guard'], ['agi', 'Speed'],
+    ['wis', 'Wisdom'], ['luck', 'Luck'], ['resil', 'Resilience'], ['maxHp', 'Max HP'], ['maxMp', 'Max MP']];
+  function statBits(it) {
+    const out = [];
+    for (const [k, label] of STAT_WORDS) {
+      const n = +it[k];
+      if (Number.isFinite(n) && n !== 0) out.push(`${n > 0 ? '+' : '−'}${Math.abs(n)} ${label}`);
+    }
+    return out;
+  }
+  function whoBits(it) {
+    if (!it.slot) return '';
+    if (!it.who || it.who === 'anyone') return 'anybody can wear it';
+    return 'only ' + [].concat(it.who).map(id => (CHARACTERS[id] || { name: id }).name).join(' or ') + ' can wear it';
+  }
+  function itemWords(it) {
+    if (!it) return '';
+    const base = it.blurb || ITEM_WORDS[it.id] || describeGear(it);
+    const bits = [];
+    const s = statBits(it).join(', ');
+    if (s) bits.push(s);
+    const w = whoBits(it);
+    if (w) bits.push(w);
+    if (+it.buy > 0) bits.push(`${it.buy} gold in a shop`);
+    return bits.length ? `${base}   ·   ${bits.join('   ·   ')}` : base;
+  }
   function describeGear(it) {
     if (!it.slot) return 'Useful, one way or another.';
     const bits = [];
@@ -626,7 +722,8 @@ function menuScene() {
       const cs = containers();
       const whose = mkMenu({
         id: 'm-whose', title: 'Whose?', left: 34, top: 360, width: 300, maxRows: 5, origin: '0% 0%', initial: whoseIdx,
-        items: cs.map(c => ({ id: c.key, label: c.key === 'bag' ? 'The bag' : c.member.name, right: String(c.size()) })),
+        items: cs.map(c => ({ id: c.key, label: c.short, right: String(c.size()),
+          color: c.key === 'keys' ? 'gold' : undefined })),
       });
       const pick = await whose.choose();
       if (!live(g)) return false;
@@ -650,7 +747,7 @@ function menuScene() {
     const setBlurb = (it) => { try { blurb.setContent(itemWords(it) || ' '); } catch (_) {} };
     const rows0 = bagRows(c);
     const list = mkMenu({
-      id: 'm-bag', title: c.key === 'bag' ? 'The bag' : c.member.name, left: 348, top: 360, width: 470,
+      id: 'm-bag', title: c.label, left: 348, top: 360, width: 470,
       maxRows: rows0.length > 5 ? 5 : 0,
       origin: '0% 0%', items: rows0, onChange: (i) => setBlurb(item(i.id)),
     });
@@ -683,11 +780,11 @@ function menuScene() {
       id: 'm-itemact', left: 838, top: 360, slim: true, origin: '0% 0%', minWidth: 210,
       items: [
         { id: 'use', label: 'Use', disabled: !usable(it) },
-        { id: 'equip', label: 'Wear it', disabled: !canEquip },
-        { id: 'give', label: 'Hand over', disabled: containers().length < 2 },
-        { id: 'toss', label: 'Throw away', disabled: isKey(it) },
+        { id: 'equip', label: 'Wear it', disabled: !canEquip || c.readonly },
+        { id: 'give', label: 'Hand over', disabled: c.readonly || pockets().length < 2 },
+        { id: 'toss', label: 'Throw away', disabled: isKey(it) || c.readonly },
       ],
-      onDisabled: () => { try { setBlurb({ blurb: refuseWhy(it, c) }); } catch (_) {} },
+      onDisabled: (row) => { try { setBlurb({ blurb: refuseWhy(it, c, row && row.id) }); } catch (_) {} },
     });
     try {
       for (;;) {
@@ -713,10 +810,14 @@ function menuScene() {
   }
 
   const usable = (it) => !!(it.field !== false && (isKey(it) || it.blurb || (it.battle && ['heal', 'mp', 'cure', 'revive'].includes(it.battle.effect)) || it.kind === 'consumable'));
-  function refuseWhy(it, c) {
-    if (isKey(it)) return 'This one is too important to throw away.';
-    if (!it.slot) return 'Nobody can wear that.';
-    void c;
+  /** Why a greyed-out action is greyed out — in the words of the action a child just tried to press. */
+  function refuseWhy(it, c, act) {
+    if (act === 'equip') return it.slot ? `Nobody here can wear the ${it.name}.` : 'Nothing about it is wearable.';
+    if (act === 'give' && c && c.readonly) return 'A key is not something to hand round. It stays with you.';
+    if (act === 'toss' && c && c.readonly) return 'Keys are never thrown away. You might want that door again.';
+    if (act === 'toss' && isKey(it)) return 'This one is too important to throw away.';
+    if (act === 'use') return `There is nothing to do with the ${it.name} out here.`;
+    if (act === 'give') return 'There is nobody else to hand it to.';
     return 'Not just now.';
   }
 
@@ -774,21 +875,21 @@ function menuScene() {
   }
 
   async function handOver(g, from, it) {
-    const others = containers().filter(c => c.key !== from.key);
+    const others = pockets().filter(c => c.key !== from.key);
     const to = mkMenu({ id: 'm-to', title: 'To whom?', left: 838, top: 520, origin: '0% 0%', minWidth: 240,
-      items: others.map(c => ({ id: c.key, label: c.key === 'bag' ? 'The bag' : c.member.name, right: `${c.size()}/${c.max}` })) });
+      items: others.map(c => ({ id: c.key, label: c.short, right: `${c.size()}/${c.max}` })) });
     try {
       const pick = await to.choose();
       if (!live(g) || !pick) return false;
       const dest = others.find(c => c.key === pick.id);
       if (dest.size() >= dest.max && !dest.count(it.id)) {
-        await say(g, `${dest.key === 'bag' ? 'The bag' : dest.member.name + '’s pockets'} could not hold one thing more.`);
+        await say(g, `${dest.label} could not hold one thing more.`);
         return false;
       }
       from.take(it.id, 1);
       dest.add(it.id, 1);
       try { Sfx.play('item_get', { vol: 0.7 }); } catch (_) {}
-      await say(g, `${it.name} goes to ${dest.key === 'bag' ? 'the bag' : dest.member.name}.`);
+      await say(g, `${it.name} goes to ${dest.key === 'bag' ? 'the bag' : dest.short}.`);
       return true;
     } finally { await closeWin(to); }
   }
@@ -889,7 +990,7 @@ function menuScene() {
           if (c.id === '__off') {
             if (old) { bagAdd(old, 1); delete m.equip[slot]; try { Sfx.play('cancel'); } catch (_) {} }
           } else if (old !== c.id) {
-            const src = containers().find(x => x.count(c.id) > 0);
+            const src = pockets().find(x => x.count(c.id) > 0);
             if (src) src.take(c.id, 1);
             if (old) bagAdd(old, 1);
             m.equip[slot] = c.id;
@@ -1375,6 +1476,9 @@ function menuScene() {
     gold: Roster.gold,
     bag: bagItems().map(e => `${itemName(e.id)}${e.n > 1 ? ' x' + e.n : ''}`),
     pockets: Object.fromEntries(allMembers().map(m => [m.id, pocketsOf(m).map(e => itemName(e.id))])),
+    // which table the bag, Items and Equip windows are actually reading, and what a child can see of it
+    tables: { items: Object.keys(ITEMS).length, itemsFrom: ITEMS_FROM, spells: Object.keys(SPELLS).length, spellsFrom: SPELLS_FROM },
+    keys: keyRows().map(e => itemName(e.id)),
     settings: { ...SETTINGS },
     portrait: PORTRAIT.renderer ? { live: !!PORTRAIT.subject, frames: PORTRAIT.frames, error: PORTRAIT.err } : null,
     // every window, measured in the 1280x720 design frame, so a critic can prove nothing runs off the screen
@@ -1461,6 +1565,8 @@ const closedState = () => ({
   gold: Roster.gold,
   bag: bagItems().map(e => `${itemName(e.id)}${e.n > 1 ? ' x' + e.n : ''}`),
   pockets: Object.fromEntries(allMembers().map(m => [m.id, pocketsOf(m).map(e => itemName(e.id))])),
+  tables: { items: Object.keys(ITEMS).length, itemsFrom: ITEMS_FROM, spells: Object.keys(SPELLS).length, spellsFrom: SPELLS_FROM },
+  keys: keyRows().map(e => itemName(e.id)),
   settings: { ...SETTINGS },
 });
 
@@ -1563,12 +1669,16 @@ export const Menu = {
   SLOT_LIST,
 
   /** P21 / P20: hand the real tables over and every window reads them at once. */
-  useData({ items, spells } = {}) {
-    if (items && typeof items === 'object') ITEMS = items;
-    if (spells && typeof spells === 'object') SPELLS = spells;
+  useData({ items, spells, from } = {}) {
+    // P21 handing its own table over is not a different table: keep saying where the rows really come from.
+    if (items && typeof items === 'object') { ITEMS = items; ITEMS_FROM = from || (items === CANON_ITEMS ? 'src/data/items.js' : 'Menu.useData'); }
+    if (spells && typeof spells === 'object') { SPELLS = spells; SPELLS_FROM = from || (spells === CANON_SPELLS ? 'src/data/spells.js' : 'Menu.useData'); }
     stampIds();
-    return { items: Object.keys(ITEMS).length, spells: Object.keys(SPELLS).length };
+    return { items: Object.keys(ITEMS).length, spells: Object.keys(SPELLS).length, itemsFrom: ITEMS_FROM };
   },
+  /** What the windows are reading, so a critic can prove it is the canon table and not the fixture. */
+  tables: () => ({ items: Object.keys(ITEMS).length, itemsFrom: ITEMS_FROM, spells: Object.keys(SPELLS).length, spellsFrom: SPELLS_FROM }),
+  keys: keyRows,
 
   party: frontParty,
   members: allMembers,
@@ -1654,6 +1764,14 @@ export function install(ctx = {}) {
   loadSettings();
   registerFieldMenu();
   applySettings();
+  // The names of the keys a child is carrying live in P30's module. Loaded lazily and never awaited: a build
+  // without treasure.js simply shows an empty Keys page instead of holding the menu up.
+  try {
+    import('../world/treasure.js').then((m) => {
+      KEYDEFS = (m && m.KEYS) || {};
+      TREASURE = (m && m.Treasure) || null;
+    }, () => {});
+  } catch (_) {}
 }
 
 export default registerFieldMenu;

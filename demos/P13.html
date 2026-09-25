@@ -25,6 +25,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--pal-sky-page)}
   <div id="keys" class="dqnote"><b>C</b> or <b>Tab</b> the menu &middot; <b>M</b> the little map<br/>
     <b>arrows</b> move the cursor &middot; <b>Z</b> choose &middot; <b>X</b> back<br/>
     <b>1</b> Act I party &middot; <b>2</b> Act II &middot; <b>3</b> Act III &middot; <b>0</b> a full bag<br/>
+    <b>K</b> find a Rusty Key &middot; 
     <b>H</b> hide the demo captions</p>
 </div>
 <script type="importmap">
@@ -74,8 +75,10 @@ for (const [name, path] of [
   ['transitions', '/src/ui/transitions.js'],
   ['dialogue', '/src/ui/dialogue.js'],
   ['menu', '/src/ui/menu.js'],
+  ['items', '/src/data/items.js'],
   ['hud', '/src/ui/hud.js'],
   ['npc', '/src/world/npc.js'],
+  ['treasure', '/src/world/treasure.js'],
   ['battle.present', '/src/battle/present.js'],
   ['battle.scene', '/src/battle/scene.js'],
 ]) {
@@ -167,6 +170,7 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'Digit2') stock(2);
   else if (e.code === 'Digit3') stock(3);
   else if (e.code === 'Digit0') { fillBag(); caption(); }
+  else if (e.code === 'KeyK') { try { window.__DQ.treasureGive('rusty_key'); } catch (_) {} }
   else if (e.code === 'KeyH') { notesOff = !notesOff; showNotes(!notesOff); }
   else return;
   e.preventDefault();
