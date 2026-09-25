@@ -22,6 +22,7 @@
  */
 import * as THREE from 'three';
 import { Debug, reportError } from '../engine/debug.js';
+import { Bus } from '../engine/events.js';
 import { PAL } from '../art/palette.js';
 import { makeToon, makeBlobShadows, withOutline, outlineMaterial, OUTLINE } from '../art/toon.js';
 import { Sfx } from '../audio/sfx.js';
@@ -574,6 +575,9 @@ export const Companions = {
     Field.on('unload', () => guard('unload', () => SYS.despawn()));
     Field.on('update', (dt, o) => guard('update', () => SYS.update(dt, o && o.top)));
     Field.on('render', (alpha, dt, t) => guard('render', () => SYS.render(alpha, dt, t)));
+    // Story joinParty / recruit: rebuild the walking line the moment the roster changes.
+    guard('party.join', () => Bus.on('party.join', () => Companions.refresh()));
+    guard('party.leave', () => Bus.on('party.leave', () => Companions.refresh()));
 
     const D = ctx.Debug || Debug;
     D.provide('companions', () => Companions.state());

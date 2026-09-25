@@ -1,0 +1,19 @@
+{
+  "name": "P24 Papa joins as guest after B2",
+  "steps": [
+    { "waitFor": "window.__DQ && __DQ.ready", "timeout": 45000 },
+    { "wait": 400 },
+    { "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'leaving';}return 'ok';})()" },
+    { "waitFor": "__DQ.state().scene==='field'", "timeout": 45000 },
+    { "wait": 800 },
+    { "note": "Fresh roster must be the boy alone" },
+    { "eval": "(()=>{__DQ.roster('reset');const r=__DQ.state().roster;window.__R0={ids:(r.party||[]).map(m=>m.id),n:(r.party||[]).length};return JSON.stringify(window.__R0);})()" },
+    { "assert": "window.__R0 && window.__R0.ids.length===1 && window.__R0.ids[0]==='hero'", "msg": "new game party is hero only" },
+    { "note": "Play B2 — Papa joins after the lane talk" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));__DQ.flag('ch1.awake',true);__DQ.teleport('puddlewick',14.8,23.4);await sleep(1200);for(let i=0;i<80;i++){const sc=__DQ.state().scene;if(sc==='dialogue'||(window.Story&&Story.running&&Story.running())){try{__DQ.press('confirm');}catch(_){}}else if(__DQ.state().flags&&__DQ.state().flags['ch1.left_home'])break;await sleep(280);}for(let k=0;k<40;k++){try{__DQ.press('confirm');}catch(_){}await sleep(200);if(__DQ.state().scene==='field'&&!(window.Story&&Story.running&&Story.running()))break;}await sleep(600);const r=__DQ.state().roster;const f=(__DQ.followers&&__DQ.followers())||[];window.__AFTER={party:(r.party||[]).map(m=>({id:m.id,kind:m.kind})),followers:f.map(x=>({id:x.id,name:x.name})),flags:__DQ.state().flags};return JSON.stringify(window.__AFTER);})()" },
+    { "assert": "window.__AFTER && window.__AFTER.party.some(m=>m.id==='halvard')", "msg": "Halvard is in the party after B2" },
+    { "assert": "window.__AFTER && (window.__AFTER.followers.some(f=>/halvard/i.test(f.id||'')||/halvard|papa|sir/i.test(f.name||'')) || window.__AFTER.party.some(m=>m.id==='halvard'))", "msg": "Papa is a follower or at least in roster" },
+    { "eval": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));__DQ.face(0);__DQ.cameraOrbit(180);for(let i=0;i<10&&__DQ.state().map.id==='puddlewick';i++){__DQ.hold('up',800);await sleep(900);}await sleep(500);const f=(__DQ.followers&&__DQ.followers())||[];return JSON.stringify({map:__DQ.state().map.id,followers:f.map(x=>({id:x.id,name:x.name})),party:(__DQ.state().roster.party||[]).map(m=>m.id)});})()" },
+    { "assert": "__DQ.state().map.id==='meadow' && __DQ.state().roster.party.some(m=>m.id==='halvard')", "msg": "leaving village keeps Papa in the party on the meadow" }
+  ]
+}

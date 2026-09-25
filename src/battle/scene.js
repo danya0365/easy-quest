@@ -32,7 +32,7 @@ import { MessageBox } from '../ui/text.js';
 import { Transitions } from '../ui/transitions.js';
 import { createBattle, TACTICS, TACTIC_BY_ID } from './battle.js';
 import { makeRng } from './formulas.js';
-import { newCompanion, statsFor } from '../data/growth.js';
+import { newCompanion, newMember, statsFor } from '../data/growth.js';
 import { createPresenter, setLivePresenter } from './present.js';
 import DATA from '../../tests/battle/data.js';
 import { AREAS, AREA_BY_ID, rollEncounter } from '../../tests/battle/areas.js';
@@ -102,10 +102,10 @@ export const Roster = {
   recruit: { enabled: true, kidMode: true, joined: {}, misses: {}, battlesSinceRecruit: 0 },
   bossWipes: {}, fights: 0, defeats: 0, helper: null,
 
-  /** Act I as CANON §4 B3 leaves it: the boy, his father as a guest, and Bobble hopping along. */
+  /** New game: just the boy. Story adds Papa as guest at B2 and Bobble at B3 (CANON §4). */
   ensure() {
     if (!this.party) {
-      this.party = guard('roster build', () => AREA_BY_ID.long_lane.party(1)) || [];
+      this.party = guard('roster build', () => AREA_BY_ID.long_lane_alone.party(1)) || [];
       this.wagon = [];
     }
     return this.party;
@@ -834,9 +834,17 @@ export function install(ctx = {}) {
   D.implement('battle', (a) => startBattle(a));
   D.implement('party', (add) => {
     if (add === undefined) return Roster.describe();
-    const m = guard('party add', () => AREA_BY_ID.long_lane.party(1).find((p) => p.id === add));
+    Roster.ensure();
+    const has = (list) => (list || []).some((m) => m && m.id === add);
+    if (has(Roster.party) || has(Roster.wagon)) return Roster.describe();
+    // Prefer growth.js (guests + companions); fall back to the Long Lane draft party for test ids.
+    let m = guard('party member', () => newMember(add));
+    if (!m) m = guard('party area', () => AREA_BY_ID.long_lane.party(1).find((p) => p && p.id === add));
     if (!m) return { ok: false, reason: `unknown member "${add}"` };
-    Roster.ensure().push(m);
+    const st = guard('stats', () => statsFor(m, m.lvl || 1));
+    if (st) { m.hp = st.hp; m.mp = st.mp; }
+    if (Roster.party.length < 4) Roster.party.push(m);
+    else Roster.wagon.push(m);
     return Roster.describe();
   });
   D.implement('heal', () => { Roster.heal(); return Roster.describe(); });

@@ -724,8 +724,8 @@ async function runStep(s) {
     case 'flag': Flags.set(s.name, s.value); return;
     case 'join': {
       const q = dq();
-      // idempotent: the battle Roster already starts Act I with Bobble in it (P14's long_lane party), and a second
-      // Bobble in the wagon is the kind of thing a child notices immediately
+      // Idempotent: never put a second Bobble (or Papa) in the wagon. Story beats call join once; saves and
+      // demos may call them again.
       const st = q ? guard('state', () => q.state(), null) : null;
       const ros = st && st.roster;
       const want = String(castName(s.id) || s.id).toLowerCase();

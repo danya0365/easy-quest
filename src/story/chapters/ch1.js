@@ -82,6 +82,9 @@ const b2 = () => [
   sfx('door_open'),
   say('halvard', 'Watch the road, and stay where\nI can see you, if you would.'),
   despawn('halvard'),
+  // Papa travels as a guest from here (CANON §4 B3–B9). Join after despawn so the cutscene body is gone and
+  // the follower line can show the one Papa who walks behind you.
+  joinParty('halvard'),
   narrate('{gold}Follow the Long Lane.\nThe signpost is past the sheep.{/gold}'),
   camera.follow(),
 ];
