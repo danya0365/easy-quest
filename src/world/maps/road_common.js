@@ -230,7 +230,21 @@ export function outdoorMap(o) {
       solid(x, z) {
         const L = layout();
         if (typeof o.solidAt === 'function') { const r = o.solidAt(x, z, L); if (r != null) return !!r; }
-        if (L.edgeR(x, z) > 1) return true;
+        const e = L.edgeR(x, z);
+        if (e > 1) {
+          // Edge exits often sit PAST the playable rim (act1 stubs: pad at z≈18.5, az=16 → invisible wall
+          // at ~15.6, exit never reachable). Open a corridor through each non-door exit pad, stretched
+          // inward so it meets the bowl — same idea as puddlewick's gate corridor.
+          if (e < 1.4) {
+            for (const ex of L.exits) {
+              if (!ex || !ex.to || ex.kind === 'door') continue;
+              const hw = Math.max(2.6, (ex.w ?? 4) * 0.5) + 0.5;
+              const hh = Math.max(3.8, (ex.h ?? 3) * 0.5 + 2.6);
+              if (Math.abs(x - (+ex.x || 0)) <= hw && Math.abs(z - (+ex.z || 0)) <= hh) return false;
+            }
+          }
+          return true;
+        }
         if ((L.stream || L.ponds.length) && L.wdist(x, z) < HW + 0.3 && !L.onBridge(x, z, 0.3)) return true;
         return false;
       },

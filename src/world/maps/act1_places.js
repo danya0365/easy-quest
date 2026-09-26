@@ -31,6 +31,13 @@ export function act1Place(o) {
   const lane = o.lane || [[0, 14], [0, 6], [0, -2], [0, -10]];
   const sign = o.sign || { x: 1.6, z: 4.0 };
   const mark = o.mark || { x: -4.0, z: -2.0 };
+  const AX = o.ax ?? 20, AZ = o.az ?? 16;
+  // Exit pad must overlap the walkable bowl (edgeR≤1). Old spawn.z+10.5 (=18.5 with az=16) sat past the
+  // rim — player hit an invisible wall at ~15.6 and never triggered the exit (highfeather + every stub).
+  // road_common also carves a corridor past the rim; keep the pad centred just inside so a short walk works.
+  const exitX = Number.isFinite(+o.exitAt?.x) ? +o.exitAt.x : spawn.x;
+  const exitZ = Number.isFinite(+o.exitAt?.z) ? +o.exitAt.z
+    : Math.min((spawn.z ?? 0) + 7.0, AZ - 1.8);
   // props without colliders = walk-through cardboard (grey_ruins had coll=0). Always plant the sign + landmark.
   const baseColliders = [
     { type: 'circle', x: sign.x, z: sign.z, r: 0.22, tag: 'sign' },
@@ -42,7 +49,7 @@ export function act1Place(o) {
     name: o.name,
     kind: o.kind || 'field',
     size: o.size || [48, 40],
-    ax: 20, az: 16,
+    ax: AX, az: AZ,
     seed: o.seed || 41,
     theme: o.theme || 'grass',
     music: o.music || 'overworld',
@@ -56,11 +63,11 @@ export function act1Place(o) {
     hills: o.hills || [{ x: -12, z: -10, r: 9, h: 1.2 }, { x: 12, z: 8, r: 8, h: 1.0 }],
     rim: { radius: 22, rows: 2, rowGap: 5.5, seed: o.seed || 41, threshold: 0.28 },
     exits: [
-      { x: spawn.x, z: spawn.z + 10.5, w: 6.0, h: 4.0, to: exitTo, tx: land.x, tz: land.z, kind: 'edge',
+      { x: exitX, z: exitZ, w: 6.0, h: 5.0, to: exitTo, tx: land.x, tz: land.z, kind: 'edge',
         name: 'the lane home', line: 'lane-out', back: { x: spawn.x, z: spawn.z + 2.0 },
         facing: 0 },
     ],
-    notches: [{ az: Math.atan2(14, 0), k: 0.45, w: 0.3 }],
+    notches: [{ az: Math.atan2(exitZ || 14, exitX || 0), k: 0.55, w: 0.36 }],
     spots: Object.assign({
       sign, mark, spawn,
       gate: { x: spawn.x, z: spawn.z + 8 },
