@@ -189,11 +189,25 @@ function createFieldScene() {
   }
 
   function onExit(ex) {
-    if (ex.to && Maps.has(ex.to)) {
+    const fromId = S.map ? S.map.id : null;
+    const toId = ex && ex.to ? String(ex.to) : null;
+    const ok = !!(toId && Maps.has(toId));
+    // Play-debug (P32): every door/edge attempt is logged so a stuck tester can say which exit failed.
+    try {
+      Bus.emit('exit.try', {
+        ok, from: fromId, to: toId, kind: (ex && ex.kind) || null,
+        x: ex && Number.isFinite(+ex.x) ? +ex.x : null,
+        z: ex && Number.isFinite(+ex.z) ? +ex.z : null,
+        tx: ex && Number.isFinite(+ex.tx) ? +ex.tx : null,
+        tz: ex && Number.isFinite(+ex.tz) ? +ex.tz : null,
+        text: ex && ex.text ? String(ex.text).slice(0, 80) : null,
+      });
+    } catch (_) {}
+    if (ok) {
       // Prefer the exit's own facing (e.g. doorsteps face out of the house) so a held stick does not
       // walk a child straight back through the door they just left.
       const face = Number.isFinite(+ex.facing) ? +ex.facing : (Number.isFinite(+ex.tfacing) ? +ex.tfacing : undefined);
-      changeMap({ kind: ex.kind || 'edge', from: S.map ? S.map.id : null, to: ex.to, exit: ex },
+      changeMap({ kind: ex.kind || 'edge', from: fromId, to: ex.to, exit: ex },
         () => loadMap(ex.to, ex.tx, ex.tz, face));
       return;
     }

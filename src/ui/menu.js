@@ -12,7 +12,7 @@
  *   Equip    five slots, every thing that fits, and what each one does to your numbers (▲ green / ▼ red)
  *   Tactics  how each friend fights when you are not telling them (DATA-SHAPES §5 `tactic`)
  *   Search   closes the menu and searches the ground at his feet (ctx.search)
- *   Misc     how fast the words come, bigger words, music, sounds, touch buttons, and the tale's secret code
+ *   Misc     how fast the words come, bigger words, music, sounds, touch buttons, play-debug On/Off, and the tale's secret code
  *
  * Every window can be left with Cancel, one window at a time; Menu closes the lot. ONE press of Confirm always
  * advances — nothing ever needs two. Nothing traps you.
@@ -312,7 +312,7 @@ const clampHp = (m) => { const mx = maxOf(m); m.hp = Math.max(0, Math.min(mx.max
 const DESIGN = { w: 1280, h: 720 };      // the design frame every window is laid out in (F4 scales it to the screen)
 let STATUS_FIT = null;                   // {hU, top, bottom} of the last Status page drawn — reported to __DQ
 
-const SETTINGS = { speed: 35, scale: 1, music: 0.75, sfx: 0.9, touch: 'auto' };
+const SETTINGS = { speed: 35, scale: 1, music: 0.75, sfx: 0.9, touch: 'auto', debug: false };
 const SETTINGS_KEY = 'dqv.settings';
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -322,6 +322,8 @@ function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) Object.assign(SETTINGS, JSON.parse(raw) || {});
+    // Coerce play-debug: JSON / old saves may leave a string or 1/0.
+    SETTINGS.debug = SETTINGS.debug === true || SETTINGS.debug === 1 || SETTINGS.debug === 'true' || SETTINGS.debug === 'on';
   } catch (_) { /* private mode: the defaults are fine */ }
 }
 function saveSettings() {
@@ -341,6 +343,7 @@ function applyWordScale(sc) {
     } catch (_) {}
   }
 }
+let _debugEmitted = null; // last settings.debug broadcast — see applySettings
 function applySettings() {
   try { Text.setSpeed(SETTINGS.speed); } catch (e) { reportError('menu settings (speed)', e); }
   try { applyWordScale(SETTINGS.scale); } catch (e) { reportError('menu settings (scale)', e); }
@@ -348,6 +351,15 @@ function applySettings() {
   try { Audio.setVolume('sfx', SETTINGS.sfx); Audio.setVolume('ui', Math.min(1, SETTINGS.sfx * 0.95)); }
   catch (e) { reportError('menu settings (sfx)', e); }
   try { if (Input && typeof Input.setTouchMode === 'function') Input.setTouchMode(SETTINGS.touch); } catch (_) {}
+  // Play-debug overlay (P32): Misc On/Off. Emit only when the flag actually changes — otherwise
+  // Access/Menu.setOption('scale'|…) would re-broadcast Off and wipe a ?debug=1 / F8 session.
+  try {
+    SETTINGS.debug = !!SETTINGS.debug;
+    if (SETTINGS.debug !== _debugEmitted) {
+      _debugEmitted = SETTINGS.debug;
+      Bus.emit('settings.debug', { on: !!SETTINGS.debug });
+    }
+  } catch (_) {}
 }
 
 const VOL_STEPS = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
@@ -359,6 +371,7 @@ const OPTIONS = {
   music: { label: 'Music', bar: true },
   sfx: { label: 'Sounds', bar: true },
   touch: { label: 'Touch buttons', values: [['auto', 'When needed'], ['on', 'Always'], ['off', 'Never']] },
+  debug: { label: 'Play debug', values: [[false, 'Off'], [true, 'On']] },
 };
 
 /** Ten little blocks, the lit ones gold — a volume a child can read across a room. */
@@ -1448,6 +1461,7 @@ function menuScene() {
       { id: 'music', label: OPTIONS.music.label, right: optionValue('music') },
       { id: 'sfx', label: OPTIONS.sfx.label, right: optionValue('sfx') },
       { id: 'touch', label: OPTIONS.touch.label, right: optionValue('touch') },
+      { id: 'debug', label: OPTIONS.debug.label, right: optionValue('debug') },
       '-',
       { id: 'code', label: 'The tale’s secret code', color: 'gold' },
     ];
@@ -1458,7 +1472,8 @@ function menuScene() {
     // Bigger words grows row height (not --u): the six-row Misc list gets taller and can cover the blurb
     // strip (P13 gap #5). Sit the list higher as the word scale grows; blurb stays a fixed width that fits.
     const sc = SETTINGS.scale || 1;
-    const miscTop = sc >= 1.26 ? 168 : sc >= 1.12 ? 220 : 286;
+    // Seven setting rows + secret code: sit a little higher than the old six-row Misc list.
+    const miscTop = sc >= 1.26 ? 140 : sc >= 1.12 ? 190 : 250;
     // Bigger type makes the longest Misc labels spill the 668-wide list (P13 #5 spill). Widen with the words.
     const miscLeft = sc >= 1.26 ? 250 : sc >= 1.12 ? 286 : 322;
     const miscW = sc >= 1.26 ? 820 : sc >= 1.12 ? 740 : 668;
@@ -1503,6 +1518,7 @@ function menuScene() {
     music: 'How loud the music is.',
     sfx: 'How loud the clangs, blips and footsteps are.',
     touch: 'The buttons drawn on the screen for fingers.',
+    debug: 'Shows the map id, your spot, the ways out, and a Copy report button. Also F8.',
     code: 'A line of letters that holds your whole tale. Keep it somewhere safe.',
   };
 

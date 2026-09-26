@@ -24,15 +24,20 @@
  * ONE THING AT A TIME along the top of the screen: showing a card dismisses the ribbon and showing a ribbon
  * dismisses the card, so the two can never land on top of each other.
  *
- * __DQ: state().hud = {shown, card, ribbon, nextStep, nextStepFrom, prompt, hidden,
+ * __DQ: state().hud = {shown, card, ribbon, nextStep, nextStepFrom, prompt, hidden, playDebug,
  *                       map:{open, of, tiles, px, marks:{you, folk, treasure, ways}}};   nextStepFrom says whether
  *       the sentence came from the story ('story (beat)') or from the fallback table, so a critic can prove it;
- *       __DQ.hudCard('Puddlewick'), __DQ.hudRibbon(), __DQ.minimap(true|false), __DQ.hudShow(false).
+ *       __DQ.hudCard('Puddlewick'), __DQ.hudRibbon(), __DQ.minimap(true|false), __DQ.hudShow(false),
+ *       __DQ.playHud(true|false), __DQ.report(), __DQ.copyReport().
+ *
+ * PLAY DEBUG. Misc → Play debug On (or F8, or ?debug=1): a corner panel shows the live map id, your x/z, every
+ * exit, and the trail of places you walked. Copy report puts a paste-ready block on the clipboard / console.
  *
  * PLUGIN: main.js imports this file once and calls install(ctx) — so it is live in /index.html with no
  * shared-file edit. It reaches the world only through ctx (Bus, Field, UI, Debug, Input).
  */
 import { PAL, css } from '../art/palette.js';
+import { Menu } from './menu.js';
 
 const CARD_HOLD = 3.4;          // seconds the place card stays up
 const RIBBON_HOLD = 5.0;
@@ -125,7 +130,218 @@ export function install(ctx = {}) {
     map: null, mapCanvas: null, mapBaked: null, mapBakedFor: null, mapOpen: false, mapT: 0,
     prompt: null, promptName: null, questFrom: null,
     hidden: false, forced: false, off: null, mapId: null, mapName: null,
+    // play-debug panel (Misc → Play debug / F8 / ?debug=1)
+    playOn: false, playEl: null, playBody: null, playTick: 0,
+    playTrail: [], playLog: [], playLastExit: null,
   };
+
+  const PLAY_LOG_MAX = 40;
+  const PLAY_TRAIL_MAX = 24;
+  const r1 = (n) => (Number.isFinite(+n) ? Math.round(+n * 10) / 10 : n);
+
+  function playWanted() {
+    try {
+      const q = new URLSearchParams(location.search);
+      if (q.get('debug') === '1' || q.get('debug') === 'on') return true;
+    } catch (_) {}
+    try {
+      const raw = localStorage.getItem('dqv.settings');
+      if (raw) {
+        const o = JSON.parse(raw);
+        if (o && (o.debug === true || o.debug === 1 || o.debug === 'true' || o.debug === 'on')) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function playPushLog(line) {
+    const t = new Date().toISOString().slice(11, 19);
+    const row = `[${t}] ${line}`;
+    S.playLog.push(row);
+    if (S.playLog.length > PLAY_LOG_MAX) S.playLog.splice(0, S.playLog.length - PLAY_LOG_MAX);
+    if (S.playOn) {
+      try { console.log('[DQ play]', line); } catch (_) {}
+    }
+  }
+
+  function playSnap() {
+    let world = null;
+    try { world = Field.world && Field.world(); } catch (_) { world = null; }
+    const map = world && world.map;
+      const pl = world && world.player;
+    const p = pl && pl.p ? pl.p : null;
+    let known = null;
+    try {
+      if (typeof window !== 'undefined' && window.__DQ && typeof window.__DQ.listMaps === 'function') {
+        known = new Set(window.__DQ.listMaps() || []);
+      }
+    } catch (_) { known = null; }
+    const exits = (map && Array.isArray(map.exits) ? map.exits : []).map((e) => ({
+      to: e.to || null,
+      kind: e.kind || null,
+      x: r1(e.x), z: r1(e.z),
+      tx: e.tx != null ? r1(e.tx) : null,
+      tz: e.tz != null ? r1(e.tz) : null,
+      built: e.to && known ? known.has(e.to) : (e.to ? null : false),
+      text: e.text ? String(e.text).slice(0, 60) : null,
+    }));
+    let errN = 0, errTail = [];
+    try {
+      const st = window.__DQ && window.__DQ.state && window.__DQ.state();
+      errN = (st && st.errors) || 0;
+      errTail = (window.__DQ.errors || []).slice(-5);
+    } catch (_) {}
+    return {
+      mapId: (map && map.id) || S.mapId || null,
+      mapName: (map && map.name) || S.mapName || null,
+      kind: (map && map.kind) || S.mapKind || null,
+      x: p ? r1(p.x) : null,
+      z: p ? r1(p.z) : null,
+      facing: p && Number.isFinite(+p.yaw) ? Math.round((+p.yaw * 180) / Math.PI) : null,
+      exits,
+      exitCount: exits.length,
+      trail: S.playTrail.slice(),
+      lastExit: S.playLastExit,
+      log: S.playLog.slice(),
+      errors: errN,
+      errorTail: errTail,
+    };
+  }
+
+  function playReportText() {
+    const s = playSnap();
+    const lines = [
+      '=== DQV play report ===',
+      `map: ${s.mapId || '?'} (${s.mapName || '?'}) · ${s.kind || '?'}`,
+      `pos: x=${s.x} z=${s.z} facing=${s.facing}°`,
+      `exits (${s.exitCount}):`,
+    ];
+    if (!s.exits.length) lines.push('  (none — this place has no way out authored)');
+    for (const e of s.exits) {
+      const built = e.built === false ? ' MISSING-MAP' : e.built === true ? '' : '';
+      lines.push(`  → ${e.to || '?'}${built}  ${e.kind || '?'} @ ${e.x},${e.z}`
+        + (e.tx != null ? ` → spawn ${e.tx},${e.tz}` : '')
+        + (e.text ? ` "${e.text}"` : ''));
+    }
+    if (s.lastExit) {
+      lines.push(`last exit try: ${s.lastExit.ok ? 'ok' : 'BLOCKED'} ${s.lastExit.from} → ${s.lastExit.to}`
+        + (s.lastExit.kind ? ` (${s.lastExit.kind})` : ''));
+    }
+    lines.push(`trail: ${s.trail.length ? s.trail.join(' → ') : '(empty)'}`);
+    lines.push(`errors: ${s.errors}`);
+    for (const e of s.errorTail) lines.push(`  ! ${e}`);
+    lines.push('--- recent ---');
+    for (const row of s.log.slice(-12)) lines.push(row);
+    lines.push('=== end ===');
+    return lines.join('\n');
+  }
+
+  async function playCopy() {
+    const text = playReportText();
+    try { console.log(text); } catch (_) {}
+    let method = 'console';
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        method = 'clipboard';
+      }
+    } catch (_) { method = 'console'; }
+    playPushLog(`report copied (${method})`);
+    paintPlay();
+    return { ok: true, method, text };
+  }
+
+  function ensurePlayEl() {
+    if (S.playEl || typeof document === 'undefined') return S.playEl;
+    const root = document.getElementById('ui-root') || document.body;
+    const el = document.createElement('div');
+    el.id = 'dq-playhud';
+    el.className = 'dq-playhud';
+    el.innerHTML = [
+      '<div class="dq-playhud-head">',
+      '<span>PLAY DEBUG · F8</span>',
+      '<button type="button" class="dq-playhud-btn" data-act="copy">Copy report</button>',
+      '<button type="button" class="dq-playhud-btn" data-act="off">Off</button>',
+      '</div>',
+      '<pre class="dq-playhud-body"></pre>',
+    ].join('');
+    el.addEventListener('click', (ev) => {
+      const btn = ev.target && ev.target.closest ? ev.target.closest('[data-act]') : null;
+      if (!btn) return;
+      const act = btn.getAttribute('data-act');
+      if (act === 'copy') playCopy();
+      if (act === 'off') setPlayHud(false, { persist: true });
+    });
+    root.appendChild(el);
+    S.playEl = el;
+    S.playBody = el.querySelector('.dq-playhud-body');
+    return el;
+  }
+
+  function paintPlay() {
+    if (!S.playOn) return;
+    ensurePlayEl();
+    if (!S.playBody) return;
+    const s = playSnap();
+    const exitLines = s.exits.length
+      ? s.exits.map((e) => {
+        const miss = e.built === false ? ' ⚠MISSING' : '';
+        return `→ ${e.to || '?'}${miss}  ${e.kind || '?'} @ ${e.x},${e.z}`;
+      }).join('\n')
+      : '(no exits on this map)';
+    const last = s.lastExit
+      ? `${s.lastExit.ok ? 'ok' : 'BLOCKED'} ${s.lastExit.from} → ${s.lastExit.to}`
+      : '—';
+    S.playBody.textContent = [
+      `map  ${s.mapId || '—'}`,
+      `name ${s.mapName || '—'} · ${s.kind || '—'}`,
+      `pos  ${s.x}, ${s.z}  face ${s.facing}°`,
+      `exits (${s.exitCount})`,
+      exitLines,
+      `last ${last}`,
+      `trail ${s.trail.length ? s.trail.join(' → ') : '—'}`,
+      `errors ${s.errors}`,
+      '···',
+      ...s.log.slice(-6),
+    ].join('\n');
+  }
+
+  function setPlayHud(on, { persist = false } = {}) {
+    const want = !!on;
+    if (want === S.playOn) {
+      if (persist) {
+        try { if (Menu && Menu.settings) Menu.settings.debug = want; } catch (_) {}
+        try {
+          const raw = localStorage.getItem('dqv.settings');
+          const o = raw ? (JSON.parse(raw) || {}) : {};
+          o.debug = want;
+          localStorage.setItem('dqv.settings', JSON.stringify(o));
+        } catch (_) {}
+      }
+      if (want) paintPlay();
+      return S.playOn;
+    }
+    S.playOn = want;
+    if (S.playOn) {
+      ensurePlayEl();
+      if (S.playEl) S.playEl.classList.add('dq-on');
+      paintPlay();
+      playPushLog('play debug ON');
+    } else {
+      if (S.playEl) S.playEl.classList.remove('dq-on');
+      playPushLog('play debug OFF');
+    }
+    if (persist) {
+      try { if (Menu && Menu.settings) Menu.settings.debug = !!S.playOn; } catch (_) {}
+      try {
+        const raw = localStorage.getItem('dqv.settings');
+        const o = raw ? (JSON.parse(raw) || {}) : {};
+        o.debug = !!S.playOn;
+        localStorage.setItem('dqv.settings', JSON.stringify(o));
+      } catch (_) {}
+    }
+    return S.playOn;
+  }
 
   // ── is the field the thing the player is looking at? ────────────────────────────────────────────────────
   const onField = () => { try { return Scenes && Scenes.top() === 'field'; } catch (_) { return false; } };
@@ -421,6 +637,11 @@ export function install(ctx = {}) {
         verb = verbFor(world.map, world.player.near.target);
       }
       setPrompt(verb);
+
+      if (S.playOn) {
+        S.playTick += dt;
+        if (S.playTick > 0.25) { S.playTick = 0; paintPlay(); }
+      }
     } catch (e) { oops('hud tick', e); }
   }
 
@@ -452,8 +673,47 @@ export function install(ctx = {}) {
           if (words) showRibbon(words);
         } catch (_) {}
       }, delay);
+      // play-debug trail
+      if (m.id) {
+        if (!S.playTrail.length || S.playTrail[S.playTrail.length - 1] !== m.id) {
+          S.playTrail.push(m.id);
+          if (S.playTrail.length > PLAY_TRAIL_MAX) S.playTrail.splice(0, S.playTrail.length - PLAY_TRAIL_MAX);
+        }
+        playPushLog(`enter ${m.id}` + (m.x != null ? ` @ ${r1(m.x)},${r1(m.z)}` : ''));
+        if (S.playOn) paintPlay();
+      }
     } catch (e) { oops('hud map.enter', e); }
   });
+  Bus.on('map.leave', (m) => {
+    try {
+      if (!m) return;
+      playPushLog(`leave ${m.id || '?'}` + (m.to ? ` → ${m.to}` : ''));
+      if (S.playOn) paintPlay();
+    } catch (e) { oops('hud map.leave', e); }
+  });
+  Bus.on('exit.try', (info) => {
+    try {
+      if (!info) return;
+      S.playLastExit = {
+        ok: !!info.ok, from: info.from || null, to: info.to || null, kind: info.kind || null,
+        x: info.x, z: info.z, tx: info.tx, tz: info.tz, text: info.text || null,
+      };
+      playPushLog(`${info.ok ? 'exit' : 'EXIT BLOCKED'} ${info.from || '?'} → ${info.to || '?'}`
+        + (info.kind ? ` (${info.kind})` : '')
+        + (info.text ? ` "${info.text}"` : ''));
+      if (S.playOn) paintPlay();
+    } catch (e) { oops('hud exit.try', e); }
+  });
+  Bus.on('settings.debug', (o) => {
+    try { setPlayHud(!!(o && o.on), { persist: false }); } catch (e) { oops('hud settings.debug', e); }
+  });
+  try {
+    addEventListener('keydown', (ev) => {
+      if (!ev || ev.key !== 'F8' || ev.repeat) return;
+      try { ev.preventDefault(); } catch (_) {}
+      setPlayHud(!S.playOn, { persist: true });
+    });
+  } catch (_) {}
   // The story turning is exactly when a child needs telling where to go next: P26 emits 'quest.change' when the
   // beat moves on, and a flag going down is the older, coarser signal for the same thing.
   for (const ev of ['flag.set', 'quest.change']) Bus.on(ev, () => {
@@ -480,6 +740,7 @@ export function install(ctx = {}) {
     card: S.card && !S.card.destroyed && S.card.state !== 'closed' ? { name: S.cardName, left: Math.max(0, +S.cardT.toFixed(2)) } : null,
     ribbon: S.ribbon && !S.ribbon.destroyed && S.ribbon.state !== 'closed' ? { text: S.ribbonText, left: Math.max(0, +S.ribbonT.toFixed(2)) } : null,
     nextStep: S.ribbonText, nextStepFrom: S.questFrom || null,
+    playDebug: !!S.playOn,
     map: (() => {
       let w = null; try { w = Field.world && Field.world(); } catch (_) {}
       const m = (w && w.map) || null;
@@ -503,6 +764,18 @@ export function install(ctx = {}) {
     if (S.forced) hideAll('asked');
     return !S.forced;
   });
+  /** Play-debug overlay: __DQ.playHud(true) · F8 · Misc → Play debug. */
+  Debug.expose('playHud', (on) => {
+    if (on === undefined) return !!S.playOn;
+    return setPlayHud(!!on, { persist: true });
+  });
+  /** Paste-ready stuck-map report: __DQ.report() → string. */
+  Debug.expose('report', () => playReportText());
+  /** Copy that report to the clipboard (and console): __DQ.copyReport(). */
+  Debug.expose('copyReport', () => playCopy());
+
+  // Restore from Misc setting / ?debug=1 after the panel helpers exist.
+  if (playWanted()) setPlayHud(true, { persist: false });
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -534,6 +807,33 @@ const CSS = `
   font-size: calc(19 * var(--u)); color: var(--dq-win-bot); background: var(--dq-edge);
   box-shadow: 0 calc(2 * var(--u)) 0 var(--dq-edge-low); text-shadow:none}
 .hud-verb{font-size: calc(24 * var(--u)); color: var(--dq-ink)}
+
+/* play-debug corner panel (Misc → Play debug / F8) — sits above the DQ UI, clickable Copy */
+.dq-playhud{
+  position:fixed; right:8px; bottom:8px; z-index:80;
+  width:min(420px, 92vw); max-height:min(48vh, 420px);
+  display:none; flex-direction:column;
+  background:rgba(12, 22, 48, 0.88); color:#e8f0ff;
+  border:2px solid color-mix(in srgb, var(--pal-ui-border, #c8d4f0) 70%, transparent);
+  border-radius:8px; font:12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  box-shadow:0 6px 24px rgba(0,0,0,.45); pointer-events:auto; overflow:hidden;
+}
+.dq-playhud.dq-on{display:flex}
+.dq-playhud-head{
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  padding:6px 8px; background:rgba(0,0,0,.28); letter-spacing:.04em; font-size:11px;
+}
+.dq-playhud-head > span{flex:1; min-width:8em; color:#ffe08a}
+.dq-playhud-btn{
+  pointer-events:auto; cursor:pointer; border:0; border-radius:4px;
+  padding:3px 8px; font:inherit; font-size:11px; color:#102038;
+  background:color-mix(in srgb, var(--pal-ui-border, #c8d4f0) 85%, #fff);
+}
+.dq-playhud-btn:hover{filter:brightness(1.08)}
+.dq-playhud-body{
+  margin:0; padding:8px 10px 10px; overflow:auto; white-space:pre-wrap; word-break:break-word;
+  color:#d7e4ff; font-size:11px; line-height:1.4;
+}
 `;
 let styled = false;
 function installCss() {
