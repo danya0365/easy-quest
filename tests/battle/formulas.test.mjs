@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import * as F from '../../src/battle/formulas.js';
 import {
   PERSONALITIES, FAMILY_PERSONALITIES, personalityAt, templateAt, MONSTER_TEMPLATES, EXP_TABLE, levelForExp, expToNext,
-  learnsetFor, spellsKnownAt, spellsLearnedAt, newMember, statsFor, gainsAt, GUESTS, CHARACTERS,
+  learnsetFor, spellsKnownAt, spellsLearnedAt, newMember, statsFor, gainsAt, GUESTS, CHARACTERS, LEVEL_CAP,
 } from '../../src/data/growth.js';
 import { fixedRng } from './helpers.js';
 
@@ -96,11 +96,23 @@ test('§1.8 ambush: 6% party, 4% enemy; enemy ambush never at S>=25, on protecte
 test('§2.1 one shared EXP table and the catch-up rule', () => {
   assert.equal(EXP_TABLE[1], 0); assert.equal(EXP_TABLE[2], 7); assert.equal(EXP_TABLE[13], 2120); assert.equal(EXP_TABLE[30], 59000);
   assert.equal(levelForExp(0), 1); assert.equal(levelForExp(6), 1); assert.equal(levelForExp(7), 2);
-  assert.equal(levelForExp(59000), 30); assert.equal(levelForExp(9e9), 30);
-  assert.equal(expToNext(1), 7); assert.equal(expToNext(20), 2350); assert.equal(expToNext(30), 0);
+  assert.equal(levelForExp(59000), 30);
+  // The cap is LEVEL_CAP, not a hard-coded 30: §2.1's table now runs to 40, so a child who keeps playing past the
+  // end credits still climbs instead of piling EXP against a wall.
+  assert.equal(LEVEL_CAP, 40);
+  assert.equal(levelForExp(9e9), LEVEL_CAP);
+  assert.equal(levelForExp(EXP_TABLE[LEVEL_CAP]), LEVEL_CAP);
+  assert.equal(expToNext(1), 7); assert.equal(expToNext(20), 2350);
+  assert.equal(expToNext(29), 8000); assert.equal(expToNext(30), 9000); assert.equal(expToNext(LEVEL_CAP), 0);
   // "To next" column of the table
   const toNext = [7, 16, 24, 45, 68, 100, 140, 190, 250, 330, 420, 530, 660, 820, 1000, 1200, 1450, 1700, 2000, 2350, 2750, 3200, 3700, 4250, 4850, 5550, 6300, 7100, 8000];
   toNext.forEach((n, i) => assert.equal(EXP_TABLE[i + 2] - EXP_TABLE[i + 1], n, `Lv${i + 1}`));
+  // ...and it must keep climbing past the old story cap: a flat run here means a level that costs the same to reach
+  // as the one before it, which reads as "the game stopped giving".
+  for (let L = 30; L < LEVEL_CAP; L++) {
+    const d = EXP_TABLE[L + 1] - EXP_TABLE[L];
+    assert.ok(d > 0, `Lv${L} -> ${L + 1} must cost more than Lv${L - 1} -> ${L}`);
+  }
   assert.equal(F.catchUpMultiplier(10, 12), 1);
   assert.equal(F.catchUpMultiplier(9, 12), 2);
   assert.equal(F.catchUpMultiplier(6, 12), 3);

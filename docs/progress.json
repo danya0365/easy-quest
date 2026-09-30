@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-25T19:49:50.295Z",
+  "updated": "2026-09-30T13:20:40.370Z",
   "wave": 2,
   "waveTitle": "Breadth wave: interiors, shops, treasure, spells, items, recruitment, party/wagon, story, more maps — target 65-75 per piece",
   "pieces": {
@@ -762,10 +762,10 @@
     "P19": {
       "id": "P19",
       "status": "iterating",
-      "score": 74,
-      "best": 74,
-      "rounds": 7,
-      "gap": "over-level floor 0.6 + cap 40 night re-verify. shots/P19-night",
+      "score": 80,
+      "best": 80,
+      "rounds": 8,
+      "gap": "toNextAt no longer clamps at 29, so monster EXP scaling is readable across the whole Lv40 table instead of freezing above Lv30 (late-game monsters used to pay the same as Lv29 ones); SYSTEMS 2.1 now prints the 31-40 rows and calls Lv30 the story target, not the ceiling; test asserts LEVEL_CAP=40 and a strictly climbing run 30->40. 70/70 tests pass. Companion capFor() values in growth.js still unaudited.",
       "note": "first build done: growth.js (six personalities + Lantern, templates, guests, learnsets) and formulas.js; 51 tests; sim over every area",
       "history": [
         {
@@ -802,6 +802,11 @@
           "at": "2026-09-25T19:36:54.751Z",
           "score": 74,
           "gap": "over-level floor 0.6 + cap 40 night re-verify. shots/P19-night"
+        },
+        {
+          "at": "2026-09-30T13:20:40.335Z",
+          "score": 80,
+          "gap": "toNextAt no longer clamps at 29, so monster EXP scaling is readable across the whole Lv40 table instead of freezing above Lv30 (late-game monsters used to pay the same as Lv29 ones); SYSTEMS 2.1 now p"
         }
       ],
       "name": "Stats, growth, level-up ceremony"
@@ -1068,10 +1073,10 @@
     "P27": {
       "id": "P27",
       "status": "iterating",
-      "score": 70,
-      "best": 70,
-      "rounds": 4,
-      "gap": "Every theme is one 4-bar cell restated 4-6x in straight quarters/eighths - no hook, no dotted march rhythm, no real consequent phrase",
+      "score": 82,
+      "best": 82,
+      "rounds": 5,
+      "gap": "Overworld rewritten as a real period: A' (solo horn, bars 12-19) and A'' (trumpets, bars 28-35) are now written VARIATIONS - no two statements share a four-bar cell, 0 melody/harmony clashes of 77 strong-beat checks (was 2), form intact at 38 bars, and the tester listened and passed. Gap #1 verified-fixed. Still open, pre-existing at HEAD and NOT this piece: title theme has 2 strong-beat clashes (bars 17-18, violins), and village/overworld/battle still fail the no-generator and bass-by-step audits (generatedPct 4 > 2, bassStepPct 36 < 45).",
       "note": "counterpoint: hand-written counter-melodies + walking basses in village/overworld/battle (+title/town); no generator-made parts; loop overrun, layer beating and slow-line loading fixed",
       "history": [
         {
@@ -1093,6 +1098,11 @@
           "at": "2026-09-17T19:31:42.543Z",
           "score": 70,
           "gap": "Every theme is one 4-bar cell restated 4-6x in straight quarters/eighths - no hook, no dotted march rhythm, no real consequent phrase"
+        },
+        {
+          "at": "2026-09-30T13:20:40.300Z",
+          "score": 82,
+          "gap": "Overworld rewritten as a real period: A' (solo horn, bars 12-19) and A'' (trumpets, bars 28-35) are now written VARIATIONS - no two statements share a four-bar cell, 0 melody/harmony clashes of 77 str"
         }
       ],
       "name": "Music — the symphonic score"
@@ -1781,6 +1791,10 @@
     {
       "at": "2026-09-25T19:41:30.717Z",
       "t": "P23→93 Ambergarde links to keep"
+    },
+    {
+      "at": "2026-09-30T13:20:40.370Z",
+      "t": "P27 overworld rewritten as a real period, gap #1 closed and confirmed by the tester by ear (70->82). P19 EXP ceiling opened to Lv40 (74->80). smooth-play.json now walks out of the title before asserting on the field - it was pointed at the game index, 8/8 at 114 fps."
     }
   ]
 }

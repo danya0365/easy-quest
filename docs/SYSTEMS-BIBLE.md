@@ -151,14 +151,24 @@ produce a lagging character, and a lagging character produces a stuck child.
 | 7 | 260 | 140 | 17 | 5,800 | 1,450 | 27 | 37,600 | 6,300 |
 | 8 | 400 | 190 | 18 | 7,250 | 1,700 | 28 | 43,900 | 7,100 |
 | 9 | 590 | 250 | 19 | 8,950 | 2,000 | 29 | 51,000 | 8,000 |
-| 10 | 840 | 330 | 20 | 10,950 | 2,350 | 30 | 59,000 | — |
+| 10 | 840 | 330 | 20 | 10,950 | 2,350 | 30 | 59,000 | 9,000 |
+
+| Lv | Total EXP | To next | Lv | Total EXP | To next |
+|---|---|---|---|---|---|
+| 31 | 68,000 | 10,000 | 36 | 146,000 | 16,500 |
+| 32 | 78,000 | 11,000 | 37 | 164,500 | 18,500 |
+| 33 | 89,000 | 12,000 | 38 | 184,500 | 20,000 |
+| 34 | 101,000 | 13,500 | 39 | 206,500 | 22,000 |
+| 35 | 114,500 | 15,000 | 40 | — | — |
 
 **The catch-up rule (invisible, essential).** A party member whose level is 3+ below the party's highest earns
 **×2 EXP**; 6+ below earns **×3**. This is what lets Rowan and Linnet join late and be useful in one dungeon, and
 what stops "the character Rosie never puts in the front line" from becoming dead weight.
 
-**Level 30 is the ceiling for the main story.** The final boss is tuned for a party at **Lv 26–28**. Reaching 30
-is a reward for the curious, not a requirement.
+**The main story is tuned for level 30, not capped there.** The final boss is built for a party at **Lv 26–28**, so
+reaching 30 is a reward for the curious, not a requirement. But the hard ceiling is **Lv 40** (`LEVEL_CAP` in
+`src/data/growth.js`): a child who keeps playing past the credits still climbs instead of piling EXP against a wall.
+Growth anchors for every personality run to 40 to match.
 
 ### 2.2 How to read the growth tables
 Each character is defined by **anchor stats** at levels 1, 5, 10, 15, 20, 25, 30 (Sera also at 18).

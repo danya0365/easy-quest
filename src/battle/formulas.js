@@ -226,7 +226,10 @@ const refAt = (k, L) => {           // fractional levels interpolate (an encount
   const x = clamp(L, 1, top), i = Math.floor(x), t = x - i;
   return i >= top ? REF[k][top - 1] : REF[k][i - 1] * (1 - t) + REF[k][i] * t;
 };
-const toNextAt = (L) => { const l = clamp(Math.round(L), 1, 29); return EXP_TABLE[l + 1] - EXP_TABLE[l]; };
+// §2.1's table runs to LEVEL_CAP, so the "To next" step has to be readable across all of it. This clamp used to stop
+// at 29, which froze EXP scaling for every monster above Lv30 (toNextF returned 8000/8000, so rExp came out 1.0 and
+// late-game monsters paid the same as Lv29 ones).
+const toNextAt = (L) => { const l = clamp(Math.round(L), 1, LEVEL_CAP - 1); return EXP_TABLE[l + 1] - EXP_TABLE[l]; };
 const MOVE_AMOUNTS = ['amount', 'fixed', 'drain', 'recoil', 'heal', 'base', 'selfMissDamage'];
 
 /**
