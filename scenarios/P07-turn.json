@@ -1,0 +1,27 @@
+{
+ "name": "P07 — does the ease-behind still LAND the camera behind a turn? (and does it hand back to the auto-recentre)",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+  {"waitFor": "__DQ.state().scene==='field' && __DQ.state().map && __DQ.state().map.id", "timeout": 45000},
+  {"wait": 2000},
+
+  {"note": "T1. THE TRACE. Hold 'right' alone on the frozen clock for 4 s and record the three yaw channels every tick: the target the follow steers (yawT), the boom that chases it (yaw), and the lens he is actually looking through (current = yaw + dodge slide)."},
+  {"eval": "(async()=>{const {Field}=await import('/src/world/field.js');window.__FACE=(d)=>{const w=Field.world();if(w&&w.player&&w.player.face)return w.player.face(d);return 'no face';};__DQ.teleport('meadow',2,8);__DQ.cameraOrbit(0);window.__T=(btn,secs)=>{__DQ.freeze(true);__DQ.hold(btn);const S=[];for(let i=0;i<Math.round(secs*60);i++){__DQ.advance(1000/60);const c=__DQ.state().field.camera;const p=__DQ.state().player;S.push({yaw:c.current,boom:c.boom,walk:c.walk,slide:c.keep.slide,dist:c.dist,dolly:c.dolly||0,pitch:c.pitch,facing:p.facing,facingT:p.facingTarget,speed:p.speed,moved:p.moving,blocked:p.blocked});}if(btn)__DQ.release(btn);__DQ.freeze(false);return S;};return 'trace ready';})()"},
+
+  {"note": "T2. a clean 90 turn: face him one way, then hold the perpendicular. Everything is on the FROZEN clock, so 4 s is exactly 240 ticks."},
+  {"eval": "(async()=>{const d=(a,b)=>Math.abs(((a-b+540)%360)-180);__DQ.teleport('meadow',2,8);__DQ.cameraOrbit(0);window.__FACE(0);const s=window.__T('right',4);const fin=s[s.length-1];return JSON.stringify({what:'face 0, hold right 4s',facing0:+s[0].facing.toFixed(1),facingEnd:+fin.facing.toFixed(1),facingTEnd:+fin.facingT.toFixed(1),speedMax:+Math.max(...s.map(v=>v.speed)).toFixed(2),blockedTicks:s.filter(v=>v.blocked).length,movedTicks:s.filter(v=>v.moved).length,orbit0:+s[0].yaw.toFixed(1),orbitEnd:+fin.yaw.toFixed(1),boom0:+s[0].boom.toFixed(1),boomEnd:+fin.boom.toFixed(1),lensTravel:+s.slice(1).reduce((a,v,i)=>a+d(v.yaw,s[i].yaw),0).toFixed(1),slideMax:+Math.max(...s.map(v=>Math.abs(v.slide||0))).toFixed(1),offByBehind:+d(fin.yaw,(fin.facing+180)%360).toFixed(1)});})()"},
+
+  {"note": "T3. THE PAYOFF: after the turn he stops. The AUTO-RECENTRE branch is what must land him squarely behind - it is NOT rate-limited by BEHIND_CAP, so this is where 'behind him' is actually achieved. Measured after a real 4 s pause, not a frozen tick."},
+  {"eval": "(async()=>{await new Promise(r=>setTimeout(r,4200));const c=__DQ.state().field.camera;const f=__DQ.state().player.facing;const d=(a,b)=>Math.abs(((a-b+540)%360)-180);return JSON.stringify({orbit:+c.current.toFixed(1),boom:+c.boom.toFixed(1),facing:+f.toFixed(1),behindHim:+((f+180)%360).toFixed(1),offBy:+d(c.current,(f+180)%360).toFixed(1),dollyEnd:+(c.dolly||0).toFixed(5),heroPct:+__DQ.cameraFrame().heroPct.toFixed(2)});})()"},
+
+  {"note": "T4. the long way round: hold 'left' instead. If the follow works it is symmetric; if the gate is one-directional this is where it shows."},
+  {"eval": "(async()=>{const d=(a,b)=>Math.abs(((a-b+540)%360)-180);__DQ.teleport('meadow',2,8);__DQ.cameraOrbit(0);window.__FACE(0);await new Promise(r=>setTimeout(r,600));const s=window.__T('left',4);await new Promise(r=>setTimeout(r,4200));const c=__DQ.state().field.camera;const f=__DQ.state().player.facing;return JSON.stringify({what:'face 0, hold left 4s, then rest',facingEnd:+f.toFixed(1),orbitEnd:+c.current.toFixed(1),offByBehind:+d(c.current,(f+180)%360).toFixed(1)});})()"},
+
+  {"note": "T5. THE SECOND-HALF OF THE OWNER'S COMPLAINT: he also said the game is hard to control. Hold 'right' and ask how far he actually gets, and how straight the path is (a bent path means the walk frame is fighting him)."},
+  {"eval": "(async()=>{const d=(a,b)=>Math.abs(((a-b+540)%360)-180);__DQ.teleport('meadow',2,8);__DQ.cameraOrbit(0);window.__FACE(0);const pts=[];__DQ.hold('right',3000);for(let i=0;i<15;i++){await new Promise(r=>setTimeout(r,200));const p=__DQ.state().player;pts.push([+p.x.toFixed(2),+p.z.toFixed(2)]);}__DQ.release('right');const a=pts[1],b=pts[pts.length-1];const dx=b[0]-a[0],dz=b[1]-a[1],L=Math.hypot(dx,dz)||1;let bend=0;for(const q of pts.slice(1))bend=Math.max(bend,Math.abs((q[0]-a[0])*dz-(q[1]-a[1])*dx)/L);const c=__DQ.state().field.camera;return JSON.stringify({path:+L.toFixed(2),bend:+bend.toFixed(3),stalledPct:+(100*pts.filter((q,i)=>i&&Math.hypot(q[0]-pts[i-1][0],q[1]-pts[i-1][1])<0.05).length/pts.length).toFixed(0),offByBehind:+d(c.current,(__DQ.state().player.facing+180)%360).toFixed(1)});})()"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

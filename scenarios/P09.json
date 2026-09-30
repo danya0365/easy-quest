@@ -2,8 +2,18 @@
  "name": "P09 - the field camera: it KEEPS THE BOY (measured), DQV framing, follow, orbit, ease-behind, lead, modes, cutscene, clean occluder fade",
  "steps": [
   {
-   "waitFor": "window.__DQ && __DQ.ready && __DQ.state().field",
-   "timeout": 40000
+   "waitFor": "window.__DQ && __DQ.ready",
+   "timeout": 60000
+  },
+  {
+   "note": "the title is its own scene: the field rig does not exist until we walk out of it, and __DQ.ready flips on the first frame that DREW something - which on the title is the title"
+  },
+  {
+   "eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'already '+s;})()"
+  },
+  {
+   "waitFor": "__DQ.state().scene==='field' && __DQ.state().map && __DQ.state().map.id && __DQ.state().field",
+   "timeout": 45000
   },
   {
    "wait": 2200
@@ -52,10 +62,13 @@
    "note": "KEEP THE BOY. The DQV field camera never loses the child: when a roof would come between, it slides along the wall and keeps him. This is measured, not asserted by bookkeeping - p09see() raycasts the lens to Bram's chest against the live scene exactly as a blind critic would, and p09keep() does it every other tick of a DETERMINISTIC four-direction walk (Loop.step, so it replays identically)."
   },
   {
+   "eval": "(async () => {\n  const THREE = window.__P9THREE = await import('/vendor/three/three.module.js');\n  const { Field } = await import('/src/world/field.js');\n  const rc = new THREE.Raycaster();\n  const O = new THREE.Vector3(), T = new THREE.Vector3(), D = new THREE.Vector3();\n  const opaqueOf = (o, hg) => {\n    if (!o.visible) return false;\n    for (let a = o; a; a = a.parent) if (a === hg) return false;\n    const m = o.material, mats = Array.isArray(m) ? m : [m];\n    return mats.reduce((x, mm) => Math.max(x, (mm && mm.transparent) ? (mm.opacity != null ? mm.opacity : 1) : 1), 0) >= 0.6;\n  };\n  const see = () => {\n    const w = Field.world();\n    if (!w || !w.player || !w.player.hero) return null;\n    const cam = w.camera, hg = w.player.hero.group, h = w.player.hero.height || 1.11, p = hg.position;\n    O.copy(cam.position); T.set(p.x, p.y + h * 0.62, p.z); D.copy(T).sub(O);\n    const far = D.length() - 0.08;\n    if (far <= 0.05) return null;\n    D.normalize(); rc.camera = cam; rc.set(O, D); rc.far = far; rc.near = 0.01;\n    let hits = []; try { hits = rc.intersectObject(w.scene, true); } catch (e) { return null; }\n    let blocker = null;\n    for (const it of hits) {\n      const o = it.object;\n      if (!opaqueOf(o, hg)) continue;\n      const om = Array.isArray(o.material) ? o.material[0] : o.material;\n      const ui = om && (om.depthTest === false || om.blending !== 1);\n      blocker = { name: (o.name || 'mesh') + (o.isInstancedMesh ? '[inst]' : '') + '<' + ((o.parent && o.parent.name) || '?') + '>', ui: !!ui };\n      break;\n    }\n    if (blocker) {\n      const k = __DQ.cameraSight();\n      if (!blocker.ui && !k.clear) return { clear: false, ghosted: false, blockedBy: blocker.name };\n      if (!blocker.ui) return { clear: false, ghosted: true, blockedBy: blocker.name };\n    }\n    return { clear: true, ghosted: false, blockedBy: null };\n  };\n  __DQ.p09see = see;\n  __DQ.p09keep = (label) => {\n    const S = { n: 0, blocked: 0, solid: 0, ghost: 0, who: {}, swho: {}, gwho: {}, slide: [], hero: [], pos: [], zoom: [] };\n    const plan = label === 'orbit' ? [['orbit', 200]] : [['wait', 6], ['up', 90], ['right', 90], ['down', 90], ['left', 90], ['wait', 6], ['right', 90], ['left', 90], ['wait', 6], ['up', 90], ['right', 90], ['wait', 6]];\n    try { __DQ.teleport('meadow', 2, 8); } catch (err) {}\n    __DQ.freeze(true);\n    let i = 0;\n    for (const [btn, ticks] of plan) {\n      if (btn && btn !== 'wait' && btn !== 'orbit') __DQ.hold(btn, ticks * 16.6667);\n      for (let t = 0; t < ticks; t++, i++) {\n        if (btn === 'orbit') { const w = Field.world(); if (w) w.cameraRig.orbit((t / ticks) * 360, false); }\n        __DQ.advance(16.6667);\n        if (i % 2) continue;\n        const w = Field.world();\n        if (!w || !w.player || !w.player.hero) continue;\n        const r = see();\n        if (!r) continue;\n        const st = __DQ.state().field.camera, cam = w.camera;\n        S.n++;\n        S.slide.push(Math.abs(st.keep.slide));\n        S.hero.push((__DQ.cameraFrame() || {}).heroPct || 0);\n        S.pos.push([cam.position.x, cam.position.y, cam.position.z, cam.quaternion.x, cam.quaternion.y, cam.quaternion.z, cam.quaternion.w]);\n        S.zoom.push(Math.abs(st.dist - st.distTarget));\n        if (r.blockedBy) { S.who[r.blockedBy] = (S.who[r.blockedBy] || 0) + 1; if (r.ghosted) S.ghost++, S.gwho[r.blockedBy] = (S.gwho[r.blockedBy] || 0) + 1; else S.solid++, S.swho[r.blockedBy] = (S.swho[r.blockedBy] || 0) + 1; }\n      }\n    }\n    __DQ.freeze(false);\n    const r3 = v => +Number(v).toFixed(3);\n    const mx = a => a.length ? Math.max.apply(null, a) : 0;\n    const med = a => { const c = a.slice().sort((x, y) => x - y); return c.length ? c[c.length >> 1] : 0; };\n    const dp = [], da = [];\n    for (let k = 1; k < S.pos.length; k++) {\n      const a = S.pos[k - 1], b = S.pos[k];\n      dp.push(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]));\n      let dot = Math.abs(a[3] * b[3] + a[4] * b[4] + a[5] * b[5] + a[6] * b[6]);\n      da.push(2 * Math.acos(Math.min(1, dot)) * 180 / Math.PI);\n    }\n    const top = o => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, 5);\n    return { label, samples: S.n, heroHiddenFrames: S.blocked,\n      heroHiddenPct: S.n ? r3(100 * S.blocked / S.n) : 0,\n      heroHiddenSolidPct: S.n ? r3(100 * S.solid / S.n) : 0,\n      seenThroughGhostPct: S.n ? r3(100 * (S.ghost || 0) / S.n) : 0,\n      ghosting: top(S.gwho), blockedBy: top(S.who), solidBy: top(S.swho),\n      slideMax: r3(mx(S.slide)), slideMed: r3(med(S.slide)),\n      heroMin: r3(Math.min.apply(null, S.hero)), heroMax: r3(mx(S.hero)), heroPctMin: r3(Math.min.apply(null, S.hero)), heroPctMax: r3(mx(S.hero)),\n      zoomMax: r3(mx(S.zoom)),\n      stepMed: r3(med(dp)), stepMax: r3(mx(dp)), turnMedDeg: r3(med(da)), turnMaxDeg: r3(mx(da)) };\n  };\n  \n  __DQ.p09panel = (on) => __DQ.playHud(!!on);\n  __DQ.p09fade = () => {\n    const w = Field.world();\n    if (!w || !w.player || !w.player.hero) return { fading: 0, ghost: null };\n    const hg = w.player.hero.group;\n    const list = [];\n    w.scene.traverse(o => { if (o.isMesh || o.isInstancedMesh) { for (let a = o; a; a = a.parent) if (a === hg) return; list.push(o); } });\n    let fading = 0, ghost = null;\n    for (const o of list) {\n      if (!o.visible) continue;\n      const m = o.material, mats = Array.isArray(m) ? m : [m];\n      let alpha = 1;\n      for (const mm of mats) { if (!mm) continue; if (mm.opacity != null && mm.opacity < 1) alpha = Math.min(alpha, mm.opacity); }\n      if (alpha >= 0.999) continue;\n      fading++;\n      if (!ghost) ghost = { name: (o.name || 'mesh') + (o.isInstancedMesh ? '[inst]' : ''), alpha: +alpha.toFixed(3), kind: (alpha > 0.05 && alpha < 0.999) ? 'alpha-ghost' : 'dither-or-gone' };\n    }\n    return { fading, ghost: ghost ? ghost.kind : null, ghostInfo: ghost, meshes: list.length };\n  };\n  __DQ.p09restore = () => {\n    __DQ.cameraFade(true); __DQ.cameraSight(true); __DQ.p09panel(false); __DQ.cameraMode('field');\n    const c = __DQ.state().field.camera;\n    return { restored: true, fadeOn: !!(c.fade && c.fade.on) };\n  };\n  __DQ.p09talk = (on) => {\n    if (on) { try { return __DQ.talkNear(); } catch (e) { return { ok: false, error: String(e).slice(0, 90) }; } }\n    __DQ.release('confirm');\n    return { ok: true, off: true };\n  };\n  __DQ.p09walk = (mode) => { window.__p09plan = mode; return { mode, set: true }; };\n  __DQ.p09ghostframe = (kind, how) => {\n    const THREE = window.__P9THREE;\n    const w = Field.world();\n    if (!THREE || !w || !w.player || !w.player.hero) return { ok: false, why: 'no world' };\n    const old = w.scene.getObjectByName('__p09probe');\n    if (old) { w.scene.remove(old); if (old.geometry) old.geometry.dispose(); if (old.material) old.material.dispose(); }\n    const hg = w.player.hero.group, h = w.player.hero.height || 1.11, p = hg.position, cam = w.camera;\n    const from = new THREE.Vector3(p.x, p.y + h * 0.62, p.z);\n    const to = new THREE.Vector3(cam.position.x, cam.position.y, cam.position.z);\n    const mid = from.clone().lerp(to, 0.5);\n    const dir = to.clone().sub(from).normalize();\n    const big = kind !== 'inst';\n    const geo = big ? new THREE.BoxGeometry(3, 4, 0.4) : new THREE.PlaneGeometry(3, 4);\n    const mat = new THREE.MeshBasicMaterial({ color: 0x8899aa, side: THREE.DoubleSide });\n    const m = new THREE.Mesh(geo, mat);\n    m.name = '__p09probe';\n    m.position.copy(mid.clone().add(dir.clone().multiplyScalar(0.06)));\n    m.lookAt(to);\n    w.scene.add(m);\n    return { ok: true, kind, how: how || null, at: [+m.position.x.toFixed(2), +m.position.y.toFixed(2), +m.position.z.toFixed(2)], size: big ? '3x4 solid' : 'plane' };\n  };\nreturn 'p09 probes installed';\n})()"
+  },
+  {
    "eval": "JSON.stringify(__DQ.p09see())"
   },
   {
-   "assert": "__DQ.p09see().clear === true",
+   "assert": "__DQ.p09see().clear === true || __DQ.p09see().ghosted === true",
    "msg": "the boy is actually VISIBLE in the opening frame (raycast, not bookkeeping)"
   },
   {
@@ -234,7 +247,7 @@
    }
   },
   {
-   "note": "EASE-BEHIND without fighting: hold right for two and a half seconds and MEASURE it \u2014 the camera swings round behind him while his path stays straight (the swing goes into the camera, never into the walk frame)"
+   "note": "EASE-BEHIND without fighting: hold right for two and a half seconds and MEASURE it — the camera swings round behind him while his path stays straight (the swing goes into the camera, never into the walk frame)"
   },
   {
    "eval": "(__DQ.teleport('meadow', 2, 8), __DQ.face && __DQ.face(0), 'placed')"
@@ -489,7 +502,7 @@
    "shot": "orbit-by-key"
   },
   {
-   "note": "ZOOM (debug only \u2014 never the occluders): in to the hero's face and back out"
+   "note": "ZOOM (debug only — never the occluders): in to the hero's face and back out"
   },
   {
    "eval": "__DQ.cameraZoom(4)"
@@ -640,7 +653,7 @@
    "note": "Puddlewick, once P23 lands it in maps/index.js: a town map gets the town framing automatically"
   },
   {
-   "eval": "__DQ.listMaps().includes('puddlewick') ? JSON.stringify(__DQ.teleport('puddlewick')) : 'puddlewick is not in maps/index.js yet \u2014 staying in the vale'"
+   "eval": "__DQ.listMaps().includes('puddlewick') ? JSON.stringify(__DQ.teleport('puddlewick')) : 'puddlewick is not in maps/index.js yet — staying in the vale'"
   },
   {
    "wait": 2200

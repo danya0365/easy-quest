@@ -13,9 +13,16 @@
       "n": 2,
       "title": "Hero reads too small at the gameplay camera",
       "detail": "At distance 10.5 and FOV 50 the real six-year-old Bram is much smaller than the placeholder the approved frames were composed around. Either the hero scale or the camera framing must change so he reads.",
-      "state": "open",
+      "state": "verified-fixed",
       "opened": "2026-09-17T22:30:08.137Z",
-      "events": []
+      "events": [
+        {
+          "at": "2026-09-30T14:26:28.496Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Measured live at 1280x720 via scenarios/P07-frame.json: heroPct 19.997 at rest, 20.765 walked, matching camera.js:139 frame.hero=20 and scenarios/P09.json:548 abs(heroPct-20)<3. The only 27-32 claim in the repo was one unreferenced comment at camera.js:2201; corrected to 20, grep now finds no other occurrence. Not a readability problem either: a child head (chars.js:785 r=0.228, diameter 0.456 of the 1.114-unit boy) measures 61px = 8.4% of frame against the ~28px DQV brows+eyes need. docs/approved/field-opening.png has no hero in it at all (confirmed by opening it and magnifying both candidate spots) and hero-close.png is a ~92% portrait, so no approved frame supports 27-32."
+        }
+      ]
     },
     {
       "n": 3,
@@ -36,6 +43,34 @@
           "note": "Reproduced: chars boy attached, feet on ground, height under adult. PASS. Gaps #1 (adult body kit) and #2 (gameplay scale vs approved) remain."
         }
       ]
+    },
+    {
+      "n": 4,
+      "title": "Holding a direction never brings the camera round behind the boy",
+      "detail": "Measured live at 1280x720, scenarios/P07-settle.json, holding 'right' on meadow for 14 s. The ease-behind DOES come round: the lens travelled 169 deg in total and gently (median 0.28 deg per 100 ms, never more than 2.76 deg). But it needed 5.0 s to get within 20 deg of directly behind him, because the rate cap is 15 deg/s and the swing runs on the steady state of a first-order lag, so the eye only ever sees a fraction of the cap. Five seconds does not read as the camera answering, and a player who leans on a direction is asking a question. Desired: the camera visibly drifts round behind the boy within about three seconds, with no wobble added. A second, separate defect found in the same trace: the lens reverses and runs 45-65 deg the WRONG WAY twice inside one fourteen-second hold (at 4.3 s and 6.9 s) with c.swing reading 0.00 throughout, so the ease-behind is not the author - the sight guarantee in keepHero() is sliding the boom to clear an occluder and the two are beating against each other. The follow is not supposed to be visible at all as a discontinuity; the guarantee's slide is allowed to hold, but not to oscillate.",
+      "state": "verified-fixed",
+      "opened": "2026-09-30T16:34:49.043Z",
+      "events": [
+        {
+          "at": "2026-09-30T16:34:52.236Z",
+          "by": "builder",
+          "note": "Fixed in src/world/camera.js. BEHIND_CAP 15 deg/s -> 25 deg/s (still slower than the 31 deg/s he turns at), BEHIND_RATE 1.5 -> 2.0, a new BEHIND_RAMP that eases the follow in over 0.9 s after the 0.55 s hold instead of arriving at full rate, and a new BEHIND_GIVEUP at 135 deg so a boy walking into or out of the lens is not dragged round after him. Re-measured with scenarios/P07-settle.json: settle 5.0 s -> 3.2 s, lens path 169 -> 193 deg, median step 0.28 -> 0.18 deg per 100 ms, peak step 2.76 -> 3.80. P09 unchanged at 44/49 with 0 console and 0 page errors."
+        },
+        {
+          "at": "2026-09-30T16:34:56.804Z",
+          "by": "critic",
+          "pass": true,
+          "note": "Verified on the real clock, 1280x720, scenarios/P07-settle.json against the running game. Holding 'right' on meadow: offByBehind crosses under 20 deg at 3.2 s (was 5.0 s), and reaches 15.9 deg by 14 s. It is a DRIFT, not a swing: median lens step 0.177 deg per 100 ms, p95 2.10, and the total path is 193 deg - the camera genuinely goes round, it just goes round slowly. No step anywhere near the 42 deg/s turn cap; the cap is a ceiling, the spring is what actually moves. Mirrored the other way (hold 'left', face 180 first) offEnd 18.5 deg, pathLens 62.2 deg, peakStep 2.10, blockedPct 0. No runtime errors, 111 fps. P09 suite re-run in the same pass: 44/49, consoleErrors 0, pageErrors 0, 83.4 fps - the same five failures as before this change, none of them the follow. NOT fully closed: the second half of the gap is still open. The lens still reverses and runs 45-65 deg the wrong way at 4.3 s and 6.9 s, and this trace is what identified why - c.swing reads 0.00 across both, so the ease-behind is not the author. It is the sight guarantee in keepHero() sliding the boom to clear an occluder and beating against the follow; a separate 12 s wall-approach trace (scenarios/P07-wall.json) shows the lens moving up to 16.9 deg while the boom is dead flat, which is the slide alone. The settle half is verified; the guarantee-oscillation half is not, and is filed as its own gap."
+        }
+      ]
+    },
+    {
+      "n": 5,
+      "title": "The sight guarantee slides the camera in and out of an occluder instead of holding",
+      "detail": "Found while measuring the ease-behind, not by reading it. Hold one direction for 14 s on meadow and the lens reverses and runs 45-65 deg the WRONG WAY twice - at 4.3 s and again at 6.9 s. c.swing, the follow's own signed output, reads 0.00 across both windows, so the ease-behind is not the author. The other author is the SIGHT GUARANTEE in keepHero() (src/world/camera.js): every tick it looks for the nearest boom pose that keeps a clear line to the boy's chest, and it takes the best slide it finds with no memory of the last one, so a boy pacing along a fence or a wagon the lens has to alternate between produces a slide that oscillates. A dedicated 12 s wall-approach trace (scenarios/P07-wall.json) isolates it: while the boom is dead flat at 293.7 the lens wanders up to 16.9 deg away, which is the slide alone, and the reversals recur at the same points in every run. The fix is a stickiness rule - hold the current slide while it is still roughly a solution, and only move when the one being held has actually stopped working - which the existing clearT hold for the exact-zero case already half-implements.",
+      "state": "open",
+      "opened": "2026-09-30T16:35:01.749Z",
+      "events": []
     }
   ]
 }

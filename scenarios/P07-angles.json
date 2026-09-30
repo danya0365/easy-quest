@@ -1,0 +1,34 @@
+{
+ "name": "P07 — measure the framing of every camera mode on a real map, not just the field",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"note": "the title is its own scene: walk out of it before asserting on the field"},
+  {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+  {"waitFor": "__DQ.state().scene==='field' && __DQ.state().map && __DQ.state().map.id", "timeout": 45000},
+  {"wait": 1500},
+
+  {"note": "F. the field rig we already settled, for a baseline to read the other modes against"},
+  {"eval": "JSON.stringify({frame:__DQ.cameraFrame(), cam:__DQ.state().field.camera})"},
+
+  {"note": "G1. which mode each map SOLVES for — interiors resolve to 'world' by design (art/interior.js:46)"},
+  {"eval": "(async()=>{const out=[];for(const m of ['meadow','puddlewick','cobwell_manor','int_bakery','whistling_caves','int_chapel']){try{__DQ.teleport(m);await new Promise(r=>setTimeout(r,1400));const st=__DQ.state();const c=(st.field&&st.field.camera)||{};out.push({asked:m,loaded:!!(st.map&&st.map.id),mapId:st.map&&st.map.id,mode:c.mode,installed:c.installed,solvedFor:c.solvedFor});}catch(e){out.push({asked:m,error:String(e).slice(0,90)});}}return JSON.stringify(out);})()"},
+
+  {"note": "G2. the framing per mode, measured through the live matrix the way cameraFrame() does"},
+  {"eval": "(async()=>{const n=v=>typeof v==='number'&&isFinite(v)?+v.toFixed(2):null;const out=[];for(const m of ['meadow','puddlewick','cobwell_manor','int_bakery','whistling_caves']){try{__DQ.teleport(m);}catch(e){out.push({map:m,error:String(e).slice(0,90)});continue;}await new Promise(r=>setTimeout(r,2400));let st=null,f=null,c=null;try{st=__DQ.state();f=__DQ.cameraFrame();c=st.field&&st.field.camera;}catch(e){out.push({map:m,error:String(e).slice(0,90)});continue;}out.push({map:m,mapId:st.map&&st.map.id,mode:c.mode,heroPct:n(f.heroPct),headPct:n(f.headPct),feetPct:n(f.feetPct),horizonPct:n(f.horizonPct),pitch:n(c.pitch),dist:n(c.dist),fov:n(c.fov),lookUp:n(c.lookUp),composed:c.composed});}return JSON.stringify(out);})()"},
+
+  {"note": "G3. the interior mode asked for BY NAME — is CAM_MODES.interior (pitch 42, hero 26) even reachable?"},
+  {"eval": "(async()=>{const n=v=>typeof v==='number'&&isFinite(v)?+v.toFixed(2):null;__DQ.teleport('int_bakery');await new Promise(r=>setTimeout(r,2400));let setResult=null,setErr=null;try{setResult=__DQ.cameraMode('interior');}catch(e){setErr=String(e).slice(0,120);}await new Promise(r=>setTimeout(r,2400));const f=__DQ.cameraFrame();const c=__DQ.state().field.camera;return JSON.stringify({setResult,setErr,mode:c.mode,heroPct:n(f.heroPct),headPct:n(f.headPct),feetPct:n(f.feetPct),horizonPct:n(f.horizonPct),pitch:n(c.pitch),dist:n(c.dist),fov:n(c.fov),composed:c.composed,interiorDeclares:{hero:26,feet:74,pitch:42},shippedInteriorDeclares:{mode:'world',hero:18,pitch:52}});})()"},
+
+  {"note": "H. the talk beat on each shipped map, driven for real with __DQ.talkNear(), against the REAL message-box top edge read off the DOM"},
+  {"eval": "(async()=>{const n=v=>typeof v==='number'&&isFinite(v)?+v.toFixed(2):null;const out=[];const maps=['meadow','puddlewick','cobwell_manor','int_bakery','whistling_caves'];for(const m of maps){let rec={map:m};try{__DQ.teleport(m);}catch(e){rec.error='teleport: '+String(e).slice(0,70);out.push(rec);continue;}await new Promise(r=>setTimeout(r,2400));const snap=()=>{const f=__DQ.cameraFrame();const c=__DQ.state().field.camera;return {scene:__DQ.state().scene,mode:c.mode,heroPct:n(f.heroPct),headPct:n(f.headPct),feetPct:n(f.feetPct),pitch:n(c.pitch),talk:c.talkFraming};};rec.before=snap();try{rec.talkNear=__DQ.talkNear();}catch(e){rec.talkErr=String(e).slice(0,80);}await new Promise(r=>setTimeout(r,2900));rec.after=snap();const el=document.querySelector('.dq-message');rec.boxTopPct=el?n(100*el.getBoundingClientRect().top/window.innerHeight):null;rec.stepsIn=rec.after.pitch!==rec.before.pitch;rec.clearsWindow=(rec.boxTopPct!==null&&rec.after.feetPct!==null)?(rec.after.feetPct<rec.boxTopPct):null;out.push(rec);}return JSON.stringify(out);})()"},
+
+  {"shot": "01-talk-beat"},
+
+  {"note": "I. the talk target the module actually holds, read from CAM_MODES not off the live camera"},
+  {"eval": "(async()=>{const m=await import('/src/world/camera.js');const out={};for(const k of Object.keys(m.CAM_MODES)){const d=m.CAM_MODES[k];out[k]={pitch:d.pitch,fov:d.fov,frame:d.frame,talk:d.talk};}return JSON.stringify(out);})()"},
+
+  {"assert": "__DQ.cameraFrame().heroPct > 0", "msg": "the angle probe runs against the live camera"},
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

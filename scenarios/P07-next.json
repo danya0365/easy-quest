@@ -1,0 +1,36 @@
+{
+  "name": "P07 next — what the player actually sees: hero size at the gameplay camera, and whether an adult reads as an adult",
+  "steps": [
+    {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+    {"wait": 500},
+    {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+    {"waitFor": "__DQ.state().scene==='field'", "timeout": 45000},
+    {"wait": 700},
+    {"eval": "(__DQ.teleport('meadow', -1.2, -9.5), 'meadow')"},
+    {"wait": 900},
+
+    {"note": "A. the gameplay framing the player actually gets — no demo overrides, no orbit"},
+    {"shot": "01-gameplay-rest"},
+    {"eval": "JSON.stringify({cam: __DQ.state().field.camera, look: __DQ.look ? __DQ.look() : null, canvas: {w: document.querySelector('canvas').clientWidth, h: document.querySelector('canvas').clientHeight}})"},
+
+    {"note": "B. can the child look up from HERE? (P09 gap #3 claimed it works)"},
+    {"key": "PageUp", "hold": 1800},
+    {"wait": 300},
+    {"eval": "JSON.stringify({camAfterUp: __DQ.state().field.camera, look: __DQ.look ? __DQ.look() : null})"},
+    {"shot": "02-gameplay-lookup"},
+    {"key": "Home", "hold": 200},
+    {"wait": 1000},
+    {"eval": "JSON.stringify({camAfterHome: __DQ.state().field.camera})"},
+
+    {"note": "C. the same boy on the P07 stage, framed by the piece's own camera — for scale comparison"},
+    {"eval": "(__DQ.title ? __DQ.title('chars') : 'no title()', 'stage')"},
+    {"wait": 2500},
+    {"eval": "(()=>{ try { return JSON.stringify(__DQ.probe ? __DQ.probe(0) : 'no probe'); } catch(e) { return 'probe err: '+e.message; } })()"},
+    {"shot": "03-stage-hero"},
+
+    {"note": "D. every cast look, measured for real height — the adults next to the children"},
+    {"eval": "JSON.stringify(__DQ.charStats ? __DQ.charStats() : 'no charStats')"},
+    {"assert": "__DQ.state().chars.castSize >= 14", "msg": "the cast is up"},
+    {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+  ]
+}

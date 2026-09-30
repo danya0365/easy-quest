@@ -1,0 +1,27 @@
+{
+ "name": "P07 — WALL: hold a direction into a wall. Does the lens still run the wrong way?",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+  {"waitFor": "__DQ.state().scene==='field' && __DQ.state().map && __DQ.state().map.id", "timeout": 45000},
+  {"wait": 2000},
+
+  {"note": "W1. the trace, on the real clock, six samples a frame-group"},
+  {"eval": "(async()=>{window.__T2=(btn,ms,every)=>new Promise(res=>{const S=[];const t0=performance.now();__DQ.hold(btn);let n=0;const tick=()=>{const c=__DQ.state().field.camera;const p=__DQ.state().player;if(n%every===0)S.push({t:+(performance.now()-t0).toFixed(0),lens:c.current,boom:c.boom,hold:c.hold,swing:c.swing,blocked:p.blocked?1:0,facingX:p.facing});n++;if(performance.now()-t0<ms)requestAnimationFrame(tick);else{__DQ.release(btn);res(S);}};requestAnimationFrame(tick);});return 'ready';})()"},
+
+  {"note": "W2. walk into open ground first so the camera is settled and facing straight ahead, THEN turn and drive at a wall",
+  "eval": "(async()=>{__DQ.teleport('meadow',2,8);await new Promise(r=>setTimeout(r,600));__DQ.hold('right');await new Promise(r=>setTimeout(r,3000));__DQ.release('right');await new Promise(r=>setTimeout(r,900));return {facing:__DQ.state().player.facing,pos:[__DQ.state().player.x,__DQ.state().player.z]};})()"},
+
+  {"note": "W3. now hold UP, which walks him into whatever is north of there, and watch the lens for 12 s",
+  "eval": "(async()=>{window.__S=await window.__T2('up',12000,6);const D=(a,b)=>Math.abs(((a-b+540)%360)-180);return {frames:window.__S.length,last:window.__S[window.__S.length-1]};})()"},
+
+  {"note": "W4. THE TRUTH: seconds -> (lens, boom, swingRate, blocked). swingRate is the follow's own signed output; a lens that moves while swingRate is 0 is being moved by something else."},
+  {"eval": "(()=>window.__S.map(v=>[+(v.t/1000).toFixed(1),+v.lens.toFixed(1),+v.boom.toFixed(1),+v.swing.toFixed(2),v.blocked]))()"},
+
+  {"note": "W5. REVERSALS. lensDelta = lens now minus lens a third of a second ago. A negative value means the lens is going the OTHER way to the request."},
+  {"eval": "(()=>{const S=window.__S;const d=(a,b)=>((a-b+540)%360)-180;const out=[];for(let i=6;i<S.length-6;i++){const a=d(S[i-6].lens,S[i].lens),b=d(S[i+6].lens,S[i].lens);if(Math.abs(a)>1.5&&Math.abs(b)>1.5&&Math.sign(a)!==Math.sign(b))out.push([+(S[i].t/1000).toFixed(1),+a.toFixed(1),+b.toFixed(1),S[i].swing.toFixed(2),S[i].blocked]);}const steps=[];for(let i=1;i<S.length;i++)steps.push(Math.abs(d(S[i].lens,S[i-1].lens)));steps.sort((x,y)=>x-y);return{reversals:out,blockedPct:+(100*S.filter(v=>v.blocked).length/S.length).toFixed(1),stepMedian:+steps[Math.floor(steps.length/2)].toFixed(3),stepMax:+steps[steps.length-1].toFixed(2)};})()"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

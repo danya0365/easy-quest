@@ -1,0 +1,24 @@
+{
+ "name": "P07 — diagnose why the frozen walk is not moving the boy",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+  {"waitFor": "__DQ.state().scene==='field' && __DQ.state().map && __DQ.state().map.id", "timeout": 45000},
+  {"wait": 2000},
+
+  {"note": "D1. is the field even updating on __DQ.advance? sample the LIVE player over real time first"},
+  {"eval": "(async()=>{const a=__DQ.state().player;__DQ.hold('up');const path=[];for(let i=0;i<10;i++){await new Promise(r=>setTimeout(r,200));const s=__DQ.state().player;path.push([+s.x.toFixed(2),+s.z.toFixed(2),+s.speed.toFixed(2)]);}__DQ.release('up');return JSON.stringify({mode:'LIVE rAF, hold up',start:[+a.x.toFixed(2),+a.z.toFixed(2)],path,walked:+Math.hypot(path[9][0]-path[0][0],path[9][1]-path[0][1]).toFixed(2),maxSpeed:Math.max(...path.map(v=>v[2]))});})()"},
+
+  {"note": "D2. the same, but on the FROZEN clock via __DQ.advance — sample the LIVE player object, not Field.world().player.p"},
+  {"eval": "(async()=>{const {Field}=await import('/src/world/field.js');__DQ.freeze(true);const w=Field.world();const a=__DQ.state().player;__DQ.hold('up');const path=[];for(let i=0;i<10;i++){__DQ.advance(16.6667);const s=__DQ.state().player;const pp=w&&w.player&&w.player.p;path.push([+s.x.toFixed(2),+s.z.toFixed(2),+s.speed.toFixed(2),pp?+pp.x.toFixed(2):null,pp?+pp.speed.toFixed(2):null]);}__DQ.release('up');__DQ.freeze(false);return JSON.stringify({mode:'FROZEN advance x10',start:[+a.x.toFixed(2),+a.z.toFixed(2)],path,walked:+Math.hypot(path[9][0]-path[0][0],path[9][1]-path[0][1]).toFixed(2),fieldPlayerKeys:w&&w.player?Object.keys(w.player):null});})()"},
+
+  {"note": "D2b. a right-held TURN, still frozen — the whip the owner felt"},
+  {"eval": "(async()=>{__DQ.freeze(true);__DQ.hold('up');__DQ.hold('right');const c0=__DQ.cameraOrbit();const y=[];for(let i=0;i<180;i++){__DQ.advance(16.6667);const c=__DQ.state().field.camera;y.push([c.current,c.dolly,c.dist,__DQ.state().player.facing]);}__DQ.release('up');__DQ.release('right');__DQ.freeze(false);const fin=__DQ.state().field.camera;return JSON.stringify({orbit0:+c0.toFixed(2),orbitEnd:+fin.current.toFixed(2),yawTravel:+y.slice(1).reduce((a,v,i)=>a+Math.abs(((v[0]-y[i][0]+540)%360)-180),0).toFixed(1),yawMaxStep:+Math.max(...y.slice(1).map((v,i)=>Math.abs(((v[0]-y[i][0]+540)%360)-180))).toFixed(3),dollyMax:+Math.max(...y.map(v=>v[1]||0)).toFixed(4),distMin:+Math.min(...y.map(v=>v[2])).toFixed(3),distMax:+Math.max(...y.map(v=>v[2])).toFixed(3),facing0:+y[0][3].toFixed(1),facingEnd:+y[y.length-1][3].toFixed(1)});})()"},
+
+  {"note": "D3. does the sim clock actually move on __DQ.advance? and does freeze stop it?"},
+  {"eval": "(async()=>{const a=__DQ.advance(1000);const b=__DQ.advance(1000);const f=__DQ.freeze(true);const c=__DQ.advance(1000);__DQ.freeze(false);return JSON.stringify({first:a,second:b,frozen:c,frozenFlag:f});})()"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

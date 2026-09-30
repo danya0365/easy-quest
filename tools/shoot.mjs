@@ -29,8 +29,18 @@ const argv = process.argv.slice(2);
 const arg = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 ? argv[i + 1] : d; };
 const flag = (k) => argv.includes('--' + k);
 
-const URL_ = arg('url', 'http://localhost:8177/');
 const OUT = path.resolve(arg('out', 'shots/run'));
+
+// A scenario that presses keys on the TITLE screen is not measuring the game. The title is its own scene and
+// it swallows the input, so every assertion after it fails for a reason that has nothing to do with the code
+// under test — and a title-swallowed run LOOKS like a product bug (the camera appears frozen, the boy pinned
+// against a wall that he never walked into). Unless a scenario says otherwise, boot past it. The alternative
+// flag, `?title=0`, is title.js's own documented switch for exactly this.
+const SKIP_TITLE = !flag('keep-title');
+let URL_ = arg('url', 'http://localhost:8177/');
+if (SKIP_TITLE && /(^|[?&])title=(?!0\b)/.test(URL_) === false && !/[?&]skiptitle/.test(URL_)) {
+  URL_ += (URL_.includes('?') ? '&' : '?') + 'title=0';
+}
 const W = Number(arg('width', 1280)), H = Number(arg('height', 720));
 const GLOBAL_TIMEOUT = Number(arg('timeout', 180000));
 
@@ -65,6 +75,10 @@ const browser = await chromium.launch({
 });
 const ctx = await browser.newContext({
   viewport: { width: W, height: H }, deviceScaleFactor: 1,
+  // A scenario that fails on a probe it JUST installed is usually the server's HTTP cache serving the
+  // previous scenario file: the eval succeeds, the next step still sees the old one. Every run must
+  // measure the scenario on disk now, so nothing is cached at all.
+  bypassCSP: true,
   ...(flag('video') ? { recordVideo: { dir: path.join(OUT, 'video'), size: { width: W, height: H } } } : {}),
 });
 const page = await ctx.newPage();
@@ -89,7 +103,10 @@ const shot = async (name) => {
 };
 
 try {
+  await page.context().setExtraHTTPHeaders({ 'cache-control': 'no-cache', pragma: 'no-cache' });
+  await page.route('**/*', route => route.continue({ headers: { ...route.request().headers(), 'cache-control': 'no-cache', pragma: 'no-cache' } }));
   await page.goto(URL_, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  report.url = URL_;   // the title flag may have been appended above, so the report must say which page ran
   // Instrument frame timing.
   await page.addInitScript(() => {});
   await page.evaluate(() => {
@@ -115,7 +132,14 @@ try {
         if (v !== undefined && v !== null) {
           const full = JSON.stringify(v);
           report.evals.push({ expr: step.eval, value: v });
-          report.notes.push(`eval ${step.eval} -> ${full.length > 4000 ? full.slice(0, 4000) + ' …[full value in report.json evals]' : full}`);
+          // A value holding a function (a probe that closes over the page) serialises to the string
+          // "[object Object]" and the measurement is lost. Give the page one more chance to describe
+          // itself IN the page, where its fields are still readable.
+          const viaPage = full.includes('[object Object]')
+            ? await page.evaluate(`(()=>{ try { return JSON.stringify(${step.eval}); } catch (e) { return null; } })()`).catch(() => null)
+            : null;
+          const shown = viaPage || full;
+          report.notes.push(`eval ${step.eval} -> ${shown.length > 4000 ? shown.slice(0, 4000) + ' …[full value in report.json evals]' : shown}`);
         }
       }
       if (step.key) {

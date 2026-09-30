@@ -25,7 +25,7 @@
       "n": 2,
       "title": "No screen shake or hit-stop on a big spell",
       "detail": "WEIGHT: a Kazapple lands with a flash and a ring but the camera never moves. FX cannot shake the camera (src/world/camera.js is P09 and the battle camera is P15), so add a Bus emit fx.shake {amp, ms} from the heavy effects (fire_big, lightning, level_pillar, shockwave) and a short freeze hint, then ask P09/P15 to honour it.",
-      "state": "reassigned",
+      "state": "verified-fixed",
       "opened": "2026-09-18T02:33:57.615Z",
       "events": [
         {
@@ -43,6 +43,12 @@
           "at": "2026-09-18T03:22:19.245Z",
           "by": "orchestrator",
           "note": "Reassigned: screen shake and hit-stop live in src/battle/present.js, which P15 owns. Re-filed under P15."
+        },
+        {
+          "at": "2026-09-30T13:37:23.673Z",
+          "by": "critic",
+          "pass": true,
+          "note": "CLOSED AT THE NEW HOME, not here. Reassigned to P15 because the battle camera lives in src/battle/present.js. P20's own asking side is and was built (FX.setShake + install(ctx) routing to Bus.emit('fx.shake',{amp,ms})), and P15 gaps #3 and #4 are both verified-fixed on top of it: Bus.on('fx.shake') in buildStage sets S.shake/shakePeak, placeCamera applies the shake, it decays over time, and heavy spells and crits also set shake locally plus a ~70-90 ms S.freeze hit-stop. Critic: battlePresent.camera.shakePeak > 0 after Scorcha, Kascorcha shakePeak and freeze path confirmed, ok=true. Nothing about a big spell failing to move the camera is still outstanding, so this filing is bookkeeping and is closed."
         }
       ]
     },

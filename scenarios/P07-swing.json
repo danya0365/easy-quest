@@ -1,0 +1,43 @@
+{
+ "name": "P07 — how far does the camera move on its own while the player walks? (the sickness the owner reported)",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"note": "the title is its own scene: walk out of it before asserting on the field"},
+  {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+  {"waitFor": "__DQ.state().scene==='field' && __DQ.state().map && __DQ.state().map.id", "timeout": 45000},
+  {"wait": 2000},
+
+  {"note": "S1. every map's DECLARED opening yaw — do the cameras even agree on which way is 'forward'?"},
+  {"eval": "(async()=>{const out=[];const maps=['meadow','road_wood','road_beck','saltmarrow','puddlewick','grey_ruins','stone_garden'];for(const m of maps){try{__DQ.teleport(m);await new Promise(r=>setTimeout(r,1600));const c=__DQ.state().field.camera;out.push({map:m,mapId:__DQ.state().map.id,orbit:__DQ.cameraOrbit(),current:c.current,boom:c.boom,drift:c.drift,swing:c.swing,lift:c.lift});}catch(e){out.push({map:m,error:String(e).slice(0,80)});}}return JSON.stringify(out);})()"},
+
+  {"note": "S2. the instrument: held LOGICAL buttons, the real boy, and the FROZEN clock, so the walk is identical every run"},
+  {"eval": "(async()=>{window.__W=(btn,secs)=>{__DQ.freeze(true);__DQ.hold(btn);const S=[];for(let i=0;i<Math.round(secs*60);i++){__DQ.advance(1000/60);const c=__DQ.state().field.camera;const p=__DQ.state().player;S.push({yaw:c.current,boom:c.boom,slide:c.keep.slide,dist:c.dist,distT:c.distTarget,dolly:c.dolly||0,pitch:c.pitch,lift:c.lift,x:p.x,z:p.z});}if(btn)__DQ.release(btn);__DQ.freeze(false);return S;};window.__R=(s,lbl)=>{const d=(a,b)=>Math.abs(((a-b+540)%360)-180);const tv=k=>+s.slice(1).reduce((a,v,i)=>a+d(v[k],s[i][k]),0).toFixed(1);const ms=k=>+Math.max(...s.slice(1).map((v,i)=>d(v[k],s[i][k]))).toFixed(3);const dx=s[s.length-1].x-s[0].x,dz=s[s.length-1].z-s[0].z;return {what:lbl,boyWalked:+Math.hypot(dx,dz).toFixed(2),secs:+(s.length/60).toFixed(2),lensTravel:tv('yaw'),lensMaxStep:ms('yaw'),followTravel:tv('boom'),followMaxStep:ms('boom'),slideMax:+Math.max(...s.map(v=>Math.abs(v.slide||0))).toFixed(1),lensInFirstHalfSec:+s.slice(0,31).reduce((a,v,i,A)=>i?a+d(v.yaw,A[i-1].yaw):0,0).toFixed(2),distSpan:+(Math.max(...s.map(v=>v.dist))-Math.min(...s.map(v=>v.dist))).toFixed(3),dollyMax:+Math.max(...s.map(v=>v.dolly)).toFixed(4),pitchSpan:+(Math.max(...s.map(v=>v.pitch))-Math.min(...s.map(v=>v.pitch))).toFixed(3),liftSpan:+(Math.max(...s.map(v=>v.lift))-Math.min(...s.map(v=>v.lift))).toFixed(3)};};return 'instrument ready';})()"},
+
+  {"note": "S3. STRAIGHT WALK, 4 s of 'up'. The lens should stay put; the boom should back off a little."},
+  {"eval": "JSON.stringify((()=>{__DQ.teleport('meadow',2,8);__DQ.cameraOrbit(0);window.__P=__W('up',0.7);return window.__R(__W('up',4),'walk up 4s');})())"},
+
+  {"note": "S4. THE TURN: 'up' + 'right' for 3 s. This is the whip the owner felt — it must still arrive, only slowly."},
+  {"eval": "JSON.stringify((()=>{const pre=__W(null,0.6);__DQ.hold('up');const s=__W('right',3);__DQ.release('up');return window.__R(s,'turn up+right 3s');})())"},
+
+  {"note": "S5. does the turn actually LAND behind him? (the ease-behind still has to work, just slowly)"},
+  {"eval": "(async()=>{await new Promise(r=>setTimeout(r,2500));const c=__DQ.state().field.camera;const f=__DQ.state().player.facing;const behind=((f+180)%360+360)%360;return JSON.stringify({orbit:+c.current.toFixed(1),walk:+c.walk.toFixed(1),facing:+f.toFixed(1),behindHim:+behind.toFixed(1),offBy:+Math.abs(((c.current-behind+540)%360)-180).toFixed(1),heroPct:+__DQ.cameraFrame().heroPct.toFixed(2)});})()"},
+
+  {"note": "S6. A STEADY STRAIGHT WALK must not turn the lens at all — the complaint was the swing during walking"},
+  {"eval": "JSON.stringify((()=>{__DQ.teleport('meadow',2,8);__DQ.cameraOrbit(0);__W('up',0.5);const s=__W('up',5);return window.__R(s,'steady straight walk 5s');})())"},
+
+  {"note": "S7. A JOG IN PLACE (the stick held, movement blocked) is not a walk and must not move the lens"},
+  {"eval": "JSON.stringify((()=>{__DQ.teleport('meadow',2,8);__DQ.cameraOrbit(0);__W('up',0.5);__DQ.hold('up');const s=__W('up',3);__DQ.release('up');return window.__R(s,'jog in place 3s');})())"},
+
+  {"note": "S8. the A/B: the same turn with the ease-behind switched OFF — what is left when nothing is automatic"},
+  {"eval": "JSON.stringify((()=>{__DQ.teleport('meadow',2,8);__DQ.cameraOrbit(0);__W('up',0.5);__DQ.cameraAuto(false);__DQ.hold('up');const s=__W('right',3);__DQ.release('up');__DQ.cameraAuto(true);return window.__R(s,'turn, AUTO OFF');})())"},
+
+  {"note": "S9. REST: the dolly has to unwind, or the shot is left permanently long"},
+  {"eval": "JSON.stringify((()=>{__DQ.teleport('meadow',2,8);__W('up',0.5);__W('up',3);const r=__W(null,3);return {what:'rest 3s',dist0:+r[0].dist.toFixed(3),distEnd:+r[r.length-1].dist.toFixed(3),dollyEnd:+r[r.length-1].dolly.toFixed(5),dollyMax:+Math.max(...r.map(v=>v.dolly)).toFixed(5)};})())"},
+
+  {"note": "S10. the composition must not have moved: the boy is still the same size in the frame, at rest and walking"},
+  {"eval": "JSON.stringify((()=>{__DQ.teleport('meadow',2,8);__DQ.cameraOrbit(0);__W('up',0.5);const rest=__DQ.cameraFrame();const s=__W('up',3);const w=__DQ.cameraFrame();return {atRest:{heroPct:+rest.heroPct.toFixed(2),feetPct:+rest.feetPct.toFixed(2)},walking:{heroPct:+w.heroPct.toFixed(2),feetPct:+w.feetPct.toFixed(2)},dollyAtFullRun:+Math.max(...s.map(v=>v.dolly)).toFixed(4)};})())"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

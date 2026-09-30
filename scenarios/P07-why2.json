@@ -1,0 +1,24 @@
+{
+ "name": "P07 — WHY: is the ease-behind's moving-gate seeing the boy, or only his REQUESTED velocity?",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+  {"waitFor": "__DQ.state().scene==='field' && __DQ.state().map && __DQ.state().map.id", "timeout": 45000},
+  {"wait": 2000},
+
+  {"note": "W1. The instrument. The camera's gate is `moving = p.speed > 0.8` read from focus() = the player's SIM state. This samples BOTH the reported speed and the measured one, on the real clock, every frame. (step 14 once returned {} — JSON.stringify on a Promise stringifies it before the await, so the trace came back empty and the diagnosis was a false negative. Straight-return the object.)"},
+  {"eval": "(async()=>{const {Field}=await import('/src/world/field.js');const sim=()=>{const w=Field.world();return w&&w.player&&w.player.p?w.player.p:null;};window.__SIM=sim;window.__FACE=(d)=>{const w=Field.world();if(w&&w.player&&w.player.face)return w.player.face(d);return 'no face';};window.__REAL=(btn,ms)=>new Promise(res=>{const S=[];const t0=performance.now();__DQ.hold(btn);const tick=()=>{const c=__DQ.state().field.camera;const p=__DQ.state().player;const s=sim();S.push({t:+(performance.now()-t0).toFixed(0),boom:c.boom,speed:p.speed,vx:p.vx,vz:p.vz,simSpeed:s?s.speed:null,simVX:s?s.vx:null,simVZ:s?s.vz:null,blocked:p.blocked,moving:p.moving,facing:p.facing,dist:c.dist});if(performance.now()-t0<ms)requestAnimationFrame(tick);else{__DQ.release(btn);res(S);}};requestAnimationFrame(tick);});window.__SUM=(s,lbl)=>{const d=(a,b)=>Math.abs(((a-b+540)%360)-180);const fin=s[s.length-1];const med=k=>{const v=s.map(x=>x[k]).filter(x=>x!=null).sort((a,b)=>a-b);return v.length?+v[Math.floor(v.length/2)].toFixed(3):null;};return{what:lbl,frames:s.length,boomTravel:+s.slice(1).reduce((a,v,i)=>a+d(v.boom,s[i].boom),0).toFixed(1),boomEnd:+fin.boom.toFixed(1),facingEnd:+fin.facing.toFixed(1),offByBehind:+d(fin.boom,(fin.facing+180)%360).toFixed(1),reportedSpeedMed:med('speed'),reportedSpeedMax:+Math.max(...s.map(v=>v.speed||0)).toFixed(2),simSpeedMed:med('simSpeed'),simSpeedMax:s.some(v=>v.simSpeed!=null)?+Math.max(...s.map(v=>v.simSpeed||0)).toFixed(2):null,framesOverGate:s.filter(v=>(v.speed||0)>0.8).length,framesSimOverGate:s.filter(v=>(v.simSpeed||0)>0.8).length,blockedFrames:s.filter(v=>v.blocked).length,distSpan:+(Math.max(...s.map(v=>v.dist))-Math.min(...s.map(v=>v.dist))).toFixed(3)};};return 'instrument ready';})()"},
+
+  {"note": "W2. THE REAL CLOCK, 2.6 s of 'right' — the case that left the camera 87 degrees out of date. If simSpeed is flat while reported speed is healthy, the gate is reading the wrong number.",
+  "eval": "(async()=>{__DQ.teleport('meadow',2,8);window.__FACE(0);await new Promise(r=>setTimeout(r,700));const s=await window.__REAL('right',2600);window.__W2=s;return window.__SUM(s,'REAL clock 2.6s');})()"},
+
+  {"note": "W3. the same input, ONE SAMPLE PER SECOND, so the two speeds can be read side by side instead of as medians",
+  "eval": "(()=>{const s=window.__W2||[];return s.filter((_,i)=>i%12===0).map(v=>[v.t,v.speed.toFixed(2),String(v.simSpeed==null?'n/a':v.simSpeed.toFixed(2)),v.blocked?1:0,v.boom.toFixed(1),v.facing.toFixed(0)]);})()"},
+
+  {"note": "W4. THE FROZEN CLOCK, identical input — the control that lands at 25 degrees",
+  "eval": "(()=>{__DQ.teleport('meadow',2,8);window.__FACE(0);__DQ.freeze(true);__DQ.hold('right');const S=[];for(let i=0;i<156;i++){__DQ.advance(1000/60);const c=__DQ.state().field.camera;const p=__DQ.state().player;const s=window.__SIM();S.push({t:i*16.67,boom:c.boom,speed:p.speed,vx:p.vx,vz:p.vz,simSpeed:s?s.speed:null,simVX:s?s.vx:null,simVZ:s?s.vz:null,blocked:p.blocked,moving:p.moving,facing:p.facing,dist:c.dist});}__DQ.release('right');__DQ.freeze(false);return window.__SUM(S,'FROZEN clock 2.6s');})()"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

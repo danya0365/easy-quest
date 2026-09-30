@@ -1,0 +1,24 @@
+{
+ "name": "P07 — WHY does the ease-behind work on the frozen clock and not on the real one?",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+  {"waitFor": "__DQ.state().scene==='field' && __DQ.state().map && __DQ.state().map.id", "timeout": 45000},
+  {"wait": 2000},
+
+  {"note": "W1. The instrument records the GATE, not the result: p.speed (is he 'moving' at all?), moveT (has the 0.55s hold expired?), manualT (is the ease-behind branch even open?), and yawT (did the boom move?). Sampled EVERY rendered frame on the real clock."},
+  {"eval": "(async()=>{const {Field}=await import('/src/world/field.js');window.__FACE=(d)=>{const w=Field.world();if(w&&w.player&&w.player.face)return w.player.face(d);return 'no face';};window.__REAL=(btn,ms)=>new Promise(res=>{const S=[];const t0=performance.now();__DQ.hold(btn);const tick=()=>{const c=__DQ.state().field.camera;const p=__DQ.state().player;S.push({t:performance.now()-t0,boom:c.boom,yawT:c.yawT,moveT:c.moveT,manualT:c.manualT,stillT:c.stillT,walked:c.walked,speed:p.speed,blocked:p.blocked,moving:p.moving,facing:p.facing,swing:c.swing,drift:c.drift,dist:c.dist});if(performance.now()-t0<ms)requestAnimationFrame(tick);else{__DQ.release(btn);res(S);}};requestAnimationFrame(tick);});window.__SUM=(s,lbl)=>{const d=(a,b)=>Math.abs(((a-b+540)%360)-180);const fin=s[s.length-1];const med=k=>{const v=s.map(x=>x[k]).sort((a,b)=>a-b);return +v[Math.floor(v.length/2)].toFixed(3);};return{what:lbl,frames:s.length,boomTravel:+s.slice(1).reduce((a,v,i)=>a+d(v.boom,s[i].boom),0).toFixed(1),boomEnd:+fin.boom.toFixed(1),facingEnd:+fin.facing.toFixed(1),offByBehind:+d(fin.boom,(fin.facing+180)%360).toFixed(1),speedMed:med('speed'),speedMax:+Math.max(...s.map(v=>v.speed)).toFixed(2),framesMoving:s.filter(v=>v.speed>0.8).length,framesOverHold:s.filter(v=>v.moveT>0.55).length,moveTEnd:+(fin.moveT||0).toFixed(2),manualTEnd:+(fin.manualT||0).toFixed(2),framesAutoOpen:s.filter(v=>(v.manualT||0)>2.2).length,driftMax:+Math.max(...s.map(v=>Math.abs(v.drift||0))).toFixed(1),blockedFrames:s.filter(v=>v.blocked).length,distSpan:+(Math.max(...s.map(v=>v.dist))-Math.min(...s.map(v=>v.dist))).toFixed(3)};};return 'instrument ready';})()"},
+
+  {"note": "W2. THE REAL CLOCK, 2.6 s of 'right' — this is the case that failed. How many frames did the ease-behind branch actually get a chance to run?",
+  "eval": "JSON.stringify((async()=>{__DQ.teleport('meadow',2,8);window.__FACE(0);await new Promise(r=>setTimeout(r,700));return window.__SUM(await window.__REAL('right',2600),'REAL clock 2.6s');})())"},
+
+  {"note": "W3. THE FROZEN CLOCK, identical input, as the control — the branch runs 156 times there and lands",
+  "eval": "JSON.stringify((()=>{__DQ.teleport('meadow',2,8);window.__FACE(0);__DQ.freeze(true);__DQ.hold('right');const S=[];for(let i=0;i<156;i++){__DQ.advance(1000/60);const c=__DQ.state().field.camera;const p=__DQ.state().player;S.push({t:i*16.67,boom:c.boom,yawT:c.yawT,moveT:c.moveT,manualT:c.manualT,stillT:c.stillT,walked:c.walked,speed:p.speed,blocked:p.blocked,moving:p.moving,facing:p.facing,swing:c.swing,drift:c.drift,dist:c.dist});}__DQ.release('right');__DQ.freeze(false);return window.__SUM(S,'FROZEN clock 2.6s');})())"},
+
+  {"note": "W4. the frame-by-frame trace of the real-clock failure, first 40 frames — this is where the gate is shut",
+  "eval": "JSON.stringify((async()=>{__DQ.teleport('meadow',2,8);window.__FACE(0);await new Promise(r=>setTimeout(r,700));const s=await window.__REAL('right',2600);return s.slice(0,40).map(v=>[Math.round(v.t),v.speed.toFixed(2),v.moveT.toFixed(2),v.manualT.toFixed(2),v.boom.toFixed(1),v.facing.toFixed(1),v.blocked?1:0]);})())"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

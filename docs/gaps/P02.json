@@ -78,13 +78,19 @@
       "n": 3,
       "title": "A child has no way to look up - the field camera pitch is locked at 26",
       "detail": "Everything P02 has built is unreachable by a player. Measured in /index.html: cameraRig() reports pitch 26 at boot and it is still exactly 26 after holding PageUp, R, Shift, W, Q, BracketLeft and Home for 1.2-1.5 s each; state().input.look stays {x:0,y:0} and nothing in camera.js binds a look axis to pitch. cameraOrbit() lets you spin the yaw all the way round, so the child CAN look in every direction - but only ever downward at the ground, and the horizon sits 17 px from the top of a 720 px frame at every bearing. What is behind that wall: set cameraRig({pitch:4,dist:9}) from the same spot and shots/P02-critic-c2/approach/65-far-ground.png is a proper Dragon Quest vista - about 45 pct sky, three big soft cumulus, Coddleston Castle with red flags on a rolling green horizon and the lane running away to it. cameraRig({pitch:-16,lookUp:6,fov:52}) at 22:00 gives shots/P02-critic-c2/walk/47-night-sky-up.png, a full Milky Way band with hundreds of stars, and at 18:36 a rose-to-indigo dusk gradient with gilded cloud (48-dusk-sky-up.png). None of it is in the shipped game. In DQV PS2 the right stick both orbits AND pitches, and pitching up to see the next town on the horizon is how the game tells a ten-year-old where to go. Buildable: bind a look axis (right stick Y, and a keyboard pair) to the field rig pitch with a spring, range about -18 to +50 degrees, easing back to the framing default after a couple of seconds of no input the way DQV does; while the pitch is raised, keep the boy in frame by letting lookUp rise with it. Then re-measure sky share at the raised pitch and at rest - this single change also unlocks P02 gap 2 (the sky band) and makes the four skyline places worth building.",
-      "state": "reassigned",
+      "state": "verified-fixed",
       "opened": "2026-09-18T01:28:59.429Z",
       "events": [
         {
           "at": "2026-09-18T01:35:48.840Z",
           "by": "orchestrator",
           "note": "Reassigned to P09 (the camera piece owns src/world/camera.js). P02 cannot fix this in its own files. See the matching P09 gap."
+        },
+        {
+          "at": "2026-09-30T13:37:23.614Z",
+          "by": "critic",
+          "pass": true,
+          "note": "CLOSED AT THE NEW HOME, not here. Reassigned to P09 because P02 does not own src/world/camera.js. P09 gap #3 ('A child has no way to look up - field camera pitch is locked at 26') is verified-fixed: the look axis is live in src/art/sky.js (PageUp/R up, PageDown/F down, right-stick Y) driving rig.tune; tips pitch 26 to -16, Home restores it to 26; critic pass recorded in docs/gaps/P09.json, scenario P09-lookup3 ok=true. Nothing about the child being unable to look up is still outstanding, so this filing is bookkeeping and is closed."
         }
       ]
     }

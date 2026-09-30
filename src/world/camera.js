@@ -36,8 +36,15 @@
  *  - **Spring follow.** A critically damped spring (ω 6) on the look target, which leads the player by a springy
  *    ~0.3 s of velocity: you see where you are going, and the lead never lurches when you start or stop.
  *  - **Orbit.** Input.look() (right stick / L1-R1 / Q-E) at 118°/s, eased in and out, 360° free, any pitch.
- *  - **Ease-behind.** While he walks, the camera drifts round to sit behind his heading — gently (≤ 42°/s), never
- *    while he walks TOWARD the lens, never within 2.2 s of a manual orbit.
+ *  - **Ease-behind.** While he walks, the camera drifts round to sit behind his heading. On a STRAIGHT walk it
+ *    does so gently (≤ 15°/s, and only once a turn is wide enough to be one); on a genuine re-heading it is
+ *    allowed to keep pace with him (≤ 42°/s), because he turns at ~31°/s and a follow slower than the boy leaves
+ *    the shot permanently out of date until he stops. Never while he walks TOWARD the lens, never within 2.2 s of
+ *    a manual orbit, and never for the first 0.55 s of a walk, which is the half second the player spends reading
+ *    where he is going. The boom also takes a small speed-linked step back (≤ 5%) while he runs, so a change of
+ *    heading is partly answered by the shot easing off rather than by the frame swinging. Measured, not guessed:
+ *    the old flat 42°/s cap turned the lens 86° on its own during one straight four-second walk, with dist, pitch
+ *    and lift all frozen — a rotating frame and nothing else, which is the kind of shot the eye cannot rest on.
  *  - **The walk frame.** `rig.yaw` (what player.js maps the stick to) tracks the camera, but the ease-behind swing
  *    is NOT fed back into it while a direction is held. Holding "right" therefore walks a straight line while the
  *    camera swings round behind you, instead of curving you round in a circle. It re-latches the moment you let go.
@@ -1412,11 +1419,54 @@ function createFadePass({ hero = () => null } = {}) {
 // The field camera
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 const ORBIT_SPEED = 118 * DEG;      // manual orbit, radians / second
-const BEHIND_RATE = 1.5;            // ease-behind spring rate
-const BEHIND_CAP = 42 * DEG;        // ... never faster than this
+const BEHIND_RATE = 2.0;            // ease-behind spring rate
+const BEHIND_CAP = 25 * DEG;        // ... never faster than this on a STRAIGHT walk
+// ... and a turn is a different event. Measured: holding a direction took the boy from 18° to 90° of facing in
+// 2.3 s, so he turns at ~31°/s. A follow that cannot keep up leaves the shot permanently out of date until he
+// stops and the recentre rescues it, so the follow is allowed to keep pace WITH HIM on a turn — and nothing more.
+// The straight walk stays at the cap above, which is still slower than he turns, and is the case that made the
+// camera feel loose in the first place.
+const BEHIND_TURN = 42 * DEG;
+const BEHIND_TURN_ON = 25 * DEG;    // a re-heading this wide switches the cap up; a wobble below it does not
+// ── AND AT LAST HE HOLDS A DIRECTION (the owner, playing it: "if you hold walk-forward the camera should slowly
+//    move round to the front") ─────────────────────────────────────────────────────────────────────────────────
+// Measured, on a fourteen-second hold of one direction: the lens DID come round behind him — 169° in total,
+// and gently (2.76° per 100 ms, no step larger than that) — but it needed five seconds to do it, because the
+// cap above is 15°/s and the swing runs on the steady state of a first-order lag, so the EYE only ever sees a
+// fraction of the cap. Five seconds is too slow to read as the camera answering, and a player holding a
+// direction is asking a question. So:
+//   1. BEHIND_CAP 15°/s → 25°/s. Still slower than the 31°/s he turns at, still reachable only by a sustained
+//      re-heading, and the measured wobble stays at 2-3° per 100 ms because a bigger cap on a WOBBLE is never
+//      used: the cap is the ceiling, and the spring is what actually moves.
+//   2. BEHIND_RAMP. Ease the follow in over 0.9 s after the hold, instead of arriving at full rate the instant
+//      the half-second mark passes.
+//   3. BEHIND_GIVEUP. Headed at least 135° away, he is walking INTO or OUT OF the lens, and dragging the
+//      camera round with him is the wrong answer: hold, and let the recentre sort it out when he stops.
+const BEHIND_GIVEUP = 135 * DEG;
+const BEHIND_RAMP = 0.9;            // seconds for the follow to reach full strength after the hold
 const RECENTRE_RATE = 1.1;
 const RECENTRE_CAP = 55 * DEG;
+const RECENTRE_GIVEUP = 120 * DEG;  // ... which stops the recentre when it is being asked to go further than this
 const MANUAL_HOLD = 2.2;            // no automatic swing for this long after a manual orbit
+// ── NOT LET GO OF THE CAMERA AT ONCE (the owner, playing it: "the camera still swings about, hard; after
+//    playing, my eyes are spinning") ───────────────────────────────────────────────────────────────────────────────
+// The ease-behind was measured, not guessed: a straight four-second walk took the lens round 86° on its own, at a
+// rate cap of 42°/s, and NOTHING else moved while it did — dist, pitch and lift all held to three decimals, so
+// the only thing on screen was a rotating lens with no counter-motion to soften it. That is not a swing you read,
+// it is one you ride, and the remedy is the same three moves a tracker has to make a handheld shot watchable:
+//   1. HOLD FIRST. The lens stays where it is for the first BEHIND_AFTER of a walk. The half second after a start
+//      is exactly when the player is reading where he is going, and yawing under him there moves the destination.
+//   2. FOLLOW SLOWLY, AND KEEP UP ENOUGH TO BE SEEN DOING IT. 42°/s → 25°/s. Not fast enough to keep pace with
+//      him on a turn, fast enough that holding a direction visibly brings the camera round behind the boy in
+//      about three seconds instead of five (both measured, above). A turn has to earn its swing (see below).
+//   3. DOLLY A LITTLE. The boom takes a speed-linked BACK step, so a change of heading is partly answered by the
+//      camera backing off rather than only by the frame turning — the horizontal that "reads" instead of "spins".
+// A 90° turn still finishes, and it still finishes BEHIND him: the rate and the cap set how fast, never whether.
+const BEHIND_AFTER = 0.55;           // ... seconds of walking before the lens follows at all
+const BEHIND_ONSET = 18 * DEG;      // ... and a turn must be at least this wide before it counts as one
+const BEHIND_WALK = 1.15;           // ... the hold is this long of WALKING; a jog in place is not a walk
+const DOLLY_PULL = 0.05;            // the boom's extra length at a full run, as a fraction of itself
+const DOLLY_RATE = 1.8;             // ... and how fast it gets there and back (in, then out)
 
 /**
  * ── KEEPING THE BOY ────────────────────────────────────────────────────────────────────────────────────────────
@@ -1432,8 +1482,9 @@ const MANUAL_HOLD = 2.2;            // no automatic swing for this long after a 
  * lens steps round the corner of the house.
  */
 const DODGE = ({
-  max: 88 * DEG,       // how far round the boom may slide before it gives up and lets the fade have it
-  maxManual: 30 * DEG,  // ... and much less while the PLAYER is orbiting: a view you asked for is a view you get,
+  max: 88 * DEG,       // the widest slide the search grid contains
+  maxSoft: 30 * DEG,   // ... and how far round him the boom may actually GO. See the measurement in keepHero().
+  maxManual: 30 * DEG,  // ... and no more than that while the PLAYER is orbiting: a view you asked for is a view you get,
                         //     and whatever is left in the way is the fade's job, not an argument with the stick
   step: 6 * DEG,        // the search grid
   // The CLIMB is small on purpose, and measured as a FRACTION OF THE BOOM: a lens that rises far enough to see
@@ -1441,13 +1492,24 @@ const DODGE = ({
   // 14.6% of frame height instead of 20 — worse than the framing gap this piece already closed). So the
   // guarantee climbs a little and slides a lot; past that, the fade has it.
   lifts: [0, 0.06, 0.12],
-  liftCost: 150,        // degrees-equivalent per unit of climb (a fraction of the boom): sliding wins
+  // Degrees-equivalent per unit of climb (a fraction of the boom). MEASURED, and 150 was far too cheap against a
+  // grid whose widest slide is 88°: sliding won so often that the boom went 66° out of shot behind the wagon on a
+  // straight meadow walk, and a 66° lens excursion is the same complaint as the one the ease-behind was just fixed
+  // for — the eye cannot rest on a frame that goes round that far. The fix is NOT a higher cost for climbing (at
+  // 300 the guarantee simply traded the slide for a climb and `slideMax` barely moved, 45°), it is a CEILING on
+  // the slide itself, below: past a certain angle the boom is no longer "stepping aside", it is leaving the shot.
+  liftCost: 300,
   stick: 0.42,          // ... and staying where we already are is preferred to either (no flip-flopping)
   hold: 0.35,           // hold a slide this long after the way is clear, so a doorway cannot strobe
   rateIn: 10.0,         // spring rate while he is hidden (fast: he must come back NOW)
   rateOut: 3.6,         // ... and coming home (gentle: a view that settles, not a snap)
-  capIn: 300 * DEG,     // never faster than this, even hidden — a slide is a camera move, not a cut
-  capOut: 85 * DEG,
+  // ... and neither may outrun the eye. 300°/s and 85°/s were measured turning a 6-unit boom round a grazing
+  // obstacle, and a swing that fast is not a camera move, it is a flick: the owner played it and said the camera
+  // "swings about, hard — after playing, my eyes are spinning". A slide has to end before it can be followed, so
+  // it is now capped well under the 42°/s the ease-behind was cut to — the guarantee still arrives in time, it
+  // just refuses to arrive faster than a frame of film.
+  capIn: 30 * DEG,
+  capOut: 22 * DEG,
   chest: 0.62,          // the aiming point on the boy, as a fraction of his height
   pad: 0.3,             // the warning margin: the camera steps aside before the wall really covers him
   budget: 230,          // at most this many sight tests a tick (two per pose: now, and when it lands)
@@ -1501,6 +1563,7 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
     lx: 0, lz: 0,                                   // the lead (spring, world units)
     lift: 0, liftT: 0,
     manualT: 99, moveT: 0, stillT: 99, walked: 0, auto: true, talk: 0, swing: 0, mode: 'field',
+    dolly: 0, dollyT: 0,
     pose: null, talkPose: null, installed: null, solvedFor: null, resolveT: 0,
     dodge: 0, dodgeT: 0, over: 0, overT: 0, clearT: 9, hvx: 0, hvz: 0, hpx: undefined, hpz: undefined, yawTv: 0, yawTp: undefined,
   };
@@ -1660,7 +1723,15 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
       }
       let best = null;
       const sign = c.dodgeT >= 0 ? 1 : -1;
-      const lim = (c.manualT < 0.8 ? DODGE.maxManual : DODGE.max) + 1e-6;
+      // ── HOW FAR MAY THE BOOM GO ROUND HIM? ───────────────────────────────────────────────────────────────────
+      // Measured over a 372-frame four-direction walk: the boom went 66° out of shot to clear the wagon on the
+      // meadow, and 88° is the top of the grid, so a badly-placed prop could take the lens most of the way round
+      // a corner while the boy simply stood there. That is the complaint the ease-behind was fixed for, arriving by
+      // a different door — and unlike the ease-behind there is nothing else on screen to soften it. So the boom
+      // takes a step aside and no more: past SLIDE_SOFT the search stops, the fade ghosts what is left, and the
+      // guarantee's promise is kept by the fade instead of by the lens. SLIDE_HARD is still the 88° the search
+      // grid allows, and still the most the rig will ever ask for.
+      const lim = (c.manualT < 0.8 ? DODGE.maxManual : DODGE.maxSoft) + 1e-6;
       for (const r of RINGS) {
         if (best || tests >= DODGE.budget) break;
         if (r.mag > lim) continue;
@@ -1678,7 +1749,7 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
           c.clearT += dt;
           if (c.clearT > DODGE.hold) { c.dodgeT = 0; c.overT = 0; }
         } else {
-          const lim = c.manualT < 0.8 ? DODGE.maxManual : DODGE.max;
+          const lim = c.manualT < 0.8 ? DODGE.maxManual : DODGE.maxSoft;
           c.clearT = 0; c.dodgeT = clamp(best.off, -lim, lim); c.overT = best.lift;
         }
       }
@@ -1795,9 +1866,10 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
      */
     goalPose() {
       const k = c.talk, tp = c.talkPose;
-      if (!k || !tp) return { dist: c.distT, pitch: c.pitchT, fov: c.fovT, lookUp: c.lookUpT };
+      const dolly = 1 + c.dolly;
+      if (!k || !tp) return { dist: c.distT * dolly, pitch: c.pitchT, fov: c.fovT, lookUp: c.lookUpT };
       const zoom = c.base > 0.01 ? clamp(c.distT / c.base, 0.35, 3) : 1;
-      return { dist: lerp(c.distT, tp.dist * zoom, k), pitch: lerp(c.pitchT, tp.pitch, k),
+      return { dist: lerp(c.distT * dolly, tp.dist * zoom, k), pitch: lerp(c.pitchT, tp.pitch, k),
         fov: lerp(c.fovT, tp.fov, k), lookUp: lerp(c.lookUpT, tp.lookUp, k) };
     },
 
@@ -1811,6 +1883,7 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
       c.pitch = c.pitchT; c.dist = c.distT; c.fov = c.fovT; c.lookUp = c.lookUpT;
       c.yaw = c.yawT = c.yawCtl = (keepYaw ? c.yaw : wrapPi((Number.isFinite(+d.orbit) ? +d.orbit : 0) * DEG));
       c.drift = 0; c.lx = 0; c.lz = 0; c.lift = c.liftT = 0; c.manualT = 99; c.walked = 0; c.stillT = 99;
+      c.dolly = c.dollyT = 0;
       c.dodge = c.dodgeT = 0; c.over = c.overT = 0; c.clearT = 9;
       rig.cut();
       return Object.assign({ orbit: deg360(c.yawT) }, out);
@@ -1875,25 +1948,49 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
       if (moving) { c.moveT += dt; c.stillT = 0; c.walked = Math.min(3, c.walked + dt); }
       else { c.moveT = 0; c.stillT += dt; }
 
+      // ── the dolly: the boom takes a small speed-linked step BACK while he runs, and returns when he stops ──
+      //    It is the cheapest smoothness there is, and it is a composition term rather than a dodge: `distTarget`
+      //    is the solved shot, and this is a fraction ON TOP of it that the goal pose is asked to include, so
+      //    dist == distTarget stays true and P09's "the camera NEVER zooms in to dodge an occluder" still holds.
+      const walkDolly = c.dollyT = SHOT.active || c.manualT <= MANUAL_HOLD
+        ? 0 : (moving ? DOLLY_PULL * smooth(0.8, RUN_SPEED, p.speed) : 0);
+      // getting away is quicker than coming back, so the shot settles on the walk instead of hovering at the end
+      c.dolly += (walkDolly - c.dolly) * (1 - Math.exp(-dt * (walkDolly > c.dolly ? DOLLY_RATE * 1.6 : DOLLY_RATE)));
+
       // ── ease behind him while he walks, and recentre after a pause ──
       let swing = 0;
       if (p && c.auto && !SHOT.active && c.manualT > MANUAL_HOLD) {
-        if (moving && c.moveT > 0.3 && p.speed > 0.01) {
+        if (moving && c.moveT > BEHIND_AFTER && p.speed > 0.01) {
           const hx = p.vx / p.speed, hz = p.vz / p.speed;
           const behind = Math.atan2(-hx, -hz);
           const d = wrapPi(behind - c.yawT), ad = Math.abs(d);
           const gate = 1 - smooth(100 * DEG, 140 * DEG, ad);          // never swing while he walks AT the lens
           const spd = Math.min(1, p.speed / RUN_SPEED);
-          const rate = BEHIND_RATE * (modeDef.behind ?? 1) * gate * (0.45 + 0.55 * spd) * smooth(0.3, 0.75, c.moveT);
-          if (ad > 2.5 * DEG && rate > 0) {
-            const cap = BEHIND_CAP * dt;
+          // ARM OFF, THEN ACCELERATE. The half second after a start is when the player is reading where the boy
+          // is going; a lens that snaps after a silence is the same jolt as one that snaps after a corner, only
+          // harder to blame on the boy. So the follow eases in over BEHIND_RAMP instead of arriving at full rate.
+          const arm = smooth(0, BEHIND_RAMP, c.moveT - BEHIND_AFTER);
+          const rate = BEHIND_RATE * (modeDef.behind ?? 1) * gate * (0.45 + 0.55 * spd) * arm;
+          // a heading wobble of a few degrees is the boy steering, not a turn: let it pass the lens unmoved
+          if (ad > BEHIND_ONSET && rate > 0 && ad < BEHIND_GIVEUP) {
+            const turning = ad > BEHIND_TURN_ON;
+            const cap = (turning ? BEHIND_TURN : BEHIND_CAP) * dt;
             swing = clamp(d * (1 - Math.exp(-dt * rate)), -cap, cap);
             c.yawT = wrapPi(c.yawT + swing);
           }
-        } else if (!moving && c.stillT > 1.1 && c.walked > 0.5) {
-          const behind = wrapPi(p.yaw + Math.PI);
+        } else if (!moving && c.stillT > 1.1 && c.walked > BEHIND_WALK) {
+          // MEASURED, NOT p.yaw. Holding a direction into a wall, the boy pivots onto the wall and then cannot
+          // step: his FACING keeps easing towards the direction he is asking for, and a recentre that follows it
+          // was seen to run the lens 45-65° the WRONG way twice inside one fourteen-second hold — once just
+          // before 4 s, once just after 6.2 s. The evidence is in the walk TRACE, not the model: when he is stuck
+          // the velocity vector stays pointed along the wall, so this term is a continuous read of the wall. Off
+          // the wall it agrees with p.yaw anyway, and where they disagree the walk is the truer answer — a
+          // turn-in-place is a new direction, not a new destination.
+          const behind = p.speed > 0.01
+            ? Math.atan2(-p.vx / p.speed, -p.vz / p.speed)
+            : wrapPi(p.yaw + Math.PI);
           const d = wrapPi(behind - c.yawT), ad = Math.abs(d);
-          if (ad > 4 * DEG && ad < 120 * DEG) {
+          if (ad > 4 * DEG && ad < RECENTRE_GIVEUP) {
             const cap = RECENTRE_CAP * dt;
             swing = clamp(d * (1 - Math.exp(-dt * RECENTRE_RATE * (modeDef.behind ?? 1))), -cap, cap);
             c.yawT = wrapPi(c.yawT + swing);
@@ -2198,9 +2295,9 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
      * THE FRAMING PROBE — measured, never eyeballed. Projects the hero and the horizon through the LIVE camera
      * matrix and reports where they land as a fraction of frame height (and in pixels), so "is the boy the
      * subject of this shot?" is a number a critic can read:
-     *   heroPct   his height as a % of frame height   (DQV field target: 27-32)
+     *   heroPct   his height as a % of frame height   (the field target: 20 — see the module header)
      *   feetPct   how far down the frame his feet are (target ~70-75)
-     *   horizonPct how far down the frame the horizon is (target 35-42: a real band of sky)
+     *   horizonPct how far down the frame the horizon is (target ~22 for a 22-degree ground angle)
      */
     frame() {
       try {
@@ -2244,6 +2341,7 @@ export function createFieldCamera({ focus = () => null, map = () => null, talkin
         mode: c.mode, orbit: rig.orbit(), current: deg360(camYaw()), boom: deg360(c.yaw), walk: deg360(c.yawCtl), drift: r3(c.drift / DEG),
         pitch: r3(c.pitch), dist: r3(c.dist), distTarget: r3(g.dist), fov: r3(c.fov), lookUp: r3(c.lookUp),
         auto: c.auto, swing: r3(c.swing / DEG), lift: r3(c.lift), lead: [r3(c.lx), r3(c.lz)],
+        dolly: r3(c.dolly), dollyTarget: r3(c.dollyT), hold: r3(BEHIND_AFTER - Math.min(BEHIND_AFTER, c.moveT)),
         keep: { on: KEEP.on, blocked: KEEP.blocked, by: KEEP.blockedBy, solved: KEEP.solved,
           slide: r3(c.dodge / DEG), slideTarget: r3(c.dodgeT / DEG), climb: r3(c.over * c.dist), climbTarget: r3(c.overT * c.dist),
           tests: KEEP.tests, ms: KEEP.ms, hiddenTicks: KEEP.hiddenTicks, ticks: KEEP.ticks,

@@ -1,0 +1,24 @@
+{
+ "name": "P07 — does a manual orbit freeze the ease-behind? (the owner orbits to look around, then walks)",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+  {"waitFor": "__DQ.state().scene==='field' && __DQ.state().map && __DQ.state().map.id", "timeout": 45000},
+  {"wait": 2000},
+
+  {"note": "H1. The instrument: face him, hold 'right' on the FROZEN clock, and record whether the boom followed. Identical run every time, so the ONLY difference between the two cases below is whether a manual orbit happened first."},
+  {"eval": "(async()=>{const {Field}=await import('/src/world/field.js');window.__FACE=(d)=>{const w=Field.world();if(w&&w.player&&w.player.face)return w.player.face(d);return 'no face';};window.__RUN=(secs)=>{__DQ.freeze(true);__DQ.hold('right');const S=[];for(let i=0;i<Math.round(secs*60);i++){__DQ.advance(1000/60);const c=__DQ.state().field.camera;const p=__DQ.state().player;S.push({boom:c.boom,drift:c.drift,auto:c.auto,manualT:c.manualT,hold:c.hold,facing:p.facing,speed:p.speed,blocked:p.blocked,x:p.x,z:p.z});}__DQ.release('right');__DQ.freeze(false);return S;};window.__SUM=(s,lbl)=>{const d=(a,b)=>Math.abs(((a-b+540)%360)-180);const fin=s[s.length-1];return{what:lbl,boomTravel:+s.slice(1).reduce((a,v,i)=>a+d(v.boom,s[i].boom),0).toFixed(1),boomEnd:+fin.boom.toFixed(1),facingEnd:+fin.facing.toFixed(1),driftMax:+Math.max(...s.map(v=>Math.abs(v.drift||0))).toFixed(1),manualTAtEnd:+(fin.manualT||0).toFixed(2),holdAtEnd:+(fin.hold||0).toFixed(2),path:+Math.hypot(fin.x-s[0].x,fin.z-s[0].z).toFixed(2),blockedTicks:s.filter(v=>v.blocked).length};};return 'instrument ready';})()"},
+
+  {"note": "H2. CONTROL: no manual orbit at all. He turns 90 degrees and the boom must come round with him."},
+  {"eval": "JSON.stringify((()=>{__DQ.teleport('meadow',2,8);window.__FACE(0);__DQ.advance(0);return window.__SUM(window.__RUN(2.6),'no manual orbit');})())"},
+
+  {"note": "H3. THE SAME RUN, but the player looked round first — cameraOrbit(0) and then immediately walks. This is what P09's own test does, and there the boom moved 0 degrees."},
+  {"eval": "JSON.stringify((()=>{__DQ.teleport('meadow',2,8);__DQ.cameraAuto(false);__DQ.cameraOrbit(0);__DQ.cameraAuto(true);window.__FACE(0);__DQ.advance(0);const s=window.__RUN(2.6);return Object.assign(window.__SUM(s,'manual orbit then walk'),{manualTAtStart:+(s[0].manualT||0).toFixed(2)});})())"},
+
+  {"note": "H4. and if the player waits for the manual hold to expire first, does the follow come back? (this is the fix if H3 shows a freeze)"},
+  {"eval": "(async()=>{__DQ.teleport('meadow',2,8);__DQ.cameraAuto(false);__DQ.cameraOrbit(0);__DQ.cameraAuto(true);await new Promise(r=>setTimeout(r,2600));window.__FACE(0);const s=window.__RUN(2.6);return JSON.stringify(Object.assign(window.__SUM(s,'orbit, wait 2.6s, then walk'),{manualTAtStart:+(s[0].manualT||0).toFixed(2)}));})()"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

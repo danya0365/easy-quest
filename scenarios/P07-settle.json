@@ -1,0 +1,30 @@
+{
+ "name": "P07 — SETTLE: hold one direction 14 s. Does the camera come round behind him, and does it come round SMOOTHLY?",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+  {"waitFor": "__DQ.state().scene==='field' && __DQ.state().map && __DQ.state().map.id", "timeout": 45000},
+  {"wait": 2000},
+
+  {"note": "S1. The instrument. Two traces of the same walk: the LENS (camera.current/orbit, where the viewer is actually looking) and the BOOM (camera.boom, the ease-behind's own target). If the request is right, these two converge onto the boy's back and stay there."},
+  {"eval": "(async()=>{window.__T=(btn,ms,every)=>new Promise(res=>{const S=[];const t0=performance.now();__DQ.hold(btn);let n=0;const tick=()=>{const st=__DQ.state();const c=st.field.camera;const p=st.player;if(n%every===0)S.push({t:+(performance.now()-t0).toFixed(0),lens:c.current,boom:c.boom,drift:c.drift,hold:c.hold,swing:c.swing,blocked:p.blocked?1:0});n++;if(performance.now()-t0<ms)requestAnimationFrame(tick);else{__DQ.release(btn);res(S);}};requestAnimationFrame(tick);});const D=(a,b)=>Math.abs(((a-b+540)%360)-180);window.__OFF=(s,k)=>s.map(v=>+D(v[k],(360-v.facingX)%360).toFixed(1));return 'ready';})()"},
+
+  {"note": "S2. FACING is fixed on the page too, so the trace can compute 'how far behind is the camera' without a second round trip."},
+  {"eval": "(async()=>{const {Field}=await import('/src/world/field.js');window.__SIMP=()=>{const w=Field.world();return w&&w.player&&w.player.p?w.player.p:null;};__DQ.teleport('meadow',2,8);const w=Field.world();if(w&&w.player&&w.player.face)w.player.face(0);await new Promise(r=>setTimeout(r,700));window.__T2=(btn,ms,every)=>new Promise(res=>{const S=[];const t0=performance.now();__DQ.hold(btn);let n=0;const tick=()=>{const c=__DQ.state().field.camera;const p=__DQ.state().player;if(n%every===0)S.push({t:+(performance.now()-t0).toFixed(0),lens:c.current,boom:c.boom,drift:c.drift,hold:c.hold,swing:c.swing,blocked:p.blocked?1:0,facingX:p.facing});n++;if(performance.now()-t0<ms)requestAnimationFrame(tick);else{__DQ.release(btn);res(S);}};requestAnimationFrame(tick);});return 'facing captured';})()"},
+
+  {"note": "S3. HOLD ONE DIRECTION 14 SECONDS. This is the request: a player leaning on a direction should see the camera drift round behind him, gently."},
+  {"eval": "(async()=>{window.__S=await window.__T2('right',14000,6);return {frames:window.__S.length,first:window.__S[0],last:window.__S[window.__S.length-1]};})()"},
+
+  {"note": "S4. THE SHAPE OF IT — 100 ms samples: seconds -> (lens, boom, offByBehind, blocked). blocked 1 means the boy hit a wall and the walk, not the camera, is what stopped."},
+  {"eval": "(()=>{const D=(a,b)=>Math.abs(((a-b+540)%360)-180);return window.__S.map(v=>[+(v.t/1000).toFixed(1),+v.lens.toFixed(1),+v.boom.toFixed(1),+D(v.boom,(v.facingX+180)%360).toFixed(1),v.blocked]);})()"},
+
+  {"note": "S5. THE VERDICT NUMBERS. settleS = seconds until offByBehind is under 10 and STAYS under. pathLens = how far the LENS actually travelled in total (a viewer who feels the camera has moved). peakStep = the biggest single-sample jump in the lens, in degrees — this is the wobble."},
+  {"eval": "(()=>{const S=window.__S;const D=(a,b)=>Math.abs(((a-b+540)%360)-180);const off=S.map(v=>D(v.boom,(v.facingX+180)%360));let settleS=null;for(let i=0;i<S.length;i++){if(off.slice(i).every(o=>o<10)){settleS=+(S[i].t/1000).toFixed(1);break;}}const steps=[];for(let i=1;i<S.length;i++)steps.push(D(S[i].lens,S[i-1].lens));const path=S.slice(1).reduce((a,v,i)=>a+D(v.lens,S[i].lens),0);return{settleS,offStart:+off[0].toFixed(1),offEnd:+off[off.length-1].toFixed(1),offMax:+Math.max(...off).toFixed(1),pathLens:+path.toFixed(1),peakStep:+Math.max(...steps).toFixed(2),stepMedian:+steps.sort((a,b)=>a-b)[Math.floor(steps.length/2)].toFixed(3),blockedFrames:S.filter(v=>v.blocked).length,blockedPct:+(100*S.filter(v=>v.blocked).length/S.length).toFixed(1),holdEnd:S.find(v=>v.hold<=0)?+(S.find(v=>v.hold<=0).t/1000).toFixed(1):null};})()"},
+
+  {"note": "S6. the same 14 s to the LEFT, mirrored — a fix that only works on one side is not a fix."},
+  {"eval": "(async()=>{const {Field}=await import('/src/world/field.js');__DQ.teleport('meadow',2,8);Field.world().player.face(180);await new Promise(r=>setTimeout(r,700));window.__L=await window.__T2('left',14000,6);const D=(a,b)=>Math.abs(((a-b+540)%360)-180);const off=window.__L.map(v=>D(v.boom,(v.facingX+180)%360));let settleS=null;for(let i=0;i<window.__L.length;i++){if(off.slice(i).every(o=>o<10)){settleS=+(window.__L[i].t/1000).toFixed(1);break;}}const steps=[];for(let i=1;i<window.__L.length;i++)steps.push(D(window.__L[i].lens,window.__L[i-1].lens));return{settleS,offEnd:+off[off.length-1].toFixed(1),offMax:+Math.max(...off).toFixed(1),pathLens:+window.__L.slice(1).reduce((a,v,i)=>a+D(v.lens,window.__L[i].lens),0).toFixed(1),peakStep:+Math.max(...steps).toFixed(2),blockedPct:+(100*window.__L.filter(v=>v.blocked).length/window.__L.length).toFixed(1)};})()"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

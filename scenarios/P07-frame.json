@@ -1,0 +1,32 @@
+{
+ "name": "P07 gap #2 — measure the boy at the real gameplay camera, and find what framing he actually needs",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"note": "the title is its own scene: walk out of it before asserting on the field"},
+  {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+  {"waitFor": "__DQ.state().scene==='field' && __DQ.state().map && __DQ.state().map.id", "timeout": 45000},
+  {"wait": 1200},
+  {"note": "A. the meadow opening exactly as a player first sees it — the shipped camera, no overrides"},
+  {"eval": "JSON.stringify({frame:__DQ.cameraFrame(), cam:{pitch:__DQ.state().field.camera.pitch,dist:__DQ.state().field.camera.dist,fov:__DQ.state().field.camera.fov,mode:__DQ.state().field.camera.mode}})"},
+
+  {"note": "B. the target the rig actually solves for (camera.js:139 frame.hero=20), against the bands the tests pin"},
+  {"eval": "(()=>{const f=__DQ.cameraFrame();const t=[27,32],p09a=[18,26],p09b=[18,23];return JSON.stringify({measured:f.heroPct,rigTarget:20,p09gameBand:p09a,p09Band:p09b,pinsRig:Math.abs(f.heroPct-20)<1,passesP09: f.heroPct>=p09b[0]&&f.heroPct<=p09b[1],staleCommentBand:t});})()"},
+
+  {"note": "C. walk 6 m with a REAL held key so the position solver is live, then measure again — is 20.0 rest-only?"},
+  {"key": "KeyW", "hold": 1500},
+  {"wait": 800},
+  {"eval": "JSON.stringify({frame:__DQ.cameraFrame(), pos:__DQ.state().player})"},
+  {"shot": "01-meadow-walked"},
+
+  {"note": "D. can a child see his FACE? the point of DQV field framing is the expression. How many px tall is his head?"},
+  {"eval": "(()=>{const f=__DQ.cameraFrame();const ppu=f.heroPx/f.heroHeight;const r=0.228,diam=2*r;const headPx=diam*ppu;return JSON.stringify({pxPerUnit:+ppu.toFixed(1),headRadiusWorld:r,headDiameterWorld:+diam.toFixed(3),headAsPctOfBoy:+(100*diam/f.heroHeight).toFixed(1),headPx:Math.round(headPx),headPctOfFrame:+(100*headPx/f.h).toFixed(2),verdict:headPx>=28?'readable':(headPx>=18?'thin':'too small to read'),note:'chars.js:785 child head radius 0.228 -> diameter 0.456 of the 1.114-unit boy; DQV brows+eyes need ~28px to read'});})()"},
+  {"eval": "(()=>{const f=__DQ.cameraFrame();const ppu=f.heroPx/f.heroHeight;const headPx=2*0.228*ppu;const at=pct=>Math.round(headPx*pct/f.heroPct);return JSON.stringify({headPxNow:Math.round(headPx),headPxAt27:at(27),headPxAt32:at(32),heroPctNeededFor28pxHead:+(28*f.heroPct/headPx).toFixed(2),verdictAt20:headPx>=28?'readable':'too small to read',verdictAt27:at(27)>=28?'readable':'too small to read'});})()"},
+
+  {"note": "E. the other scale that is supposed to be here: Halvard must be over 2 units, nearly twice the boy"},
+  {"eval": "(async()=>{const c=await import('/src/art/chars.js');const k=Object.keys(c);return JSON.stringify({exports:k});})()"},
+
+  {"assert": "__DQ.cameraFrame().heroPct > 0", "msg": "the framing probe runs against the live camera"},
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}
