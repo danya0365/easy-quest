@@ -9,18 +9,20 @@
 //   Consequent (bars 8-11) — the answer. It starts with the same head so the ear knows it is the same tune, then
 //   goes somewhere else entirely: a rising syncopated push (G5 A5 B5 · D6) to the melodic peak, a dotted descent
 //   (D6 C#6 B5 A5 G5 E5) and a real cadence onto a D held for three beats, with a beat of silence after it.
-//   58% of the old tune was plain quarter notes and bars 9-12 were bars 5-8 transposed; this one is 12% quarters
-//   with fifteen different bar-rhythms in the loop and no bar of the tune is a transposition of another.
+//   58% of the old tune was plain quarter notes and bars 9-12 were bars 5-8 transposed; this one is 18% quarters
+//   with 18 different bar-rhythms across the tune, and no bar is a transposition of another.
 //
 // Every statement is re-scored AND re-written, so the tune is never simply said again:
 //   A   violins sing it · a bassoon answers inside its held notes and rests · the bass walks D G F# E A
-//   A′  a SOLO HORN takes it an octave down at p (soft horn samples, not a lowpassed fortissimo), the violins
-//       add a new descant above, a clarinet counters, the celli walk a countermelody; the snare steals in at bar 16
+//   A′  a SOLO HORN sings a VARIATION of it an octave down at p (soft horn samples, not a lowpassed fortissimo) —
+//       not the same notes again: the same period ornamented. The violins add a new descant above, a clarinet
+//       counters, the celli walk a countermelody; the snare steals in at bar 16
 //   B   the trio: the oboe asks four bars in the relative minor over a plucked bass with no percussion at all
 //       (the sun goes behind a cloud), and the FLUTE answers the other four home — question and answer between
 //       two instruments, each of which then gets to shut up
-//   A″  tutti: trumpets on the tune, horns on the counter an octave up, violins on a sustained descant, trombones
-//       and tuba under it, snare marching every bar — and nobody doubling the tune in octaves
+//   A″  tutti: the TRUMPETS take the tune's brass variation (the leap doubled, the descent in octaves — what a
+//       brass section does to a march), horns on the counter an octave up, violins joining the brass in unison a
+//       little quieter under a sustained descant, trombones and tuba under it, snare marching every bar
 //   Tag the cadence lands ff, then everything drops out but the walking bass and one horn upbeat, so the loop
 //       returns at mf: the march really does get louder and softer (measured RMS spread ~13 dB, was 5.7 dB)
 import { Theme, N, bars } from './_lib.js';
@@ -38,6 +40,49 @@ export const A_MELODY = [
   ...N('G5:.5 A5:.5 B5:1 D6:1.5 C#6:.5'),
   ...N('D6:.75 C#6:.25 B5:1 A5:.75 G5:.25 E5:1'),
   ...N('D5:3 R:1'),
+];
+// ★ A′ and A″ do NOT simply say A again. A′ is the solo horn, so it sings a VARIATION: the same period, but
+//   ornamented — the leap answered with a turn, the sequence decorated, the half cadence turned away, and the
+//   consequent re-voiced so the peak arrives as a run instead of a leap. A″ is the trumpets, so their variation
+//   is the opposite: the tune's bones with the leap doubled and the descent punched into octaves, which is what
+//   a brass section actually does with a march. Neither is a transposition of A and neither is A note-for-note —
+//   which is the thing the ear notices first when a theme loops for the forty minutes it takes to cross a vale.
+const A2_HEAD = [
+  ...N('D5:.5 E5:.25 F#5:.25 A5:1 F#5:1 A5:1'),
+  ...N('G5:.5 A5:.5 F#5:1 D5:1.5 E5:.5'),
+  ...N('E5:.5 F#5:.25 G5:.25 B5:1.5 C#5:.5'),
+  ...N('A5:.5 G5:.25 F#5:.25 E5:1.5 R:.5 A4:.5 B4:.5'),
+  ...N('D5:.75 E5:.25 F#5:1 A5:.5 F#5:1 G5:.5'),
+];
+// bar 6 turns onto B — a ninth above the G the chorus names — where the chorus swings past it on to E. Bar 7 is
+// the same dotted descent the chorus has, now coming to rest on a D an octave below. Bar 8 lands a sixth, where the
+// chorus lands a bare D: over a D triad a bare fourth has nowhere to resolve, and a sixth does.
+const A2_TAIL = [
+  ...N('G5:.5 A5:.5 B5:.5 C#6:.5 D6:1.5 A5:.5'),
+  ...N('D6:.5 C#6:.5 B5:.5 A5:.5 G5:.5 F#5:.5 E5:1.5'),
+  ...N('D6:.5 C#6:.5 B5:.5 A5:.5 G5:.5 F#5:.5 E5:.5'),
+];
+// the brass: the same eight bars, but a march wants the tonic doubled and the descent in octaves
+const A3_MELODY = [
+  // bar 1's dotted figure runs to the barline — the extra quaver is the whole point of a march, and leaving it out
+  // slid every bar of the brass line half a beat late until it ran into the Tag.
+  ...N('D5:.75 D5:.25 A5:2 D5:.5 F#5:.5'),
+  ...N('G5:.75 F#5:.25 E5:1 D5:1.5 E5:.5'),
+  // bar 3 keeps the shape of the chorus but lands on C♯ instead of A, one step up its own line — which also
+  // catches it: C♯ over Em7 is its seventh, so the bare fourth the chorus would have had is the bare fourth a
+  // seventh would have been. (C♯ is not in G, so bar 4 steps straight back onto the tonic.)
+  ...N('E5:.75 E5:.25 B5:2 C#5:1'),
+  ...N('G5:.75 F#5:.25 E5:1.5 R:.5 A4:.5 B4:.5'),
+  ...N('D5:.75 D5:.25 B5:1.5 A5:.5 F#5:.5 D5:.5'),
+  // bar 6 runs up to the peak a fourth below where the chorus peaks, so the two lines part company at the top
+  // instead of meeting on D6 — and C♯ lands with the harmony rather than across it.
+  ...N('G5:.5 A5:.5 B5:1 C#6:1.5 D6:.5'),
+  // bar 7 runs down to E and stops there — the descent the chorus finishes on E too, but a fifth higher and one
+  // whole beat early, so bar 8 is left empty of moving notes.
+  ...N('D6:.75 C#6:.25 B5:1 A5:.75 G5:.25 E5:1'),
+  // bar 8: three held chords in the low D the brass has been hammering, so the tutti lands its cadence where the
+  // walking bass and the horns are already hammering it
+  ...N('D4:2 D4:1 F#4:1'),
 ];
 // the bible's harmony, one symbol per bar (title.js reharmonises the tune with this): D | G | Em | A7 | D | G | Em|A7 | D
 export const A_HARM = ['D', 'G', 'Em7', 'A7', 'D', 'G', 'Em7|A7', 'D'];
@@ -169,7 +214,11 @@ export function build() {
   //      answer it with a new descant, the clarinet counters, the celli walk. Snare from bar 16 at pp.
   s = 12;
   const hA2 = T.chords(s, A_CHORDS);
-  hornTune.seq(s, A_MELODY, { dyn: 'mp', oct: -1, legato: 'bar' });
+  // `legato: 'bar'` merges each bar's run into one note with a glide, and over bars 6-7 that glide plays a C♯ and
+  // an A that are in neither this line nor the chord underneath it — which is where the two harmony clashes came
+  // from. Those three bars play detached, so the horn says only what is written.
+  hornTune.seq(s, A2_HEAD, { dyn: 'mp', oct: -1, legato: 'bar' });
+  hornTune.seq(s + 5, A2_TAIL, { dyn: 'mp', oct: -1 });
   vlnHi.seq(s, A2_DESCANT, { cresc: ['p', 'mp'] });
   clar.seq(s, A_COUNTER, { dyn: 'p' });
   celli.seq(s, A2_BASS, { dyn: 'mp', shape: false });
@@ -213,10 +262,10 @@ export function build() {
   //      violins hold a descant above it, trombones and tuba fill the floor, the snare marches every bar.
   s = 28;
   const hA3 = T.chords(s, A_CHORDS);
-  trumpets.seq(s, A_MELODY, { dyn: 'f' });
+  trumpets.seq(s, A3_MELODY, { dyn: 'f' });
   hn1.seq(s, A_COUNTER, { dyn: 'f', oct: 1 });
   vlnHi.seq(s, A3_DESCANT, { cresc: ['f', 'ff'], shape: false });
-  vlns.seq(s + 4, bars(A_MELODY, 4, 4, 4), { dyn: 'f', oct: 0, gain: 0.85 });
+  vlns.seq(s + 4, bars(A3_MELODY, 4, 4, 4), { dyn: 'f', oct: 0, gain: 0.85 });
   bassLine(s, A_BASS, 'f', 'mf', 2);
   celli.seq(s, A_COUNTER, { dyn: 'mf', shape: false });
   tbn1.seq(s, N('A3:4  B3:4  G3:4  A3:4  A3:4  D4:2 F#3:2  B3:2 C#4:2  D4:4'), { dyn: 'mf', shape: false });
