@@ -418,6 +418,76 @@ export const Field = {
     });
     Debug.implement('screenshotReady', () => !F || (!F.S.loading && !F.S.transit && F.cam.settled()));
     Debug.provide('map', () => (F && F.S.map ? Object.assign(F.S.map.describe(), { buildMs: F.S.map.buildMs }) : null));
+    /**
+     * Ask the LIVE map a question about a point: is this standable, what is the ground, how high is it, and
+     * what is the collider in the way. Everything else in __DQ describes the map; this one interrogates it, so a
+     * critic can walk a grid across a map and name the thing that is in the walkway instead of guessing from a
+     * screenshot. __DQ.probe(x, z, r) · __DQ.probeGrid({x, z, w, h, step, r}).
+     */
+    Debug.expose('probe', (x, z, r = 0.35) => {
+      if (!F || !F.S.map) return { ok: false, reason: 'the field is not on the scene stack' };
+      const m = F.S.map, px = +x, pz = +z;
+      const out = { x: px, z: pz, r, map: m.id };
+      try {
+        out.solidCell = m.solidAt(px, pz);
+        out.clear = m.clear(px, pz, r);
+        out.terrainY = +m.heightAt(px, pz).toFixed(3);
+        out.walkY = +m.walkY(px, pz, m.heightAt.bind(m)).toFixed(3);
+        out.ground = m.groundAt(px, pz);
+        // every collider whose volume the circle would touch, nearest first — this is the "WHAT IS THAT" answer
+        out.hits = [];
+        for (const c of m.colliders) {
+          let depth = Infinity;
+          if (c.type === 'circle') depth = Math.hypot(px - c.x, pz - c.z) - (c.r + r);
+          else if (c.type === 'box') {
+            const co = Math.cos(-c.rot), si = Math.sin(-c.rot), rx = (px - c.x) * co - (pz - c.z) * si, rz = (px - c.x) * si + (pz - c.z) * co;
+            depth = Math.hypot(Math.max(Math.abs(rx) - c.hw, 0), Math.max(Math.abs(rz) - c.hd, 0)) - r;
+          } else if (c.type === 'capsule') {
+            const [a, b] = c.pts, vx = b[0] - a[0], vz = b[1] - a[1], L2 = vx * vx + vz * vz;
+            const t = L2 > 1e-9 ? Math.max(0, Math.min(1, ((px - a[0]) * vx + (pz - a[1]) * vz) / L2)) : 0;
+            depth = Math.hypot(px - (a[0] + vx * t), pz - (a[1] + vz * t)) - (c.r + r);
+          }
+          if (depth != null && depth <= 0.001) out.hits.push({ tag: c.tag || c.type, type: c.type, depth: +depth.toFixed(3) });
+        }
+        out.hits.sort((p, q) => p.depth - q.depth);
+      } catch (e) { reportError('probe', e); return { ok: false, error: String(e && e.message || e) }; }
+      out.ok = true;
+      return out;
+    });
+    /** Walk a grid of probe()s at once: __DQ.probeGrid({x, z, w, h, step}) -> {cells, blocked, samples}. */
+    Debug.expose('probeGrid', ({ x, z, w, h, step = 1, r = 0.35 } = {}) => {
+      if (!F || !F.S.map) return { ok: false, reason: 'the field is not on the scene stack' };
+      const cells = [];
+      for (let zz = z; zz <= z + h; zz += step) for (let xx = x; xx <= x + w; xx += step) {
+        const p = __DQ.probe(xx, zz, r);
+        cells.push({ x: +xx.toFixed(2), z: +zz.toFixed(2), clear: !!p.clear, solidCell: !!p.solidCell, ground: p.ground, walkY: p.walkY, hits: (p.hits || []).map(q => q.tag) });
+      }
+      const blocked = cells.filter(c => !c.clear);
+      const byTag = {};
+      for (const c of blocked) for (const t of c.hits) byTag[t] = (byTag[t] || 0) + 1;
+      return { ok: true, map: F.S.map.id, n: cells.length, blocked: blocked.length, blockedPct: +(100 * blocked.length / Math.max(1, cells.length)).toFixed(1), byTag, samples: blocked.slice(0, 40) };
+    });
+    /**
+     * The loaded map's OWN numbers — the things only the map file knows (where its bridge is, how many lanterns
+     * it placed, what its skyline fit decided). A map may answer from its def.state(), from the handle its
+     * view() returned, or from a module export it registers with Maps.module(). `__DQ.mapState()` ·
+     * `__DQ.mapState(key)` for one field.
+     */
+    Debug.expose('mapState', (key) => {
+      if (!F || !F.S.map) return { ok: false, reason: 'the field is not on the scene stack' };
+      const id = F.S.map.id;
+      const deep = (o, fn, seen = new Set()) => {
+        if (!o || typeof o !== 'object' || seen.has(o) || seen.size > 40) return null;
+        seen.add(o);
+        try { if (typeof o[fn] === 'function') return o[fn](); } catch (_) { /* keep looking */ }
+        for (const v of Object.values(o)) { const r = deep(v, fn, seen); if (r) return r; }
+        return null;
+      };
+      let s = null;
+      try { s = deep(Maps.get(id), 'state') || deep(Maps.module(id), 'state'); } catch (e) { reportError('mapState', e); return { ok: false, error: String(e && e.message || e) }; }
+      if (!s) return { ok: false, reason: 'this map answers no state()' };
+      return key === undefined ? s : s[key];
+    });
     Debug.provide('player', () => (F ? F.player.describe() : null));
     Debug.provide('field', () => (F ? F.describeField() : null));
     Debug.expose('talkNear', () => (F ? F.interact() : false));

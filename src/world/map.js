@@ -458,6 +458,7 @@ function contact(c, x, z, r) {
 // ── registry ────────────────────────────────────────────────────────────────────────────────────────────────
 const LAYERS = new Map();        // map id -> Map(kind -> layer object | fn(baseDef))
 const LOADED = new Map();        // map id -> {base: bool, layers: {kind: bool}} (what Maps.loadAll managed to import)
+const MODULES = new Map();       // map id -> the map file's module exports, for __DQ.mapState() to ask
 const MERGE_ARRAYS = ['npcs', 'chests', 'props', 'exits', 'colliders', 'occluders'];
 
 /** The base def with every registered layer merged in (a prototype-linked copy: the base's getters and view stay live). */
@@ -498,6 +499,11 @@ export const Maps = {
   },
   layers(id) { const k = LAYERS.get(String(id)); return k ? Array.from(k.keys()) : []; },
   has(id) { return registry.has(String(id)); },
+  /**
+   * A map file's own module object, so __DQ.mapState() can ask it for numbers only it knows (where its bridge
+   * is, how many lanterns it placed) instead of those living on a closure nobody outside can reach.
+   */
+  module(id, mod) { if (mod === undefined) return MODULES.get(String(id)) || null; MODULES.set(String(id), mod); return mod; },
   /** The BASE def (no layers). */
   get(id) { return registry.get(String(id)) || null; },
   list() { return Array.from(registry.keys()); },

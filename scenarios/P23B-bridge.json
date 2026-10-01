@@ -1,0 +1,32 @@
+{
+ "name": "P23B — the meadow footbridge: is the deck clear, and what is standing in the lane",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+  {"waitFor": "__DQ.state().scene==='field' && __DQ.state().map && __DQ.state().map.id==='meadow'", "timeout": 45000},
+  {"wait": 2000},
+
+  {"note": "P0. the bridge, in the map's own numbers"},
+  {"eval": "(()=>__DQ.mapState('bridge'))()"},
+
+  {"note": "P1. CENTRE LINE of the deck, end to end, 41 points. This is the lane a child walks."},
+  {"eval": "(()=>{const b=__DQ.mapState('bridge');const ax=Math.sin(b.dir),az=Math.cos(b.dir);const out=[];for(let u=-5;u<=5;u+=0.25){const x=b.x+ax*u,z=b.z+az*u;const p=__DQ.probe(x,z);out.push({u:+u.toFixed(2),x:+x.toFixed(2),z:+z.toFixed(2),clear:p.clear,solidCell:p.solidCell,g:p.ground,wy:p.walkY,ty:p.terrainY,hits:(p.hits||[]).map(h=>h.tag)});}return {n:out.length,blocked:out.filter(o=>!o.clear).length,blockedBy:out.filter(o=>!o.clear),free:out.filter(o=>o.clear).length};})()"},
+
+  {"note": "P2. the free walkway's WIDTH at five stations along the deck"},
+  {"eval": "(()=>{const b=__DQ.mapState('bridge');const ax=Math.sin(b.dir),az=Math.cos(b.dir),sx=az,sz=-ax;const prof={};for(let u=-2;u<=2;u+=1){const free=[];for(let v=-1.6;v<=1.6;v+=0.2){const x=b.x+ax*u+sx*v,z=b.z+az*u+sz*v;if(__DQ.probe(x,z).clear)free.push(+v.toFixed(1));}prof[u]=free;}return prof;})()"},
+
+  {"note": "P3. EVERY outfield lantern: which ones stand on the deck?"},
+  {"eval": "(()=>{const b=__DQ.mapState('bridge');const LANTERNS=[[4.6,27.4],[-1.1,15.0],[4.9,9.9],[11.6,7.4],[-3.6,-8.6],[17.0,-25.5],[20.0,3.2]];return LANTERNS.map(([x,z])=>{const dx=x-b.x,dz=z-b.z;const u=dx*Math.sin(b.dir)+dz*Math.cos(b.dir);const v=dx*Math.cos(b.dir)-dz*Math.sin(b.dir);const onDeck=Math.abs(u)<=b.L/2&&Math.abs(v)<=b.W/2;const p=__DQ.probe(x,z);return {x,z,u:+u.toFixed(2),v:+v.toFixed(2),onDeck,solid:p.solidCell,hits:(p.hits||[]).map(h=>h.tag)};});})()"},
+
+  {"note": "P4. walk onto the deck and photograph the blocked spot"},
+  {"eval": "(()=>{const b=__DQ.mapState('bridge');const ax=Math.sin(b.dir),az=Math.cos(b.dir);const u=-2.6;const x=b.x+ax*u,z=b.z+az*u;const p=__DQ.walkTo(x,z);return {want:{x:+x.toFixed(2),z:+z.toFixed(2)},got:p&&{x:+p.x.toFixed(2),z:+p.z.toFixed(2)}};})()"},
+  {"wait": 1500},
+  {"shot": "01-standing-where-the-lantern-is"},
+  {"eval": "(()=>{const b=__DQ.mapState('bridge');const ax=Math.sin(b.dir),az=Math.cos(b.dir);const u=1.4;const x=b.x+ax*u,z=b.z+az*u;__DQ.walkTo(x,z);return 'mid';})()"},
+  {"wait": 1600},
+  {"shot": "02-standing-mid-deck"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

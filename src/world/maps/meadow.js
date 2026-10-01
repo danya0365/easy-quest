@@ -27,6 +27,7 @@ import { Tex, mulberry, vnoise } from '../../art/tex.js';
 import { makeAOMask } from '../../art/toon.js';
 import { createKit, buildSky, ringHill, buildGround, paintMasks, distanceGrid, curvePoints, bridgeFrame, prep,
   ringPlacements, speciesBounds, SPECIES, LANDMARK_SETS } from '../scenery.js';
+import { Maps } from '../map.js';
 
 /**
  * The woodland rim: a hedgerow on the boundary, then THREE staggered rows of mixed tree clumps with gaps you can
@@ -274,8 +275,12 @@ function layout() {
     woodpiles: [{ x: -27.1, z: -15.2, rot: 0.42 }, { x: 23.4, z: 17.4, rot: -1.1 }],
     benches: [{ x: 6.2, z: 11.2, rot: -0.35 }, { x: -25.8, z: 22.4, rot: 1.1 }, { x: 18.2, z: -20.4, rot: -0.6 }],
     // lanterns: the lane at night is a string of warm lights, not a black field
+    // The first bridge's north-bank light used to be typed at (-3.6, -8.6) — a hand-picked spot that happened to
+    // land 0.15 off the deck's centre line, so its collider stood in the walkway and shoved the hero aside as he
+    // crossed. It is gone from the list entirely: the bridge keeps its own pair of end lanterns, offset sideways,
+    // and a bridge-bank light here only ever duplicated them. Nudged along the bank is the same one out of the way.
     lanterns: [{ x: 4.6, z: 27.4, rot: -0.4 }, { x: -1.1, z: 15.0, rot: 0.3 }, { x: 4.9, z: 9.9, rot: -1.2, h: 1.8 },
-      { x: 11.6, z: 7.4, rot: -1.6, h: 1.8 }, { x: -3.6, z: -8.6, rot: 0.2 }, { x: 17.0, z: -25.5, rot: 2.6 },
+      { x: 11.6, z: 7.4, rot: -1.6, h: 1.8 }, { x: -6.5, z: -6.5, rot: 0.5 }, { x: 17.0, z: -25.5, rot: 2.6 },
       { x: 20.0, z: 3.2, rot: -1.4, h: 1.8 }],
     // a second scarecrow in the far field, and a veg patch by the east paddock
     scarecrows: [{ x: 19.0, z: 8.2, rot: -0.7 }],
@@ -517,7 +522,12 @@ function layout() {
   for (const c of L.outfield.crates) C.push({ type: 'box', x: c.x, z: c.z, w: 0.82 * (c.s ?? 1), d: 0.82 * (c.s ?? 1), rot: c.rot, tag: 'crate' });
   for (const w of L.outfield.woodpiles) C.push({ type: 'box', x: w.x, z: w.z, w: 2.0, d: 1.2, rot: w.rot, tag: 'woodpile' });
   for (const b of L.outfield.benches) C.push({ type: 'box', x: b.x, z: b.z, w: 1.8, d: 0.55, rot: b.rot, tag: 'bench' });
-  for (const l of L.outfield.lanterns) C.push({ type: 'circle', x: l.x, z: l.z, r: 0.16, tag: 'lantern' });
+  // a light in the bridge walkway is the classic one: the bank is close enough that a hand-picked point looks
+  // right on paper, and its collider then shoves the hero off the planks. Refuse it here; the bridge has its own.
+  for (const l of L.outfield.lanterns) {
+    if (L.bridge.corridor(l.x, l.z, 0.5)) console.warn(`[meadow] outfield lantern at ${l.x},${l.z} is standing on the bridge deck — skipped`);
+    else C.push({ type: 'circle', x: l.x, z: l.z, r: 0.16, tag: 'lantern' });
+  }
   for (const s of L.outfield.scarecrows) C.push({ type: 'circle', x: s.x, z: s.z, r: 0.3, tag: 'scarecrow' });
   // the four places: everything solid in them stops the hero, so he can never stand buried inside a bramble,
   // a stump, a drystone wall or a stook the way he could stand inside the hedgerow
@@ -547,6 +557,19 @@ function layout() {
     }
   }
   L.colliders = C;
+  // The bridge deck is the one place in the vale the hero MUST cross, so nothing may stand in it. A prop placed
+  // there by hand does not look wrong — it looks fine right up until you walk it and get shoved off the planks.
+  // So the deck is swept here, at the one place where the deck and the collider list are both in hand, and
+  // anything dropped on the walkway is nudged onto the bank beside it. Warnings, not silence.
+  const BR = L.bridge, AWAY = BR.W / 2 + 0.95;          // how far off the centre line a prop has to stand
+  for (let i = C.length - 1; i >= 0; i--) {
+    const c = C[i];
+    if (!BR.corridor(c.x, c.z, 0.2)) continue;
+    const v = (c.x - BR.cx) * BR.sx + (c.z - BR.cz) * BR.sz;
+    const side = v >= 0 ? 1 : -1, push = (AWAY - Math.abs(v)) * side;
+    console.warn(`[meadow] ${c.tag} at ${c.x.toFixed(2)},${c.z.toFixed(2)} stands in the bridge walkway — nudged ${push.toFixed(2)} aside`);
+    C[i] = { ...c, x: c.x + BR.sx * push, z: c.z + BR.sz * push };
+  }
   // what the follow camera must not hide behind: canopies (trees scale their blob layout) and the cottage roofs
   L.occluders = [
     ...L.trees.filter(t => t.kind !== 'bush').map(t => {
@@ -884,7 +907,7 @@ const meadow = {
     for (const c of OF.crates) kit.crate(c.x, c.z, c.rot, c.s ?? 1);
     for (const w of OF.woodpiles) kit.woodpile(w.x, w.z, w.rot);
     for (const b of OF.benches) kit.bench(b.x, b.z, b.rot);
-    for (const l of OF.lanterns) kit.lantern(l.x, l.z, l.rot, { h: l.h ?? 2.0 });
+    for (const l of OF.lanterns) if (!L.bridge.corridor(l.x, l.z, 0.5)) kit.lantern(l.x, l.z, l.rot, { h: l.h ?? 2.0 });
     for (const s of OF.scarecrows) kit.scarecrow(s.x, s.z, s.rot);
     for (const v of OF.veg) kit.vegPatch(v.x, v.z, v.w, v.d, v.rot, 33);
     // ── THE FOUR PLACES: a fallen oak in the north wood, a drystone fold on the west rise, a cut hayfield at
@@ -1099,5 +1122,23 @@ export function meadowLayout() {
   return { sign: { ...L.sign }, bridge: { x: L.bridge.cx, z: L.bridge.cz, dir: L.bridge.dir }, cottageDoor: L.props.find(p => p.type === 'door'),
     spawn: { ...meadow.spawn }, exits: L.exits.map(e => ({ name: e.name, x: e.x, z: e.z })) };
 }
+
+/**
+ * The numbers ONLY this file knows, for __DQ.mapState() — chiefly where the footbridge actually is. The bridge
+ * is found by scanning the lane for its closest point to the Beck, so its position is an OUTPUT of the layout,
+ * not a constant anyone can type: without this a critic has to hunt for it by eye. meadowState('bridge').
+ */
+export function meadowState(key) {
+  const L = layout();
+  const all = {
+    bridge: { x: +L.bridge.cx.toFixed(2), z: +L.bridge.cz.toFixed(2), dir: +L.bridge.dir.toFixed(4),
+      dirDeg: +(L.bridge.dir * 180 / Math.PI).toFixed(1), L: L.bridge.L, W: L.bridge.W, arch: L.bridge.arch,
+      ax: +L.bridge.ax.toFixed(4), az: +L.bridge.az.toFixed(4), sx: +L.bridge.sx.toFixed(4), sz: +L.bridge.sz.toFixed(4),
+      ends: L.bridge.ends.map(e => [+e[0].toFixed(2), +e[1].toFixed(2)]), rails: L.bridge.rails },
+    waterY: WATER_Y, halfWidth: HW,
+  };
+  return key === undefined ? all : all[key];
+}
+Maps.module('meadow', { state: meadowState, layout: meadowLayout });
 
 export default meadow;
