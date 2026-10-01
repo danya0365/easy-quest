@@ -157,7 +157,33 @@ try {
         await page.waitForFunction(step.waitFor, null, { timeout: step.timeout || 30000, polling: 100 });
       }
       if (step.eval) {
-        const v = await page.evaluate(`(async()=>{ return await (${step.eval}); })()`);
+        // A SCENARIO MUST NOT BE ABLE TO HANG THE HARNESS. `eval` is awaited inside one big try/catch, so a step
+        // whose promise never settles — a `storyPlay` awaiting a dialogue nobody is going to dismiss — hangs the whole
+        // run past the global timeout, because the deadline is only checked BETWEEN steps. Node then sits in kevent
+        // with no timer of its own, so nothing prints and no report.json is written: a dead run looks exactly like a
+        // slow one, and the evidence is gone with it.
+        //
+        // So each eval races its own deadline and the SLOW ONE LOSES. Playwright cannot cancel a promise already
+        // handed to the page — `page.evaluate` has no AbortSignal — but the race settles, the step is recorded as
+        // failed, and the run goes on to the steps after it. `rest` is the page-side job, deliberately NOT awaited:
+        // if it ever settles it drops its result in the scratchpad rather than resurrecting a race that has moved on.
+        const budget = Number(step.timeout) || GLOBAL_TIMEOUT;
+        const slow = Symbol('eval overran');
+        const rest = page.evaluate(`(async()=>{ const v = await (${step.eval}); window.__DQ.lastEval = v; return v; })()`)
+          .catch((e) => ({ __err: String(e && e.message || e) }));
+        const v = await Promise.race([rest, new Promise((r) => setTimeout(() => r(slow), budget))]);
+        if (v === slow) {
+          report.ok = false;
+          report.evals.push({ expr: step.eval, value: { ok: false, why: `the eval did not finish within ${budget}ms` } });
+          report.notes.push(`STEP TIMED OUT after ${budget}ms :: ${step.eval.slice(0, 200)}`);
+          continue;
+        }
+        if (v && typeof v === 'object' && v.__err) {
+          report.ok = false;
+          report.evals.push({ expr: step.eval, value: { ok: false, why: v.__err } });
+          report.notes.push(`EVAL THREW :: ${v.__err}`);
+          continue;
+        }
         if (v !== undefined && v !== null) {
           const full = JSON.stringify(v);
           report.evals.push({ expr: step.eval, value: v });
