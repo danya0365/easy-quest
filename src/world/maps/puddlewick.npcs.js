@@ -79,10 +79,17 @@ export default function puddlewickPeople(base = {}) {
 
   const npcs = [
     // ── Act I: Papa at the lane with the wagon (between B1 and B2) ─────────────────────────────────────────
+    //
+    // HE IS NOT HERE UNTIL HE HAS ACTUALLY GOT HERE. This used to read `when: '!ch1.left_home'` — a flag set at the
+    // FAR END of B2, twenty beats later — so the instant the boy walked out of his own front door his father was
+    // standing at the wagon in the lane ahead of him. He had watched the man cross the room and open the door, and
+    // then met him again forty metres down the road, which reads as a teleport and was reported as one.
+    // `ch1.left_the_cottage` is set when he steps onto the doorstep, so this body appears while that man is still in
+    // the lane in front of the boy: at the wagon because that is where he has said he is going to be.
     {
       id: 'pw-halvard', name: 'Papa', char: 'halvard', voice: 'halvard', scale: 1.08, girth: 1.1,
       x: papaSpot.x, z: papaSpot.z, facing: papaSpot.facing, idle: 'stand', radius: 0.75,
-      look: [wagonSpot.x, wagonSpot.z], when: '!ch1.left_home',
+      look: [wagonSpot.x, wagonSpot.z], when: ['ch1.left_the_cottage', '!ch1.left_home'],
       script: [{
         first: [
           'There you are. Boots?',

@@ -101,6 +101,8 @@ import { Debug, reportError } from '../engine/debug.js';
 import { Bus } from '../engine/events.js';
 import { Scenes } from '../engine/states.js';
 import { STR } from '../data/strings.js';
+import { Maps } from './map.js';
+import { findRoute } from './walk-path.js';
 
 const TAU = Math.PI * 2;
 const DEG = Math.PI / 180;
@@ -877,6 +879,12 @@ function createSystem(ctx) {
     if (def.solid !== false && !def.fixed && n.kind !== 'animal' && S.map) {
       try { n.collider = S.map.addCollider({ type: 'circle', x: n.x, z: n.z, r: (n.kind === 'monster' ? 0.32 : 0.3) * n.scale * n.girth, tag: 'npc' }); } catch (e) { err('npc collider', e); }
     }
+    // A PERSON THIS STORY HAS ALREADY DISMISSED IS STILL DISMISSED. `npcLeave` puts the flag on the DEF as well as on
+    // the body, because `S.list` is emptied and refilled on every map change: a father walked out of the cottage and
+    // handed back by name would be standing at his chair again the moment the boy stepped outside — the same bug the
+    // player reported, one room change later. `gone: '<flag>'` in a people layer is how a map says this person does
+    // not exist until the story says otherwise, and the beat's own `flag` op is what clears it.
+    if (def.gone != null && condOk(def.gone)) { n.leftForGood = true; showModel(n, false); n.hidden = true; if (n.collider) n.collider.bound = [1e9, 1e9, 1e9, 1e9]; }
     return n;
   }
 
@@ -970,6 +978,10 @@ function createSystem(ctx) {
       for (const e of map.exits || []) if (e.kind === 'door' || e.kind === 'stairs') S.doors.push({ x: e.x, z: e.z, r: 2.0 });
     } catch (e) { err('npc doors', e); }
     const defs = (map.npcs || []).filter(d => d && condOk(d.when));
+    // KEPT, because a scene may DISMISS somebody after the map is built, and the only place that can outlive the build
+    // is the def itself — `gone` is read when the next build happens. Without a handle on this list a walk-out is
+    // remembered only as long as the boy stays in the room.
+    S.defs = defs;
     const build = () => {
       if (gen !== S.gen || !S.map) return;
       S.blobs = makeBlobShadows(Math.max(4, defs.length + 2), { opacity: 0.5 });
@@ -1458,9 +1470,12 @@ function createSystem(ctx) {
   }
 
   // ── movement ──────────────────────────────────────────────────────────────────────────────────────────────
+  // How far short of the mark the last `stepTo` stopped, for `npcWalk` to report. Nobody else reads it: a wanderer
+  // that gives up just picks another spot, which is why nobody had ever needed to know arrival from giving-up.
+  const STEP_MISS = { d: 0 };
   function stepTo(n, tx, tz, speed, dt) {
     const dx = tx - n.x, dz = tz - n.z, d = Math.hypot(dx, dz);
-    if (d < 0.12) { n.wantSpeed = 0; return true; }
+    if (d < 0.12) { n.wantSpeed = 0; STEP_MISS.d = d; return true; }
     const want = Math.min(speed, d * 2.6 + 0.25);
     n.yaw = Math.atan2(dx, dz);
     const step = want * dt;
@@ -1471,13 +1486,87 @@ function createSystem(ctx) {
       const r = S.map.move(n.x, n.z, (dx / d) * step, (dz / d) * step, 0.3, 0.2);
       moved = Math.hypot(r.x - n.x, r.z - n.z);
       n.x = r.x; n.z = r.z;
+      // blocked? take the step sideways instead (see `slideRound`) — a wanderer can just pick another spot, a
+      // beat's walk cannot, and it used to give up and report it had arrived
+      if (moved <= step * 0.25 && n.storyWalk && n.storyNudge < 2) {
+        n.storyNudge++;
+        if (!n.storyPath) { slideRound(n, tx, tz); }
+        else {
+          // …or walk the route a real walker would, when the map can be asked for one. `route()` costs nothing
+          // until a body is actually blocked, and a blocked straight line is exactly when it is worth paying for.
+          const w = n.storyPath;
+          if (w.i > w.pts.length) { w.i = 0; w.pts = []; slideRound(n, tx, tz); }
+          else { const q = w.pts[Math.min(w.pts.length - 1, w.i)] || { x: tx, z: tz };
+            const r = S.map.move(n.x, n.z, q.x - n.x, q.z - n.z, 0.3, 0.4);
+            const far = Math.hypot(r.x - n.x, r.z - n.z);
+            n.x = r.x; n.z = r.z;
+            if (far <= 0.05 || Math.hypot(q.x - n.x, q.z - n.z) < 0.25) w.i++;
+            if (n.collider) moveCollider(n);
+          }
+        }
+      }
     } catch (e) { err('npc move', e); }
     if (c) moveCollider(n);
     n.wantSpeed = moved > step * 0.25 ? want : 0;
     n.stuck = moved < step * 0.25 ? n.stuck + dt : 0;
-    if (n.stuck > 0.7) { n.stuck = 0; return true; }                // give up on this spot and pick another
+    STEP_MISS.d = Math.hypot(tx - n.x, tz - n.z);
+    if (n.stuck > 0.7) {
+      n.stuck = 0;
+      // …and a blocked step is not a dead end if there is still somewhere to slide (see `slideRound`). Two of those
+      // and no ground at all IS a wall, and then the honest answer is that he is not going to get there.
+      if (n.storyWalk && n.storyNudge < 2 && slideRound(n, tx, tz, n.storyPath)) { n.storyNudge++; return false; }
+      STEP_MISS.gaveUp = true; return true;                     // give up on this spot and pick another
+    }
+    STEP_MISS.gaveUp = false;
     return false;
   }
+
+  /**
+   * ONCE, and then once again if he has got nowhere at all: a straight line is the WRONG SHAPE for a room.
+   *
+   * Nobody's wanderer needs this — they have an anchor and a radius and a fresh spot to try whenever they are beat,
+   * so the cheapest answer to a wall is to go somewhere else. A scene's walk has no somewhere else: `npcWalk` is one
+   * destination, and a straight line into a cottage's clutter is a man who walks into the dresser, gives up, and
+   * reports success four units short of the door he was sent to.
+   *
+   * So a blocked step slides ALONG what he is pressed against — the way out of a corner, round the foot of the bed,
+   * along a wall that happens to run the right way — and only when that has got him nowhere either does he give up.
+   * It is two tries and not a search: this is the difference between a walk that works and one that cannot find the
+   * kitchen, and a beat is still waiting on the other side of it.
+   */
+  function slideRound(n, tx, tz, path) {
+    // A route beats a shuffle, when there is one to walk.
+    if (path && path.pts && path.pts.length) {
+      if (path.i > path.pts.length) { path.i = 0; path.pts = []; }
+      else {
+        const q = path.pts[Math.min(path.pts.length - 1, path.i)] || { x: tx, z: tz };
+        const r = S.map.move(n.x, n.z, q.x - n.x, q.z - n.z, 0.3, 0.4);
+        const far = Math.hypot(r.x - n.x, r.z - n.z);
+        n.x = r.x; n.z = r.z;
+        if (far <= 0.05 || Math.hypot(q.x - n.x, q.z - n.z) < 0.3) path.i++;
+        if (n.collider) moveCollider(n);
+        return far > 0.02;
+      }
+    }
+    const dx = tx - n.x, dz = tz - n.z, d = Math.hypot(dx, dz);
+    if (d < 1e-4) return false;
+    const ux = dx / d, uz = dz / d;
+    for (const turn of [1.15, -1.15]) {
+      const a = Math.atan2(ux, uz) + turn;
+      const sx = Math.sin(a), sz = Math.cos(a);
+      const r = S.map.move(n.x, n.z, sx * 0.5, sz * 0.5, 0.3, 0.4);
+      const moved = Math.hypot(r.x - n.x, r.z - n.z);
+      if (moved > 0.22) { n.x = r.x; n.z = r.z; if (n.collider) moveCollider(n); return true; }
+    }
+    return false;
+  }
+  function lastStepMiss() { return { d: STEP_MISS.d, gaveUp: !!STEP_MISS.gaveUp }; }
+  /**
+   * `stepTo` reported ARRIVAL, but where? A wanderer that gives up on a spot just picks another, so the difference
+   * never mattered; a scene that walked somebody to a door needs to know whether he got there or gave up against a
+   * chair, and "the promise settled" alone is not the difference. This is the miss, in units, for whoever asked.
+   */
+  function lastStepMiss() { return { d: STEP_MISS.d, gaveUp: !!STEP_MISS.gaveUp }; }
 
   // ── noticing you, and looking at things ───────────────────────────────────────────────────────────────────
   /**
@@ -1846,6 +1935,13 @@ function createSystem(ctx) {
           continue;
         }
         if (n.speaking > 0 && S.speakerId !== n.id) n.speaking -= dt;   // the one with the floor keeps it
+        // A SCENE'S OWN ERRAND OUTRANKS EVERYTHING BELOW, INCLUDING A CONVERSATION. `npcWalk` is a beat saying "walk
+        // to the door" and nothing else may argue with it: the three branches under this one all end in a `wantSpeed`
+        // of zero (he is being spoken to, he is being looked at, or his own behaviour told him to stand), so a
+        // father halfway out of a room would be talked back to a halt by a villager asking him a question. It runs
+        // here rather than inside `stepTo` on purpose — `stepTo` is the arrival test, which has to keep returning
+        // true — and it runs before the branches so the step, the facing and `walked` below all see a walking man.
+        if (n.storyWalk) { n.storyWalk(); n.storyWalkState = 1; } else if (n.storyWalkState === 1) n.storyWalkState = 0;
         if (n.talking || n.speaking > 0) {
           // whoever has the floor stops what they are doing and faces the hero squarely
           n.talkT += dt;
@@ -2106,6 +2202,11 @@ function createSystem(ctx) {
     wear: (n.model && n.model.wear) || null, radius: r3(n.radius),
     height: r3(((n.model && n.model.height) || 0) * n.scale), scale: r3(n.scale), girth: r3(n.girth), holding: n.held || null,
     leanGap: n.leanGap == null ? null : n.leanGap,
+    // the state `hidden` alone cannot tell from being indoors, and the difference is the whole of "he says he is
+    // leaving and there is still a father standing in the room". `gone` is a DISMISSAL, remembered on the def so it
+    // outlives the list this entry lives in. It draws nothing, so an assertion written against `hidden` alone reads
+    // green over a man who has walked out of the building.
+    gone: !!n.leftForGood,
   }));
 
   return {
@@ -2120,6 +2221,10 @@ function createSystem(ctx) {
     // `__DQ.npcTake`, which `safeCall` swallowed into `__DQ.errors`: a lent Papa stayed invisible and the cottage had
     // no father in it, with nothing on screen to say why.
     showModel, moveCollider,
+    // and the step itself: `npcWalk` is walked by the same `stepTo` that carries a wanderer's shuffling, so a father
+    // leaving a room is moved by the code that moves everybody and cannot be seen to slide.
+    stepTo,
+    lastStepMiss,
     talks,
   };
 }
@@ -2312,6 +2417,157 @@ export function install(ctx = {}) {
   });
   /** __DQ.npcTaken(id) — is the field's copy of this person currently lent to a scene? */
   Db.expose('npcTaken', (id) => { const n = sys.byId(id); return !!(n && n.storyHidden); });
+
+  /**
+   * __DQ.npcLeave(id) — this person has walked out of the building and is NOT coming back to where he stood.
+   *
+   * WHY NOT JUST HIDE HIM. A lent body has to be INVISIBLE WITH ITS TALK TARGET INTACT` (see `npcTake`), because a
+   * scene may still want to speak to it; `npcLeave` is the other half. It takes him out of the picture — model off,
+   * collider released, no talk, no prompt, no "who is near the boy" — and it REMEMBERS, so that when the map goes
+   * and is built again he is still gone.
+   *
+   * THAT LAST PART IS THE POINT. The flag lives on the DEF, not on the list entry, because the list is emptied and
+   * refilled on every map change and a body that forgets it has been dismissed comes back exactly where he was — the
+   * same bug, one room-change later. The cottage said `gone: 'ch1.left_the_cottage'`, so until that flag is set, on
+   * this map or the next, there is no father in the room. Without it a man can only be dismissed for as long as he
+   * happens to stay on screen.
+   */
+  Db.expose('npcLeave', (id) => {
+    const n = sys.byId(id);
+    if (!n) return { ok: false, why: 'nobody here', reason: `nobody called "${id}" here` };
+    n.leftForGood = true;
+    const was = n.storyHidden;
+    if (was) { n.storyHidden = null; n.hidden = !!was.hidden; n.behaviour = was.behaviour; n.radius = was.radius; }
+    sys.showModel(n, false);
+    n.hidden = true;
+    if (n.collider) n.collider.bound = [1e9, 1e9, 1e9, 1e9];
+    if (sys.S.talkingWith === n) { sys.S.talkingWith = null; sys.S.speakerId = null; }
+    // AND HE TAKES HIS ERRAND WITH HIM. `update()` reads `storyWalk` above everything else, including "is this man
+    // gone", so a dismissal landing between a walk's start and its end kept steering an invisible body across the room
+    // for another second or two — a man walking on with no feet to walk on, and a position the reader was never meant
+    // to see. Cut the errand at the door, and report where he was last really put.
+    const flying = !!n.storyWalk;
+    if (flying) { n.storyWalk = null; n.walkMiss = sys.lastStepMiss() || { d: 0, gaveUp: false }; }
+    // AND SO HE DISAPPEARS FROM THE ROOM'S OWN COUNT. He was counted before he was lent and has not been taken out of
+    // the list, so without this a cottage the beat had just emptied still reads one fuller than it is.
+    const d = (sys.S.defs || []).find(x => x && x.id === n.id);
+    if (d) d.gone = '1';
+    return { ok: true, id: n.id, wasLent: !!was, flying, where: [+n.x.toFixed(2), +n.z.toFixed(2)] };
+  });
+  /** __DQ.npcGone(id) — has this person been dismissed for good? (the flag outlives the list) */
+  Db.expose('npcGone', (id) => { const n = sys.byId(id); return !!(n && n.leftForGood); });
+  /** __DQ.npcsGone(id?) — has this person been dismissed for good? With no id, how many have. */
+  Db.expose('npcsGone', (id) => (id === undefined ? sys.S.list.filter(n => n.leftForGood).length : !!(sys.byId(id) && sys.byId(id).leftForGood)));
+  /**
+   * __DQ.npcsGone() / __DQ.npcsVisible() — how many people this map is actually showing.
+   *
+   * `npcs()` is deliberately NOT filtered: a scene borrows a body by leaving it in the list, and the "is the room
+   * empty" question has to survive a dismissal — which never removes anybody, on purpose. So a person who has walked
+   * out of the building is still in `npcs()`, with `gone: true`, and any assertion written as "the room is empty"
+   * against that list is measuring nothing at all. These two are the honest version: one counts the dismissals, the
+   * other counts the bodies a player can see.
+   */
+  Db.expose('npcsVisible', () => sys.S.list.filter(n => !n.leftForGood && !n.hidden).length);
+
+  /**
+   * __DQ.floorGrid(box, r) — print the collision the room actually has, as a map of `#`.
+   *
+   * WRITTEN BECAUSE A GUESS WAS WRONG TWICE. Twice a man was sent to "stand in his own doorway" and stopped a stride
+   * inside it, facing the wall; twice the fix was reasoned from the map file's numbers and twice the numbers were not
+   * what stops a body. What stops a body is `_deepest`, and this asks IT rather than the furniture: `#` is a place a
+   * disc of radius `r` cannot stand, `.` is one it can. `line` walks one x/z with the same question and reports where
+   * it is pushed to and in which direction, which is how the doorway became HD - 1.0 rather than HD - 1.9.
+   */
+  Db.expose('floorGrid', (box, r = 0.42, step = 0.1) => {
+    const m = sys.S.map;
+    if (!m || !m.resolve) return { ok: false, why: 'no live map on the people layer' };
+    const x0 = +box.x, z0 = +box.z, w = +box.w || 2, d = +box.d || 2;
+    const rows = [], labels = [];
+    for (let z = z0; z <= z0 + d + 1e-9; z += step) {
+      let row = '';
+      for (let x = x0; x <= x0 + w + 1e-9; x += step) row += m.resolve(x, z, +r).pushed ? '#' : '.';
+      rows.push(row); labels.push(z.toFixed(1));
+    }
+    return { ok: true, r: +r, step, x: x0, z: z0, w, d, labels, rows };
+  });
+  /** __DQ.floorLine(x, z, to, r) — walk one straight line and say where a body of width `r` ends up, and why. */
+  Db.expose('floorLine', (x, z, to, r = 0.42) => {
+    const m = sys.S.map;
+    if (!m || !m.resolve) return { ok: false, why: 'no live map on the people layer' };
+    const out = [];
+    for (let t = +z; to.z > z ? t <= to.z : t >= to.z; t += to.z > z ? 0.05 : -0.05) {
+      const q = m.resolve(x, t, +r);
+      out.push({ z: +t.toFixed(2), pushed: q.pushed, to: [+q.x.toFixed(2), +q.z.toFixed(2)], n: [+q.nx.toFixed(2), +q.nz.toFixed(2)] });
+    }
+    return { ok: true, r: +r, out };
+  });
+
+  /**
+   * __DQ.doorStep(mapId) — where a body put on this map's front step stands, and how far out of the door it is.
+   *
+   * Written for one sentence a player would not otherwise have: B1's Papa walks to the door, opens it, and STEPS
+   * OUT ONTO THE DOORSTEP — the tile outside, which is the only spot a reader can call "he has gone out". The
+   * `back` of an interior's own exit is that tile, and `puddlewickDoorstep()` is the one function that knows where it
+   * is, so it is read here rather than copied into the beat as a number that would rot with the map.
+   */
+  Db.expose('doorStep', (mapId) => {
+    const id = String(mapId || (sys.S.map && sys.S.map.id) || '');
+    const e = sys.S.map && sys.S.map.exits && id === sys.S.map.id ? sys.S.map.exits.find(x => x && x.back && Number.isFinite(+x.back.x))
+      : (Maps.get(id) && Maps.get(id).exits || []).find(x => x && x.back && Number.isFinite(+x.back.x));
+    if (!e) return { ok: false, why: 'this map has no door with a landing outside it', map: id };
+    return { ok: true, map: id, to: e.to, inside: { x: +e.x.toFixed(2), z: +e.z.toFixed(2) }, back: { x: +e.back.x, z: +e.back.z } };
+  });
+
+  /**
+   * __DQ.npcWalk(id, x, z, speed) — send somebody somewhere ON THEIR LEGS, and wait until he is standing on it.
+   *
+   * WHY THIS EXISTS. `npcGo` TELEPORTS: it drops a body on the mark and is over in the same frame. That is the right
+   * verb for posing a screenshot and the wrong one for a beat — a father who says "I shall walk on to the lane" and is
+   * then simply *there* by the door has not walked anywhere. And that was the only version of B1's exit anybody ever
+   * saw: `move` on a borrowed actor reached for `npcGo` and stopped there, so the step did nothing a player could
+   * name, and Papa stood beside his chair until the map handed him back exactly where he started.
+   *
+   * So he walks on the people layer's own `stepTo`, the code his shuffling already uses: it turns him toward the
+   * target and sets `wantSpeed`, and the ordinary tick carries him along. `done` is a POLL, so the render side
+   * never needs to know a beat is waiting — the promise settles from the same `update` that draws him. A timeout
+   * settles it too, because a beat must never hang on a man who cannot reach a spot.
+   */
+  Db.expose('npcWalk', (id, x, z, speed = 2.4) => new Promise((res) => {
+    const n = sys.byId(id);
+    if (!n) return res({ ok: false, why: 'nobody here', reason: `nobody called "${id}"` });
+    const at = sys.settleAt(+x, +z);
+    const from = { x: +n.x.toFixed(2), z: +n.z.toFixed(2) };
+    let done = null;
+    const budget = 0.9 + Math.hypot(at.x - n.x, at.z - n.z) / Math.max(0.3, +speed) * 2.2;
+    // The walk is finished when this is set AND a tick has seen it — the flag is raised by `stepTo` reaching the
+    // mark, and the tick is the only thing that runs `stepTo`, so the beat cannot settle before he has got there.
+    n.storyWalk = () => {
+      if (sys.stepTo(n, at.x, at.z, +speed, 1 / 60)) { n.storyWalk = null; n.walkMiss = sys.lastStepMiss(); }
+      else if ((n.walkT = (n.walkT || 0) + 1) / 60 > budget) { n.storyWalk = null; n.walkMiss = { d: 999, gaveUp: false }; }
+    };
+    n.storyNudge = 0;                                             // how many sideways slides he has had so far
+    // The route, asked for ONCE and only if he is actually blocked. Nobody shuffles through a cottage to reach a
+    // door two metres away, so the straight line is tried first and the pathfinder is the fallback — the same order
+    // the hero's own walk uses, and for the same reason.
+    //
+    // …AT HIS OWN WIDTH. Papa is 0.42 across (`0.3 * scale * girth`, the collider this very layer gave him) while
+    // `stepTo` steers him with the same 0.3 disc everybody uses, so a route planned at the disc's width sends a man
+    // 0.12 too wide down a gap his body does not fit — which is how he ended up jammed at the west wall of his own
+    // cottage, walking in place, a metre short of his own front door. His collider's radius is the number to plan
+    // with; if there is no collider (a fixed prop, a `solid: false` villager) fall back to the disc's.
+    n.storyPath = { i: 0, pts: null };
+    const wide = n.collider && Number.isFinite(+n.collider.r) ? +n.collider.r : 0.3;
+    try { const r = findRoute(S.map, n.x, n.z, at.x, at.z, wide); n.storyPath.pts = r || []; } catch (_) { n.storyPath.pts = []; }
+    const poll = setInterval(() => {
+      if (n.storyWalk && n.storyWalkState === 1) return;      // one tick must SEE it finish, or `stepTo` is what settled us
+      clearInterval(poll);
+      // `walked` is a running total for the whole session, so "how far did he go" is the DIFFERENCE across the walk.
+      const m = n.walkMiss || { d: 0, gaveUp: false };
+      res({ ok: m.d < 0.35, from, at: { x: +n.x.toFixed(2), z: +n.z.toFixed(2) }, miss: m,
+        walked: Math.round(((n.walked || 0) - (n.walkedAt || 0)) * 100) / 100 });
+    }, 30);
+    setTimeout(() => { clearInterval(poll); n.storyWalk = null; res({ ok: false, from, why: 'timeout' }); }, (budget + 2) * 1000);
+  }));
 
   /**
    * __DQ.npcGo('sausage', x, z, hold) — send somebody somewhere (used to pose scenes for screenshots, and by a scene

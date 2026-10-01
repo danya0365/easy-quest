@@ -78,9 +78,23 @@ const b1 = () => [
   say('halvard', 'Good lad. Two boots.\nBoth of them mine.'),
   flag('ch1.awake'),
   say('halvard', 'I shall walk on to the lane.\nCome and find me when you have\nsaid goodbye to the village.'),
-  move('halvard', 'at:the front door'),
+  // HE LEAVES, AND HE LEAVES ON FOOT. Three separate sentences used to be one wrong one, and each is a beat a player
+  // watched: `move('halvard','at:the front door')` reached for `npcGo`, which TELEPORTS, so he did not cross the room;
+  // `despawn` hands a borrowed body back to the field exactly where it stands, so he went back to his chair; and the
+  // village's own `pw-halvard` — `when: '!ch1.left_home'`, a flag set two beats later at the far end of the village —
+  // put a second father in the lane before the boy had said goodbye to anybody, so the man he had just watched leave
+  // seemed to reappear in front of the houses. The boy reported all of it as one thing: he is still in the house.
+  //
+  // So he walks (on the people layer's own `stepTo`, so he cannot be seen to slide), steps OUT onto the doorstep, and
+  // is dismissed FOR GOOD — `despawn({leave:true})` means "he is not coming back to where he stood", and the cottage's
+  // own people layer is what makes that survive a map change, so he cannot reappear in the room next time the boy
+  // goes in. The lane copy is held back until he is actually there.
+  move('halvard', 'at:the front door', { speed: 2.3 }),
   sfx('door_open'),
-  despawn('halvard'),
+  move('halvard', '__doorstep', { speed: 2.3 }),
+  sfx('door_open'),
+  despawn('halvard', { leave: true }),
+  flag('ch1.left_the_cottage'),
   narrate('{gold}Papa is waiting at the lane\nout of Puddlewick.{/gold}'),
   camera.follow(),
 ];

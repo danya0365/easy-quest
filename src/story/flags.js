@@ -26,6 +26,7 @@ import { Debug, reportError } from '../engine/debug.js';
 export const FLAGS = {
   // ── ACT I ──────────────────────────────────────────────────────────────────────────────────────────────────
   'ch1.awake': 'B1 · you are out of bed in Hollybank',
+  'ch1.left_the_cottage': 'B1 · Papa walked out of Hollybank and went on to the lane',
   'ch1.left_home': 'B2 · Papa gave you 30 G at the lane and you climbed into the wagon',
   'ch1.met_willow': 'B4 · met Willow Pye',
   'ch1.met_sera': 'B4 · met Sera Fairweather',

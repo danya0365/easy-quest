@@ -123,7 +123,13 @@ const hollybank = {
     // the hearth, its hearthstone and the fire irons
     { type: 'box', x: SPOTS.hearth.x, z: SPOTS.hearth.z + 0.1, w: 2.9, d: 1.3, rot: 0, tag: 'hearth' },
     // the table and its three chairs
-    { type: 'box', x: SPOTS.table.x, z: SPOTS.table.z, w: 2.0, d: 1.15, rot: 0, tag: 'table' },
+    // The table's collider does NOT reach the floor: it is 0.7 up, and a six-year-old can crawl under it — which is
+    // most of why the room reads as a room. It was a full-height box, so the 0.7 gap between its underside and the
+    // boards was a corridor the pathfinder happily routed Papa down and `m.move` could not actually get him through
+    // (his disc is 0.3 and the gap is 0.1 narrower than that at its tightest, so he ground in the mouth of it and the
+    // walk reported it had arrived). The hero was kept out of it by hand a moment later; this is the collider being
+    // what it looks like. It is what let a walk to the door come out as a man stuck against the west wall.
+    { type: 'box', x: SPOTS.table.x, z: SPOTS.table.z, w: 2.0, d: 1.15, rot: 0, tag: 'table', y0: 0.7 },
     { type: 'circle', x: SPOTS.fatherChair.x, z: SPOTS.fatherChair.z, r: 0.32, tag: 'chair' },
     { type: 'circle', x: SPOTS.chairA.x, z: SPOTS.chairA.z, r: 0.28, tag: 'chair' },
     { type: 'circle', x: SPOTS.chairB.x, z: SPOTS.chairB.z, r: 0.28, tag: 'chair' },
@@ -153,7 +159,12 @@ const hollybank = {
   props: [
     // The door is a thing you can press Z at as well as a line you can walk over: a solid party follower lines
     // up between you and your own front door (shots/P06-hb2), and "Z — the front door" always works.
-    { type: 'door', name: 'the front door', solid: false, x: DX, z: HD - 0.75, ix: DX, iz: HD - 1.9, reach: 2.6, height: DH * 0.9,
+    //
+    // `iz` IS THIS DOOR'S INSIDE FACE — HD - 1.0, not HD - 1.9. HD - 1.9 is a LINE A BODY MAY STAND ON: the wall, the
+    // door frame and the one tile of floor behind them all sit inside it, so a man told to stand in his own doorway
+    // was pushed by `resolve` a stride further in, and ended his walk facing the wall with his back to the lane.
+    // Nothing about the door's own reach has changed; only how far in the room starts to count as the wall.
+    { type: 'door', name: 'the front door', solid: false, x: DX, z: HD - 0.75, ix: DX, iz: HD - 1.0, reach: 2.6, height: DH * 0.9,
       talk({ field }) {
         const b = puddlewickDoorstep('hollybank');
         const deg = Number.isFinite(+b.facing) ? (+b.facing * 180 / Math.PI) : undefined;

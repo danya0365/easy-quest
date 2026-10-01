@@ -65,6 +65,12 @@ export const LAYER_KINDS = ['npcs', 'chests'];
 const STEP = 0.15;
 const ITER = 6;
 const EPS = 1e-6;
+/**
+ * How tall a body is, for the one thing a 2D collider can still ask: is this furniture low enough to stand under?
+ * Nobody in this game crouches, so a collider whose underside is at or above this cannot be walked into, and the
+ * table in the cottage — whose top is 0.7 up — is the case this exists for.
+ */
+const BODY_HEIGHT = 0.7;
 
 const registry = new Map();
 
@@ -219,7 +225,12 @@ export class GameMap {
     if (t === 'circle') out = { type: 'circle', x: num(c.x, 0), z: num(c.z, 0), r: Math.max(0.01, num(c.r, 0.3)) };
     else if (t === 'box') {
       const rot = num(c.rot, 0);
-      out = { type: 'box', x: num(c.x, 0), z: num(c.z, 0), hw: Math.max(0.01, num(c.w, 1) / 2), hd: Math.max(0.01, num(c.d, 1) / 2), rot, c: Math.cos(rot), s: Math.sin(rot) };
+      // `y0` is how far the thing stands OFF THE FLOOR, for furniture you can get underneath. Collision is 2D and
+      // there is no crouching, so the only question it can answer is "is anybody standing under this" — and every
+      // body in the game walks. A table drawn with its top 0.7 up and collided as a full-height box is a lie the
+      // pathfinder believed: the 0.1-wide gap between the table's collider and the boards read as a corridor, and
+      // every scripted walk through the room was routed down it and stopped dead against the far side.
+      out = { type: 'box', x: num(c.x, 0), z: num(c.z, 0), hw: Math.max(0.01, num(c.w, 1) / 2), hd: Math.max(0.01, num(c.d, 1) / 2), rot, c: Math.cos(rot), s: Math.sin(rot), y0: num(c.y0, 0) };
     } else if (t === 'capsule' && Array.isArray(c.pts) && c.pts.length >= 2) {
       out = { type: 'capsule', pts: c.pts.map(p => [num(p[0], 0), num(p[1], 0)]), r: Math.max(0.01, num(c.r, 0.1)) };
     }
@@ -392,7 +403,17 @@ export class GameMap {
     return { id: this.id, name: this.name, kind: this.kind, size: [this.w, this.h], origin: this.origin.slice(), res: this.res,
       solidCells: this.stats.solidCells, colliders: this.colliders.length, occluders: this.occluders.length, props: this.props.length, interactables: this.interactables().length,
       npcs: this.npcs.length, chests: this.chests.length, layers: this.layers.slice(), lines: Object.keys(this.lines).length,
-      missingLines: this.missingLines.slice(0, 8), exits: this.exits.length, music: this.music, buildMs: this.stats.buildMs };
+      // THE EXITS, WITH THEIR PAD BOUNDS — not a count. An exit is a RECTANGLE the boy is taken out of by standing
+      // on it, so its size and place are the whole of its behaviour, and a description that reported only "3 exits"
+      // made it impossible to answer the one question that was being asked: how close is the tile a boy arrives on to
+      // the pad that will take him straight back out? `on` is that pad, in full.
+      exits: this.exits.map(e => ({ to: e.to, kind: e.kind || null, name: e.name || null,
+        x: e.x, z: e.z, w: e.w ?? null, h: e.h ?? null,
+        on: { xMin: +(+e.x - (e.w ?? 1) / 2).toFixed(2), xMax: +(+e.x + (e.w ?? 1) / 2).toFixed(2),
+              zMin: +(+e.z - (e.h ?? 1) / 2).toFixed(2), zMax: +(+e.z + (e.h ?? 1) / 2).toFixed(2) },
+        lands: (Number.isFinite(+e.tx) || Number.isFinite(+e.tz)) ? { x: e.tx ?? null, z: e.tz ?? null } : null,
+        back: e.back || null })),
+      music: this.music, buildMs: this.stats.buildMs };
   }
 }
 
@@ -423,6 +444,9 @@ function fromPoint(x, z, qx, qz, reach) {
 
 function contact(c, x, z, r) {
   if (c.type === 'circle') return fromPoint(x, z, c.x, c.z, r + c.r);
+  // A body's height against the thing's underside. The one number the 2D world can still use, and it is enough:
+  // nothing in this game crouches, so `y0 >= BODY_HEIGHT` means nobody can ever be there.
+  if (c.type === 'box' && c.y0 >= BODY_HEIGHT) return null;
   if (c.type === 'box') {
     // to local space: rotation by rot about Y (object.rotation.y convention)
     const dx = x - c.x, dz = z - c.z;

@@ -26,10 +26,18 @@ export default function hollybankPeople(base = {}) {
 
   return {
     npcs: [
-      // ── Act I: Papa between cutscenes (boots quest → lane). Gone once ch1.left_home. ──
+      // ── Act I: Papa between cutscenes (boots quest → lane). ──
+      //
+      // `gone` is the difference between "not in this beat" and "not here any more". He was removed by walking out
+      // of his own front door, so until a story says otherwise there is no father in this room — and it says so
+      // ACROSS MAP CHANGES, which `when` could not do: `when` is read when the map is built, so a boy who stepped
+      // out and came straight back in would find his father at the chair again with nothing having happened in
+      // between. `ch1.left_home` is still here too, for a save written before the flag existed and for anyone who
+      // is on the village road rather than in the room.
       {
         id: 'hb-halvard', name: 'Papa', char: 'halvard', voice: 'halvard', scale: 1.08, girth: 1.1,
-        x: chair.x + 1.1, z: chair.z - 0.4, facing: 200, idle: 'stand', radius: 0.7, when: '!ch1.left_home',
+        x: chair.x + 1.1, z: chair.z - 0.4, facing: 200, idle: 'stand', radius: 0.7,
+        when: '!ch1.left_home', gone: 'ch1.left_the_cottage',
         script: [{
           first: [
             'Boots, lad. If you would.',
