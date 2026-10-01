@@ -1,0 +1,36 @@
+{
+ "name": "P07 #1 — FACE: one grown face at a time, close in, so the head reads and is not argued about.",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"waitFor": "__DQ.listScenes().includes('stage')", "timeout": 30000},
+  {"wait": 1400},
+
+  {"note": "F0. Frame the head, not the body: aim high on the height, and pull in."},
+  {"eval": "__DQ.cameraAim(0.82)"},
+  {"eval": "__DQ.cameraZoom(0.55)"},
+  {"wait": 1200},
+
+  {"note": "F1. Barty alone, close. The gap's clearest doll: was 39.9% head share on a 1.23 u body."},
+  {"eval": "__DQ.show('barty')"},
+  {"wait": 1600},
+  {"shot": "01-barty-face"},
+
+  {"note": "F2. The farmer — the first villager face off the old shared kit (was 'oval' eyes, a line brow)."},
+  {"eval": "__DQ.show('farmer')"},
+  {"wait": 1600},
+  {"shot": "02-farmer-face"},
+
+  {"note": "F3. The baker — same body, so what changed is only the face and the head."},
+  {"eval": "__DQ.show('baker')"},
+  {"wait": 1600},
+  {"shot": "03-baker-face"},
+
+  {"note": "F4. Halvard, the reference for what 'already right' looks like on this kit."},
+  {"eval": "__DQ.show('halvard')"},
+  {"wait": 1600},
+  {"shot": "04-halvard-face"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

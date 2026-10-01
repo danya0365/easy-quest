@@ -1113,41 +1113,45 @@ DEFS.sera = {
 
 // ── Barty Marrow ─────────────────────────────────────────────────────────────────────────────────────────────
 // CANON: small, wide, bald old man in an apron worn over armour, a ladle in his belt where a dagger should be.
+// Short is relative to Halvard, not to the boy: he stands about 1.21x the boy, which is a small adult and NOT a
+// short child. His head is 2r/height = 34.8% — small and wide, not the 41% the boy wears.
 DEFS.barty = {
   label: () => 'Barty',
   ages: [58],
-  body: () => ({ r: 0.245, leg: 0.28, ankle: 0.075, torso: 0.42, neck: 0.0, hipX: 0.105, shX: 0.285, arm: 0.34, bodyX: 0.28, bodyZ: 0.24, hipsUp: 0.03, hair: 0.0 }),
+  body: () => ({ r: 0.235, leg: 0.38, ankle: 0.08, torso: 0.44, neck: 0.018, hipX: 0.1, shX: 0.28, arm: 0.42, bodyX: 0.27, bodyZ: 0.23, hipsUp: 0.035, hair: 0.0 }),
   style: () => ({ stride: 1.15, bounce: 1.05, sway: 1.9, twist: 0.6, armSwing: 0.75, cadence: 1.12, smile: 1.1, hop: 0.8, weapon: 'ladle', hunch: 0.04, armOut: 0.32, breathPeriod: 3.2, fidget: 1.1 }),
   dress(K) {
     const m = K.m, k = m.k;
     const amber = PAL.cloth.mustard, apron = PAL.cloth.cream, white = COL.whiteHair;
-    stdLegs(K, { pants: PAL.cloth.leather, pantsTo: 'ankle', boot: COL.boot, bootStyle: 'chunky', thigh: 0.14, knee: 0.11, ankleR: 0.085, cuff: PAL.wood.dark, bootScale: 1.3 });
-    stdTorso(K, [[0.001, -0.05], [0.26, -0.04], [0.35, 0.06], [0.38, 0.2], [0.37, 0.34], [0.32, 0.44], [0.2, 0.53], [0.001, 0.545]], { color: amber, zs: 0.9 });
+    stdLegs(K, { pants: PAL.cloth.leather, pantsTo: 'ankle', boot: COL.boot, bootStyle: 'chunky', thigh: 0.12, knee: 0.096, ankleR: 0.078, cuff: PAL.wood.dark, bootScale: 1.22 });
+    stdTorso(K, [[0.001, -0.05], [0.24, -0.04], [0.32, 0.05], [0.35, 0.16], [0.345, 0.29], [0.30, 0.39], [0.19, 0.47], [0.001, 0.485]], { color: amber, zs: 0.9 });
     // breastplate + gold rim, pauldrons
-    K.lathe(null, [0, m.hipY, 0], [[0.36, 0.24], [0.385, 0.33], [0.34, 0.44], [0.22, 0.52]].map(([r, y]) => [r * k, y * k]), COL.steel, { weights: wTorso(m), weave: 0, phiStart: -1.35, phiLen: 2.7, scale: [1, 1, 0.92], outline: 0, detail: 1.1 });
+    K.lathe(null, [0, m.hipY, 0], [[0.33, 0.21], [0.355, 0.29], [0.315, 0.39], [0.205, 0.465]].map(([r, y]) => [r * k, y * k]), COL.steel, { weights: wTorso(m), weave: 0, phiStart: -1.35, phiLen: 2.7, scale: [1, 1, 0.92], outline: 0, detail: 1.1 });
     for (const s of [1, -1]) {
       K.ball('clav' + (s > 0 ? 'L' : 'R'), [s * (m.shX - 0.01), m.shoulderY + 0.015, 0], [0.1, 0.075, 0.1], COL.steel, { detail: 0.8 });
       K.torus('clav' + (s > 0 ? 'L' : 'R'), [s * (m.shX - 0.01), m.shoulderY - 0.02, 0], 0.095, 0.012, COL.gold, { scale: [1, 1, 1] });
     }
     // apron: bib, strap and a skirt panel to the knees
-    K.lathe(null, [0, 0, 0], [[0.3, m.hipY + 0.06], [0.305, m.hipY + 0.14], [0.3, m.hipY + 0.24]], apron, { weights: wTorso(m), weave: 1, phiStart: -0.75, phiLen: 1.5, scale: [1.02, 1, 0.94], outline: 0, detail: 1 });
-    skirt(K, [[0.29, 0.14], [0.3, 0.16], [0.3, 0.26], [0.29, m.hipY + 0.03], [0.285, m.hipY + 0.07]], apron, { phiStart: -0.95, phiLen: 1.9, zs: 0.94, lining: scaleHex(apron, 0.85) });
-    K.torus('hips', [0, m.hipY + 0.07, 0], 0.3, 0.018, apron, { scale: [1, 1, 0.93], weave: 1 });
-    K.box('skirtF', [0.08, 0.2, 0.278], [0.06, 0.05, 0.01], scaleHex(apron, 0.88), { rot: [0.25, 0.25, 0.3] });
+    K.lathe(null, [0, 0, 0], [[0.28, m.hipY + 0.05], [0.285, m.hipY + 0.12], [0.28, m.hipY + 0.21]], apron, { weights: wTorso(m), weave: 1, phiStart: -0.75, phiLen: 1.5, scale: [1.02, 1, 0.94], outline: 0, detail: 1 });
+    skirt(K, [[0.272, 0.13], [0.28, 0.15], [0.28, 0.24], [0.272, m.hipY + 0.03], [0.268, m.hipY + 0.07]], apron, { phiStart: -0.95, phiLen: 1.9, zs: 0.94, lining: scaleHex(apron, 0.85) });
+    K.torus('hips', [0, m.hipY + 0.07, 0], 0.28, 0.018, apron, { scale: [1, 1, 0.93], weave: 1 });
+    K.box('skirtF', [0.075, 0.19, 0.26], [0.055, 0.05, 0.01], scaleHex(apron, 0.88), { rot: [0.25, 0.25, 0.3] });
     // the ladle in his belt, bowl up by his right hip
-    K.joint('sheath', 'hips', [-0.25, m.hipY, 0.12]);
-    K.limb('sheath', [-0.24, m.hipY - 0.12, 0.13], [-0.27, m.hipY + 0.14, 0.16], 0.011, 0.011, COL.iron, { outline: 0, detail: 0.5 });
-    K.add((d) => G.sphereCap(d * 0.7, Math.PI / 2), TRS([-0.275, m.hipY + 0.18, 0.165], [Math.PI, 0, -0.2], [0.055, 0.045, 0.055]), { bone: 'sheath', color: COL.steel, rep: [1, 1] });
-    stdArms(K, { sleeve: amber, sleeveTo: 'wrist', skin: COL.ruddy, upperR: 0.1, foreR: 0.09, handR: 0.1, bracer: COL.steel });
-    // ── head: bald dome, white fringe, huge white brows, dot eyes, a big nose and a walrus moustache ──
-    stdHead(K, { skin: COL.ruddy, nose: 'big', noseC: mixHex(COL.ruddy, PAL.tile.light, 0.3), earScale: 1.3 });
-    stdEyes(K, { style: 'dot', w: 0.13, yaw: 0.32, pitch: -0.1, brow: 'bushy', browColor: white, browW: 0.3, browPitch: 0.15, highlights: true });
+    K.joint('sheath', 'hips', [-0.235, m.hipY, 0.11]);
+    K.limb('sheath', [-0.225, m.hipY - 0.11, 0.12], [-0.255, m.hipY + 0.13, 0.15], 0.011, 0.011, COL.iron, { outline: 0, detail: 0.5 });
+    K.add((d) => G.sphereCap(d * 0.7, Math.PI / 2), TRS([-0.26, m.hipY + 0.165, 0.155], [Math.PI, 0, -0.2], [0.055, 0.045, 0.055]), { bone: 'sheath', color: COL.steel, rep: [1, 1] });
+    stdArms(K, { sleeve: amber, sleeveTo: 'wrist', skin: COL.ruddy, upperR: 0.094, foreR: 0.085, handR: 0.094, bracer: COL.steel });
+    // ── head: bald dome, white fringe, a grown man's deep-set eyes under huge white brows, a big nose and a
+    // walrus moustache. A 58-year-old in the canonical design has sclera and a heavy lid, not the boy's dots.
+    stdHead(K, { skin: COL.ruddy, nose: 'big', noseC: mixHex(COL.ruddy, PAL.tile.light, 0.3), earScale: 1.25 });
+    stdEyes(K, { style: 'adult', w: 0.128, h: 0.088, yaw: 0.33, pitch: -0.09, brow: 'heavy', browColor: white, browW: 0.26, browPitch: 0.15, browTilt: -0.1 });
     stdMouth(K, { pitch: -0.62, w: 0.12, blush: 'always' });
     // a fluffy white horseshoe of hair round the back, puffing out over the ears
     fringe(K, white, { top: 0.16, bot: -0.42, sideburn: -0.2, thick: 0.07, puff: 0.1, tuft: 0.12, locks: 17, shade: 0.9, seed: 7 });
     // a shine on the dome
     K.decal('head', -0.35, 0.72, -0.004, (d) => G.ell(d * 0.5), mixHex(COL.ruddy, PAL.plaster.light, 0.6), { scale: [0.05, 0.03, 0.012] });
-    for (const s of [1, -1]) lock(K, s * 0.2, -0.43, [0.3, 0.13, 0.15], white, { lift: 0.07, rot: [0, 0, s * 0.45], outline: OUTLINE.char, detail: 0.7 });
+    // the walrus moustache over the mouth
+    for (const s of [1, -1]) lock(K, s * 0.2, -0.46, [0.28, 0.12, 0.14], white, { lift: 0.07, rot: [0, 0, s * 0.45], outline: OUTLINE.char, detail: 0.7 });
     // the ladle in his hand while he fights with it (hand-local +Z = handle out, bowl at the end)
     const c = [-m.shX, m.handY - 0.06, 0];
     K.cyl('propR', [c[0], c[1], c[2] + 0.12], 0.012, 0.012, 0.3, COL.iron, { rot: [Math.PI / 2, 0, 0] });
@@ -1161,7 +1165,7 @@ const ADULT = { r: 0.24, leg: 0.5, ankle: 0.075, torso: 0.47, neck: 0.02, hipX: 
 const VILLAGERS = {
   farmer: {
     label: 'Farmer',
-    body: { ...ADULT, leg: 0.52, shX: 0.26, hair: 0.12 },
+    body: { ...ADULT, r: 0.208, leg: 0.52, torso: 0.47, shX: 0.26, hair: 0.12 },
     style: { bounce: 0.9, propR: 'fork', gripY: 0.86, armSwingR: 0.2, smile: 0.9, weapon: 'none',
       plant: { len: 0.66, gripY: 0.68, out: 0.04, fwd: 0.14, tipOut: 0.05, tipFwd: 0.2, swing: 0.14, lift: 0.1 } },
     dress(K) {
@@ -1175,7 +1179,8 @@ const VILLAGERS = {
       for (const s of [1, -1]) K.ball('chest', [s * 0.1, m.hipY + 0.27, 0.19], 0.018, COL.gold, { outline: 0, detail: 0.4 });
       stdArms(K, { sleeve: shirt, sleeveTo: 'elbow', skin: COL.tan, upperR: 0.056, foreR: 0.05, handR: 0.07 });
       stdHead(K, { skin: COL.tan, nose: 'round' });
-      stdEyes(K, { style: 'oval', w: 0.12, h: 0.18, yaw: 0.34, pitch: -0.14, brow: 'line', browColor: PAL.wood.dark, browW: 0.24 });
+      // a grown man's face: deep-set eyes with whites under a heavy brow. NOT the boy's round dots.
+      stdEyes(K, { style: 'adult', w: 0.12, h: 0.082, yaw: 0.34, pitch: -0.1, brow: 'heavy', browColor: PAL.wood.dark, browW: 0.22, browPitch: 0.16, browTilt: -0.14 });
       stdMouth(K, { pitch: -0.52, w: 0.13, blush: 'always', cheekColor: mixHex(COL.tan, PAL.flower.red, 0.3) });
       hairCap(K, PAL.wood.mid, { theta: 0.5, tilt: -0.7 });
       // stubble + a stalk of hay in his mouth
@@ -1197,7 +1202,7 @@ const VILLAGERS = {
   },
   baker: {
     label: 'Baker',
-    body: { ...ADULT, bodyX: 0.26, bodyZ: 0.22, hair: 0.2, leg: 0.46, shX: 0.29 },
+    body: { ...ADULT, r: 0.206, bodyX: 0.26, bodyZ: 0.22, hair: 0.2, leg: 0.46, shX: 0.29 },
     style: { bounce: 1.05, sway: 1.4, propR: 'loaf', smile: 1.2, armOut: 0.25, weapon: 'none' },
     dress(K) {
       const m = K.m, k = m.k, white = PAL.plaster.light, flour = PAL.cloth.cream;
@@ -1211,7 +1216,8 @@ const VILLAGERS = {
       K.box('skirtF', [0.1, 0.35, 0.31], [0.07, 0.04, 0.008], mixHex(flour, PAL.wood.light, 0.25), { rot: [0.1, 0.3, 0.5] });
       stdArms(K, { sleeve: white, sleeveTo: 'elbow', skin: COL.ruddy, upperR: 0.07, foreR: 0.062, handR: 0.078 });
       stdHead(K, { skin: COL.ruddy, nose: 'round', noseC: mixHex(COL.ruddy, PAL.flower.red, 0.2) });
-      stdEyes(K, { style: 'arc', w: 0.1, yaw: 0.33, pitch: -0.1, brow: 'line', browColor: PAL.tile.dark, browW: 0.22 });
+      // a broad, well-fed grown man's face: heavy lids and a furrowed brow keep him off the child's kit
+      stdEyes(K, { style: 'adult', w: 0.112, h: 0.072, yaw: 0.33, pitch: -0.1, brow: 'heavy', browColor: PAL.tile.dark, browW: 0.21, browPitch: 0.15, browTilt: 0.12 });
       stdMouth(K, { pitch: -0.55, w: 0.13, blush: 'always' });
       const ginger = mixHex(PAL.tile.mid, PAL.wood.mid, 0.45);
       for (const s of [1, -1]) lock(K, s * 0.24, -0.42, [0.34, 0.12, 0.15], ginger, { lift: 0.07, rot: [0, 0, s * -0.3], outline: OUTLINE.char });

@@ -1,0 +1,45 @@
+{
+ "name": "P07 #1 — ADULT SHOTS: one look at each grown character in the P07 demo, so the doll problem is looked at and not argued about.",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 800},
+  {"waitFor": "__DQ.state().scene !== 'boot'", "timeout": 30000},
+  {"wait": 1500},
+
+  {"note": "S1. the whole cast, on one grid, lit and posed. This is the frame the gap is really about."},
+  {"eval": "__DQ.cast && __DQ.cast()"},
+  {"wait": 2500},
+  {"shot": "01-the-whole-cast"},
+
+  {"note": "S2. Barty alone, close, walking — the smallest adult and the clearest doll"},
+  {"eval": "__DQ.show('barty')"},
+  {"wait": 1200},
+  {"eval": "__DQ.play('walk')"},
+  {"wait": 1400},
+  {"shot": "02-barty-walk"},
+
+  {"note": "S3. the same framing on Halvard, who is the one the canon calls a man"},
+  {"eval": "__DQ.show('halvard')"},
+  {"wait": 1200},
+  {"eval": "__DQ.play('walk')"},
+  {"wait": 1400},
+  {"shot": "03-halvard-walk"},
+
+  {"note": "S4. the boy, the same way — the proportion every adult is measured against"},
+  {"eval": "__DQ.show('hero', 6)"},
+  {"wait": 1200},
+  {"eval": "__DQ.play('walk')"},
+  {"wait": 1400},
+  {"shot": "04-boy-walk"},
+
+  {"note": "S5. farmer and innkeeper — the two villager bodies most in shot in a town"},
+  {"eval": "__DQ.show('villager', 30)"},
+  {"wait": 1200},
+  {"shot": "05-villager"},
+  {"eval": "__DQ.cast()"},
+  {"wait": 2000},
+  {"shot": "06-cast-again"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

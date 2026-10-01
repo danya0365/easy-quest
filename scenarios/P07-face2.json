@@ -1,0 +1,36 @@
+{
+ "name": "P07 #1 — FACE (2): level camera, one grown face at a time.",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"waitFor": "__DQ.listScenes().includes('stage')", "timeout": 30000},
+  {"wait": 1400},
+
+  {"note": "F0. Keep the camera LEVEL. placeCamera puts it dist*sin(9deg) ABOVE the target and looks down a fixed 9deg, so raising cameraAim lifts the camera with the target and only steepens the view onto the hat. Aiming LOW (0.52 = the demo default) puts it at eye height, where a wide brim is seen edge-on and the face is clear."},
+  {"eval": "__DQ.cameraAim(0.52)"},
+  {"eval": "__DQ.cameraZoom(0.5)"},
+  {"wait": 1400},
+
+  {"note": "F1. The farmer. His 0.35 u brim is 1.7x his 0.208 head radius, so he needs the level camera more than anyone: at aim 0.82 the camera sits 0.47 above his eye and looks down onto the brim."},
+  {"eval": "__DQ.show('farmer')"},
+  {"wait": 1800},
+  {"shot": "01-farmer-face"},
+
+  {"note": "F2. The baker — the first villager face off the shared kit (was 'arc' eyes, no sclera)."},
+  {"eval": "__DQ.show('baker')"},
+  {"wait": 1800},
+  {"shot": "02-baker-face"},
+
+  {"note": "F3. Barty, the gap's clearest doll: was 39.9% head share on a 1.23 u body, now 34.8% on 1.35 u."},
+  {"eval": "__DQ.show('barty')"},
+  {"wait": 1800},
+  {"shot": "03-barty-face"},
+
+  {"note": "F4. Halvard, the reference for what 'already right' looks like on this kit."},
+  {"eval": "__DQ.show('halvard')"},
+  {"wait": 1800},
+  {"shot": "04-halvard-face"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

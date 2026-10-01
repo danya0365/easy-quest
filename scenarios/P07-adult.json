@@ -1,0 +1,24 @@
+{
+ "name": "P07 #1 — ADULT: measure the adults against the boy. Head share of height, the height ratio, and the face kit each one actually wears.",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+  {"waitFor": "__DQ.state().scene==='field' && __DQ.state().map && __DQ.state().map.id", "timeout": 45000},
+  {"wait": 1500},
+
+  {"note": "A1. Every buildable look, with the two numbers the gap is about: height, and HEAD SHARE = 2r / height. Toriyama's grown men are about 1/7 to 1/8; a child is about 1/4 to 1/5. A scaled-up child doll shows up here as an adult head share near the boy's."},
+  {"eval": "(async()=>{const Chars=(await import('/src/art/chars.js')).Chars;const out=[];for(const c of Chars.catalog()){const ch=Chars.build(c.id,{age:c.age,variant:c.variant});const m=ch.metrics;out.push({id:c.id,age:c.age,variant:c.variant,label:c.label,height:+m.height.toFixed(3),r:+m.r.toFixed(3),headShare:+(2*m.r/m.height*100).toFixed(1),shX:+m.shX.toFixed(3),leg:+m.leg.toFixed(2),torso:+m.torso.toFixed(2),arm:+m.arm.toFixed(2),tris:ch.drawCalls||null});ch.dispose&&ch.dispose();}return out;})()"},
+
+  {"note": "A2. the boy's numbers as the reference every adult is read against"},
+  {"eval": "(async()=>{const Chars=(await import('/src/art/chars.js')).Chars;const boy=Chars.build('hero',{age:6});const m=boy.metrics;return{height:+m.height.toFixed(3),r:+m.r.toFixed(3),headShare:+(2*m.r/m.height*100).toFixed(1)};})()"},
+
+  {"note": "A3. THE VERDICT TABLE. A child is CANON-legal anywhere his head share is 20% or more. An adult whose head share is over 18% is a doll, not a man, whatever his height says."},
+  {"eval": "(async()=>{const Chars=(await import('/src/art/chars.js')).Chars;const rows=[];for(const c of Chars.catalog()){const ch=Chars.build(c.id,{age:c.age,variant:c.variant});const m=ch.metrics;const hs=2*m.r/m.height*100;const boyish=Chars.catalog().some(()=>true);rows.push({who:(c.id+(c.variant?'/'+c.variant:''))+(c.age!==null&&c.age!==undefined?'@'+c.age:''),height:+m.height.toFixed(2),headSharePct:+hs.toFixed(1),verdict:hs<18?'TOO BIG A HEAD (doll)':hs>21?'child':'adult'});ch.dispose&&ch.dispose();}const boy=rows.find(r=>r.who==='hero@6');return{rows,timesTaller:null,boy};})()"},
+
+  {"note": "A4. how much taller than the boy each adult stands, and how many HEADS tall that is — a real adult is 7-8 heads, a doll is 4-5"},
+  {"eval": "(async()=>{const Chars=(await import('/src/art/chars.js')).Chars;const boy=Chars.build('hero',{age:6});const bm=boy.metrics;const boyHeads=bm.height/(2*bm.r);const rows=[];for(const c of Chars.catalog()){if(c.id==='hero'&&c.age===6)continue;const ch=Chars.build(c.id,{age:c.age,variant:c.variant});const m=ch.metrics;rows.push({who:(c.id+(c.variant?'/'+c.variant:''))+(c.age?'@'+c.age:''),heightRatio:+(m.height/bm.height).toFixed(2),headsTall:+(m.height/(2*m.r)).toFixed(1)});ch.dispose&&ch.dispose();}return{boyHeads:+boyHeads.toFixed(1),rows};})()"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

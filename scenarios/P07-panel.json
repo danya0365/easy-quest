@@ -1,0 +1,42 @@
+{
+ "name": "P07 — the on-screen panel: click real buttons, prove the demo is playable by hand.",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 500},
+  {"waitFor": "__DQ.listScenes().includes('stage')", "timeout": 30000},
+  {"wait": 1600},
+
+  {"note": "P0. The panel builds itself off the live cast[] on the first update, and every entry is a real <button>."},
+  {"assert": "document.querySelectorAll('#panel .entry').length > 20", "msg": "panel has its buttons"},
+  {"assert": "document.querySelectorAll('#panel button.entry').length === document.querySelectorAll('#panel .entry').length", "msg": "every entry is a real button, not a div"},
+  {"eval": "(() => { const b = [...document.querySelectorAll('#panel button.entry')].map(e => e.textContent); return { count: b.length, roster: b.filter(t => !['idle','walk','run','turn','talk','nod','surprised','celebrate','attack','cast','hurt','sit','sleep','kneel','grieve','wave','surprised','happy','sad','angry','love','question','sweat','sleepy','music','◂ low','high ▸','– out','in +','⟲','⟳'].includes(t)) }; })()"},
+  {"shot": "01-panel-open"},
+
+  {"note": "P1. Click Barty's button. Same code path a person uses — a click event on the button, not __DQ.show()."},
+  {"eval": "(() => { const b = [...document.querySelectorAll('#panel button.entry')].find(e => e.textContent === 'Barty'); if (!b) return { ok: false, why: 'no Barty button' }; b.click(); return { ok: true, clicked: b.textContent }; })()"},
+  {"wait": 1700},
+  {"assert": "__DQ.state().chars.mode === 'focus' && __DQ.state().chars.focus.label === 'Barty'", "msg": "the click changed the mode"},
+  {"eval": "(() => { const s = document.querySelector('#panel button.entry.sel'); return { selected: s && s.textContent, title: document.getElementById('t-name').textContent }; })()"},
+  {"shot": "02-clicked-barty"},
+
+  {"note": "P2. A clip button and a camera knob, the same way."},
+  {"eval": "(() => { const b = [...document.querySelectorAll('#panel button.entry')].find(e => e.textContent === 'wave'); b.click(); return true; })()"},
+  {"eval": "(() => { const b = [...document.querySelectorAll('#panel button.entry')].find(e => e.textContent === 'in +'); b.click(); b.click(); return __DQ.cameraZoom(); })()"},
+  {"wait": 1500},
+  {"shot": "03-clicked-clip-and-zoom"},
+
+  {"note": "P3. Hide the panel for a clean frame, then bring it back."},
+  {"eval": "(() => { const b = [...document.querySelectorAll('#panel button.entry')].find(e => e.textContent === 'Hide panel'); b.click(); return { hidden: document.getElementById('panel').hidden, label: b.textContent }; })()"},
+  {"wait": 900},
+  {"shot": "04-panel-hidden"},
+  {"eval": "(() => { const b = [...document.querySelectorAll('#panel button.entry')].find(e => e.textContent === 'Show panel'); b.click(); return { hidden: document.getElementById('panel').hidden }; })()"},
+  {"wait": 700},
+
+  {"note": "P4. The farmer, the widest brim on the roster — the frame that decided the level camera."},
+  {"eval": "(() => { const b = [...document.querySelectorAll('#panel button.entry')].find(e => e.textContent === 'Farmer'); b.click(); return document.getElementById('t-name').textContent; })()"},
+  {"wait": 1700},
+  {"shot": "05-clicked-farmer"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

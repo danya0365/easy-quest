@@ -14,6 +14,20 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--pal-sky-page)}
 #title p{margin:3px 0 0;font-size:13px;color:var(--pal-ui-text-dim);font-weight:600;line-height:1.35}
 #clip{right:18px;top:16px;padding:8px 16px;font-size:15px;font-weight:800}
 #clip span{color:var(--pal-ui-cursor)}
+/* the critic panel: every Debug control below, as a button. The demo was console-only, which is no way to judge a face. */
+#panel{left:18px;top:104px;width:212px;max-height:calc(100vh - 126px);overflow-y:auto;overscroll-behavior:contain;
+  padding:8px 8px 10px;pointer-events:auto;font-size:14px;font-weight:700}
+#panel h2{margin:9px 2px 3px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--pal-ui-gold);
+  border-bottom:1px solid var(--p07-inner);padding-bottom:2px}
+#panel h2:first-child{margin-top:1px}
+.entry{position:relative;display:block;width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit;
+  padding:3px 7px 3px 22px;border-radius:6px;cursor:pointer;line-height:1.25}
+.entry::before{content:"\25B6";position:absolute;left:5px;top:4px;font-size:11px;opacity:0;transform:translateX(-4px);transition:.08s}
+.entry:hover{background:#ffffff1c}
+.entry.sel{color:var(--pal-ui-gold)}
+.entry.sel::before{opacity:1;transform:none;animation:nudge .6s steps(2) infinite}
+@keyframes nudge{50%{transform:translateX(3px)}}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1px 2px}
 [hidden]{display:none!important}
 </style>
 </head><body>
@@ -21,6 +35,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--pal-sky-page)}
 <div id="ui-root">
   <div id="title" class="dqwin"><h1 id="t-name">The cast of <b>Puddlewick</b></h1><p id="t-look">Everyone out on the green on a sunny morning.</p></div>
   <div id="clip" class="dqwin">▶ <span id="t-clip">idle</span></div>
+  <div id="panel" class="dqwin"></div>
 </div>
 <script type="importmap">
 { "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
@@ -66,7 +81,10 @@ function heightAt(x, z) {
 }
 let scene, camera, rig, sky, kit, blobs, stool;
 const cast = [];
-const S = { mode: 'cast', focus: -1, pair: null, pairGap: 0.95, aim: 0.52, orbit: 0, zoom: 1, speed: 0, treadmill: false, theta: 0, life: true, lifeT: 1.5, camYaw: 0, camT: new THREE.Vector3(), camInit: false, lastPlay: 'idle', buildMs: 0 };
+const S = { mode: 'cast', focus: -1, pair: null, pairGap: 0.95, aim: 0.52, orbit: 0, zoom: 1, speed: 0, treadmill: false, theta: 0, life: true, lifeT: 1.5, camYaw: 0, camT: new THREE.Vector3(), camInit: false, lastPlay: 'idle', buildMs: 0, panelled: false };
+/** the on-screen panel, unless the shot wants it gone: ?panel=0 hides it, and `ui(false)` hides it with the rest */
+const panelWanted = !/[?&]panel=0/.test(location.search);
+let panelOn = panelWanted;
 
 function build() {
   const t0 = performance.now();
@@ -168,6 +186,7 @@ function show(id, arg) {
   e.ch.root.position.set(STAGE.x, heightAt(STAGE.x, STAGE.z), STAGE.z);
   e.ch.setFacing(0, true);
   label();
+  mark();
   return { ok: true, label: e.ch.label, height: +e.ch.height.toFixed(3) };
 }
 function showCast() {
@@ -176,6 +195,7 @@ function showCast() {
   S.mode = 'cast'; S.focus = -1; S.speed = 0; S.camInit = false; S.lastPlay = 'idle';
   for (const e of cast) resetToSlot(e);
   label();
+  mark();
   return cast.map(e => e.ch.label);
 }
 /** Father and son out walking together round the green: Halvard on the outside, Bram trotting at his elbow. */
@@ -189,6 +209,7 @@ function showPair(speed = 1.6, mode = 'side') {
   for (const i of S.pair) { const e = cast[i]; e.ch.setMove(0); e.ch.play('idle', { fade: 0.05 }); }
   placePair(0, true);
   label();
+  mark();
   return { ok: true, speed: S.speed, mode: S.pairMode };
 }
 function placePair(dt, instant) {
@@ -257,6 +278,8 @@ function update(dt) {
   kit.update(t, dt, camera);
   const clip = f ? f.ch.clip : 'cast';
   const el = document.getElementById('t-clip'); if (el.textContent !== clip) el.textContent = clip;
+  if (panelWanted && !S.panelled) { S.panelled = true; buildPanel(); p_bind(); mark(); }
+  const pn = document.getElementById('panel'); if (pn) pn.hidden = !panelOn;
 }
 
 function placeCamera(dt) {
@@ -305,6 +328,7 @@ Scenes.register('stage', {
 
 App.start({ version: '0.1.0-p07-demo' });
 Scenes.push('stage');
+p_bind();
 
 // ── critic controls ──────────────────────────────────────────────────────────────────────────────────────────
 Debug.implement('cameraOrbit', (deg) => { if (deg === undefined) return S.orbit; S.orbit = +deg || 0; return S.orbit; });
@@ -394,6 +418,8 @@ Debug.expose('emote', (name) => { const targets = S.mode === 'cast' ? cast : [fo
 Debug.expose('life', (on = true) => { S.life = !!on; return S.life; });
 Debug.expose('list', () => ({ cast: cast.map(e => ({ key: e.key, id: e.d.id, age: e.d.age ?? null, variant: e.d.variant ?? null, label: e.ch.label })), clips: Chars.CLIPS, emotes: Chars.EMOTES, ids: Chars.list(), variants: Chars.variants('villager') }));
 Debug.expose('ui', (on = true) => { for (const id of ['title', 'clip']) document.getElementById(id).hidden = !on; return on; });
+/** hide/show the panel itself, for a clean frame: __DQ.panel(false) */
+Debug.expose('panel', (on = true) => { panelOn = !!on; const el = document.getElementById('panel'); if (el) el.hidden = !panelOn; return panelOn; });
 Debug.expose('charStats', () => Chars.stats());
 /** Build every look fresh, run each clip for a moment, dispose: proves the contract end to end. */
 Debug.expose('buildTest', () => {
@@ -419,4 +445,78 @@ Debug.provide('chars', () => {
     drawCallsPerChar: cast.map(e => e.ch.drawCalls), buildMs: S.buildMs,
   };
 });
+
+// ── the on-screen panel ─────────────────────────────────────────────────────────────────────────────────────
+// Every Debug control above, as a button, so a face can be judged by eye and not through a console. The cast
+// roster is read off the live cast[] rather than written out, so it cannot fall behind the build.
+function buildPanel() {
+  const p = document.getElementById('panel');
+  if (!p) return;
+  const head = (t) => p.insertAdjacentHTML('beforeend', `<h2>${t}</h2>`);
+  const btn = (act, text, attrs = '') => p.insertAdjacentHTML('beforeend', `<button class="entry" data-act="${act}" ${attrs}>${text}</button>`);
+  p.innerHTML = '';
+  head('Who');
+  btn('cast', '★ The whole cast', 'style="color:var(--pal-ui-gold)"');
+  head('Family');
+  cast.filter((e) => e.d.id !== 'villager').forEach((e) => btn('show', e.ch.label, `data-id="${e.key}"`));
+  head('Puddlewick');
+  cast.filter((e) => e.d.id === 'villager').forEach((e) => btn('show', e.ch.label, `data-id="${e.key}"`));
+  head('Pose');
+  p.insertAdjacentHTML('beforeend', '<div class="grid2"></div>');
+  const grid = p.querySelector('.grid2:last-of-type');
+  for (const c of Chars.CLIPS) grid.insertAdjacentHTML('beforeend', `<button class="entry" data-act="play" data-c="${c}">${c}</button>`);
+  head('Emote');
+  p.insertAdjacentHTML('beforeend', '<div class="grid2"></div>');
+  const g2 = p.querySelector('.grid2:last-of-type');
+  for (const c of Chars.EMOTES) g2.insertAdjacentHTML('beforeend', `<button class="entry" data-act="emote" data-c="${c}">${c}</button>`);
+  head('Camera');
+  p.insertAdjacentHTML('beforeend', '<div class="grid2"></div>');
+  const g3 = p.querySelector('.grid2:last-of-type');
+  const knob = (act, data, text) => g3.insertAdjacentHTML('beforeend', `<button class="entry" data-act="${act}" data-n="${data}">${text}</button>`);
+  knob('aim', -0.12, '◂ low'); knob('aim', 0.12, 'high ▸');
+  knob('zoom', '-0.15', '– out'); knob('zoom', 0.15, 'in +');
+  knob('orbit', -30, '⟲'); knob('orbit', 30, '⟳');
+  head('Together');
+  btn('pair', 'Halvard & Bram');
+  btn('pair', '…in a line', 'data-mode="line"');
+  head('Frame');
+  btn('shot', 'Life off', 'data-tog="life"');
+  btn('shot', 'UI off', 'data-tog="ui"');
+  btn('panel', 'Hide panel', 'data-tog2="panel"');
+  btn('shot', 'Turn 180°', 'data-act2="turn"');
+}
+function p_bind() {
+  const p = document.getElementById('panel');
+  if (!p || p.bound) return;
+  p.bound = true;
+  p.addEventListener('click', (ev) => {
+    const el = ev.target.closest('.entry');
+    if (!el) return;
+    const D = window.__DQ;
+    const act = el.dataset.act;
+    if (act === 'cast') { D.cast(); }
+    else if (act === 'show') { D.show(el.dataset.id); }
+    else if (act === 'play') { D.play(el.dataset.c); }
+    else if (act === 'emote') { D.emote(el.dataset.c); }
+    else if (act === 'aim') { D.cameraAim(+D.cameraAim() + +el.dataset.n); }
+    else if (act === 'zoom') { D.cameraZoom(+D.cameraZoom() + +el.dataset.n); }
+    else if (act === 'orbit') { D.cameraOrbit(+D.cameraOrbit() + +el.dataset.n); }
+    else if (act === 'pair') { D.pair(1.6, el.dataset.mode || 'side'); }
+    else if (act === 'panel') { el.textContent = D.panel(!panelOn) ? 'Hide panel' : 'Show panel'; }
+    else if (act === 'shot') {
+      if (el.dataset.tog === 'life') { el.textContent = D.life(!S.life) ? 'Life off' : 'Life on'; }
+      else if (el.dataset.tog === 'ui') { el.textContent = D.ui(!(document.getElementById('title').hidden)) ? 'UI off' : 'UI on'; }
+      else if (el.dataset.act2 === 'turn') { D.turn(180); }
+    }
+    mark();
+  });
+  p.addEventListener('contextmenu', (ev) => { ev.preventDefault(); const el = ev.target.closest('.entry'); if (el && el.dataset.act === 'aim') window.__DQ.cameraAim(+window.__DQ.cameraAim() - +el.dataset.n * 2); });
+}
+/** mark the button that matches the current mode, so the panel says where you are */
+function mark() {
+  const p = document.getElementById('panel');
+  if (!p) return;
+  const key = S.mode === 'focus' ? cast[S.focus] && cast[S.focus].key : null;
+  for (const el of p.querySelectorAll('.entry')) el.classList.toggle('sel', el.dataset.id === key || (el.dataset.act === 'cast' && key === null));
+}
 </script></body></html>
