@@ -1,0 +1,24 @@
+{
+ "name": "P25F — watch ONE leg of a scripted walk, waypoint by waypoint",
+ "steps": [
+  {"note": "RUN IT WITH:  node tools/shoot.mjs --keep-title --url http://localhost:8123/index.html --out /tmp/p25f --script scenarios/P25F-leg.json --timeout 180000\n\nThe route is provably clean now — every leg a straight line, `worstLeg: 1` — yet the walk still ends 1.31 from the mark and still burns 10 seconds grinding. So the route is not what is being walked. This follows a single leg at a time: it records where he is, where the current waypoint is, whether he is moving, and whether the waypoint is one his body fits on. What the log shows, and where it is failing, is the thing worth reading."},
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"waitFor": "__DQ.state().input.blocked.length === 0", "timeout": 25000},
+  {"eval": "(()=>{__DQ.title('game');return 'go';})()"},
+  {"waitFor": "__DQ.state().map", "timeout": 90000},
+  {"wait": 3000},
+  {"eval": "(()=>{__DQ.storyAuto(false);__DQ.teleport('hollybank',-3.96,-2.12);const r=__DQ.route('at:the chest at the foot of your bed');window.__r=r;__DQ.storyPlay([{op:'move',actor:'hero',to:'at:the chest at the foot of your bed',speed:9}]);return JSON.stringify({mark:r.mark,end:r.end,wp:r.waypoints});})()"},
+  {"eval": "(()=>{window.__t=[];window.__ti=setInterval(()=>{const p=__DQ.state().player;if(!p)return;const t=performance.now();const P=window.__t[window.__t.length-1];const v=P?Math.hypot(p.x-P[0],p.z-P[1])/Math.max(0.001,(t-P[2])/1000):0;window.__t.push([+p.x.toFixed(2),+p.z.toFixed(2),t,+v.toFixed(2),p.blocked?1:0]);if(window.__t.length>900)clearInterval(window.__ti);},50);return 'recording';})()"},
+  {"waitFor": "!__DQ.storyState().playing", "timeout": 90000},
+  {"eval": "(()=>{clearInterval(window.__ti);return 'done';})()"},
+  {"note": "1. every 8th sample with its speed — a leg he cannot walk shows as a long run of speed 0.00 and blocked 1"},
+  {"eval": "(()=>JSON.stringify((window.__t||[]).filter((r,i)=>i%8===0).map(r=>[r[0],r[1],r[3],r[4]])))()"},
+  {"note": "2. where it ENDS, against the waypoints the route gave — the tail is where the trouble is"},
+  {"eval": "(()=>JSON.stringify((window.__t||[]).slice(-40).map(r=>[r[0],r[1],r[3],r[4]])))()"},
+  {"note": "3. the samples where he is NOT moving for more than 0.4s, as a run — grinding, in one line"},
+  {"eval": "(()=>{const t=window.__t||[];const runs=[];let s=null;for(const r of t){if(r[3]<0.15){if(!s)s=[r[0],r[1],r[2],0];s[3]=(r[2]-s[2])/1000;s[1]=r[1];}else{if(s&&s[3]>0.4)runs.push([+s[0].toFixed(2),+s[1].toFixed(2),+s[3].toFixed(2)]);s=null;}}if(s&&s[3]>0.4)runs.push([+s[0].toFixed(2),+s[1].toFixed(2),+s[3].toFixed(2)]);return JSON.stringify(runs);})()"},
+  {"note": "4. and the ground under those runs — what is he actually against?"},
+  {"eval": "(()=>{const t=window.__t||[];const out=[];const seen=new Set();for(const r of t){if(r[3]<0.15){const k=r[0]+','+r[1];if(seen.has(k))continue;seen.add(k);const p=__DQ.probe(r[0],r[1],0.35);out.push([r[0],r[1],p.clear?'clear':'BLOCKED',(p.hits||[]).map(h=>h.tag).join('+')]);if(out.length>14)break;}}return JSON.stringify(out);})()"},
+  {"shot": "01-end"}
+ ]
+}

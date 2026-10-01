@@ -1,0 +1,63 @@
+{
+ "name": "P25A — a wipe in the opening, and what it does to the story",
+ "steps": [
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"wait": 600},
+  {"eval": "(()=>{const s=__DQ.state().scene;if(s==='title'&&__DQ.title){__DQ.title('game');return 'go';}return 'ok';})()"},
+  {"note": "no waitFor on 'field': B1 starts the instant the game boots, so the top of the stack is already 'dialogue' a frame later. Waiting for 'field' waits for a state the opening never rests in."},
+  {"wait": 1200},
+  {"eval": "(()=>{window.__tap=setInterval(()=>{try{if(!__DQ.storyState().playing)return;}catch(e){return;}__DQ.press('confirm');},140);return 'tapping';})()"},
+
+  {"note": "0. the boot map, the party you ACTUALLY get, and where the ribbon says to go"},
+  {"eval": "(()=>({map:__DQ.state().map.id,party:__DQ.party().party.map(p=>p.id),next:__DQ.beat().next.id}))()"},
+
+  {"note": "1. let B1 finish, so the flags it sets are real"},
+  {"waitFor": "!__DQ.storyState().playing", "timeout": 240000},
+  {"eval": "(()=>{clearInterval(window.__tap);return 'b1 done';})()"},
+  {"wait": 2000},
+  {"eval": "(()=>({awake:__DQ.flag('ch1.awake'),gold:__DQ.gold(),next:__DQ.beat().next.id,stack:__DQ.state().sceneStack}))()"},
+
+  {"note": "2. one wipe, the way the encounter system does it. Watch what map it puts you on."},
+  {"eval": "(()=>{const c=__DQ.church();return {church:c};})()"},
+  {"wait": 5000},
+  {"eval": "(()=>{const p=__DQ.state().player;const r=__DQ.probe(p.x,p.z);return {map:__DQ.state().map.id,at:[+p.x.toFixed(2),+p.z.toFixed(2)],ground:p.ground,clear:r.clear,solid:r.solidCell,stack:__DQ.state().sceneStack,errors:__DQ.errors.slice(-5)};})()"},
+
+  {"note": "3. dismiss the priest, then look again"},
+  {"eval": "(()=>{for(let i=0;i<10;i++){try{__DQ.press('confirm');}catch(e){}}return __DQ.state().sceneStack;})()"},
+  {"wait": 2000},
+  {"eval": "(()=>({stack:__DQ.state().sceneStack,map:__DQ.state().map.id,playing:__DQ.storyState().playing,next:__DQ.beat().next.id,errors:__DQ.errors.slice(-5)}))()"},
+
+  {"note": "4. wake, then walk. The boy must get off the spot on his own feet."},
+  {"eval": "(()=>{const a=__DQ.state().player;__DQ.walkTo(a.x,a.z+7);return {from:[+a.x.toFixed(2),+a.z.toFixed(2)]};})()"},
+  {"wait": 4000},
+  {"eval": "(()=>{const b=__DQ.state().player;return {now:[+b.x.toFixed(2),+b.z.toFixed(2)],ground:b.ground};})()"},
+  {"shot": "01-walked-off-the-church"},
+
+  {"note": "5. back into the cottage: B1 must NOT play a second time"},
+  {"eval": "(()=>{__DQ.teleport('hollybank',3,3);return 'in';})()"},
+  {"wait": 6000},
+  {"eval": "(()=>({stack:__DQ.state().sceneStack,map:__DQ.state().map.id,playing:__DQ.storyState().playing,awake:__DQ.flag('ch1.awake'),gold:__DQ.gold(),history:__DQ.storyState().history.map(h=>h.id),errors:__DQ.errors.slice(-5)}))()"},
+  {"shot": "02-inside-hollybank-after-a-wipe"},
+
+  {"note": "6. B2 at the lane-out. Gold must move ONCE, and Papa must join."},
+  {"eval": "(()=>{__DQ.teleport('puddlewick',14.8,23.4);return 'at the lane-out';})()"},
+  {"wait": 3000},
+  {"eval": "(()=>({playing:__DQ.storyState().playing,gold:__DQ.gold(),left_home:__DQ.flag('ch1.left_home')}))()"},
+  {"eval": "(()=>{window.__tap=setInterval(()=>{try{if(!__DQ.storyState().playing)return;}catch(e){return;}__DQ.press('confirm');},140);return 'tapping';})()"},
+  {"waitFor": "!__DQ.storyState().playing", "timeout": 240000},
+  {"eval": "(()=>{clearInterval(window.__tap);return 'b2 done';})()"},
+  {"wait": 2500},
+  {"eval": "(()=>({left_home:__DQ.flag('ch1.left_home'),gold:__DQ.gold(),party:__DQ.party().party.map(p=>p.id),next:__DQ.beat().next.id,history:__DQ.storyState().history.map(h=>h.id),errors:__DQ.errors.slice(-5)}))()"},
+  {"shot": "03-after-b2"},
+
+  {"note": "7. B2 AGAIN, with the beat genuinely done. Is it idempotent?"},
+  {"eval": "(()=>{__DQ.teleport('puddlewick',2,-18);return 'away';})()"},
+  {"wait": 3000},
+  {"eval": "(()=>{__DQ.teleport('puddlewick',14.8,23.4);return 'back';})()"},
+  {"wait": 7000},
+  {"eval": "(()=>({replayed:!!__DQ.storyState().playing,gold:__DQ.gold(),party:__DQ.party().party.map(p=>p.id),history:__DQ.storyState().history.map(h=>h.id),errors:__DQ.errors.slice(-5)}))()"},
+  {"shot": "04-after-b2-twice"},
+
+  {"assert": "__DQ.state().errors === 0", "msg": "no runtime errors"}
+ ]
+}

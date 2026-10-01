@@ -123,6 +123,10 @@ export function install(ctx = {}) {
   const oops = (where, e) => { try { reportError ? reportError(where, e) : console.warn(where, e); } catch (_) {} };
 
   installCss();
+  // The build id is fetched, so it can land after this file has been installed. Subscribe once, here, rather than
+  // in setPlayHud() — the panel may be off at that moment, and a stamp that only appears when you already had the
+  // panel open is a stamp that is wrong the first time you look for it.
+  if (Bus && Bus.on) { try { Bus.on('build.id', () => { try { paintBuild(); } catch (_) {} }); } catch (_) {} }
 
   const S = {
     card: null, cardT: 0, cardName: null, seen: new Map(),
@@ -210,8 +214,13 @@ export function install(ctx = {}) {
 
   function playReportText() {
     const s = playSnap();
+    const b = ctx.build || {};
     const lines = [
       '=== DQV play report ===',
+      // The build id is line 2 on purpose. When a report comes back describing a bug, the first question is
+      // whether it was even the same code — and a report that cannot answer that cannot be acted on without a
+      // round trip. `node tools/buildid.mjs` must print the same 8 chars, or the file is stale, not the bug.
+      `build: ${b.label || '?'} (v${ctx.version || '0'}, ${b.source || '?'}, ${b.files || 0} files)`,
       `map: ${s.mapId || '?'} (${s.mapName || '?'}) · ${s.kind || '?'}`,
       `pos: x=${s.x} z=${s.z} facing=${s.facing}°`,
       `exits (${s.exitCount}):`,
@@ -260,6 +269,7 @@ export function install(ctx = {}) {
     el.innerHTML = [
       '<div class="dq-playhud-head">',
       '<span>PLAY DEBUG · F8</span>',
+      '<span class="dq-playhud-build" data-build="?"></span>',
       '<button type="button" class="dq-playhud-btn" data-act="copy">Copy report</button>',
       '<button type="button" class="dq-playhud-btn" data-act="off">Off</button>',
       '</div>',
@@ -275,12 +285,26 @@ export function install(ctx = {}) {
     root.appendChild(el);
     S.playEl = el;
     S.playBody = el.querySelector('.dq-playhud-body');
+    S.playBuild = el.querySelector('.dq-playhud-build');
     return el;
+  }
+
+  // The build id goes in the panel's own header, not in the report body: it is a property of the RUN, not of where
+  // the boy happens to be standing, so it stays put and stays readable while everything under it scrolls past. It
+  // arrives over fetch (main.js BUILD) and can land after the panel was first painted, so repaint on 'build.id' too.
+  function paintBuild() {
+    if (!S.playBuild) return;
+    try {
+      const b = ctx.build || {};
+      S.playBuild.textContent = 'build ' + (b.label || '?') + ' · v' + (ctx.version || '0');
+      S.playBuild.dataset.build = b.label || '?';
+    } catch (_) {}
   }
 
   function paintPlay() {
     if (!S.playOn) return;
     ensurePlayEl();
+    paintBuild();
     if (!S.playBody) return;
     const s = playSnap();
     const exitLines = s.exits.length
@@ -824,6 +848,12 @@ const CSS = `
   padding:6px 8px; background:rgba(0,0,0,.28); letter-spacing:.04em; font-size:11px;
 }
 .dq-playhud-head > span{flex:1; min-width:8em; color:#ffe08a}
+/* the build stamp sits between the title and the buttons, and takes exactly the width of its hex — flex:1 would let
+   it shove the buttons off the panel, which is the one thing this panel must never do */
+.dq-playhud-head > .dq-playhud-build{
+  flex:0 0 auto; min-width:0; color:#8fe3c0; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing:.06em; user-select:text; white-space:nowrap;
+}
 .dq-playhud-btn{
   pointer-events:auto; cursor:pointer; border:0; border-radius:4px;
   padding:3px 8px; font:inherit; font-size:11px; color:#102038;

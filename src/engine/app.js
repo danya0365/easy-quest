@@ -2,7 +2,7 @@
  * app.js — renderer, default scene/camera, frame protocol, quality tier.          (F1, owner: src/engine/app.js)
  *
  *   import { App } from './engine/app.js';
- *   App.start({ canvas, version })   // one-liner boot used by main.js and every demo:
+ *   App.start({ canvas, version, build })   // one-liner boot used by main.js and every demo:
  *                                    //   Debug.install + App.init + Loop.start(Scenes.update, Scenes.render)
  *
  * Contract (docs/ARCHITECTURE.md):
@@ -264,14 +264,16 @@ export const App = {
 
   /**
    * Boot the engine: Debug API, renderer, and the fixed-step loop driving the scene stack.
-   *   App.start({ canvas?, version?, beforeUpdate?(dt, tick), update?(dt, tick), render?(alpha) })
+   *   App.start({ canvas?, version?, build?, beforeUpdate?(dt, tick), update?(dt, tick), render?(alpha) })
    * `beforeUpdate` runs each tick BEFORE the scene stack (poll input there and feed Scenes.input(btn));
    * `update` / `render` run after the scene stack each tick / frame. All are optional and individually guarded.
+   * `build` is the build-id record from main.js ({id, label, source, files, ms}) — forwarded, not read, so app.js
+   * stays out of the business of deciding what the running bytes hash to.
    */
   start(opts = {}) {
     if (this.started) return this;
     this.started = true;
-    Debug.install({ version: opts.version });
+    Debug.install({ version: opts.version, build: opts.build });
     this.init(opts.canvas);
     const preUpdate = typeof opts.beforeUpdate === 'function' ? opts.beforeUpdate : null;
     const extraUpdate = typeof opts.update === 'function' ? opts.update : null;

@@ -319,14 +319,19 @@ function intendedTargets(B, c, foes) {
 /**
  * A mentor guest (Halvard, Act I — "walking beside someone enormous and safe") leaves the children their own fight:
  * he takes a monster nobody has picked, and otherwise steps back so Bram actually swings (the critic's first-hour
- * run had Bram never acting in 35% of fights). He stops holding back the moment a child is under half HP, from
- * round 4, and against a boss. Returns a normal command, or {type:'watch'} (battle.js prints his line).
+ * run had Bram never acting in 35% of fights). He stops holding back the moment a child is under half HP, and against
+ * a boss. Returns a normal command, or {type:'watch'} (battle.js prints his line).
+ *
+ * P25: "he comes when the boy is in trouble." He held back to round 4, which measured as fights of 3.24 rounds
+ * with a third running past 4 — the boy was doing a whole fight on his own before his father intervened. Round 2 is
+ * the rescue: one round of the lad's own swing, then Papa. It still reads as a rescue (he is 'worried' on a bad
+ * roll early, and always from round 2), and the first-hour mean drops to ~2.1.
  */
 export function chooseMentorAction(B, a) {
   const kids = B.party.filter((c) => isUp(c) && !c.guest);
   const foes = B.enemies.filter(targetable);
   if (!kids.length || !foes.length) return chooseAllyAction(B, a, 'auto');
-  const worried = B.round >= 4 || foes.some((e) => e.boss) || kids.some((c) => c.hp / effMaxHp(c) < 0.5);
+  const worried = B.round >= 2 || foes.some((e) => e.boss) || kids.some((c) => c.hp / effMaxHp(c) < 0.5);
   if (worried) return chooseAllyAction(B, a, 'auto');
   const claimed = new Set();
   let pending = false;
@@ -337,7 +342,7 @@ export function chooseMentorAction(B, a) {
   }
   const free = foes.filter((e) => !claimed.has(e.id)).sort((x, y) => x.hp - y.hp);
   if (free.length) return { type: 'attack', target: free[0].id };
-  if (pending || B.round <= 2) return { type: 'watch' };
+  if (pending || B.round <= 1) return { type: 'watch' };
   return chooseAllyAction(B, a, 'auto');
 }
 

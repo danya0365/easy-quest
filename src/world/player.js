@@ -31,6 +31,7 @@ import { Debug, reportError } from '../engine/debug.js';
 import { Input } from '../engine/input.js';
 import { Sfx } from '../audio/sfx.js';
 import { PLAYER_RADIUS } from './map.js';
+import { cutsceneOwnsHero } from './story-lock.js';
 import { buildPlaceholderHero } from './placeholder-hero.js';
 
 const DEG = Math.PI / 180;
@@ -180,9 +181,15 @@ export function createPlayer({ map = () => null, cameraYaw = () => 0, onExit = (
       p.ground = m.groundAt(p.x, p.z);
       // things to talk to: where he is turning to face counts (tap Up, press Confirm — the sign answers)
       near = m.nearestInteractable(p.x, p.z, Math.sin(p.yawT), Math.cos(p.yawT));
-      // exits
-      const ex = m.exitAt(p.x, p.z);
-      if (ex) onExit(ex);
+      // exits — never while a story beat owns the boy. B1 walks him to the front door ("move hero, at:the front
+      // door") and the exit pad swapped the map out from under the rest of the scene: he stood on the doorstep in
+      // Puddlewick while the beat kept talking, `ch1.awake` was never set, and no arrow key moved him afterwards.
+      // The scene stack is NOT the test here — a `move` step takes the field back to the top so his legs are
+      // driven, which is exactly the moment the bad exit fired. The story's own "a beat is running" flag is.
+      if (!cutsceneOwnsHero()) {
+        const ex = m.exitAt(p.x, p.z);
+        if (ex) onExit(ex);
+      }
     },
 
     hold(dt) {

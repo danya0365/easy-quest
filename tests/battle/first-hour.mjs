@@ -35,6 +35,17 @@ export const FIRST_HOUR = {
 /** Saltmarrow Coast (Lv 4–5, still with Papa): a notch longer and harder, still the boy's fight. */
 export const COAST = { meanRounds: [1.8, 2.9], short: 0.45, long: 0.25, bramKills: 0.30, halvardKills: 0.45, cost: [0.06, 0.22], wipe: 0.01 };
 
+/**
+ * P25: the party the game ACTUALLY boots with. `Roster.ensure()` builds from `long_lane_alone` — Bram alone, Lv 1,
+ * three herbs — because the game now opens in Hollybank (`main.js` boot), Papa only joins at B2 in the village, and
+ * the meadow is not reachable until then. This row measured 55.7% wipes against the `long_lane` table (cost 0.45,
+ * 3.06 rounds); that is what "start the game and get beaten to death" was. The harness never caught it because every
+ * contracted row below tested `long_lane`, a party the opening never has.
+ *
+ * Once Papa is in (B2 → B3 onward) `long_lane` is the real party, which is why FIRST_HOUR still governs it.
+ */
+export const OPENING = { meanRounds: [1.6, 3.0], short: 0.35, long: 0.30, bramKills: 0.25, halvardKills: 0.40, cost: [0.05, 0.30], wipe: 0.20 };
+
 export function firstHour(aid, L, { n = N, policy = 'mash', seed = 99 } = {}) {
   const area = AREA_BY_ID[aid];
   const rng = makeRng(seed + L * 7);
@@ -66,7 +77,7 @@ if (isMain) {
   const pct = (x) => Math.round(100 * (x || 0)) + '%';
   const fails = [];
   console.log(`first hour — ${N} fights a row${HP != null ? `, long_lane hpMult ${HP}` : ''}${TL != null ? `, tableLvl ${TL}` : ''}`);
-  const rows = [['long_lane', 1, FIRST_HOUR], ['long_lane', 2, FIRST_HOUR], ['long_lane', 3, FIRST_HOUR],
+  const rows = [['long_lane_alone', 1, OPENING], ['long_lane', 1, FIRST_HOUR], ['long_lane', 2, FIRST_HOUR], ['long_lane', 3, FIRST_HOUR],
     ['saltmarrow_coast', 4, COAST], ['saltmarrow_coast', 5, COAST], ['whispering_wood', 5, null]];
   for (const [aid, L, C] of rows) {
     const contracted = !!C;

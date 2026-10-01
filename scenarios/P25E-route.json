@@ -1,0 +1,27 @@
+{
+ "name": "P25E — read the route the chest walk is actually given",
+ "steps": [
+  {"note": "RUN IT WITH:  node tools/shoot.mjs --keep-title --url http://localhost:8123/index.html --out /tmp/p25e --script scenarios/P25E-route.json --timeout 180000\n\nA pathfinder that only says 'no route' cannot be debugged. This reads the waypoints themselves for the walk the player reported — the way out of the chair, and the way up to the chest on the loft — and asks of each one the question that matters: can the boy's own body stand there? `endsOnMark` is false BY DESIGN, the mark being inside the chest; what it must not be is a route that ends somewhere he can never reach, or one that sends him the long way round the furniture."},
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"waitFor": "__DQ.state().input.blocked.length === 0", "timeout": 25000},
+  {"eval": "(()=>{__DQ.title('game');return 'go';})()"},
+  {"waitFor": "__DQ.state().map", "timeout": 90000},
+  {"wait": 3000},
+  {"eval": "(()=>{__DQ.storyAuto(false);__DQ.teleport('hollybank',-2.79,-2.31);return 'at the chair';})()"},
+  {"wait": 800},
+  {"note": "1. the way out of the chair — the route B1's own first step needs"},
+  {"eval": "(()=>JSON.stringify(__DQ.route('at:Father\\'s chair')))()"},
+  {"note": "2. the way up to the chest, from the chair"},
+  {"eval": "(()=>JSON.stringify(__DQ.route('at:the chest at the foot of your bed')))()"},
+  {"note": "3. and from the other side of the room, because a route that only works from one tile is a lucky seed"},
+  {"eval": "(()=>{__DQ.teleport('hollybank',-4.5,1.5);return 'moved';})()"},
+  {"wait": 800},
+  {"eval": "(()=>JSON.stringify(__DQ.route('at:the chest at the foot of your bed')))()"},
+  {"note": "4. the tiles ON the loft beside the chest, and what the boy's body makes of each — the question the search answers for itself, read out loud"},
+  {"eval": "(()=>{const o=[];for(let x=1.5;x<=4.5;x+=0.5){const r=__DQ.probe(x,-1.6,0.35);o.push([x,r.clear?'clear':'BLOCKED',r.walkY.toFixed(2),(r.hits||[]).map(h=>h.tag).join('+')]);}return JSON.stringify(o);})()"},
+  {"assert": "true", "msg": "probe ran"},
+  {"note": "5. the whole loft floor, sampled, so the pocket the search offers is visible against what exists"},
+  {"eval": "(()=>{const rows=[];for(let z=-2.0;z<=0.5;z+=0.5){let s='';for(let x=1.5;x<=5.0;x+=0.25){const r=__DQ.probe(x,z,0.30);s+=r.walkY>0.9?(r.clear?'.':'X'):'_';}rows.push(z.toFixed(1)+' '+s);}return JSON.stringify(rows);})()"},
+  {"shot": "01-loft-floor"}
+ ]
+}

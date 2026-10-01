@@ -99,15 +99,26 @@ function ensure() {
   return R.layer;
 }
 
+/**
+ * Hold the buttons (or let them go). This is the ONE thing that gates input, and it is now driven by
+ * "is the screen covered or still fading" rather than "is any animation running": a 400ms darkness in front of a
+ * dark room, a white flash, the iris opening on an arrival and the title's 800ms vignette are all things that were
+ * swallowing the player's next keypress for no reason a player could see. `R.cover` is the screen being covered by
+ * a wipe; the boot fade sets it directly because it starts already covered.
+ */
+function lockInput(on) {
+  const want = !!on || !!R.cover;
+  if (want === R.blocked) return;
+  R.blocked = want;
+  try { if (R.ctx && R.ctx.Input) R.ctx.Input.block('transition', want); } catch (e) { reportError('transitions: input block', e); }
+}
+
+/** Still called per animation, for Debug.busy('transition') — which only gates screenshots. */
 function setBusy(on) {
   R.busy += on ? 1 : -1;
   if (R.busy < 0) R.busy = 0;
   try { Debug.busy('transition', R.busy > 0); } catch (_) { /* no debug yet */ }
-  const want = R.busy > 0;
-  if (want !== R.blocked) {
-    R.blocked = want;
-    try { if (R.ctx && R.ctx.Input) R.ctx.Input.block('transition', want); } catch (e) { reportError('transitions: input block', e); }
-  }
+  lockInput(!!R.cover);
 }
 
 /**
@@ -115,6 +126,11 @@ function setBusy(on) {
  * `channel` names the sheet it drives: starting a new animation on a channel stops the one already running there,
  * so two overlapping calls can never fight over the same opacity and leave the loser's value on screen (a battle
  * ending while the victory vignette was still easing used to leave the whole field dimmed).
+ *
+ * Animations no longer decide about input at all — see lockInput(). They used to: every one of them setBusy(true),
+ * and Input.block makes every button read UP for the whole of it (input.js: `if (blocked) raw = false`). That meant
+ * the 400ms darkness in front of a dark room, a white flash, the iris opening on an arrival, and the 800ms vignette
+ * the title fades IN through all swallowed the player's next keypress, with nothing on screen to say so.
  */
 function animate(seconds, step, easing = ease.inout, channel = null) {
   ensure();
@@ -138,6 +154,7 @@ function finish(a, ok) {
   if (a.channel && R.chan[a.channel] === a) R.chan[a.channel] = null;
   try { a.step(1); } catch (e) { reportError('transitions: step', e); }
   setBusy(false);
+  lockInput(!!R.cover);
   a.resolve(ok !== false);
 }
 /** Stop an animation where it stands: no jump to its end value, because something else now owns that sheet. */
@@ -146,6 +163,7 @@ function cancel(a) {
   a.done = true;
   R.anims.delete(a);
   setBusy(false);
+  lockInput(!!R.cover);
   a.resolve(false);
 }
 
@@ -187,12 +205,13 @@ export const Transitions = {
   fadeOut({ ms = 300, colour = 'ink', color } = {}) {
     const name = COLOUR[color || colour] || 'ink';
     R.cover = name;
+    lockInput(true);                                 // the screen is going black: hold the buttons
     return animate(ms / 1000, (k) => opacity(name, k), ease.out);
   },
   /** Lift whatever is covering the screen. */
   fadeIn({ ms = 360, colour, color } = {}) {
     const name = COLOUR[color || colour] || R.cover || 'ink';
-    return animate(ms / 1000, (k) => opacity(name, 1 - k), ease.in).then((v) => { R.cover = null; return v; });
+    return animate(ms / 1000, (k) => opacity(name, 1 - k), ease.in).then((v) => { R.cover = null; lockInput(false); return v; });
   },
 
   /**
@@ -239,6 +258,7 @@ export const Transitions = {
       if (a) { a.style.opacity = '0'; a.style.transform = 'none'; }
       if (b) { b.style.opacity = '0'; b.style.transform = 'none'; }
       R.cover = null;
+      lockInput(false);
       return v;
     });
   },
@@ -266,8 +286,9 @@ export const Transitions = {
   /** SYSTEMS §6.2 — the gentle defeat fades to WHITE, never black. */
   white(on = true, { ms = 1100, alpha = 0.86 } = {}) {
     R.cover = on ? 'white' : R.cover;
+    lockInput(true);
     return animate(ms / 1000, (k) => opacity('white', on ? alpha * k : alpha * (1 - k)), ease.inout)
-      .then((v) => { if (!on) R.cover = null; return v; });
+      .then((v) => { if (!on) { R.cover = null; lockInput(false); } return v; });
   },
 
   /** A round iris. iris(false) closes it down to nothing, iris(true) opens it back up. */
@@ -299,6 +320,7 @@ export const Transitions = {
     if (R.sheets.swirlB) { R.sheets.swirlB.style.opacity = '0'; R.sheets.swirlB.style.transform = 'none'; }
     if (R.sheets.iris) R.sheets.iris.style.opacity = '0';
     R.cover = null; R.swirl = 0;
+    lockInput(false);
     R.snapshot = BLANK();
     return true;
   },
@@ -340,7 +362,12 @@ export function install(ctx = {}) {
       try {
         opacity('sky', 1);
         R.cover = 'sky';
-        Transitions.fadeIn({ ms: 700, colour: 'sky' });
+        // …and while the whole screen is still the sky colour, nothing may be pressed: the very first Enter a
+        // player ever presses lands in here and is thrown away. `cover` sets the input lock itself, which is why
+        // fadeIn no longer does — a wipe that did NOT set `cover` used to lock the pad as a side effect of fading.
+        R.cover = 'sky';
+        lockInput(true);
+        Transitions.fadeIn({ ms: 700, colour: 'sky' }).then(() => lockInput(false));
       } catch (e) { reportError('transitions: boot fade', e); }
     });
     // The battle scene (P14/P15) drives its own swirl so it can push the scene behind it; these are the fallbacks

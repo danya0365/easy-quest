@@ -208,6 +208,7 @@ function buildState() {
     battle: null,
     // extensions (F1)
     version: api.version,
+    buildId: api.buildId,
     ready: !!api.ready,
     timeOfDay: fallback.hours,
     loop,
@@ -239,6 +240,11 @@ const api = {
     try { return buildState(); }
     catch (e) { reportError('__DQ.state', e); return { scene: null, sceneStack: [], errors: errorTotal, error: String(e && e.message || e) }; }
   },
+  // The live build record (main.js BUILD), or null before install({build}). Read through a getter on purpose — see
+  // install(). These two are accessor keys: Debug.expose() refuses them, and install()'s merge skips 'build' so a
+  // demo that set window.__DQ first cannot end up owning the id.
+  get buildId() { return BUILD_REC && BUILD_REC.id ? String(BUILD_REC.id) : null; },
+  get build() { return BUILD_REC; },
   goto(sceneName, opts) { return safeCall('goto', accessor('goto'), [sceneName, opts]); },
   teleport(mapId, x, z) { return safeCall('teleport', accessor('teleport'), [mapId, x, z]); },
   battle(monsterIds) { return safeCall('battle', accessor('battle'), [monsterIds]); },
@@ -308,6 +314,9 @@ const api = {
 
 let installed = false;
 let errorListenersAdded = false;
+// main.js's live BUILD record — the one object the id lives in, filled in by install({build}). api.build and
+// api.buildId are getters over it, never copies.
+let BUILD_REC = null;
 
 export const Debug = {
   VERSION,
@@ -316,6 +325,19 @@ export const Debug = {
 
   install(opts = {}) {
     if (opts && opts.version) api.version = String(opts.version);
+    // The BUILD ID: 8 hex chars of the hash of the bytes actually running (tools/buildid.mjs). Kept beside
+    // `version` because the two answer the same question at different honesty levels — `version` is a name a human
+    // chose, `buildId` is a fingerprint of the source, and only the second one tells you whether the file you have
+    // open is the file that booted. __DQ.state().buildId carries it too, so a scenario can assert on it.
+    //
+    // HOLD THE RECORD, DO NOT COPY IT. This started as `api.build = {id, label, source, ...}` — a snapshot of
+    // main.js's BUILD, taken at install() time — and it froze at `{id: null, label: '…', source: 'fetching'}` in
+    // the browser while the id was already known: the fetch had not resolved when App.start ran, the snapshot was
+    // taken of a half-built record, and nothing ever looked at it again. Meanwhile the title card and the F8 panel,
+    // which read `ctx.build` live, showed the right number — so the three surfaces disagreed and the two that
+    // happened to be right were right by luck. __DQ.build and __DQ.buildId are now GETTERS over the one live record,
+    // so there is no snapshot to go stale and no order of operations that can desynchronise them.
+    if (opts && opts.build) BUILD_REC = opts.build;
     if (typeof window === 'undefined') return api;
     try {
       const prev = window.__DQ;
@@ -323,6 +345,12 @@ export const Debug = {
         // Something (a demo, the audio probe) set __DQ first: keep its extra keys and its errors.
         if (Array.isArray(prev.errors)) for (const e of prev.errors) ERRORS.push(String(e));
         for (const k of Object.keys(prev)) {
+          // Plain objects and arrays only: copying a FUNCTION off a foreign __DQ would make __DQ.goto call the
+          // demo's version of itself, which is a very different bug from keeping a demo's extra data.
+          // 'build' is skipped on purpose even when api does not have the key yet (a Demo or the audio probe set
+          // window.__DQ before App.start): the id has ONE source, and a demo must not be able to own it.
+          if (k === 'build') continue;
+          if (typeof prev[k] === 'function') continue;
           if (!(k in api)) { try { api[k] = prev[k]; } catch (_) {} }
         }
       }
@@ -363,7 +391,11 @@ export const Debug = {
 
   expose(name, fn) {
     const k = String(name);
-    if (CONTRACT.includes(k) || ['ready', 'version', 'errors', 'state', 'seed', 'timeScale', 'budget', 'help'].includes(k)) {
+    // 'build' joins the reserved list because it is a VALUE read off the install() record, not an accessor, and
+    // debug's install() merge copies every key off a pre-existing window.__DQ — including a data property. So a demo
+    // or a probe that set __DQ.build before boot silently replaced the real id with whatever it had, and the number
+    // on the title card disagreed with __DQ.build with nothing in the log. The stamp has exactly one source.
+    if (CONTRACT.includes(k) || ['ready', 'version', 'build', 'errors', 'state', 'seed', 'timeScale', 'budget', 'help'].includes(k)) {
       reportError('Debug.expose', new Error(`"${k}" is reserved; use Debug.implement for contract accessors`));
       return false;
     }

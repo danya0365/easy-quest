@@ -75,11 +75,14 @@ export function terrainOf(def) {
 }
 
 /** Where a wipe puts you down again: the chapel of Saint Alden, in the home village.
- *  Land on the forecourt dirt (measured clear of the Beck and of the chapel door exit — the old
- *  (0, -14.6) / (0, -16.5) sat on the door pad and walked a child into int_chapel on every wake). */
+ *  P25: (2.0, -14.0) is not on the forecourt, it is IN THE BECK. Measured with __DQ.probe: the whole
+ *  z -15..-13 band at x 1.5..2.4 is `ground:'water'`, and the player snapped to (2.35, -13.65) standing
+ *  in it at walkY -1.15. It is also solid (`clear:false, solidCell:true`), so a wake there cannot walk out —
+ *  pressing Confirm walked a child into the shop instead. The forecourt dirt at (2, -18) is dry, clear and
+ *  level (`ground:'dirt'`, walkY 1.5), measured stable over repeated probes. */
 export const CHURCHES = {
-  meadow: { map: 'puddlewick', x: 2.0, z: -14.0, facing: 180 },
-  puddlewick: { map: 'puddlewick', x: 2.0, z: -14.0, facing: 180 },
+  meadow: { map: 'puddlewick', x: 2.0, z: -18.0, facing: 180 },
+  puddlewick: { map: 'puddlewick', x: 2.0, z: -18.0, facing: 180 },
 };
 /** SYSTEMS §6.2: warm, a little funny, different every time. Never the words "game over". */
 const PRIEST = [

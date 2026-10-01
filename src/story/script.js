@@ -40,7 +40,7 @@
  *   camera.release(s) / camera.follow(s) / camera.orbit(deg) / camera.mode(name)
  *   fade('out'|'in'|'white'|'iris'|'flash', {ms, colour})
  *   music(id, {fade}) · sfx(id, {vol, pitch}) · shake({ms, strength})
- *   give(itemId, n) · flag(name, value) · joinParty(charId) · gold(n)
+ *   give(itemId, n) · flag(name, value) · joinParty(charId) · gold(n) adds · gold({set: n}) sets
  *   choice([labels], [[steps], [steps]], {cancel})    a real DQ choice window; branches into story steps
  *   teleport(mapId, x, z, facing)         move the world (used with a fade round it)
  *   battle({area, enemies, boss, scripted, turns})    a fight, awaited; the scene resumes after it
@@ -63,6 +63,7 @@ import { Bus } from '../engine/events.js';
 import { Debug, reportError } from '../engine/debug.js';
 import { Input } from '../engine/input.js';
 import { Field } from '../world/field.js';
+import { StoryLock } from '../world/story-lock.js';
 import { Sfx } from '../audio/sfx.js';
 import { Transitions } from '../ui/transitions.js';
 import { Flags } from './flags.js';
@@ -130,7 +131,7 @@ export const music = (id, o = {}) => ({ op: 'music', id, ...o });
 export const sfx = (id, o = {}) => ({ op: 'sfx', id, ...o });
 export const shake = (o = {}) => ({ op: 'shake', ms: 420, strength: 10, ...o });
 export const give = (item, n = 1) => ({ op: 'give', item, n });
-export const gold = (n) => ({ op: 'gold', n });
+export const gold = (n) => (typeof n === 'object' && n !== null ? { op: 'gold', ...n } : { op: 'gold', n });
 export const flag = (name, value = true) => ({ op: 'flag', name, value });
 export const joinParty = (id, o = {}) => ({ op: 'join', id, ...o });
 export const teleport = (map, x, z, facing) => ({ op: 'teleport', map, x, z, facing });
@@ -195,6 +196,51 @@ function followerOf(id) {
   const hit = list.find((f) => f && (String(f.id || '').toLowerCase() === want
     || String(f.name || '').toLowerCase() === String(castName(id) || id).toLowerCase()));
   return hit && Number.isFinite(+hit.x) ? { x: +hit.x, z: +hit.z, y: +hit.y || 0 } : null;
+}
+
+/**
+ * …AND THE OTHER HALF OF IT: somebody who is not walking with us but is already STANDING on this map.
+ *
+ * `followerOf` was written for the party (P18's walking line) and it cannot see a person the map's people layer put
+ * there. hollybank.npcs.js lists `hb-halvard` — an id, so an exact match on the story's 'halvard' misses — and
+ * P11 gives that entry a `char` of 'halvard' too, which is the thing to match on. `describe()` publishes that as
+ * `look`, so `look === 'halvard'` is the one comparison that reliably says "this body is that character".
+ *
+ * The NAME is deliberately NOT a fallback: a beat says `spawn('halvard')` but his nameplate in this room is 'Papa',
+ * and CANON §5 B12 wants Barty introduced as "Barty Marrow". One person, two labels, so a name match would find
+ * nothing here and would find the WRONG man in a room where a nickname happens to collide. `char` is the identity;
+ * a name is a caption.
+ *
+ * Returns the field's own describe() row, so the caller gets his position and can stand a shot on him.
+ */
+function fieldNpc(id) {
+  const q = dq();
+  if (!q || typeof q.npcs !== 'function' || !id) return null;
+  const list = guard('npcs', () => q.npcs(), null);
+  if (!Array.isArray(list)) return null;
+  const want = String(id).toLowerCase();
+  // `hidden` is deliberately NOT part of this test. `npcTake` sets it, and the body is meant to be visible while
+  // the scene has it — so a borrow lookup that skipped hidden men could never FIND the one it had just taken, and
+  // `pointOf` would hand the scene a null spot for the rest of the beat.
+  const hit = list.find((n) => n && n.kind === 'person'
+    && (String(n.id || '').toLowerCase() === want
+      || String(n.id || '').toLowerCase().endsWith('-' + want)
+      || String(n.look || '').toLowerCase() === want));
+  return hit && Number.isFinite(+hit.x) ? hit : null;
+}
+
+/**
+ * Which bodies this scene is BORROWING from the field, so `killAllActors` (map change, skip, tear-down) can hand
+ * every one of them back. A borrowed body is not in ACTORS — nothing to kill — but if the map goes away while it is
+ * lent out, the cottage is left one Papa short and the next visit finds a hole where a person was standing.
+ */
+const BORROWED = new Map();                          // story id -> the FIELD's own id for him (they are rarely equal)
+/** The field's id for a borrowed body, or null. `npcTake`/`npcGo`/`npcFace` all speak the MAP's vocabulary. */
+const byId = (storyId) => BORROWED.get(storyId) || null;
+function returnBorrowed() {
+  const q = dq();
+  for (const [id, fieldId] of BORROWED) guard('return borrowed', () => { if (q && q.npcTake) q.npcTake(fieldId, false); });
+  BORROWED.clear();
 }
 
 /**
@@ -275,7 +321,7 @@ function killActor(id) {
   ACTORS.delete(id);
   return true;
 }
-function killAllActors() { for (const id of Array.from(ACTORS.keys())) killActor(id); STANDINS.clear(); blobNext = 1; }
+function killAllActors() { for (const id of Array.from(ACTORS.keys())) killActor(id); STANDINS.clear(); returnBorrowed(); blobNext = 1; }
 
 /**
  * Where is somebody, or something? A writer never types coordinates from another piece's map file into a scene:
@@ -307,6 +353,8 @@ function pointOf(target) {
   const a = ACTORS.get(id);
   if (a) return { x: a.x, z: a.z };
   if (STANDINS.has(id)) { const f = followerOf(id); if (f) return { x: f.x, z: f.z }; }
+  // a body borrowed from this map's people layer — same answer, from the field's own describe()
+  if (BORROWED.has(id)) { const f = fieldNpc(byId(id)); if (f) return { x: +f.x, z: +f.z }; }
   const w = Field.world();
   const m = w && w.map;
   if (!m) return null;
@@ -318,14 +366,33 @@ function pointOf(target) {
       || pool.find((p) => want && norm(p.name).includes(want))
       || pool.find((p) => norm(p.type || p.kind) === want);
     if (hit && Number.isFinite(+hit.x)) {
-      // stand a step OFF the thing, never inside it
-      const off = Number.isFinite(+hit.reach) ? Math.min(1.4, Math.max(0.9, +hit.reach * 0.6)) : 1.1;
+      const hx = +hit.x, hz = +hit.z;
+      // STAND BESIDE IT, ON THE SIDE HE IS COMING FROM — the straight line from him. The mark is the thing itself,
+      // offset out of its own collider, and the direction is what makes it usable: a chest deep inside the bed, or
+      // the back of a wardrobe, is not somewhere a boy can be sent to stand.
+      const reach = Number.isFinite(+hit.reach) ? +hit.reach : 1.1;
+      const off = Math.min(1.4, Math.max(0.9, reach * 0.6));
       const p = Field.player();
-      if (p) {
-        const dx = p.x - hit.x, dz = p.z - hit.z, d = Math.hypot(dx, dz) || 1;
-        return { x: hit.x + (dx / d) * off, z: hit.z + (dz / d) * off };
+      let dx = 0, dz = 0;
+      if (p) { dx = p.x - hx; dz = p.z - hz; }
+      const d = Math.hypot(dx, dz);
+      if (d < 1e-3) { dx = 0; dz = 1; } else { dx /= d; dz /= d; }
+      // …but a mark a body can never stand ON is what sends a walk round the furniture. A chest is a 0.36 circle
+      // and the boy is 0.35, so a mark only 0.96 off its centre is still inside him: he was told to walk into it, was
+      // pushed out every frame, and paced. Anything inside a collider is pushed out along the line he is walking, to
+      // the first spot his own body fits, which is a spot the beat can still reach and open.
+      const mark = { x: hx + dx * off, z: hz + dz * off };
+      if (m.resolve) {
+        const r = m.resolve(mark.x, mark.z, PLAN_RADIUS + PLAN_BONUS);
+        mark.x = r.x; mark.z = r.z;
       }
-      return { x: +hit.x, z: +hit.z };
+      // …and say WHICH THING, and how near it has to be. The mark is an internal mark: it is the chest plus a
+      // deliberate offset, so "how far from the mark did he stop" is a number about the planner's own scaffolding and
+      // not one a player could check. The question a player asks is whether he ended up close enough to OPEN it, which
+      // is the thing's own reach. Without this the only honest way to measure an arrival was to know the chest's
+      // position independently, and `describe()` replaces every array with a count, so it is not readable.
+      mark.thing = { x: +hx.toFixed(2), z: +hz.toFixed(2), name: String(hit.name || hit.type || ''), reach };
+      return mark;
     }
     return null;
   }
@@ -340,13 +407,16 @@ function pointOf(target) {
 const SCENES = new Map();                  // id -> steps | () => steps
 const R = {
   playing: null,                           // {id, name, steps, i, skipped, started}
-  hurry: false, skipReq: false,
+  hurry: 0, skipReq: false,
+  lost: false,                             // P25: set when a scripted fight is lost; ends the scene (runList stops)
   staged: false, blocked: false,
   hero: null,                              // the live hero walk {tx, tz, speed, t, timeout, resolve}
   letterbox: null, cardWin: null,
   history: [], installed: false, ctx: null, autoplay: true,
   shakeT: 0, shakeMs: 0, shakeAmp: 0,
   keys: false, unstaging: null,
+  lastPlay: null,                               // what the last storyPlay actually did — see Story.play
+  heart: { n: 0, last: 0, tail: '' },
 };
 try { if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('story') === 'off') R.autoplay = false; } catch (_) {}
 
@@ -483,7 +553,12 @@ const cutsceneScene = {
   render() {},
   onInput(btn) {
     if (btn === 'cancel' || btn === 'menu') { Story.skip(); return true; }
-    if (btn === 'confirm' || btn === 'run') { R.hurry = true; return true; }
+    // Confirm hurries the beat along, and the HUD says so: `hud(true)` puts up "Confirm — hurry". It was a flag,
+    // so `holdFor` cleared it once and the next `wait` waited its full length; it is a counter now, one spent per
+    // wait, so a few taps runs the beat at reading pace. A key HELD down still cannot: confirm is the one button
+    // that does not auto-repeat (REPEAT.buttons is DIRS only, and that is right — a held confirm must not skip),
+    // so it delivers one press and there is no second press to queue. Tapping is the gesture this beat wants.
+    if (btn === 'confirm' || btn === 'run') { R.hurry++; return true; }
     return true;                                     // everything else is swallowed: no walking off mid-scene
   },
 };
@@ -506,6 +581,247 @@ function lockPad(on) {
 
 // ── the hero's legs: velocity written after the field's tick, so player.update carries him next tick ─────────
 const DECAY = 0.7333;                         // what player.update keeps of last tick's velocity with no stick
+
+/**
+ * WALKING THERE, NOT STRAIGHT AT IT. `move('hero', …)` used to steer the boy straight at the mark. In a cottage that
+ * works until the mark is up a loft: the cottage stair and the loft rail are solid, so he ran into them, ground to a
+ * halt against a wall for the length of the step's timeout, and the timeout branch then TELEPORTED him onto the loft
+ * (that `pl.place()` in tickHero). So the beat "worked" — he arrived, he searched the chest, the story read on — while
+ * the only thing that had moved him was a position assignment. He also does this on every bridge, stair, ledge and
+ * doorframe in Act II, and there the teleport lands him on the wrong side of a rail.
+ *
+ * So a scripted walk is planned, not steered: a grid A* over the same collision data the player's own controller uses
+ * (GameMap._deepest, the very function `m.move` calls), so a route the pathfinder finds is a route he can physically
+ * walk. Two things make it work where a plain A* would not:
+ *
+ *   · HEIGHT. A cell is only a neighbour if the floor under it is within STEP_UP of the floor he is standing on. The
+ *     stair rises 0.144 a tread, so the route to the chest goes up it one tread at a time; the loft edge beside it is
+ *     1.15 up and is simply never offered as a step. Without this the search walks straight off the edge of the loft.
+ *   · FURNITURE IS NOT A DOOR. The chest, the bed and the dresser are solid, and the boy's mark is a tile BESIDE them
+ *     — so the goal is "reachable" and the search stops on the tile next to it, not on top of it.
+ *
+ * Costs are in units, and the heuristic is straight-line to the goal CELL, which never overestimates on a uniform grid.
+ * A failed search is not fatal: the caller reports the walk as failed rather than steering blindly into furniture.
+ *
+ * THE LAST WAYPOINT IS THE STANDING TILE, NOT THE MARK. The route used to end on the mark itself, which for every
+ * chest and every table is inside a collider. So the boy was told to walk to a place he could never stand, and the only
+ * way the step could end was its clock. That produced the second form of the reported bug — "he walks a loop, back and
+ * forth in the cottage, and will not stop" — in two separate shapes:
+ *
+ *   · HE PACED THE LAST FEW CENTIMETRES. He could get to within a boy's width of a mark he was never allowed to reach, so
+ *     `H.stop = 0.22` never fired; he kept closing on it, was pushed back out by `m.move`, closed again, and the
+ *     recorded trace oscillated. He overshot his own last waypoint by 0.42 of a unit into the chest to do it.
+ *   · HE CIRCLED THE FURNITURE. A waypoint sitting inside a collider made `m.move`'s corner assist steer him AROUND it
+ *     to keep the motion legal, past the waypoint, and then back toward it for the next frame. The assist checks only
+ *     0.45 ahead, so it never noticed the leg it was contradicting. Measured on one run in three: 8 direction reversals,
+ *     two of them on the loft with x swinging 4.70 <-> 2.62 either side of the chest.
+ *
+ * So the route now ends where he can actually stand, and that endpoint — not the mark — is what the arrival test and the
+ * arrival test's radius are read from. He walks to the chest and stops beside it, which is what a player expects to see.
+ */
+const GRID = 0.25;                            // the search lattice: a quarter unit, so it samples a stair tread twice over
+const STEP_UP = 0.5;                          // the biggest floor change he can step over in one stride
+const PATH_CAP = 6000;                        // cells examined before a search gives up; a cottage is ~1200
+
+// The 512 is in the key only, to keep a cell key from ever going negative. The INDEX of a world position has no such
+// offset — this is a plain `x / GRID`. The first version wrote `Math.round(sx / GRID)` while `cellCentre` subtracted
+// 512, so every cell the search looked at sat 256 units west of the boy: the search evaluated a lattice that is not
+// the map, found nothing, and returned null. The caller then fell back to steering straight at the mark, which is
+// exactly the jam-and-teleport bug the pathfinder was written to remove.
+const keyOf = (i, j) => (i + 512) * 1024 + (j + 512);
+const cellCentre = (i) => i * GRID + GRID / 2;
+const cellIndex = (v) => Math.round(v / GRID);
+
+/** Can the boy stand here at all? This is his own body against the map's colliders — no second opinion. */
+function standable(m, x, z, r = 0.3) {
+  if (!m || typeof m._deepest !== 'function') return false;
+  return !guard('path standable', () => m._deepest(x, z, r), true);
+}
+
+// A body with no room in the route is a body that walks into furniture and grinds. The search is generous by a
+// twentieth of a unit so a body nudged in from a slide is not judged a failure on the frame it arrives — but the route
+// must also be walkable by the body the game actually moves, which is PLAYER_RADIUS = 0.35 wide. These are not the
+// same number, and planning with the wrong one is how a route comes to exist that he physically cannot follow. The gap
+// is 0.02, not the full 0.05, and that is the whole margin: at 0.33 the search walled the boy out of a pocket the game
+// itself resolves him out of, and every scene that borrowed a body from the people layer lost its route.
+const PLAN_BONUS = 0.02;
+const PLAN_RADIUS = 0.3;
+const GOAL_POCKET = 1.0;                        // how far off the mark a tile may be and still count as the destination
+const GOAL_PULL = 0.35;                         // what being one tile nearer the mark is worth against a tile of walking
+const GOALS = new Set();                         // "i,j" of every tile goalCell has offered as somewhere he can end up
+
+/** Has this search been given somewhere to END, as opposed to a mark to steer at? */
+const isGoalPlace = (i, j) => GOALS.has(i + ',' + j);
+
+/** Why the last search gave up, in words. A pathfinder that can only say "no" is a pathfinder you have to re-debug. */
+let why = '';
+
+/**
+ * The cell a mark resolves to, or null when the mark is nowhere he could stand.
+ *
+ * A scripted target is usually a mark standing a step OFF a piece of furniture, and the boy is 0.6 wide, so the mark
+ * itself is frequently inside a collider. The nearest lattice cell — without the goal guard, the search just refused
+ * to plan at all and every step fell back to steering straight at furniture. And the NEAREST cell is not automatically
+ * the right one: the chest on the loft has the ground-floor tile directly under it, one lattice step closer, so a plain
+ * nearest-cell snap routes him to the foot of the loft and the run ends a storey below where the chest is. So a cell
+ * counts as the goal only if it stands on the same floor as the mark, and cells are offered to the search nearest
+ * first, so a tile one step sideways but on the right storey beats the tile underneath.
+ */
+function goalCell(m, tx, tz) {
+  const ti = cellIndex(tx), tj = cellIndex(tz);
+  const markY = m.walkY(tx, tz);
+  const ring = [];
+  for (let di = -3; di <= 3; di++) {
+    for (let dj = -3; dj <= 3; dj++) {
+      const x = cellCentre(ti + di), z = cellCentre(tj + dj);
+      if (!standable(m, x, z)) continue;
+      if (Math.abs(m.walkY(x, z) - markY) > STEP_UP) continue;  // the floor above the chest, not the one beneath it
+      ring.push({ i: ti + di, j: tj + dj, d: Math.hypot(x - tx, z - tz) });
+    }
+  }
+  if (!ring.length) return null;
+  ring.sort((a, b) => a.d - b.d);
+  const pocket = ring[0];
+  // A mark with a pocket around it gets that pocket as GOAL PLACES, not one cell. The reason is the body: `_deepest`
+  // does not stop at a disc, it reports a contact whenever ANY solid cell of the circle's bounding box touches a solid
+  // tile, so one 0.5 grid cell to the side can seal a cell the boy would actually be standing clear in. On the loft that
+  // sealed the tile right at the chest's foot — the very tile he should end on — and the search then sent him the long
+  // way round the whole loft to a corner it could reach. A goal is a place, not a point.
+  for (const c of ring) {
+    if (c.d - pocket.d > GOAL_POCKET) continue;
+    if (!GOALS.has(c.i + ',' + c.j)) { GOALS.add(c.i + ',' + c.j); c.g = true; }
+  }
+  return pocket;
+}
+
+/**
+ * A* from (sx,sz) to (tx,tz) on the lattice. Returns a list of {x,z} waypoints (excluding the start), or null.
+ * The lattice is offset by a half cell so cell centres land between samples, which stops a start or goal sitting
+ * exactly on a boundary; the first waypoint is pulled back to the real start position.
+ */
+function findRoute(m, sx, sz, tx, tz) {
+  GOALS.clear();
+  const g = goalCell(m, tx, tz);
+  if (!g) { why = `no standable cell within 3 of (${tx.toFixed(2)},${tz.toFixed(2)}) on its own floor`; return null; }
+  const s = { i: cellIndex(sx), j: cellIndex(sz) };
+  // The heuristic aims at the mark, not at the goal cell: the mark is what "near" means to a person reading the
+  // route, and no cell of the pocket is further from it than the pocket's own radius. Cheap, and it keeps the
+  // pocket from being a lump of equal-cost cells the search wanders through on the way in.
+  const heur = (i, j) => Math.hypot(cellCentre(i) - tx, cellCentre(j) - tz);
+  const open = [{ i: s.i, j: s.j, f: heur(s.i, s.j) }];
+  const came = new Map();                                       // key -> {i,j} it was reached from
+  const gScore = new Map([[keyOf(s.i, s.j), 0]]);
+  const done = new Set();
+  // `best`/`bestH` track the CLOSEST cell seen — for the "never got there" message. `goal`/`goalS` track the cheapest
+  // POCKET cell — for the ending. One variable cannot do both jobs: `bestH` holds a plain distance, which a goal score
+  // carrying a whole route's worth of units can never beat, so seeding it as the search went killed every route.
+  let seen = 0, best = null, bestH = Infinity, goal = null, goalS = Infinity;
+
+  while (open.length && seen < PATH_CAP) {
+    // the open list is a handful of cells in practice; scanning it is cheaper than a heap and cannot go stale
+    let bi = 0;
+    for (let k = 1; k < open.length; k++) if (open[k].f < open[bi].f) bi = k;
+    const cur = open.splice(bi, 1)[0];
+    const ck = keyOf(cur.i, cur.j);
+    if (done.has(ck)) continue;
+    done.add(ck);
+    seen++;
+
+    // A GOAL PLACE, not a goal cell — and not the first one the search stumbles into either. The pocket is a slab of
+    // cells all "next to the chest", so breaking on the first one he reaches ends the walk wherever his approach
+    // happened to brush it: on the loft, 0.8 of a unit short of the chest, in the corner, after the long way round.
+    //
+    // So every goal cell the search visits is kept, and the one it ends at is the cheapest by `cost + pull`:
+    //
+    //   cost  walking there, in units
+    //   pull  GOAL_PULL times how far off the mark it leaves him
+    //
+    // The pull is what keeps the walk honest and the pocket from becoming a corridor. Prefer the plain NEAREST tile
+    // to the mark instead and the loft sends him round the far side of the BED to reach a tile half a unit closer to
+    // the chest than the one he already had — the search reports the shortest route it can see, and the player
+    // watches the boy take a detour round the furniture. A tile's width of walking is worth 0.35, so the pull decides
+    // between tiles a step apart and never trades a real detour for a stride.
+    if (isGoalPlace(cur.i, cur.j)) {
+      const c = (gScore.get(ck) ?? Infinity) + GOAL_PULL * heur(cur.i, cur.j);
+      if (c < goalS) { goalS = c; goal = cur; }
+      // and KEEP GOING. A pocket cell is not a dead end: on the loft the tile one row south of it is the one nearest
+      // the chest, and stopping the expansion here walled that off from the search. So the pocket is scored, not
+      // entered and abandoned — the closed set still visits each cell once, so this costs the whole floor and not more.
+    }
+    const h = heur(cur.i, cur.j);
+    if (h < bestH) { bestH = h; best = cur; }                     // closest seen so far, only if no pocket cell yet
+
+
+    const cy = m.walkY(cellCentre(cur.i), cellCentre(cur.j));
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const ni = cur.i + di, nj = cur.j + dj, nk = keyOf(ni, nj);
+      if (done.has(nk)) continue;
+      const nx = cellCentre(ni), nz = cellCentre(nj);
+      if (!standable(m, nx, nz, PLAN_RADIUS)) continue;
+      const ny = m.walkY(nx, nz);
+      if (Math.abs(ny - cy) > STEP_UP) continue;                 // a step, or a drop off the edge of the world
+      // a DIAGONAL may not cut a corner: both orthogonal tiles beside it have to be open, or he clips the post
+      if (di && dj && (!standable(m, cellCentre(cur.i + di), cellCentre(cur.j)) || !standable(m, cellCentre(cur.i), cellCentre(cur.j + dj)))) continue;
+      const step = (di && dj ? Math.SQRT2 : 1) * GRID;
+      const ng = gScore.get(ck) + step;
+      if (ng >= (gScore.get(nk) ?? Infinity)) continue;
+      gScore.set(nk, ng);
+      came.set(nk, cur);
+      const f = ng + heur(ni, nj);
+      const at = open.findIndex((o) => o.i === ni && o.j === nj);
+      if (at >= 0) open[at].f = f; else open.push({ i: ni, j: nj, f });
+    }
+  }
+  // A route that stops SHORT is not a route. The first version kept the nearest cell it had seen when the search ran
+  // out, so a blocked goal produced a confident walk to the middle of the room; the step then timed out and `place()`
+  // moved the boy onto the mark anyway. Both halves of that is the bug that was reported: he does not walk there, he
+  // is moved. No route, no fallback teleport — the step simply fails, and the scene can see that it did. `best` now
+  // only ever holds a GOAL PLACE, so a search that exhausted the room without reaching the pocket says so.
+  if (!goal) {
+    why = `gave up after ${seen} cells; never reached a tile beside (${tx.toFixed(2)},${tz.toFixed(2)}), closest was cell (${best ? best.i : '?'},${best ? best.j : '?'})`;
+    return null;
+  }
+
+  const cells = [];
+  for (let c = goal, k = keyOf(goal.i, goal.j); c; c = came.get(k)) { cells.push(c); k = keyOf(c.i, c.j); if (cells.length > PATH_CAP) return null; }
+  cells.reverse();
+  // Thin the corners: keep a waypoint only when the direction actually changes, so he walks the line, not the zigzag.
+  const pts = cells.map((c) => ({ x: cellCentre(c.i), z: cellCentre(c.j) }));
+  pts[0] = { x: sx, z: sz };
+  // A body does not walk a dead-straight line between two tiles and stay on it. `m.move` resolves him each 0.15 of
+  // motion and `tickHero` only turns him, never steers him, so a leg with no clearance in the middle of it ends with
+  // him chattering between two legal spots: a third of a walking pace, in place, forever. One tile of leg has to fit
+  // the boy's body before a leg is let through — a margin the lattice itself provides, since the search only ever
+  // admitted tiles at PLAN_RADIUS.
+  const legFits = (a, b) => {
+    const len = Math.hypot(b.x - a.x, b.z - a.z);
+    const n = Math.max(1, Math.ceil(len / (GRID * 2)));
+    for (let k = 1; k < n; k++) {
+      const t = k / n;
+      if (!standable(m, a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, PLAN_RADIUS)) return false;
+    }
+    return true;
+  };
+  const out = [];
+  for (let k = 1; k < pts.length; k++) {
+    const a = out.length ? out[out.length - 1] : pts[k - 1];
+    const b = pts[k];
+    const isLast = k === pts.length - 1;
+    const turn = isLast || Math.abs((b.x - a.x) * (pts[k + 1].z - a.z) - (b.z - a.z) * (pts[k + 1].x - a.x)) > 1e-4;
+    if (turn && !isLast && !legFits(a, b)) { if (out.length) out.pop(); continue; }   // walk this leg in two
+    if (turn) out.push(b);
+  }
+  // The last waypoint is the last CELL, never the mark. The mark is inside the chest / the table / the bed, and a
+  // waypoint he is being pushed out of every frame is the loop this whole function exists to stop.
+  return out.length ? out : null;
+}
+
+/** Is this spot free for the boy's real body, the circle `m.move` actually resolves him with? */
+function bodyFits(m, x, z) {
+  if (!m || typeof m._deepest !== 'function') return true;
+  return !guard('path body', () => m._deepest(x, z, PLAN_RADIUS + PLAN_BONUS), false);
+}
+
 function tickHero(dt) {
   const H = R.hero;
   if (!H) return;
@@ -514,17 +830,88 @@ function tickHero(dt) {
   if (!pl || !w.map) { const f = H.resolve; R.hero = null; if (f) f(false); return; }
   const p = pl.p;
   H.t += dt;
-  const dx = H.tx - p.x, dz = H.tz - p.z, d = Math.hypot(dx, dz);
-  const close = d <= (H.stop || 0.22);
-  if (close || H.t >= H.timeout) {
+  R.heart.n++; R.heart.last = (typeof performance !== 'undefined' ? performance.now() : 0);
+  // GROUND COVERED, COUNTED. Path length over displacement is what separates "he took the long way round" from "he is
+  // going in circles", and it is the shape of the bug as a player would describe it. It must be measured off the
+  // BOY, never off his velocity: `p.vx` is a wish, not a movement, and while the field is not the top scene the
+  // player's `hold()` only zeroes it. Watching velocity instead measured a walk that was not happening at all, and
+  // reported "no progress" for a boy who was in fact crossing the cottage.
+  if (H.px !== undefined) H.path += Math.hypot(p.x - H.px, p.z - H.pz);
+  H.px = p.x; H.pz = p.z;
+
+  // Follow the PLANNED route, not the straight line. A waypoint is reached and forgotten, and the last one is the
+  // standing tile beside the mark — the mark itself is inside a chest, and a walk that keeps aiming at the inside of a
+  // chest is a walk that paces and circles, which is what the player reported.
+  const route = H.route;
+  if (route && route.length) {
+    while (route.length && Math.hypot(route[0].x - p.x, route[0].z - p.z) <= 0.16) route.shift();
+  }
+  const aim = (route && route.length) ? route[0] : { x: H.ex, z: H.ez };
+  if (H.aim !== aim) { H.aim = aim; H.path = 0; H.from = p.x; H.fz = p.z; H.covered = 0; }   // a new leg: the loop count starts again
+  const dx = aim.x - p.x, dz = aim.z - p.z, d = Math.hypot(dx, dz);
+  const last = !route || !route.length;
+  const close = last && d <= (H.stop || 0.22);
+
+  // THE SHUFFLE BACKSTOP, AND THE CLOCK. Both are here because both of them are the reported bug — "he walks a loop
+  // and will not stop" — and both were once written `if (last && …)`, which is exactly what let it through.
+  //
+  // `last` means "this is the final waypoint". A walk whose LAST waypoint is one his body cannot quite touch is not
+  // "on the last waypoint" in any sense: the waypoint is never retired, the route never empties, and with every
+  // guard gated on `last` nothing was ever allowed to end the walk. He stood at one spot — a spot the probe calls
+  // clear — vibrating at a third of a walking pace, for THIRTY-SIX SECONDS, and the step only finished because the
+  // player's own keypresses ran out. Neither the clock nor the stall check may be conditional on anything but
+  // whether the walk is making progress.
+  //
+  // The check is on PROGRESS, not on being blocked: a corner assist sliding him a few hundredths sideways is normal
+  // and stops on its own, while pacing, circling and grinding all share the one signature that matters — the walk is
+  // not going anywhere. Along the route that is the sum of what is left; at the end, where the waypoint is the only
+  // thing left, the distance to it. Measuring the waypoint there is what makes the two comparable: a route of two
+  // corners falls 0.6 at a time and a boy pacing one tile falls 0.006 at a time, and only the second one is a bug.
+  const leg = H.path / Math.max(0.25, Math.hypot(p.x - H.from, p.z - H.fz));
+  const remaining = last ? d : route.reduce((a, w2) => a + Math.hypot(w2.x - p.x, w2.z - p.z), 0);
+  // …AND PROGRESS IS GROUND COVERED, NOT GROUND CLOSED. The obvious reading — did the remaining distance shrink since
+  // last frame — is the one that just broke a working beat: the margin is 0.02, so a walk moving slower than about 1.2
+  // a second never shrinks the remainder by that much in a frame, and every SLOW WALK READ AS STALLED. B1's own
+  // approach to the water pot did, at a perfectly good half pace, and was cut off half a room from its target:
+  //
+  //   walk hero: stalled 56.53 short of "at:the water pot"
+  //   no progress for 0.80s, 0.4 units walked for 0.4 of ground
+  //
+  // One for one. He was walking. The number that is honest at every pace is how much ground he has covered since the
+  // leg began, and a walk that paces one tile covers a great deal of it while going precisely nowhere — which is why
+  // `leg` is a separate test below rather than part of this one.
+  if (H.path - H.covered > PLAN_BONUS) { H.covered = H.path; H.best = remaining; H.stall = 0; } else { H.stall += dt; }
+  R.heart.tail = `rem=${remaining.toFixed(2)} best=${(H.best === Infinity ? 'inf' : H.best.toFixed(2))} stall=${H.stall.toFixed(2)} leg=${leg.toFixed(2)} d=${d.toFixed(2)} route=${route ? route.length : 'none'}`;
+  if (H.stall > 0.8 || leg > 3 || d < 1e-3) {
+    R.heart.tail = 'STALL ' + R.heart.tail;
     p.vx = 0; p.vz = 0;
     guard('hero halt', () => pl.halt());
-    if (!close) guard('hero place', () => pl.place(H.tx, H.tz, Math.atan2(dx, dz), true));
+    if (d >= 1e-3) {
+      reportError(`walk hero: stalled ${remaining.toFixed(2)} short of "${typeof H.to === 'string' ? H.to : JSON.stringify(H.to)}"`,
+        new Error(`no progress for ${H.stall.toFixed(2)}s, ${H.path.toFixed(1)} units walked for ${Math.hypot(p.x - H.from, p.z - H.fz).toFixed(1)} of ground, waypoint (${aim.x.toFixed(2)},${aim.z.toFixed(2)}) which his body ${bodyFits(w.map, aim.x, aim.z) ? 'fits' : 'does not fit'}`));
+    }
     const f = H.resolve; R.hero = null;
-    if (f) f(true);
+    if (f) f(d < 1e-3);
+    return;
+  }
+
+  if (close || H.t >= H.timeout) {
+    R.heart.tail = (close ? 'CLOSE' : 'TIMEOUT') + ' ' + R.heart.tail;
+    p.vx = 0; p.vz = 0;
+    guard('hero halt', () => pl.halt());
+    if (!close && !H.route) {
+      // RAN OUT OF TIME with no route to follow. Only this case may drop him on the mark, and only because it is
+      // what an open field needs when the search found nothing to plan. Said plainly, because a scene that silently
+      // teleports the hero is worse than one that stops early — and a beat that HAS a route must never get here: if
+      // the route ran out, he did not arrive, and the step reports failure rather than moving him.
+      guard('hero place', () => pl.place(H.tx, H.tz, Math.atan2(dx, dz), true));
+    }
+    const f = H.resolve; R.hero = null;
+    if (f) f(close || !H.route);
     return;
   }
   p.yawT = Math.atan2(dx, dz);
+  R.heart.tail += ' WALK';
   const v = Math.min(H.speed, d * 4 + 0.35);                  // ease in to the mark instead of stopping dead
   p.vx = (dx / d) * v / DECAY;
   p.vz = (dz / d) * v / DECAY;
@@ -532,14 +919,39 @@ function tickHero(dt) {
 
 function walkHero(to, o = {}) {
   const pt = pointOf(to);
-  const pl = Field.world() && Field.world().player;
-  if (!pt || !pl) return Promise.resolve(false);
+  const w = Field.world();
+  const pl = w && w.player;
+  if (!pt || !pl || !w.map) return Promise.resolve(false);
+  // THE MARK, READ BEFORE THE SEARCH MOVES THE PLAYER. `findRoute` re-points the search start at the STARTING cell's
+  // centre for its path, but nothing here moves the boy — and yet the mark, being offset from the boy along their
+  // joining line, moves with him. Measured from after a route is planned, every mark in a chase is a step further
+  // along than it was when the walk began, and the distance at the end reads as a miss. Read once, on arrival.
+  const mark = { x: pt.x, z: pt.z };
   const d = Math.hypot(pt.x - pl.p.x, pt.z - pl.p.z);
   if (d < 0.25) return Promise.resolve(true);
-  const speed = Number.isFinite(+o.speed) ? +o.speed : (o.run ? 4.2 : 2.1);
+  // A scripted walk is a little brisker than the player's own walk. A beat that has to send him across a cottage and
+  // back up the stair is a beat the player is watching, and at the player's 2.1 the same route takes a shade over ten
+  // seconds of him trundling — long enough, on the chest step, to look like a bug rather than a walk. 2.6 is still
+  // well inside the player's run, so nothing about it reads as a hurry the boy did not ask for.
+  const speed = Number.isFinite(+o.speed) ? +o.speed : (o.run ? 4.2 : 2.6);
+  // The route is planned ONCE, up front — a search per frame would be a hundred searches a second for one step.
+  const route = guard('hero route', () => findRoute(w.map, pl.p.x, pl.p.z, pt.x, pt.z), null);
+  // Say so when there is nowhere to walk TO. A target that does not resolve used to look identical to a walk that
+  // finished: the step returned, the beat carried on, and the boy stood exactly where he was. B1's chest is a real
+  // chest, but a mark that no longer matches anything would leave the beat silently do nothing — and on screen
+  // that reads as the same jam-and-teleport bug this pathfinder was written to remove.
+  if (!route) {
+    reportError(`walk hero: no route to "${typeof to === 'string' ? to : JSON.stringify(to)}"`, new Error(why || 'target did not resolve to a place he can stand'));
+  }
   return new Promise((res) => {
-    R.hero = { tx: pt.x, tz: pt.z, speed, t: 0, stop: Number.isFinite(+o.stop) ? +o.stop : 0.22,
-      timeout: Number.isFinite(+o.timeout) ? +o.timeout : Math.max(1.5, d / Math.max(0.6, speed) * 2.6 + 1.2), resolve: res };
+    // `ex/ez` is the last waypoint — the standing tile — and it is the END of the walk. The route ends there on
+    // purpose, so with no route at all the mark itself is the only place he could finish; `findRoute` returns null
+    // exactly when nothing is standable, and that case is reported above rather than walked.
+    const end = (route && route.length) ? route[route.length - 1] : pt;
+    R.hero = { tx: mark.x, tz: mark.z, ex: end.x, ez: end.z, to, speed, t: 0, stop: Number.isFinite(+o.stop) ? +o.stop : 0.22, route,
+      best: Infinity, stall: 0, path: 0, covered: 0, aim: null,
+      // a routed walk is longer than the straight line and climbs stairs, so it gets a proportionally longer clock
+      timeout: Number.isFinite(+o.timeout) ? +o.timeout : Math.max(1.5, (route ? d * 3.2 : d) / Math.max(0.6, speed) * 2.6 + 1.2), resolve: res };
   });
 }
 
@@ -574,6 +986,7 @@ function tickActors(dt) {
         a.speed = P.speed;
       }
     } else if (a.speed) a.speed = Math.max(0, a.speed - dt * 6);
+    if (a.kind === 'monster') { a.body.root.rotation.y = a.yaw; guard('monster tick', () => a.body.update(dt)); }
     if (m) a.y = m.walkY(a.x, a.z);
     a.body.root.position.set(a.x, a.y, a.z);
     if (a.kind === 'monster') { a.body.root.rotation.y = a.yaw; guard('monster tick', () => a.body.update(dt)); }
@@ -593,6 +1006,9 @@ function lensClear(x, z, gap = 1.0) {
   if (p && Math.hypot(p.x - x, p.z - z) < gap) return false;
   for (const a of ACTORS.values()) if (Math.hypot(a.x - x, a.z - z) < gap) return false;
   for (const id of STANDINS) { const f = followerOf(id); if (f && Math.hypot(f.x - x, f.z - z) < gap) return false; }
+  // A LENT BODY IS STILL A BODY IN THE ROOM — that is the whole point of lending it instead of hiding it — so the
+  // boom may not sit where he is standing either, or the shot frames an empty chair beside a body nobody drew.
+  for (const id of BORROWED.keys()) { const f = fieldNpc(byId(id)); if (f && Math.hypot(f.x - x, f.z - z) < gap) return false; }
   return true;
 }
 
@@ -654,7 +1070,7 @@ async function holdFor(ms) {
   const end = Date.now() + Math.max(0, ms | 0);
   while (Date.now() < end) {
     if (R.skipReq) return false;
-    if (R.hurry) { R.hurry = false; return true; }
+    if (R.hurry > 0) { R.hurry--; return true; }   // one queued hurry per step; a held key queues the next
     await sleep(Math.min(60, end - Date.now()));
   }
   return true;
@@ -673,7 +1089,16 @@ async function runStep(s) {
         lockPad(false); stage(true);
       } else {
         const a = ACTORS.get(s.actor);
-        if (a) await walkActor(a, s.to, s);
+        if (a) { await walkActor(a, s.to, s); return; }
+        // …or one lent to us by the map. `npcGo` settles him on real ground and pins him there (`hold: true`), so
+        // the field's own nudge cannot walk him off the mark between the step and the next one. He keeps walking
+        // there under his own legs — the field still animates him, it is only the model that is not drawn.
+        const fieldId = BORROWED.get(s.actor);
+        if (fieldId) {
+          const pt = pointOf(s.to);
+          const q = dq();
+          if (pt && q && q.npcGo) guard('move borrowed', () => q.npcGo(fieldId, pt.x, pt.z, true));
+        }
       }
       return;
     }
@@ -687,9 +1112,18 @@ async function runStep(s) {
         return;
       }
       const a = ACTORS.get(s.actor);
-      if (!a) return;
-      if (pt) a.yaw = Math.atan2(pt.x - a.x, pt.z - a.z);
-      else if (Number.isFinite(+s.to)) a.yaw = +s.to * DEG;
+      if (a) {
+        if (pt) a.yaw = Math.atan2(pt.x - a.x, pt.z - a.z);
+        else if (Number.isFinite(+s.to)) a.yaw = +s.to * DEG;
+        return;
+      }
+      if (BORROWED.has(s.actor) && pt) {
+        const q = dq();
+        const fieldId = BORROWED.get(s.actor);
+        // the body is hidden but it is still ANIMATED: `npcFace` points it, and the next `npcTake(false)` hands
+        // back a man already looking where the scene left him.
+        if (q && q.npcFace) guard('face borrowed', () => q.npcFace(fieldId));
+      }
       return;
     }
     case 'wait': await holdFor(s.ms); return;
@@ -720,7 +1154,17 @@ async function runStep(s) {
       return;
     }
     case 'give': { const q = dq(); if (q && q.give) guard('give', () => q.give(s.item, s.n)); return; }
-    case 'gold': { const q = dq(); if (q && q.gold) guard('gold', () => q.gold(s.n)); return; }
+    // P25: `gold(n)` ADDS. It used to SET, which is invisible everywhere except the one place it matters: the boy
+    // already boots with 30 gold, so B2's "Here. Thirty gold coins." set his purse to 30 — the number it already
+    // was — and he walked away from his father's gift with nothing. A signed amount sets, so an absolute purse is
+    // still available: `gold({set: 120})`.
+    case 'gold': {
+      const q = dq();
+      if (!q || !q.gold) return;
+      if (s.set != null) { guard('gold set', () => q.gold(s.set)); return; }
+      guard('gold add', () => q.gold(Math.max(0, q.state ? q.state().gold : 0) + (+s.n || 0)));
+      return;
+    }
     case 'flag': Flags.set(s.name, s.value); return;
     case 'join': {
       const q = dq();
@@ -740,11 +1184,35 @@ async function runStep(s) {
     }
     case 'card': { stage(true); await showCard(s.title, s.sub, s.ms); return; }
     case 'spawn': {
-      if (!ACTORS.has(s.id) && followerOf(s.id)) { STANDINS.add(s.id); return; }   // he is already in the room
+      // TWO PAPAS IS WORSE THAN NO CAMERA MOVE, PART TWO. `followerOf` above only catches somebody already WALKING
+      // behind the boy — a party member. In Act I the party is the boy alone, so Papa is not a follower, and B1's
+      // `spawn('halvard')` built a second body for a man the cottage's people layer had already put beside the big
+      // chair (hollybank.npcs.js hb-halvard). Two of him, both called Papa, both in frame.
+      //
+      // So before building a body, ask the FIELD whether it already has one of this person, and if it does lend
+      // that one to the scene instead: hidden, uncollidable, and still in the map's list so his talk target, his
+      // lines and his prompt survive the scene. `despawn('halvard')` gives him back (see the 'despawn' op). A beat
+      // that does not despawn hands him back when the map goes: `despawn()` in npc.js clears the flag.
+      if (!ACTORS.has(s.id) && followerOf(s.id)) { STANDINS.add(s.id); return; }   // he is already walking with us
+      const here = ACTORS.has(s.id) ? null : fieldNpc(s.id);
+      if (here) {                                                              // he is already standing in the room
+        guard('spawn borrow', () => { const q = dq(); if (q && q.npcTake) q.npcTake(here.id, true); });
+        BORROWED.set(s.id, here.id);
+        return;
+      }
       loadLibs(); makeActor(s.id, s.look, s.at || s, s);
       return;
     }
-    case 'despawn': STANDINS.delete(s.id); killActor(s.id); return;
+    case 'despawn': STANDINS.delete(s.id);
+      // a borrowed body goes back to the field exactly as it was — same spot, same facing, same collider. Without
+      // this the cottage is left without its Papa for the rest of the chapter, which is worse than two of him.
+      // The FIELD's id is the key: the beat says 'halvard' and the map calls him 'hb-halvard'.
+      const borrowedId = BORROWED.get(s.id);
+      if (borrowedId) {
+        BORROWED.delete(s.id);
+        guard('despawn return', () => { const q = dq(); if (q && q.npcTake) q.npcTake(borrowedId, false); });
+      }
+      killActor(s.id); return;
     case 'do': { const more = await guard('do', () => s.fn({ Flags, Quests, Story, Field, actors: ACTORS }), null); if (Array.isArray(more)) await runList(more); return; }
     case 'branch': {
       const ok = typeof s.cond === 'function' ? !!guard('branch cond', () => s.cond(Flags), false) : Flags.has(s.cond);
@@ -833,8 +1301,8 @@ async function runStep(s) {
     case 'battle': {
       const q = dq();
       if (!q) return;
-      let ended = false;
-      const off = Bus.on('battle.end', () => { ended = true; });
+      let ended = false, outcome = null;
+      const off = Bus.on('battle.end', (out) => { ended = true; outcome = (out && out.outcome) || null; });
       const started = guard('battle', () => (q.fight ? q.fight(s.area || null, Object.assign({}, s)) : q.battle(s.enemies || [])), null);
       // it has to actually appear: a couple of seconds for the swirl and the scene push
       let appeared = false;
@@ -855,6 +1323,15 @@ async function runStep(s) {
       off();
       calmEncounters();                                                // the fight the scene asked for, not one more
       await sleep(250);
+      // P25: a loss STOPS the scene. It used to walk straight on, so losing B3 still ran `joinParty('bobble')` and
+      // the beats after it — the boy recruited a friend and left with Papa after being carried home unconscious.
+      // The chapel is the one place a scene cannot continue from, so hand the story back to the player here and let
+      // the beat's own `blocks` flag decide what re-arms when they walk back in.
+      if (outcome === 'defeat') {
+        R.skipReq = false;
+        R.lost = true;
+        if (typeof onDefeat === 'function') await guard('onDefeat', () => onDefeat(s));
+      }
       return;
     }
     case 'choice': {
@@ -881,6 +1358,7 @@ async function runList(steps) {
   let i = 0;
   while (i < list.length) {
     if (R.skipReq) return;
+    if (R.lost) return;                                          // P25: a defeat ends the scene where it fell
     const s = list[i];
     // a run of talky steps becomes one conversation: one box, one open, one close
     if (TALKY.has(s.op) && (s.op === 'say' || s.op === 'narrate')) {
@@ -893,7 +1371,12 @@ async function runList(steps) {
       continue;
     }
     if (R.playing) R.playing.i = i;
-    await runStep(s);
+    // Name the step a failure came from. Every walk in a beat says the same thing when it cannot find a route, and
+    // "one of the seven" is not a diagnosis — a 37-step beat reports which of them by the time the reader sees it.
+    try { await runStep(s); } catch (e) {
+      reportError(`story step ${i + 1}/${R.playing ? R.playing.steps : '?'} (${s.op}${s.to !== undefined ? ' → ' + s.to : ''})`, e);
+      throw e;
+    }
     i++;
   }
 }
@@ -911,11 +1394,59 @@ export const Story = {
    * real game; `?story=off` (or `__DQ.storyAuto(false)`) turns it off, which is how another piece photographs a
    * map the story has a scene in without a conversation opening over the shot.
    */
-  autoplay(on) { if (on !== undefined) R.autoplay = !!on; return R.autoplay; },
+  /**
+   * R.autoplay ON = the chapters start their own beats, and keep starting them when the field comes back up. OFF = no
+   * beat starts itself, AND the one already running stops where it stands.
+   *
+   * The second half is the half that matters, and getting it wrong is what a whole afternoon of phantom bugs looked
+   * like. `storyAuto(false)` used to flip a flag the chapters read BEFORE starting a beat and nothing else, so a
+   * harness that meant to stage its own walk instead spent the whole run measuring a chapter beat it had not asked
+   * for: at a waypoint it never chose, ending at a mark it never set, parked in place while a dialogue box it never
+   * opened waited for a keypress nobody was going to send. Three things have to be let go of, because the run can be
+   * stuck in three different places: `skipReq` unwinds the beat runner, `staged` hands a `move('hero')` step's field
+   * back so it cannot keep walking with no field under it, and `hurry` is the queued advance a held key left behind.
+   *
+   * ASYNCHRONOUS, and it has to stay that way. `play` refuses any beat while the previous one still holds the stage,
+   * and the runner only clears it in a `finally` that runs when the step in flight returns — so this must WAIT for
+   * the stage to clear. A caller that treats it as fire-and-forget gets its own beat refused, and cannot tell:
+   * `play` settles its promise at the END of a beat, so a refused call and an accepted one look identical from
+   * outside. `await __DQ.storyAuto(false)`, then stage.
+   *
+   * And the flag goes false LAST, after the wait. ch1 re-arms itself the moment the field goes quiet, so a chapter
+   * that slipped in during the unwind would beat the caller's own `storyPlay` to the stage and the caller's beat
+   * would come back refused. Clearing first means the chapters read "on" for the whole unwind — including after the
+   * runner returns, since that lands on the microtask queue behind this loop.
+   */
+  async autoplay(on) {
+    if (on === undefined) return R.autoplay;
+    if (on) { R.autoplay = true; R.skipReq = false; R.hurry = 0; R.staged = false; Bus.emit('story.autoplay', { on: true }); return true; }
+    R.hurry = 0;
+    // Mid-walk: hand the field its stage back first. A walk is left holding the field OFF the scene stack, and if
+    // this cleared that alone the runner would carry on stepping with no field under it — which is its own class of
+    // hang, and a quieter one.
+    guard('auto restage', () => { if (R.staged) stage(true); });
+    R.staged = false;
+    if (R.playing) {
+      Story.skip();
+      const until = Date.now() + 5000;
+      while (R.playing && Date.now() < until) await sleep(50);
+    }
+    for (let i = 0; i < 3 && Scenes.top() === 'dialogue'; i++) guard('auto dialogue', () => Scenes.pop());
+    if (R.hero) { const f = R.hero.resolve; R.hero = null; if (f) f(false); }
+    R.autoplay = false;
+    R.skipReq = false;                        // the runner clears it in its `finally`; a leftover would refuse the next beat
+    Bus.emit('story.autoplay', { on: false });
+    return false;
+  },
   get auto() { return R.autoplay; },
   actors() {
     const out = Array.from(ACTORS.values()).map((a) => ({ id: a.id, look: a.look, x: r3(a.x), z: r3(a.z), facing: r3(((a.yaw / DEG) % 360 + 360) % 360), walking: !!a.path }));
     for (const id of STANDINS) { const f = followerOf(id); out.push({ id, look: 'follower', standin: true, x: f ? r3(f.x) : null, z: f ? r3(f.z) : null }); }
+    // A BORROWED BODY IS A BODY IN THIS SCENE. `__DQ.storyActors()` is how a scenario counts the people on screen,
+    // so a lent one has to be in the list or "how many Papas" answers one while the room holds two. Reported
+    // `borrowed` rather than `standin`: a follower is somebody walking behind the boy, this is somebody the scene
+    // put somewhere specific, and the two want different things if you act on them.
+    for (const id of BORROWED.keys()) { const f = fieldNpc(byId(id)); out.push({ id, look: 'borrowed', borrowed: true, x: f ? r3(+f.x) : null, z: f ? r3(+f.z) : null, facing: f ? r3(+f.facing || 0) : null }); }
     return out;
   },
 
@@ -928,21 +1459,36 @@ export const Story = {
   },
 
   async play(steps, opts = {}) {
+    // What the last call actually did. `play` returns a promise the runner settles at the END of the beat, so a
+    // caller that cannot await it — a harness issuing a beat and moving on — has no way at all to tell "your beat is
+    // refused, something else is already playing" from "your beat started". Two afternoons of measuring a beat that
+    // had never begun, because the only way to find out was to await the very thing that would have told you.
+    if (R.playing && !R.skipReq) {
+      R.lastPlay = { ok: false, reason: 'a story scene is already playing', playing: R.playing.id, step: R.playing.i };
+      return R.lastPlay;
+    }
+    const list = (Array.isArray(steps) ? steps : [steps]).filter(Boolean);
+    R.lastPlay = { ok: true, id: String(opts.id || 'scene'), steps: list.length, at: Date.now() };
+    return Story._run(list, opts);
+  },
+
+  async _run(list, opts = {}) {
     if (R.playing) {
       // A STORY MUST NOT BE ABLE TO WEDGE ITSELF. If something upstream really did strand a scene, let the next
       // beat take the stage rather than refusing every beat for the rest of the child's afternoon.
       if (Date.now() - R.playing.at > 300000) { Story.skip(); await sleep(700); }
-      if (R.playing) return { ok: false, reason: 'a story scene is already playing', playing: R.playing.id };
+      if (R.playing) { R.lastPlay = { ok: false, reason: 'a story scene is already playing', playing: R.playing.id }; return R.lastPlay; }
     }
-    const list = Array.isArray(steps) ? steps : [steps];
     const id = String(opts.id || 'scene');
     R.playing = { id, name: opts.name || id, steps: list.length, i: 0, skipped: false, at: Date.now() };
-    R.skipReq = false; R.hurry = false;
+    R.skipReq = false; R.hurry = 0; R.lost = false;
+    Bus.emit('story.issued', R.lastPlay);            // the beat is ON, before the first step has run
     installKeys();
     stage(true);                                   // the bars and the locked controls come up BEFORE the first fade
     hud(false);
     calmEncounters();
     guard('busy on', () => Debug.busy('story', true));
+    StoryLock.set(true);                             // the field asks this before it walks him anywhere (P25)
     guard('story.start', () => Bus.emit('story.start', { id, steps: list.length }));
     try {
       await runList(list);
@@ -954,6 +1500,7 @@ export const Story = {
       if (skipped && opts.onSkip) guard('onSkip', () => opts.onSkip());
       R.hero = null;
       lockPad(false);
+      StoryLock.set(false);                          // hand him back to the field, or he can never walk again (P25)
       stage(false);
       bars(false);
       hud(true);                                   // and the ribbon comes straight back to say where to go next
@@ -966,7 +1513,7 @@ export const Story = {
       if (opts.keepActors !== true) killAllActors();
       R.history.push({ id, ran: R.playing ? R.playing.i : 0, of: list.length, skipped, ms: Date.now() - (R.playing ? R.playing.at : Date.now()) });
       if (R.history.length > 20) R.history.shift();
-      const out = { ok: true, id, ran: R.playing ? R.playing.i : 0, of: list.length, skipped };
+      const out = { ok: true, id, ran: R.playing ? R.playing.i : 0, of: list.length, skipped, lost: !!R.lost };
       R.playing = null;
       R.skipReq = false;
       guard('busy off', () => Debug.busy('story', false));
@@ -980,7 +1527,7 @@ export const Story = {
   skip() {
     if (!R.playing) return { ok: false, reason: 'nothing is playing' };
     R.skipReq = true;
-    R.hurry = true;
+    R.hurry++;                       // skip outranks whatever hurry is still queued
     // close whatever window is up so the runner can unwind at once
     for (let i = 0; i < 3 && Scenes.top() === 'dialogue'; i++) guard('skip dialogue', () => Scenes.pop());
     if (R.hero) { const f = R.hero.resolve; R.hero = null; if (f) f(false); }
@@ -1050,7 +1597,54 @@ export const Story = {
     D.expose('story', (id, opts) => (id === undefined ? { scenes: Story.scenes(), state: Story.state() } : Story.beat(id, opts || {})));
     D.expose('storySkip', () => Story.skip());
     D.expose('storyState', () => Story.state());
+    /**
+     * __DQ.route('at:the chest …') — the waypoints a scripted walk to that mark would be given, and the point it would
+     * end at, without starting the walk. A pathfinder that only reports "no route" cannot be debugged: this is how a
+     * route is read. The last entry is the ENDING, which is the standing tile and not the mark — the mark sits inside
+     * the chest, and a walk that aims at the inside of a chest is a walk that paces and circles.
+     */
+    D.expose('route', (to) => {
+      const pt = pointOf(to);
+      const w = Field.world();
+      if (!pt || !w || !w.map) return null;
+      const start = w.player ? w.player.p : { x: 0, z: 0 };
+      const route = findRoute(w.map, start.x, start.z, pt.x, pt.z);
+      if (!route) return { to, ok: false, why: 'no tile beside that mark his body fits on', mark: { x: +pt.x.toFixed(2), z: +pt.z.toFixed(2) } };
+      const end = route[route.length - 1];
+      // Per-leg ground, the long way round. A leg is the straight line between two consecutive waypoints; anything
+      // well over 1 is a detour a player would notice. It is the walking version of what the `stalled` report catches
+      // at runtime: the same detour, visible before it is walked.
+      const pts = [{ x: start.x, z: start.z }].concat(route);
+      let ground = 0, worst = 1;
+      for (let k = 1; k < pts.length; k++) {
+        const a = pts[k - 1], b = pts[k];
+        const straight = Math.hypot(b.x - a.x, b.z - a.z);
+        if (straight < 0.5) continue;
+        const got = standable(w.map, b.x, b.z, PLAN_RADIUS) ? straight : straight + 1.2;
+        ground += got;
+        if (straight > 0.9) worst = Math.max(worst, got / straight);
+      }
+      return { to, ok: true, from: { x: +start.x.toFixed(2), z: +start.z.toFixed(2) },
+        mark: { x: +pt.x.toFixed(2), z: +pt.z.toFixed(2) }, thing: pt.thing || null,
+        end: { x: +end.x.toFixed(2), z: +end.z.toFixed(2) }, steps: route.length,
+        at: { endsOnMark: Math.hypot(end.x - pt.x, end.z - pt.z) <= 0.3, fits: bodyFits(w.map, end.x, end.z),
+              ground: +ground.toFixed(1), worstLeg: +worst.toFixed(2),
+              // AND HOW NEAR THE THING ITSELF — the number that says whether he got close enough to use it.
+              fromThing: pt.thing ? +Math.hypot(end.x - pt.thing.x, end.z - pt.thing.z).toFixed(2) : null,
+              inReach: pt.thing ? Math.hypot(end.x - pt.thing.x, end.z - pt.thing.z) <= pt.thing.reach : null },
+        waypoints: route.map((p) => [+p.x.toFixed(2), +p.z.toFixed(2)]) };
+    });
     D.expose('storyScenes', () => Story.scenes());
+    /**
+     * __DQ.heart() — is the hero's walk tick running, and how far did it get on the frame before it stopped?
+     * `n` counts frames since boot, `last` the wall clock of the most recent one, and `tail` the walk's own arithmetic
+     * — remaining distance, best so far, stall time, path ratio, waypoint distance, waypoints left. A walk that is
+     * hung and a walk that is not being ticked at all look identical from the outside, which is the whole reason this
+     * exists: the tail says which of the two it is.
+     */
+    D.expose('heart', () => Object.assign({ playing: !!R.hero, auto: R.autoplay }, R.heart));
+    /** __DQ.storyIssued() — did the last `storyPlay` actually start a beat, or was it refused? */
+    D.expose('storyIssued', () => R.lastPlay);
     D.expose('storyActors', () => Story.actors());
     /** __DQ.storyAuto(false) — stop beats starting themselves (a clean screenshot of a map a scene lives in). */
     D.expose('storyAuto', (on) => Story.autoplay(on));

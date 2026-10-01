@@ -1,0 +1,23 @@
+{
+ "name": "P25H — why does the route end 1.3 from a chest it could walk to",
+ "steps": [
+  {"note": "RUN IT WITH:  node tools/shoot.mjs --keep-title --url http://localhost:8123/index.html --out /tmp/p25h --script scenarios/P25H-pocket.json --timeout 180000\n\nThe walk arrives — on the loft, no stall, four seconds — but it stops 1.31 from the chest, on a tile the planner chose over tiles right beside it. That is the whole remaining distance bug, and it is a PLANNER bug: the search is refusing tiles his body would fit on.\n\n`standable` gates every tile of the lattice at PLAN_RADIUS (0.30), which is narrower than the circle `m.move` actually resolves him with (0.35). A tile that his body fits on can therefore be a tile the search never sees, and the route ends on the nearest one it can see instead of the nearest one he can stand. This maps the floor around the chest at BOTH radii: `.` is clear for the body, `x` blocked at 0.30 but clear at 0.35 (a tile the planner is refusing for no reason the player would understand), `X` blocked at both."},
+  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
+  {"waitFor": "__DQ.state().input.blocked.length === 0", "timeout": 25000},
+  {"eval": "(()=>{__DQ.title('game');return 'go';})()"},
+  {"waitFor": "__DQ.state().map", "timeout": 90000},
+  {"wait": 4000},
+  {"eval": "(async()=>{await __DQ.storyAuto(false);__DQ.teleport('hollybank',-3.96,-2.12);return 'staged';})()"},
+  {"note": "1. the chest's own position — jittered every run, so it is read, never written down"},
+  {"eval": "(()=>{const r=__DQ.route('at:the chest at the foot of your bed');window.__r=r;const c=__DQ.state().map.colliders.filter(h=>h.tag==='chest').map(h=>[+h.x.toFixed(2),+h.z.toFixed(2),h.r]);return JSON.stringify({mark:r.mark,end:r.end,chests:c,wp:r.waypoints.length});})()"},
+  {"note": "2. THE POCKET. Every quarter-tile round the chest at the planner's 0.30 and at the body's real 0.35. `x` is the interesting one: a tile the boy's body fits on that the search refuses, which is why the route ends further away than it needs to."},
+  {"eval": "(()=>{const m=window.__r.mark;const rows=[];for(let z=m.z-2;z<=m.z+2.01;z+=0.25){let a='',b='';for(let x=m.x-2;x<=m.x+2.01;x+=0.25){const p=__DQ.probe(x,z,0.35),q=__DQ.probe(x,z,0.30);a+=q.clear?'.':'X';b+=p.clear?'.':'X';}rows.push(z.toFixed(2)+' body['+b+'] plan['+a+']');}return JSON.stringify(rows);})()"},
+  {"note": "3. the same map with the colliders named — what is actually in that pocket"},
+  {"eval": "(()=>{const m=window.__r.mark;const rows=[];for(let z=m.z-2;z<=m.z+2.01;z+=0.25){let s='';for(let x=m.x-2;x<=m.x+2.01;x+=0.25){const p=__DQ.probe(x,z,0.30);s+=p.clear?'.':((p.hits||[]).map(h=>h.tag).join('').slice(0,1)||'#');}rows.push(z.toFixed(2)+' '+s);}return JSON.stringify(rows);})()"},
+  {"note": "4. how many tiles round the chest does the planner think it can use? the distance from the mark to the NEAREST one is the floor on how close any route can end"},
+  {"eval": "(()=>{const m=window.__r.mark;let best=1e9,at=null,n=0;for(let z=m.z-2;z<=m.z+2.01;z+=0.25)for(let x=m.x-2;x<=m.x+2.01;x+=0.25){const q=__DQ.probe(x,z,0.30);if(q.clear){n++;const d=Math.hypot(x-m.x,z-m.z);if(d<best){best=d;at=[+x.toFixed(2),+z.toFixed(2)];}}}return JSON.stringify({tilesPlannerCanUse:n,nearest:[best.toFixed(2),at],y:__DQ.probe(at[0],at[1],0.30).walkY.toFixed(2)});})()"},
+  {"note": "5. and the ROUTE's own verdict on its ending tile — it says it fits; is that the body or the planner talking?"},
+  {"eval": "(()=>{const r=window.__r,e=r.end;const p=__DQ.probe(e.x,e.z,0.35);return JSON.stringify({end:e,dist:+Math.hypot(e.x-r.mark.x,e.z-r.mark.z).toFixed(2),probeClear:p.clear,tags:(p.hits||[]).map(h=>h.tag),walkY:+p.walkY.toFixed(2),routeSays:r.at});})()"},
+  {"shot": "01-pocket"}
+ ]
+}

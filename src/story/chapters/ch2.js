@@ -306,7 +306,7 @@ export const Chapter2 = {
 
     Bus.on('map.enter', (m) => {
       S.map = (m && m.id) || null;
-      S.armed = true;
+      if (Story.auto) S.armed = true;      // autoplay off = no beat of mine starts itself, on arrival either (ch1)
       S.cool = 40;
     });
     try {

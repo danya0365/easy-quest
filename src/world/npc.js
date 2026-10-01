@@ -997,6 +997,10 @@ function createSystem(ctx) {
   function despawn() {
     for (const n of S.list) {
       try {
+        // give a borrowed body back before it is thrown away, or `npcTake(false)` on a dead map is a no-op and the
+        // state is simply dropped — harmless here, but a map change mid-scene (the exit pad) would leave the body
+        // flagged on a list this function is about to empty, so the flag has to go with it.
+        if (n.storyHidden) n.storyHidden = null;
         if (n.holder) n.holder.removeFromParent();
         if (n.model) n.model.dispose();
         if (n.prop) n.prop.removeFromParent();
@@ -2110,6 +2114,12 @@ function createSystem(ctx) {
     noGoAt: (x, z, roam) => noGo(x, z, roam !== false),
     settleAt: (x, z) => settle(x, z), place,
     byId: (id) => S.byId.get(String(id)) || null,
+    // `install()`'s debug controls reach the same internals the update loop does — `npcTake` has to be able to show and
+    // hide a body and put a collider back where it belongs, exactly as the walk loop would. These two are private to
+    // this closure, and reaching for them from `install` before they were published threw a ReferenceError inside
+    // `__DQ.npcTake`, which `safeCall` swallowed into `__DQ.errors`: a lent Papa stayed invisible and the cottage had
+    // no father in it, with nothing on screen to say why.
+    showModel, moveCollider,
     talks,
   };
 }
@@ -2253,11 +2263,72 @@ export function install(ctx = {}) {
   });
   /** __DQ.npcLook() — who everybody is looking at right now, and how much of their attention you have. */
   Db.expose('npcLook', () => sys.describe().map(n => ({ id: n.id, looking: n.looking, attention: n.attention, facing: n.facing, speaking: n.speaking })));
-  /** __DQ.npcGo('sausage', x, z) — send somebody somewhere (used to pose scenes for screenshots). */
+
+  /**
+   * __DQ.npcTake(id, on) — LEND somebody the field built to a scene, without removing him from it.
+   *
+   * Two Papas. B1 opens in a cottage whose people layer already stands a Papa beside the big chair (P11 put him
+   * there for the words he says between cutscenes), and the beat then spawns a SECOND one at "at:Father's chair" —
+   * `followerOf('halvard')` is empty, because a follower is a party member walking behind the boy and in Act I he
+   * is alone, so nothing stood in the way. Two bodies, both called Papa, both in the room, is the one thing a child
+   * in a story about one father cannot be got to ignore.
+   *
+   * `despawn` is not the answer: it deletes him from `S.list`, and the talk target, the "Press X" prompt, his
+   * script lines and his collider all hang off that list. He has to still BE there when B1 ends.
+   *
+   * So nothing is disposed and nothing is removed. `n.storyHidden` says a scene has him — and while it is set, the
+   * story is the one drawing him: it decides where he stands (`npcGo`) and where he looks (`npcFace`), and his collider
+   * is pushed away so a scene can move him through furniture. His own idle loop keeps running, because the renderer
+   * and the "who is near the boy" queries both go through `n.hidden` — a body parked behind that flag is a body
+   * nobody draws, which is the other half of this bug and the reason this is a lend and not a hide. `despawn()` and
+   * `npcTake(id, false)` hand him back exactly as he was.
+   *
+   * @param {boolean} on  true = the story is drawing him, false = give the body back to the field
+   */
+  Db.expose('npcTake', (id, on = true) => {
+    const n = sys.byId(id);
+    if (!n) return { ok: false, reason: `nobody called "${id}" here`, npcs: sys.describe().map(x => x.id) };
+    if (on) {
+      if (n.storyHidden) return { ok: true, already: true, id: n.id };
+      n.storyHidden = { hidden: !!n.hidden, visible: !!(n.model && n.model.root.visible), behaviour: n.behaviour, radius: n.radius };
+      // A LENT BODY IS STILL A BODY ON SCREEN. The first version parked him behind `n.hidden` and then never took
+      // him out — so the renderer, the people layer's own walk loop and the "who is near the boy" queries all believed
+      // the room was empty, and the cottage showed NO father at all. The people layer has to keep drawing him and
+      // keep him in the earshot pass; the story owns WHERE he stands (npcGo) and WHERE he looks (npcFace), not whether
+      // he is there. Two things genuinely do have to go: the stand-in model a scene builds for him, and his collider.
+      n.hidden = false;
+      sys.showModel(n, true);
+      if (n.collider) { n.collider.bound = [1e9, 1e9, 1e9, 1e9]; }   // the scene moves him; he must not block the boy or the door
+      return { ok: true, id: n.id, taken: true };
+    }
+    const was = n.storyHidden;
+    if (!was) return { ok: true, already: false, id: n.id };
+    n.storyHidden = null;
+    n.hidden = !!was.hidden;
+    n.behaviour = was.behaviour; n.radius = was.radius;
+    if (n.model) n.model.root.visible = !!was.visible;
+    sys.moveCollider(n);
+    return { ok: true, id: n.id, taken: false };
+  });
+  /** __DQ.npcTaken(id) — is the field's copy of this person currently lent to a scene? */
+  Db.expose('npcTaken', (id) => { const n = sys.byId(id); return !!(n && n.storyHidden); });
+
+  /**
+   * __DQ.npcGo('sausage', x, z, hold) — send somebody somewhere (used to pose scenes for screenshots, and by a scene
+   * that has borrowed this body: `move('halvard', 'at:the front door')` ends up here).
+   */
   Db.expose('npcGo', (id, x, z, hold = false) => {
     const n = sys.byId(id);
     if (!n) return { ok: false };
-    if (hold) { n.behaviour = 'stand'; n.radius = 0; }
+    // A borrowed body's SAVED behaviour is its old one, and a `mode` of 'idle' with an old anchor would let the
+    // people layer's own stroll walk him straight back out of frame on the next tick. Pin him, and remember the
+    // original so `npcTake(id, false)` can restore it.
+    if (hold) {
+      if (n.storyHidden && n.storyHidden.behaviour === 'stand' && n.storyHidden.pinned) {
+        // already pinned by an earlier step of the same scene: leave the saved copy alone
+      } else if (n.storyHidden) n.storyHidden.pinned = true;
+      n.behaviour = 'stand'; n.radius = 0;
+    }
     const at = sys.settleAt(+x, +z);
     n.anchor = { x: at.x, z: at.z };
     n.target = null;

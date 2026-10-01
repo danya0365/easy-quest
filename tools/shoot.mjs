@@ -7,7 +7,7 @@
  *   node tools/shoot.mjs --script scenarios/foo.json --out shots/foo
  *   node tools/shoot.mjs --out shots/quick                 (default scenario)
  *
- * Flags: --url --out --script --width --height --headed --timeout --video
+ * Flags: --url --out --script --width --height --headed --timeout --video --keep-title --keep-saves
  *
  * Scenario JSON: { "name": "...", "steps": [ ...step... ] }
  * Steps:
@@ -15,7 +15,11 @@
  *   {"waitFor": "window.__DQ && __DQ.ready", "timeout": 20000}
  *   {"eval": "__DQ.goto('battle')"}                run JS in page (awaited)
  *   {"key": "ArrowUp", "hold": 600}                hold a key
- *   {"press": "Enter", "times": 2, "delay": 250}   tap a key
+ *   {"tap": "Enter", "times": 320, "hold":130, "gap":190, "until":"expr"}   hold+tap a key N times,
+ *                                                stopping early when `until` goes true. `press` is NOT a tap:
+ *                                                keydown and keyup in the same millisecond, and poll() clears
+ *                                                keyTaps inside itself, so it is seen or missed at random.
+ *   {"press": "Enter", "times": 2, "delay": 250}   down/up, no hold (unreliable; prefer `tap`)
  *   {"shot": "01-title"}                           screenshot
  *   {"burst": {"name":"walk","count":8,"interval":90}}   animation strip
  *   {"assert": "expr", "msg": "..."}               record a failed assertion
@@ -24,6 +28,7 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 ? argv[i + 1] : d; };
@@ -36,8 +41,17 @@ const OUT = path.resolve(arg('out', 'shots/run'));
 // under test — and a title-swallowed run LOOKS like a product bug (the camera appears frozen, the boy pinned
 // against a wall that he never walked into). Unless a scenario says otherwise, boot past it. The alternative
 // flag, `?title=0`, is title.js's own documented switch for exactly this.
+//
+// --keep-title is the way back, AND THE FLAG IS EASY TO FORGET: without it the title never enters the scene
+// stack at all, so `__DQ.title()` returns `{ok:false}` (not a describe() with no `phase`) and every
+// waitFor on `__DQ.title().phase === ...` times out even though the title screen rendered perfectly in
+// shot 01. The beat still plays — the boot falls through to the field — so the run looks half-right and the
+// failing waits read as product bugs. P25B lost two full runs to this.
 const SKIP_TITLE = !flag('keep-title');
-let URL_ = arg('url', 'http://localhost:8177/');
+// 8123, not 8177, and the digits were the bug: a server left listening on 8177 serves an OLD BUILD of the game with
+// no /build-id.json, so a run that forgot --url measured yesterday's code and said so with total confidence. Two full
+// afternoons of phantom bugs came from that one character. The dev server's own port is the default for that reason.
+let URL_ = arg('url', 'http://localhost:8123/index.html');
 if (SKIP_TITLE && /(^|[?&])title=(?!0\b)/.test(URL_) === false && !/[?&]skiptitle/.test(URL_)) {
   URL_ += (URL_.includes('?') ? '&' : '?') + 'title=0';
 }
@@ -85,14 +99,21 @@ const page = await ctx.newPage();
 
 page.on('console', m => {
   const t = m.type(), txt = m.text();
-  if (t === 'error') report.consoleErrors.push(txt);
-  else if (t === 'warning') report.consoleWarnings.push(txt);
+  // "Failed to load resource: the server responded with a status of 404" names no file, and a 404 that cannot be
+  // traced costs a whole run to find. Console messages carry the location of what logged them, so keep it.
+  const where = m.location && m.location();
+  const at = where && where.url ? ` @ ${where.url}:${where.lineNumber}:${where.columnNumber}` : '';
+  if (t === 'error') report.consoleErrors.push(txt + at);
+  else if (t === 'warning') report.consoleWarnings.push(txt + at);
 });
 page.on('pageerror', e => report.pageErrors.push(String(e && e.stack || e)));
 page.on('requestfailed', r => {
   const f = r.failure(); if (f && /aborted/i.test(f.errorText)) return;
   report.failedRequests.push(`${r.url()} :: ${f ? f.errorText : '?'}`);
 });
+// A 404 is a `console.error` in the browser, not a failed request, so the block above never sees it. Without this a
+// missing asset is reported only as a status code and the run cannot say which file was missing.
+page.on('response', r => { if (r.status() >= 400) report.failedRequests.push(`${r.status()} ${r.url()}`); });
 
 let shotN = 0;
 const shot = async (name) => {
@@ -106,6 +127,14 @@ try {
   await page.context().setExtraHTTPHeaders({ 'cache-control': 'no-cache', pragma: 'no-cache' });
   await page.route('**/*', route => route.continue({ headers: { ...route.request().headers(), 'cache-control': 'no-cache', pragma: 'no-cache' } }));
   await page.goto(URL_, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  // A fresh browser context has empty localStorage, but this one may be REUSED across runs (`--url` on a page
+  // that outlives the process), and a save left on disk changes what the title menu does: with a tale written, the
+  // cursor opens on "Carry On", so the same keypress goes to the slot list instead of "A New Tale". Every run of a
+  // scenario therefore has to begin from no saves at all, or it is not testing the path it was written for.
+  if (!flag('keep-saves')) {
+    await page.evaluate(() => { try { localStorage.clear(); } catch (_) {} });
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 });
+  }
   report.url = URL_;   // the title flag may have been appended above, so the report must say which page ran
   // Instrument frame timing.
   await page.addInitScript(() => {});
@@ -147,6 +176,25 @@ try {
         await page.waitForTimeout(step.hold || 400);
         await page.keyboard.up(step.key);
       }
+      // `key` is one hold. A storybook is a minute of thumb, so scenarios that have to READ a beat to the end
+      // want the same key many times over. Written as `key` steps this is hundreds of near-identical lines — and
+      // the first time it was written that way, the loop was typed once instead of 320 times and the scenario
+      // sat and timed out looking exactly like a hung cutscene. So it is a verb, and the count is a number.
+      // Use `hold` + `gap`, NOT `press`: a keyboard.press() is a keydown and keyup in the same millisecond and
+      // poll() reads-and-clears keyTaps inside itself, so whether it is seen at all is a coin flip.
+      if (step.tap) {
+        const hold = step.hold == null ? 130 : step.hold;
+        const gap = step.gap == null ? 190 : step.gap;
+        const times = step.times || 1;
+        report.taps = (report.taps || 0) + times;
+        for (let i = 0; i < times; i++) {
+          if (step.until && await page.evaluate(`!!(${step.until})`).catch(() => false)) { report.tapsDone = i; break; }
+          await page.keyboard.down(step.tap);
+          await page.waitForTimeout(hold);
+          await page.keyboard.up(step.tap);
+          await page.waitForTimeout(gap);
+        }
+      }
       if (step.press) {
         for (let i = 0; i < (step.times || 1); i++) {
           await page.keyboard.press(step.press);
@@ -181,6 +229,28 @@ try {
   report.finalState = await page.evaluate(() =>
     (window.__DQ && typeof window.__DQ.state === 'function') ? window.__DQ.state() : null
   ).catch(() => null);
+
+  // WAS THIS EVEN THE CODE ON DISK? A server left listening on an old port serves an OLD BUILD, and every assertion in
+  // the scenario then describes yesterday's game with total confidence — the failure mode that hid a chapter beat for
+  // two afternoons while P25D read green. The build id is a sha over index.html + src/** + vendor/**, so the page's
+  // copy and this file's copy agreeing is the only proof that a green run means anything.
+  report.build = await page.evaluate(() => (window.__DQ && window.__DQ.buildId) || null).catch(() => null);
+  let disk = null;
+  try {
+    // the same function the server computes at boot (tools/buildid.test.mjs holds the two to each other), so the
+    // number in the page and the number here are comparable without wondering whether they came from one recipe
+    disk = execFileSync(process.execPath, [path.resolve(path.dirname(new URL(import.meta.url).pathname), 'buildid.mjs')],
+      { encoding: 'utf8', timeout: 20000 }).trim().split(/\s+/).pop() || null;
+  } catch (_) { disk = null; }
+  if (disk) {
+    if (!report.build) {
+      report.build = { ok: false, why: 'the page reported no build id — a server that predates the build-id work, or not this game' };
+      report.ok = false;
+    } else if (report.build !== disk) {
+      report.build = { ok: false, served: report.build, disk, why: 'the server is serving a DIFFERENT build than the one on disk' };
+      report.ok = false;
+    } else report.build = { ok: true, id: report.build, files: null };
+  }
 } catch (e) {
   report.fatal = String(e && e.stack || e);
   report.ok = false;

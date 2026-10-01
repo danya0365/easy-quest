@@ -48,8 +48,30 @@ const b1 = () => [
   say('halvard', 'Morning, lad. There you are.'),
   say('halvard', 'Boots, if you would. Both of them.\nThen we are off down the lane.'),
   say('halvard', 'Have a poke about on the way.\nPots, baskets, drawers — that is\nwhere a house keeps its secrets.'),
+  // P25: CANON §4 B1 says "Get up, search four containers, take Papa his boots." The four containers were in the
+  // map the whole time (hollybank.js builds a chest, a water pot, a log basket, a crock and a dresser drawer, and
+  // the boy is told about them in his father's own words) but the beat walked straight past every one of them and
+  // only picked up the boots — so the lesson "everything in this house can be searched", which is the only real
+  // tutorial Act I has, never landed. Each `move` puts the lens back on the boy and walks him there himself: it is
+  // his hands on the pot, not a cutscene asserting that he searched it.
+  move('hero', "at:the chest at the foot of your bed"),
+  sfx('chest_open'),
+  give('wooden_sword'),
+  narrate('%HERO% has the {gold}Wooden Sword{/gold}.\nMade by somebody who is not sorry.'),
+  move('hero', 'at:the water pot'),
+  sfx('pot_search'),
+  narrate('The water pot. Cold, and half of it\nis a hair.'),
+  move('hero', 'at:the log basket'),
+  sfx('pot_search'),
+  narrate('The log basket holds one log and\na great deal of nothing.'),
+  move('hero', 'at:the crock'),
+  sfx('pot_search'),
+  narrate('Oatcakes in the crock. One of them\nhas been wrapped for a journey, by\nsomebody who was planning ahead.'),
+  move('hero', 'at:the dresser drawer'),
+  sfx('pot_search'),
+  narrate('The dresser drawer: string, a button,\nand a horn he is far too old for.'),
   move('hero', "at:Papa's boots"),
-  sfx('search'),
+  sfx('pot_search'),
   narrate('%HERO% picks up two boots.\nThey are enormous.\nHe carries one under each arm.'),
   move('hero', 'halvard'),
   face('halvard', 'hero'),
@@ -82,9 +104,9 @@ const b2 = () => [
   sfx('door_open'),
   say('halvard', 'Watch the road, and stay where\nI can see you, if you would.'),
   despawn('halvard'),
-  // Papa travels as a guest from here (CANON §4 B3–B9). Join after despawn so the cutscene body is gone and
-  // the follower line can show the one Papa who walks behind you.
-  joinParty('halvard'),
+  // P25: Papa joins at B3, not here (CANON §4: "Halvard (B3–B9)", and B3 is "First battles with Papa as guest").
+  // He used to be added at the end of B2, in the village, which was a beat early and put a guest between the boy
+  // and his first fight. `ch1.left_home` still closes B2 — the boy is on the road, just not fighting beside Papa yet.
   narrate('{gold}Follow the Long Lane.\nThe signpost is past the sheep.{/gold}'),
   camera.follow(),
 ];
@@ -93,13 +115,22 @@ const b2 = () => [
 // B3 — the Long Lane. Delight: you have a friend and he is ridiculous.
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 const b3 = () => [
+  // P25: CANON §4 — "First battles with Papa as guest." He arrives here, at the signpost, where the boy meets his
+  // first monster. `protectedMap` on the fight below is what makes the boy's own swing land first: no ambush, no
+  // free enemy round, so he gets a turn to be a hero before his father does anything at all.
+  joinParty('halvard'),
+  narrate('The old man takes the reins and does\nnot hurry, because nothing out here\nhas ever made him hurry.'),
   music('overworld'),
   narrate('The Long Lane runs south between\nthe hedges, and the wagon rattles\nalong it like a kettle on wheels.'),
   spawn('bobble', 'monster:gloop', { ahead: 2.6, side: -0.4 }),
   wait(300),
   sfx('battle_start'),
   narrate('A blue teardrop drops out of the\nhedge and lands in the road with a\nnoise like a wet slipper.'),
-  battle({ area: 'long_lane', enemies: ['gloop'] }),
+  // `protectedMap` is the boy's first turn, not a free one: it takes the ambush flag off so he is never hit before he
+  // has swung. `chooseMentorAction` still holds Halvard back through round 1 (B.round <= 1), so the Gloop takes the boy's
+  // wooden sword first and Papa only steps in from round 2 — which is the "Papa is in the party and will not let you die"
+  // of STORY-BIBLE §6, not a fight his father finishes for him.
+  battle({ area: 'long_lane', enemies: ['gloop'], protectedMap: true }),
   face('hero', 'bobble'),
   camera.two('bobble', 'hero', { dist: 3.2, height: 1.15 }),
   say('bobble', 'Bobble surrenders.\nBobble surrendered some time ago,\nactually. Nobody noticed.'),
@@ -437,6 +468,14 @@ export const Chapter1 = {
      * LEFT before it fires again — otherwise walking to the signpost once would play the rest of the Act at you
      * in a single ten-minute sitting.
      */
+    // P25: which map are we actually standing on. `S.map` came off the `map.enter` bus event, and the FIRST map —
+    // the one the game boots into — never emits one, so `S.map` was null and no beat could ever fire where the story
+    // opens. Ask the field, which is the truth; the bus stays for the re-arm.
+    const hereNow = () => {
+      try { const m = Field.map; if (m && m.id) return m.id; } catch (_) { /* the demo's own field */ }
+      return S.map;
+    };
+
     const tryHere = () => {
       if (!Story.auto || Story.running()) return;
       // A BEAT MUST NEVER OPEN OVER SOMETHING ELSE. A wild fight, a shop, the menu or a signpost's words are all
@@ -444,8 +483,10 @@ export const Chapter1 = {
       try { if (Scenes.top() !== 'field') return; } catch (_) { /* no scene stack: the demo's own field */ }
       const b = nextBeat();
       if (!b) { S.armed = true; return; }
+      const here = hereNow();
+      if (!here) return;
       const place = placeOf(b);
-      if (place.map !== S.map) { S.armed = true; return; }
+      if (place.map !== here) { S.armed = true; return; }
       if (place.zone) {
         const p = Field.player();
         if (!p) return;
@@ -459,7 +500,11 @@ export const Chapter1 = {
 
     Bus.on('map.enter', (m) => {
       S.map = (m && m.id) || null;
-      S.armed = true;                                    // a new map is always a fresh arrival
+      // A new map is always a fresh arrival — UNLESS autoplay is off, which means "no beat of mine starts itself".
+      // Re-arming on entry regardless is what let a chapter start a beat in the gap while a harness waited for the
+      // previous one to unwind: the flag went false, the runner returned, the arrival armed the next beat, and the
+      // walk that was asked for arrived to find somebody else's story playing instead.
+      if (Story.auto) S.armed = true;
       S.cool = 40;                                       // let the map settle (and the place card land) first
     });
     try {

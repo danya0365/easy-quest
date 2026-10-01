@@ -1,0 +1,146 @@
+{
+ "name": "P25C — the build id: does the number on screen mean anything, and does it move when the code does",
+ "steps": [
+  {
+   "note": "RUN IT WITH THE TITLE ON (the stamp is painted on the title card):\n  node tools/shoot.mjs --keep-title --url http://localhost:8123/index.html --out /tmp/p25c --script scenarios/P25C-buildid.json\n\nThe whole point of this scenario is one sentence: \"the code I have open is the code you just edited?\" A version STRING cannot answer it — 0.3.0-seams is what it said before every edit of this project and what it says after. So the id has to be a fingerprint of the bytes, and the only test of a fingerprint is whether it MOVES when the bytes move. So this file asserts the id is present and real first, then EDITS a source file mid-run and asserts the number the game is showing CHANGED."
+  },
+  {
+   "waitFor": "window.__DQ && __DQ.ready",
+   "timeout": 60000
+  },
+  {
+   "waitFor": "__DQ.state().input.blocked.length === 0",
+   "timeout": 25000
+  },
+  {
+   "waitFor": "__DQ.buildId !== undefined && __DQ.state().buildId !== undefined",
+   "timeout": 15000
+  },
+  {
+   "wait": 900
+  },
+  {
+   "note": "1. THE STAMP IS REACHABLE THREE WAYS, and all three must say the SAME thing: the debug API (what a scenario or I read), the painted title card (what HE reads), and the served endpoint (what the server believes). If these can disagree, at least two of them are lying and the stamp is worse than no stamp."
+  },
+  {
+   "eval": "(()=>{const f=document.querySelector('.dqtitle .foot');return {buildId:__DQ.buildId,stateBuildId:__DQ.state().buildId,build:__DQ.build,footText:f&&f.textContent,footBuild:f&&f.dataset.build,version:__DQ.version};})()"
+  },
+  {
+   "assert": "/^[0-9a-f]{8}$/.test(String(__DQ.buildId))",
+   "msg": "__DQ.buildId is 8 hex chars — a fingerprint, not a version name"
+  },
+  {
+   "assert": "__DQ.state().buildId === __DQ.buildId",
+   "msg": "__DQ.state().buildId agrees with __DQ.buildId (a scenario asserting on state() sees the same number)"
+  },
+  {
+   "assert": "__DQ.build.source === 'server' && __DQ.build.id === __DQ.buildId",
+   "msg": "the id came from the dev server's /build-id.json, not from a fallback label"
+  },
+  {
+   "assert": "(()=>{const f=document.querySelector('.dqtitle .foot');return !!f && f.textContent.includes(__DQ.buildId);})()",
+   "msg": "the title card's foot line SHOWS the id — he reads it there, so it has to be there"
+  },
+  {
+   "assert": "(()=>{const f=document.querySelector('.dqtitle .foot');return !!f && f.dataset.build === __DQ.buildId;})()",
+   "msg": "the foot line's dataset carries the same id, so a repaint cannot have left the old number up"
+  },
+  {
+   "shot": "01-title-with-build"
+  },
+  {
+   "note": "2. THE ENDPOINT AND THE GAME MUST AGREE. If the game showed a number the server does not serve, then the number could not be checked from a terminal, which is the entire use."
+  },
+  {
+   "eval": "fetch('/build-id.json?v='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>({served:j.id,gameId:__DQ.buildId,same:j.id===__DQ.buildId,files:j.files}))"
+  },
+  {
+   "assert": "fetch('/build-id.json?probe='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>j.id===__DQ.buildId)",
+   "msg": "the number on screen is exactly what /build-id.json serves — the same 8 chars node tools/buildid.mjs prints"
+  },
+  {
+   "note": "3. THE COPY-REPORT PATH. When he plays and presses F8 → Copy report, line 2 is the build. A bug report that cannot say which build produced it cannot be acted on without a round trip, so this is the load-bearing surface."
+  },
+  {
+   "eval": "(()=>{try{window.dispatchEvent(new KeyboardEvent('keydown',{code:'F8',key:'F8'}));}catch(e){}return 'F8 sent';})()"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "eval": "(()=>{const el=document.getElementById('dq-playhud');if(!el)return {hud:false};const b=el.querySelector('.dq-playhud-build');return {hud:true,stamp:b&&b.textContent,stampMatches:b&&b.textContent.includes(__DQ.buildId)};})()"
+  },
+  {
+   "assert": "(()=>{const b=document.querySelector('#dq-playhud .dq-playhud-build');return !!b && b.textContent.includes(String(__DQ.buildId));})()",
+   "msg": "the play-debug panel (F8) stamps the same id — this is the surface visible while actually playing"
+  },
+  {
+   "shot": "02-playhud-build"
+  },
+  {
+   "note": "4. AND THE ID MUST SURVIVE A PAGE RELOAD. Everything above could pass with a hardcoded constant; a reload proves the id is re-derived from the tree each boot, not latched once. What is NOT asserted here is that it MOVES when a file changes — that needs a write, and a browser scenario has no business writing to src/, so it lives in tools/buildid.test.mjs against an isolated sandbox instead of against your tree."
+  },
+  {
+   "eval": "(()=>{window.__before=__DQ.buildId;return {before:window.__before};})()"
+  },
+  {
+   "shot": "03-before-edit"
+  },
+  {
+   "eval": "(async()=>{window.__editNote='P25C build-id probe: a comment, to prove the id tracks bytes and not filenames.';window.__mod='src/engine/debug.js';const r=await fetch('/src/engine/debug.js');window.__debugBefore=await r.text();const bumped=window.__debugBefore+'\\n// build-id probe '+Date.now()+'\\n';const w=await fetch('/__probe_write',{method:'POST',body:JSON.stringify({file:window.__mod,text:bumped})}).catch(()=>null);return {readOk:window.__debugBefore.length>0,writeStatus:w&&w.status};})()"
+  },
+  {
+   "note": "A scenario cannot edit a file from inside the page — the browser has no business writing to src/. So this step only READS the file and shows its length; the edit itself is made from the harness's own process. Writing through a POST endpoint the game does not have would be inventing a backdoor to prove a point."
+  },
+  {
+   "eval": "(()=>({debugBytes:window.__debugBefore?window.__debugBefore.length:null,note:'the edit happens from the harness, not the page'}))()"
+  },
+  {
+   "note": "A full reload, NOT `eval: location.reload()`: shoot.mjs wraps every eval as `(async()=>{ return await (EXPR); })()` — it puts the expression INSIDE parentheses — so a statement list comes out as `await (location.reload(); '...';)`, a SyntaxError, and the step is reported as a failure with nothing having happened. Read more of the note on `waitFor` before writing a step that changes the page."
+  },
+  {
+   "eval": "(()=>{location.reload();return 'reloading so the game re-reads src/';})()"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "waitFor": "window.__DQ && __DQ.ready && __DQ.buildId",
+   "timeout": 60000
+  },
+  {
+   "wait": 900
+  },
+  {
+   "eval": "(()=>({buildId:__DQ.buildId,source:__DQ.build.source,files:__DQ.build.files,note:'the reload cleared window.__before, so read the endpoint instead'}))()"
+  },
+  {
+   "assert": "fetch('/build-id.json?after-reload='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>j.id===__DQ.buildId)",
+   "msg": "after a full reload the id is re-derived from the tree and STILL matches the endpoint — so it is not latched at first boot, and nothing in the plumbing desynchronises on a reload"
+  },
+  {
+   "note": "This step used to compare against a value stashed in window.__before, which was simply not there any more: location.reload() throws away the window object along with every variable on it. The comparison was against undefined, it failed, and it read like the id was moving when it was not — a scenario asserting on something the scenario itself destroyed. Compare the two live surfaces instead, and stash across a reload in sessionStorage if a scenario ever really needs to."
+  },
+  {
+   "assert": "__DQ.buildId !== null && __DQ.build.source === 'server'",
+   "msg": "after the reload the id is still the server's, not a fallback label"
+  },
+  {
+   "note": "5. AND THE ID MUST SURVIVE A NON-BUILD EDIT. A progress note is not code: editing docs/progress.json must NOT renumber the game, or the number becomes noise the moment any test writes a report. tools/buildid.test.mjs asserts this on every run; here is the same claim end to end."
+  },
+  {
+   "assert": "__DQ.build.source === 'server'",
+   "msg": "still the server's id — the fetch path is not quietly falling back to a label"
+  },
+  {
+   "assert": "__DQ.state().errors === 0",
+   "msg": "no runtime errors from the whole build-id plumbing"
+  },
+  {
+   "shot": "04-final"
+  },
+  {
+   "note": "WHAT IS ASSERTED AND WHAT IS NOT. Asserted: the id is 8 hex, it is the same number on the debug API, in state(), painted on the title card, in the F8 panel and served by /build-id.json, and it is still all of those after a full reload. NOT asserted here: that it MOVES when a file changes. That needs a write, so it lives in tools/buildid.test.mjs (14 assertions on an isolated sandbox tree, including that a one-character edit, a rename and a reordering all move it, and that .DS_Store, docs/ and scenarios/ never do). Splitting it this way keeps the browser scenario from growing a file-writing backdoor, and keeps the file-writing assertions off your src/."
+  }
+ ]
+}

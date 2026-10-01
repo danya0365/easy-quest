@@ -243,8 +243,13 @@ function onKeyDown(e) {
     if (isEditable(e.target)) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.cancelable) e.preventDefault();
-    if (keys.has(code)) return;          // OS auto-repeat: we do our own
-    if (e.repeat) return;                // a key still held from before a blur: wait for a real press
+    // OS auto-repeat: we do our own. Checked BEFORE `keys.has(code)` on purpose. `keyTaps` is a "this key went
+    // down since the last poll" flag and poll() clears it every tick, so a key still physically down can come back
+    // into keyTaps on an auto-repeat. Re-reading keyTaps.has(code) then silently threw that tap away — and a
+    // keydown the game never sees is a key the player pressed and the game ignored, with nothing to retry.
+    // `keys` is untouched by this, so a genuine second press (up, then down again) still comes through.
+    if (e.repeat) return;
+    if (keys.has(code)) return;
     keys.set(code, ++keySeq);
     keyTaps.set(code, keySeq);
     if (codeMap.has(code)) setDevice('keyboard');
@@ -255,12 +260,50 @@ function onKeyUp(e) {
   try {
     const code = normCode(e);
     if (code === 'MetaLeft' || code === 'MetaRight' || e.key === 'Meta') { keys.clear(); return; } // mac drops keyups under Cmd
-    if (keys.delete(code) && e.cancelable && !isEditable(e.target)) e.preventDefault();
+    // A tap is held until the poll that sees it. Poll() adds `keys.has(code) || keyTaps.has(code)`, so a keydown
+    // and its keyup inside one 16ms tick is not swallowed by the pair arriving together — it is still down for that
+    // poll, which is exactly as long as a thumb's tap. Without this the tap only survived if the OS auto-repeat
+    // happened to fire in the gap, and the first Escape on the storybook was a coin flip.
+    if (keys.delete(code) && !keyTaps.has(code) && keyTaps.size < 24) keyTaps.set(code, ++keySeq);
+    if (e.cancelable && !isEditable(e.target)) e.preventDefault();
   } catch (err) { reportError('Input keyup', err); }
 }
 
 function kbHeld(code) { return keys.has(code) || keyTaps.has(code); }
 function kbOrder(code) { return Math.max(keys.get(code) || 0, keyTaps.get(code) || 0); }
+
+/**
+ * Lift a button's poison WITHOUT eating a real key that is already down.
+ *
+ * `suppressHeld()` (used whenever an Input.block token is added or removed) marks every held button as needing a
+ * release before it can press again — good, because a direction held through a wipe must not keep walking the hero.
+ * But it marks a real keyboard key and an injected press identically. `releaseAll('transition')` at the end of the
+ * boot fade therefore marked `confirm` suppressed, and that flag is cleared by poll() only when confirm reads UP:
+ * `if (st.suppressed) { if (!raw) st.suppressed = false; raw = false; }`. Confirm does not auto-repeat, so the player
+ * had to press Enter twice to leave the title. (P25.)
+ *
+ * So: if the button is down ONLY because it is injected, forget it entirely. If a real key is down, leave the poison
+ * alone — it clears the moment the key comes up, and it is right that it clears then.
+ */
+function suppressKeyboard(btn) {
+  const codes = bindings[btn] || [];
+  const real = codes.some((c) => keys.has(c) || keyTaps.has(c));
+  if (real) return;                                                   // a real key is down: keep the poison
+  const q = inj[btn];
+  const inFlight = !!(q && (q.hold || q.left > 0 || q.queue.length > 0 || (seq.cur && seq.cur.btn === btn)));
+  if (inFlight) return;                                               // injected and still going: leave it alone
+  const st = B[btn];
+  if (st && st.suppressed) { st.suppressed = false; st.repeatLocked = false; }
+}
+
+/** Lift EVERY button's poison that nothing is holding any more. Used when the last block token is released. */
+function suppressHeld() {
+  for (const b of BUTTONS) {
+    const st = B[b];
+    if (!st.suppressed) continue;
+    suppressKeyboard(b);
+  }
+}
 
 // ── gamepad ──────────────────────────────────────────────────────────────────────────────────────────────────
 function padValue(pad, i) {
@@ -643,12 +686,28 @@ function stepInjection() {
   }
 }
 
+/**
+ * How many whole polls this window already held. `page.keyboard.press` and `Input.inject` both work in real time,
+ * but a CDP round trip is ~20ms and `keyTaps` lives in poll()'s own body — `keyTaps.clear()` a few lines below —
+ * so a key released before the next poll never reads as down at all. The storybook's own "Press X to skip" was
+ * lost this way: pressing Escape inside the intro did nothing and the player had to hold it. Confirm did not
+ * because the beat takes its confirm in an async `say()` a tick or two later, by which time the tap was over.
+ */
+let heldFor = { cancel: 0, menu: 0, confirm: 0 };
+
 // ── the per-tick poll ────────────────────────────────────────────────────────────────────────────────────────
 function poll() {
   tick++;
   polls++;
   stepInjection();
   sampleGamepads();
+  // measure BEFORE keyTaps.clear() below — this is the only place that can see the OS auto-repeat a fast tap made.
+  heldFor = { cancel: 0, menu: 0, confirm: 0 };
+  for (const b of BUTTONS) {
+    const codes = bindings[b];
+    if (!codes) continue;
+    for (const c of codes) if (keys.has(c) || keyTaps.has(c)) { heldFor[b]++; break; }
+  }
 
   // keyboard
   for (const b of BUTTONS) {
@@ -779,7 +838,7 @@ function releaseAll(reason = 'manual') {
   try { Bus.emit('input.release', { reason }); } catch (_) {}
 }
 
-function suppressHeld() { for (const b of BUTTONS) if (B[b].down || B[b].raw) B[b].suppressed = true; }
+// (suppressHeld lives up in the keyboard section, next to suppressKeyboard.)
 
 // ── lifecycle ────────────────────────────────────────────────────────────────────────────────────────────────
 function listen(target, type, fn, opts) {
@@ -902,6 +961,13 @@ export const Input = {
     }
     const b = String(btn);
     if (!validButton(b)) return badButton(b);
+    // Release an injected press WITHOUT poisoning the real keyboard. The boot wipe (Transitions) ends by lifting
+    // every injected button, and a poison here marks every real key too — so `Input.block('transition', false)`
+    // on the way out of the title made the NEXT REAL ENTRY EATEN: `suppressHeld()` had already flagged `confirm`,
+    // and it clears that flag only when confirm is seen UP. Confirm does not auto-repeat, so there was nothing to
+    // clear it and the boy could not start the game without pressing Enter twice. Title.onInput calls this so the
+    // very next tap works; anything that releases an injected press should do the same.
+    suppressKeyboard(b);
     const q = inj[b];
     const was = q.hold || q.left > 0 || q.queue.length > 0;
     q.hold = false; q.queue.length = 0; q.left = 0;
@@ -946,6 +1012,13 @@ export const Input = {
     return Input.getRepeat();
   },
   getRepeat() { return { ...REPEAT, buttons: REPEAT.buttons.slice(), ticks: { ...repeatTicks } }; },
+
+  /**
+   * How many whole polls each button was held for on the tick before this one — 0 means "released too fast to be
+   * seen". A scene that promises "press X to skip" can use this to notice a cancel that never arrived and fall back
+   * to the other button, instead of sitting there ignoring the player.
+   */
+  heldFor(btn) { return heldFor[btn] || 0; },
 
   bind(btn, codes) {
     if (!validButton(btn) || !Array.isArray(codes)) return false;

@@ -15,7 +15,7 @@
  *   8. boot ctx.boot: Save.newGame() when asked, Scenes.push(boot.scene, boot.ctx); Bus 'app.booted'
  *
  * THE PLUGIN CONTEXT — what every plugin's install(ctx) receives (a piece fills its own file; nobody edits this one):
- *   ctx = { version, App, Loop, Scenes, Bus, Debug, reportError, Input, UI, Text, Save, Audio, Sfx,
+ *   ctx = { version, build, App, Loop, Scenes, Bus, Debug, reportError, Input, UI, Text, Save, Audio, Sfx,
  *           Music() -> Promise<Music> (lazy, shared), Field, Maps, vars: {HERO}, boot: {scene, ctx, newGame} }
  *   Plugins, in install order: src/ui/transitions.js (P29) · src/ui/dialogue.js (P12) · src/ui/menu.js (P13) ·
  *   src/ui/hud.js (P32) · src/world/npc.js (P11) · src/world/encounter.js (P31) · src/battle/present.js (P15) ·
@@ -41,6 +41,54 @@ import { PLUGINS as PLUGIN_MANIFEST } from './plugins.js';
 
 export const VERSION = '0.3.0-seams';
 
+/**
+ * BUILD — the fingerprint of the bytes that are actually running.
+ *
+ * VERSION above is a NAME ("0.3.0-seams") and it is meant to be hand-bumped per milestone. It cannot answer the
+ * question it looks like it answers — "is the file I have open the file you just edited?" — because it does not
+ * move when a line changes; it said 0.3.0-seams before this very edit and will say it after. So the id on screen
+ * is 8 hex chars of sha256 over index.html + src/** + vendor/three/**, computed once by tools/server.mjs.
+ *
+ * Where it lands: title card's foot line, __DQ.buildId / __DQ.state().buildId, the play-debug panel (F8) and the
+ * first line of the copied play report — so a screenshot, a terminal (`node tools/buildid.mjs`) and a pasted
+ * report are all comparable. If the number in your editor's window and the number on screen differ, your file is
+ * stale; save and reload, and if it still differs, the SERVER is stale — restart it, because the id is computed at
+ * server start by design so a moving number can never disagree with itself.
+ *
+ * It arrives over fetch and must never be awaited on the boot path: with the game opened from file:// there is no
+ * server to ask, and a fetch that hangs would hang the first frame. So it lands whenever it lands (a promise
+ * resolves in microtask order, before any plugin's install runs), plugins read `build.label`, and the title repaints
+ * its foot line when it finally arrives.
+ */
+export const BUILD = { id: null, label: '…', source: 'fetching', files: 0, ms: 0 };
+let buildSettle = Promise.resolve();
+try {
+  const t0 = performance.now();
+  const q = '?v=' + Date.now();
+  const done = (patch) => {
+    Object.assign(BUILD, patch, { ms: Math.round(performance.now() - t0), source: patch.source || BUILD.source });
+    return BUILD;
+  };
+  if (location.protocol === 'file:') {
+    // Opened as a file, not served: there is no build-id endpoint to ask, and an honest "unknown" beats a wrong one.
+    done({ id: null, label: 'no-build', source: 'file://' });
+  } else {
+    // Aborted on a timer, not raced: fetch() ignoring AbortSignal would leave the request — and its socket — alive
+    // forever if the endpoint is ever missing.
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 3000);
+    buildSettle = fetch('/build-id.json' + q, { cache: 'no-store', signal: ac.signal })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+      .then((j) => {
+        clearTimeout(timer);
+        if (!j || !j.id) return done({ id: null, label: 'no-build-id', source: 'no id in the response' });
+        return done({ id: String(j.id), label: String(j.id), files: j.files | 0, source: 'server' });
+      })
+      .catch((e) => { clearTimeout(timer); return done({ id: null, label: 'no-build-id', source: String((e && e.name) || e) }); })
+      .then(() => { try { Bus.emit('build.id', BUILD); } catch (_) {} });
+  }
+} catch (e) { BUILD.label = 'no-build-id'; BUILD.source = String((e && e.message) || e); }
+
 const step = (name, fn) => { try { return fn(); } catch (e) { reportError('boot: ' + name, e); return undefined; } };
 const withTimeout = (p, ms, fallback) => Promise.race([p, new Promise((res) => setTimeout(() => res(fallback), ms))]);
 
@@ -54,7 +102,7 @@ const T0 = performance.now();
 // ── engine ───────────────────────────────────────────────────────────────────────────────────────────────────
 step('palette css vars', () => applyCssVars());
 step('input', () => Input.init());
-step('app', () => App.start({ canvas: document.getElementById('game-canvas'), version: VERSION, beforeUpdate: Input.update }));
+step('app', () => App.start({ canvas: document.getElementById('game-canvas'), version: VERSION, build: BUILD, beforeUpdate: Input.update }));
 Debug.busy('boot', true);
 Debug.provide('boot', () => Object.assign({}, BOOT, { plugins: Object.assign({}, BOOT.plugins) }));
 
@@ -105,10 +153,15 @@ step('audio', () => {
 // ── the plugin context ───────────────────────────────────────────────────────────────────────────────────────
 const ctx = {
   version: VERSION,
+  build: BUILD,
   App, Loop, Scenes, Bus, Debug, reportError, Input, UI, Text, Save, Audio, Sfx, Field, Maps,
   Music: loadMusic,
   vars: { HERO: 'Bram' },
-  boot: { scene: 'field', ctx: { map: 'meadow' }, newGame: true },
+  // P25: open where the story opens — IN the cottage, not out on the meadow. Booting onto the meadow put a Lv 1
+  // boy with a wooden sword (or none) into the `long_lane` table before he had met his father: 55% of wild fights
+  // were a wipe, and Papa only joins at B2 in the village. Hollybank is `kind: 'interior'` (`encounters: null`),
+  // so nothing can ambush him before B1 hands him the household and the chest his wooden sword.
+  boot: { scene: 'field', ctx: { map: 'hollybank' }, newGame: true },
 };
 
 async function boot() {

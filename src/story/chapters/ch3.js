@@ -200,7 +200,7 @@ export const Chapter3 = {
       S.armed = false;
       playBeat(b).catch((e) => reportError(`Act III ${b.id}`, e));
     };
-    Bus.on('map.enter', (m) => { S.map = (m && m.id) || null; S.armed = true; S.cool = 40; });
+    Bus.on('map.enter', (m) => { S.map = (m && m.id) || null; if (Story.auto) S.armed = true; S.cool = 40; });   // autoplay off = no self-started beat on arrival either (ch1)
     try {
       Field.on('update', () => {
         if (S.cool > 0) { S.cool--; if (S.cool === 0) tryHere(); return; }

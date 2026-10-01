@@ -67,7 +67,15 @@ export const AREAS = [
   },
   {
     id: 'long_lane_alone', name: 'Long Lane — Bram alone (stress)', act: 1, beat: '—', leg: 1, tier: 1, areaLevel: 2, levels: [1, 2, 3], stress: true,
-    note: 'Never happens in the story (Papa is always there). Tests the floor for a lone six-year-old hero.',
+    // P25: this row used to carry the note "never happens in the story (Papa is always there)" and be a dead stress
+    // case. It is not dead and it was never safe: the game opens in Hollybank with Bram alone and no weapon, and
+    // nothing walks him into the `long_lane` table until B2 puts Papa in the party at the village lane-out. The row
+    // measured 60% wipes and 82% of fights running 4+ rounds — that is what "start the game and get beaten to death"
+    // was, and the harness never caught it because every contracted row tested `long_lane` instead. `first-hour.mjs`
+    // now contracts this one against OPENING. It still fails on rounds/cost/wipes, and that is honest: it is the
+    // floor for a lone six-year-old with a wooden sword, and the game's answer is that he must not meet the table
+    // alone. Keep it in the report as the standing reminder of that.
+    note: 'The floor: Bram alone, wooden sword, no Papa. Unreachable in the story until B2; measured, not assumed.',
     party: (L) => build([['hero', 0, W('wooden_sword', 'wayfarers_clothes')]], L),
     table: [['gloop', 5], ['peckish', 4], ['bloop', 3], ['flapjack', 2], ['grumpleroot', 2], ['bumbleblunder', 2], ['toadstooligan', 1]],
     group: [1, 2], walk: 6, bag: { herb: 2 },

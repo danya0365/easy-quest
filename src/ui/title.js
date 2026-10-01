@@ -297,9 +297,24 @@ function createTitleScene() {
   const S = {
     phase: 'boot', t: 0, leg: 0, legT: 0, B: null, camera: null, offResize: null,
     dom: null, box: null, menu: null, sub: null, nameWin: null, grid: null,
-    seg: 0, skip: null, music: 'off', busy: false, fresh: true, renderT: null,
+    seg: 0, skip: null, music: 'off', busy: false, fresh: true, renderT: null, press: null,
+    foot: null, footText: null, offBuild: null,
   };
   const look = new THREE.Vector3();
+
+  // The build id is fetched, so it can land after makeDom() has already written '…'. Re-write the foot line when
+  // it arrives. The repaint is idempotent and guarded: it only fires while the title is up, and only if the id it
+  // is about to paint is not the one already painted.
+  function paintBuild() {
+    const label = (ctx.build && ctx.build.label) || '?';
+    if (!S.foot || S.foot.dataset.build === label) return;
+    try { S.foot.textContent = S.footText(); S.foot.dataset.build = label; } catch (_) {}
+  }
+  function watchBuild() {
+    if (S.offBuild || !ctx.Bus || !ctx.Bus.on) return;
+    S.offBuild = ctx.Bus.on('build.id', paintBuild);
+    if (typeof S.offBuild !== 'function') S.offBuild = () => { try { ctx.Bus.off && ctx.Bus.off('build.id', paintBuild); } catch (_) {} };
+  }
 
   // ── the overlay ────────────────────────────────────────────────────────────────────────────────────────────
   function makeDom() {
@@ -312,11 +327,28 @@ function createTitleScene() {
     const logo = guard('logo', () => logoCanvas(), null);
     if (logo) logo.className = 'logo';
     const press = document.createElement('div'); press.className = 'press'; press.textContent = 'Press Enter';
-    const foot = document.createElement('div'); foot.className = 'foot'; foot.textContent = GAME_TITLE.line1 + ' ' + GAME_TITLE.line2 + '  ·  v' + (ctx.version || '0');
+    // The foot line answers "which code is this?" with a FINGERPRINT, not the version name. ctx.version is a string
+    // a human bumps per milestone and it does not move when a line changes, so it cannot tell you whether the file
+    // you have open is the file that booted — ctx.build.label can, and it is the same 8 chars the dev server prints.
+    // The id arrives over fetch, so it can land after this line is built; paintBuild() re-writes it when it does.
+    const foot = document.createElement('div'); foot.className = 'foot';
+    const footText = () => {
+      const b = ctx.build || {};
+      return GAME_TITLE.line1 + ' ' + GAME_TITLE.line2 + '  ·  v' + (ctx.version || '0') + '  ·  build ' + (b.label || '?');
+    };
+    foot.textContent = footText();
+    // The build id is a thing you compare, so it has to be copyable text and selectable on a click — otherwise the
+    // one way to get it out of the screen is a screenshot, and a screenshot cannot be diffed against a terminal.
+    foot.style.userSelect = 'text';
     const hint = document.createElement('div'); hint.className = 'hint'; hint.textContent = 'Press X to skip';
     root.append(sheen);
     if (logo) root.append(logo);
     root.append(press, foot, hint);
+    S.press = press;
+    S.foot = foot;
+    S.footText = footText;
+    foot.dataset.build = (ctx.build && ctx.build.label) || '?';
+    watchBuild();
     host.appendChild(root);
     // one frame later, so the CSS transition actually runs
     requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('shown')));
@@ -545,7 +577,11 @@ function createTitleScene() {
       await intoTheGame(() => {
         guard('newGame', () => Save && Save.newGame());
         setHeroName(keep);                                    // newGame's hero.reset() puts Bram back — re-paint
-        Scenes.replace('field', { map: 'meadow' });
+        // P25: open in Hollybank, not out on the meadow. This is the line a player actually runs — the intro ends
+        // here. Booting the meadow dropped a Lv 1 boy with a wooden sword into the `long_lane` table before he had met
+        // his father (55% of wild fights were a wipe) and skipped the whole of B1. Keep it in step with `main.js` and
+        // with the `game` branch of `__DQ.title()` below: if you change one, change all three.
+        Scenes.replace('field', { map: 'hollybank' });
       });
       setHeroName(keep);
     }
@@ -566,6 +602,12 @@ function createTitleScene() {
       guard('hard swap', () => swap());
     }
     guard('busy off', () => Debug && Debug.busy('title.leave', false));
+    // …and unlock input. S.busy was set at the top of this function and NOTHING ever cleared it, so every button
+    // the player pressed for the rest of the session went into `onInput`'s first line and returned true. The
+    // signs in the village could not be read, the menu could not open, and B1 never started — the whole game,
+    // dead, with no error anywhere. The title stays on the scene stack under the field (Scenes.replace), so its
+    // onInput keeps being asked.
+    S.busy = false;
   }
 
   function carryOn(slot) {
@@ -611,6 +653,7 @@ function createTitleScene() {
       guard('resize off', () => S.offResize && S.offResize());
       closeAll();
       guard('dom', () => S.dom && S.dom.remove());
+      S.press = null;
       guard('vignette', () => Transitions.vignette(0, { ms: 0 }));
       guard('view dispose', () => S.B && S.B.view && S.B.view.dispose && S.B.view.dispose());
       guard('rig dispose', () => S.B && S.B.rig && S.B.rig.dispose && S.B.rig.dispose());
@@ -645,9 +688,19 @@ function createTitleScene() {
     },
 
     onInput(btn) {
+      // The scene took the button. Whatever made it — a held key or the boot wipe's injected fade press — this
+      // scene now owns it, so lift it here or it stays held for the whole title. Input.release leaves a real held
+      // key alone (see suppressKeyboard); it only clears an injected one.
+      guard('release', () => ctx.Input && ctx.Input.release(btn), null);
       if (S.busy) return true;
-      // the storybook is skippable before anything else gets the button
+      // the storybook is skippable, and it is checked before `UI.input()` so the intro box never gets a vote on it.
       if (S.phase === 'intro' && (btn === 'cancel' || btn === 'menu')) { if (S.skip) S.skip(true); return true; }
+      // …and a cancel that lasted no whole poll never arrived at all: `keyTaps` is read and cleared inside poll(),
+      // so a fast Escape released before the next tick is invisible (Input.heldFor). That is a real player's Escape
+      // — a fast tap, and a few ms of CDP can swallow it. The title carries the words "Press X to skip", so when the
+      // skip that was meant to happen did not, the confirm that advanced the storybook stands in for it. Otherwise
+      // the screen told the player to press X and did nothing at all.
+      if (S.phase === 'intro' && btn === 'confirm' && (ctx.Input.heldFor('cancel') || ctx.Input.heldFor('menu'))) { if (S.skip) S.skip(true); return true; }
       if (UI && UI.input(btn)) return true;
       if (S.phase === 'sweep' && (btn === 'confirm' || btn === 'menu')) { toMenu(); return true; }
       if (S.phase === 'menu' && btn === 'cancel') { toSweep(); return true; }
@@ -667,7 +720,10 @@ function createTitleScene() {
         look: { x: +look.x.toFixed(2), y: +look.y.toFixed(2), z: +look.z.toFixed(2) },
         hasSave: !!c.any, slots: (c.slots || []).map((s) => ({ slot: s.slot, status: s.status, hero: s.hero, level: s.level, place: s.placeName })),
         logo: !!(S.dom && S.dom.querySelector('canvas.logo')),
-        press: S.phase === 'sweep',
+        // NOT `S.phase === 'sweep'`. The sweep loops the camera path forever and Enter works the whole time, so
+        // that was true from the first frame and the field could not tell a player "you may press now" from
+        // "you pressed too early and nothing happened". This is the prompt, which is what it actually means.
+        press: !!S.press,
         widgets: ['menu', 'sub', 'grid', 'nameWin', 'box'].filter((k) => !!S[k]),
         settings: Object.assign({}, settings),
       };
@@ -685,7 +741,7 @@ function createTitleScene() {
         run(intoTheGame(() => {
           guard('newGame', () => Save && Save.newGame());
           setHeroName(keep);
-          Scenes.replace('field', { map: 'meadow' });
+          Scenes.replace('field', { map: 'hollybank' });   // P25: Hollybank, as above — the boot branch a test drives
         }).then(() => { setHeroName(keep); }));
         return { phase: 'leaving' };
       }

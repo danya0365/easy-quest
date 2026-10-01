@@ -45,7 +45,17 @@ const SPOTS = {
   door: { x: DX, z: 0.8, facing: Math.PI },                // where you arrive: two steps in, facing the room
   hearth: { x: -2.8, z: -4.7, rot: 0 },
   hearthside: { x: -2.8, z: -3.35, facing: Math.PI },      // where somebody stands to sing at a kettle
-  table: { x: -2.4, z: -1.5, rot: 0 },
+  table: { x: -2.4, z: -1.1, rot: 0 },
+  // P25: B1 stages the boy at "at:Father's chair", which puts him just north of the table. At z -2.85 the big chair
+  // and the table (z -1.5, 1.15 deep) left a gap of 0.7 between their colliders and the boy is 0.6 wide with a
+  // PLAYER_RADIUS of 0.35 around him — he fitted, and could not move: every one of the four tiles around him was
+  // solid, so the first scripted walk of the game found no route out of his own chair and he stood there. That is
+  // what the player reported as "he tries to walk into things that block him".
+  //
+  // He cannot go much further north: the hearth is a 2.9 x 1.3 slab reaching z -4.05, and moving the chair to
+  // -3.3 pinched him between the two (two colliders at PLAYER_RADIUS, which is the standing-in-a-wall test). So the
+  // table moves instead — 0.4 south, clear of the hearth, which opens a lane the width of the boy along the whole
+  // west side of the table and gives him room to step off the chair and go.
   fatherChair: { x: -2.4, z: -2.85, rot: 0 },
   chairA: { x: -3.85, z: -0.2, rot: Math.PI },
   chairB: { x: -0.95, z: -0.2, rot: Math.PI },

@@ -1,0 +1,273 @@
+{
+ "name": "P25B — the opening the way a player plays it: title -> cottage -> B1 -> the boy walks",
+ "steps": [
+  {
+   "note": "RUN IT WITH THE TITLE ON:  node tools/shoot.mjs --keep-title --url http://localhost:8123/index.html --out /tmp/p25b --script scenarios/P25B-opening.json\nWithout --keep-title the harness appends ?title=0, the title never enters the scene stack, and every waitFor on __DQ.title().phase below times out even though the title screen renders fine. The beat still plays (boot falls through to the field), so it reads like a product bug."
+  },
+  {
+   "waitFor": "window.__DQ && __DQ.ready",
+   "timeout": 60000
+  },
+  {
+   "waitFor": "__DQ.state().input.blocked.length === 0",
+   "timeout": 25000
+  },
+  {
+   "wait": 600
+  },
+  {
+   "shot": "01-title"
+  },
+  {
+   "note": "0. REAL keys only, and wait for the boot fade before the first one. Two things this scenario exists to prove, both found by pressing keys a player presses:\n\n  (a) THE BOOT FADE. Transitions holds Input.block('transition') until the opening wipe finishes, and while any token is on, poll() makes every button read UP (input.js: `if (blocked) raw = false`) and zeroes the axis. So a key pressed in the first ~2.5s after the title appears is thrown away and the screen looks frozen. Wait for the fade.\n\n  (b) THE SWALLOWED FIRST ENTRY. That wipe ends with releaseAll('transition'), which used to mark `confirm` suppressed — and `suppressHeld()` cannot tell a real key from an injected one. Confirm does not auto-repeat, so nothing ever cleared the flag and the NEXT REAL ENTER DID NOTHING. The player had to press Enter twice to leave the title. Fixed in input.js by suppressKeyboard(), which only poisons a button something is genuinely holding."
+  },
+  {
+   "waitFor": "__DQ.title().phase === 'sweep'",
+   "timeout": 20000
+  },
+  {
+   "note": "TAP every title key with `key`+`hold`, not with `press`. page.keyboard.press() is a keydown and a keyup in the same millisecond, and poll() reads-and-clears keyTaps inside itself — so whether a press is seen at all comes down to whether it happens to straddle a 16ms frame boundary. It is a coin flip: on the intro's Escape it failed on one run and passed on the next, from the same script. A thumb is ~100ms. Hold for 120ms and the flakiness is gone.",
+   "key": "Enter",
+   "hold": 120
+  },
+  {
+   "wait": 500
+  },
+  {
+   "waitFor": "__DQ.title().phase === 'menu'",
+   "timeout": 10000
+  },
+  {
+   "assert": "__DQ.title().phase === 'menu' && __DQ.title().hasSave === false",
+   "msg": "ONE Enter leaves the sweep, onto a menu with NO tale on it (the old bug ate it and needed two; a tale left on disk would put the cursor on Carry On instead and send the next Enter to the slot list)"
+  },
+  {
+   "shot": "02-new-game-menu"
+  },
+  {
+   "key": "Enter",
+   "hold": 120
+  },
+  {
+   "wait": 500
+  },
+  {
+   "waitFor": "__DQ.title().phase === 'naming'",
+   "timeout": 10000
+  },
+  {
+   "key": "Enter",
+   "hold": 120
+  },
+  {
+   "wait": 500
+  },
+  {
+   "waitFor": "__DQ.title().phase === 'intro'",
+   "timeout": 10000
+  },
+  {
+   "shot": "03-intro"
+  },
+  {
+   "note": "the storybook says 'Press X to skip', so Escape is the key a player uses here"
+  },
+  {
+   "key": "Escape",
+   "hold": 120
+  },
+  {
+   "eval": "(()=>{const s=__DQ.state();return {stack:s.sceneStack,phase:s.sceneStack.includes('title')?__DQ.title().phase:'gone',map:s.map&&s.map.id,blocked:s.input.blocked};})()"
+  },
+  {
+   "wait": 2500
+  },
+  {
+   "eval": "(()=>{const s=__DQ.state();return {stack:s.sceneStack,phase:s.sceneStack.includes('title')?__DQ.title().phase:'gone',map:s.map&&s.map.id,blocked:s.input.blocked};})()"
+  },
+  {
+   "waitFor": "__DQ.title().phase === 'leaving' || !__DQ.state().sceneStack.includes('title')",
+   "timeout": 25000
+  },
+  {
+   "note": "1. the game must come up in the cottage, and B1 must start there.\n'leaving' is only the START of the white cover (intoTheGame: 760ms out, the map builds behind it, 1000ms in) plus the beats that queue on top of it, so wait for the map itself. NOTE: this used to time out and read as 'the intro is stuck' when it was only slow."
+  },
+  {
+   "waitFor": "__DQ.state().map && __DQ.state().map.id === 'hollybank'",
+   "timeout": 90000
+  },
+  {
+   "waitFor": "!!__DQ.storyState().playing",
+   "timeout": 30000
+  },
+  {
+   "assert": "__DQ.state().map.id === 'hollybank'",
+   "msg": "B1 opens in the cottage"
+  },
+  {
+   "eval": "(()=>({playing:__DQ.storyState().playing,map:__DQ.state().map.id}))()"
+  },
+  {
+   "shot": "04-b1-running"
+  },
+  {
+   "note": "ARM THE WALK RECORDER HERE, while B1 is still running. B1's chest step happens somewhere in the middle of the beat, so a recorder started afterwards sees only the end of the walk — and the assertions that follow are about the SHAPE of the climb, not where it ended.\n\nIt records only the SAMPLES THAT MATTER and is bounded on purpose. A beat is a minute of tapping in which the boy is deliberately held still, and `blocked` is true for a boy standing in a chair while a scene is staged around him — neither says anything about the pathfinder. So a sample counts only when he is actually MOVING, and the timer stops itself so the run spends its budget on the game rather than on itself.",
+   "eval": "(()=>{window.__t=[];window.__last=null;window.__ti=setInterval(()=>{const p=__DQ.state().player;if(!p)return;const row=[+p.x.toFixed(2),+p.y.toFixed(2),+p.z.toFixed(2),p.blocked?1:0];const L=window.__last;const moved=!L||Math.hypot(row[0]-L[0],row[2]-L[2])>0.02;window.__last=row;if(moved)window.__t.push(row);if(window.__t.length>400)clearInterval(window.__ti);},60);return 'recording the walk';})()"
+  },
+  {
+   "note": "THE REGRESSION. Two Papas in one cottage. The people layer already stands a father beside the big chair (hollybank.npcs.js hb-halvard) and B1 spawns another at \"at:Father's chair\". `followerOf` only sees PARTY followers, and in Act I the party is the boy alone, so nothing stood in the way and the room held two men called Papa. The scene now LENDS the map's body (npcTake) instead of building its own. Count it the way a player sees it: one body for one character, read from the people layer AND the story layer, because a bug that hides the second copy from one of them still shows it on screen."
+  },
+  {
+   "eval": "(()=>{const a=__DQ.storyActors(),n=__DQ.npcs();const hal=a.filter(p=>String(p.id).includes('halvard'));const field=n.filter(p=>p.look==='halvard');return {story:hal.map(p=>[p.id,p.look]),field:field.map(p=>[p.id,p.hidden])};})()"
+  },
+  {
+   "assert": "__DQ.storyActors().filter(p=>String(p.id).includes('halvard')).length === 1",
+   "msg": "ONE Halvard in the story layer, not two"
+  },
+  {
+   "assert": "__DQ.npcs().filter(p=>p.look==='halvard').length === 1",
+   "msg": "ONE Halvard in the people layer, not two"
+  },
+  {
+   "assert": "__DQ.storyActors().filter(p=>String(p.id).includes('halvard')).every(p=>typeof p.id==='string')",
+   "msg": "a borrowed body is reported under its own story id, not a [key,value] pair"
+  },
+  {
+   "note": "2. TAP confirm repeatedly — do NOT hold it. Confirm is the one button that does not auto-repeat (REPEAT.buttons is DIRS only, and that is right: a held confirm must not skip the story), so a held key delivers ONE press, hurries one wait step, and then the beat waits forever. The cutscene's Confirm = hurry is one queued hurry per press (R.hurry is a counter, spent one per wait)."
+  },
+  {
+   "note": "B1 IS A MINUTE OF TAPPING. The `tap` verb holds Enter for 130ms and lets go for 190ms, up to 400 times, and stops the moment the beat is over. Written out as 400 `key` steps this loop was typed ONCE instead of 400 times, and the run then sat there for 90s and reported a hung cutscene — the scenario, not the game. The count is a number now, so it cannot be short by a factor of 400.",
+   "eval": "(()=>{window.__n=0;return 'tap counter armed';})()"
+  },
+  {
+   "tap": "Enter",
+   "times": 400,
+   "hold": 130,
+   "gap": 190,
+   "until": "!__DQ.storyState().playing"
+  },
+  {
+   "note": "CONFIRM MUST BE TAPPED, NEVER HELD. REPEAT.buttons is DIRS only, so a held confirm delivers exactly one press: it hurries one wait step and then the beat sits there forever. Holding Enter on B1 dead-locked at step 8 of 37 with the dialogue box up.",
+   "eval": "(()=>{const s=__DQ.state();return {playing:(__DQ.storyState()||{}).playing,blocked:s.input.blocked};})()"
+  },
+  {
+   "eval": "(()=>{const b=__DQ.state().input.counts.confirm;return {confirmPresses:b.presses};})()"
+  },
+  {
+   "waitFor": "!__DQ.storyState().playing",
+   "timeout": 90000
+  },
+  {
+   "wait": 2000
+  },
+  {
+   "note": "3. THE REGRESSION. B1 walks the boy to the front door to send his father off; the exit pad used to fire on that tick and swap the map to Puddlewick mid-cutscene. Then ch1.awake was never set and no arrow key moved him again."
+  },
+  {
+   "eval": "(()=>({map:__DQ.state().map.id,stack:__DQ.state().sceneStack,awake:__DQ.flag('ch1.awake'),gold:__DQ.gold(),next:__DQ.beat().next.id,history:__DQ.storyState().history.map(h=>h.id)}))()"
+  },
+  {
+   "assert": "__DQ.state().map && __DQ.state().map.id === 'hollybank'",
+   "msg": "still in the cottage — the exit pad must not fire while a beat owns the boy (story-lock.js)"
+  },
+  {
+   "assert": "__DQ.flag('ch1.awake') === true",
+   "msg": "B1 granted ch1.awake; it never did before the exit stopped eating the beat"
+  },
+  {
+   "assert": "__DQ.beat().next.id === 'b2'",
+   "msg": "the beat table advanced past B1"
+  },
+  {
+   "eval": "(()=>{const h=__DQ.storyState().history.map(x=>x.id);return {history:h,ran:h.indexOf('b1')>=0};})()"
+  },
+  {
+   "note": "4. the pad must come back. A leaked Input.block token zeroes the axis forever and the boy can never walk again."
+  },
+  {
+   "waitFor": "__DQ.state().input.blocked.length === 0",
+   "timeout": 20000
+  },
+  {
+   "eval": "(()=>({blocked:__DQ.state().input.blocked,suppressed:__DQ.state().input.suppressed,padLocked:__DQ.storyState().padLocked,staged:__DQ.storyState().staged}))()"
+  },
+  {
+   "assert": "Array.isArray(__DQ.state().input.blocked) && __DQ.state().input.blocked.length === 0",
+   "msg": "no leaked Input.block token after the beat"
+  },
+  {
+   "assert": "Array.isArray(__DQ.state().input.suppressed) && __DQ.state().input.suppressed.length === 0",
+   "msg": "no button left needing a release — a stuck confirm is what ate the first Enter of the game"
+  },
+  {
+   "shot": "05-after-b1"
+  },
+  {
+   "note": "THE REGRESSION, and the one the player actually reported — asserted on B1's OWN chest step, not on a walk staged beside it.\n\nB1 walks the boy to the chest, which sits on the loft a storey above the ground floor. He used to steer STRAIGHT at the mark, jam against the loft rail for ~1.8 seconds, and then be `place()`d on top of it — 'he tries to walk into things that block him'. Scripted walks are now PLANNED (findRoute, script.js): an A* over the same GameMap._deepest the player's own controller walks against, with a per-step floor-height limit so the route climbs the loft STAIR tread by tread instead of stepping off the edge of the loft.\n\nThe trace is read here from the recorder armed at step 04, so it covers the real beat rather than a rehearsal of it. What proves he walked rather than teleported is the SHAPE of the y trace, not its end value: `yJump === 0` on its own is also satisfied by a route that never left the ground floor at all, which is why `ysRisen` is asserted separately.",
+   "eval": "(()=>{clearInterval(window.__ti);const t=window.__t||[];const ys=t.map(r=>r[1]);let yJump=0;for(let i=1;i<ys.length;i++)yJump=Math.max(yJump,Math.abs(ys[i]-ys[i-1]));window.__walk={samples:t.length,yJump:+yJump.toFixed(3),ysRisen:ys.filter((v,i,a)=>i===0||v!==a[i-1]).length,blocked:t.filter(r=>r[3]).length,reachedLoft:ys.indexOf(1.15)>=0};return JSON.stringify(window.__walk);})()"
+  },
+  {
+   "assert": "window.__walk && window.__walk.samples > 20",
+   "msg": "the walk to the chest took real frames — it is a walk, not a cut"
+  },
+  {
+   "assert": "window.__walk && window.__walk.reachedLoft",
+   "msg": "B1's own walk to the chest actually took him UP to the loft — y 1.15 appears in the trace"
+  },
+  {
+   "assert": "window.__walk && window.__walk.yJump <= 0.25",
+   "msg": "he did NOT teleport onto the loft: no 60ms sample jumped more than a stair tread"
+  },
+  {
+   "assert": "window.__walk && window.__walk.ysRisen >= 6",
+   "msg": "he CLIMBED the stair gradually, floor rising in at least 6 steps"
+  },
+  {
+   "assert": "window.__walk && window.__walk.blocked === 0",
+   "msg": "he was NEVER pinned against a collider for a whole sample — the old bug held blocked for ~1.8s at the loft rail"
+  },
+  {
+   "assert": "!__DQ.errors.some(e=>/walk hero: no route/.test(String(e)))",
+   "msg": "every scripted walk B1 asked for found a route. `walkHero` reports a target it cannot reach instead of quietly standing still — a silent no-op is the same bug wearing a different hat"
+  },  {
+   "shot": "06-chest-on-the-loft"
+  },
+  {
+   "note": "5. HOLD a direction. A tap is not a walk in DQ: the first press only pivots him round to face it (see player.js, PIVOT)."
+  },
+  {
+   "eval": "(()=>{const p=__DQ.state().player;return {from:[+p.x.toFixed(2),+p.z.toFixed(2)],facing:p.facing};})()"
+  },
+  {
+   "key": "ArrowRight",
+   "hold": 1400
+  },
+  {
+   "eval": "(()=>{const p=__DQ.state().player;return {now:[+p.x.toFixed(2),+p.z.toFixed(2)],steps:p.steps,facing:p.facing};})()"
+  },
+  {
+   "eval": "(()=>{const p=__DQ.state().player;window.__a=[p.x,p.z];return 'marked';})()"
+  },
+  {
+   "key": "ArrowDown",
+   "hold": 1400
+  },
+  {
+   "eval": "(()=>{const p=__DQ.state().player;return {now:[+p.x.toFixed(2),+p.z.toFixed(2)],moved:Math.hypot(p.x-window.__a[0],p.z-window.__a[1])>0.4};})()"
+  },
+  {
+   "eval": "(()=>{const q=__DQ.state().player;const o=(r)=>{const z=__DQ.probe(q.x,q.z,r);return {r,clear:z.clear,cell:z.solidCell,ground:z.ground,hits:(z.hits||[]).map(h=>h.tag+'@'+h.depth)};};return {at:[+q.x.toFixed(2),+q.z.toFixed(2)],r20:o(0.2),r35:o(0.35)};})()"
+  },
+  {
+   "assert": "(()=>{const p=__DQ.state().player;const a=__DQ.probe(p.x,p.z,0.2),b=__DQ.probe(p.x,p.z,0.35);return a.clear && !a.solidCell && (b.hits||[]).length<=1;})()",
+   "msg": "he is standing on walkable floor, not inside a wall. The r=0.35 probe is PLAYER_RADIUS, the circle the game resolves his moves with, and the houses put their walls exactly on it, so a boy resting against a wall is one flagged hit at that radius and nothing wrong at all. A real wall is a SOLID CELL, or three or more colliders at once."
+  },
+  {
+   "shot": "07-walking"
+  },
+  {
+   "assert": "__DQ.state().errors === 0",
+   "msg": "no runtime errors"
+  }
+ ]
+}
