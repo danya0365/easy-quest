@@ -7,7 +7,7 @@
  */
 import {
   Story, say, narrate, move, face, wait, camera, fade, music, sfx, give, gold, flag, joinParty, choice,
-  shake, battle, card, spawn, despawn, act,
+  shake, battle, card, spawn, despawn, act, leave,
 } from '../script.js';
 import { Flags } from '../flags.js';
 import { Quests } from '../quests.js';
@@ -45,6 +45,12 @@ const b10 = () => [
   narrate('{gold}The wall gives way.\nWind smells of rain, not dust.{/gold}'),
   despawn('bertie'), despawn('digby'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch2.quarry_escape below — and it is REPLACED by
+  // any later leave, never merged, so a beat has exactly one finalizer.
+  leave(flag('ch2.quarry_escape')),
 ];
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -67,6 +73,12 @@ const b11 = () => [
   narrate('Bertie tips his cap and walks toward\nthe light. The caves keep whistling.'),
   despawn('bobble'), despawn('bertie'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is party.bobble_return — and any later `leave`
+  // REPLACES this list rather than adding to it, so a beat has exactly one finalizer.
+  leave(flag('party.bobble_return')),
 ];
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -89,6 +101,12 @@ const b11b = () => [
   flag('ch2.pip_return'),
   despawn('sunmane'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch2.pip_return — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('ch2.pip_return')),
 ];
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -114,6 +132,12 @@ const b12 = () => [
   narrate('{gold}Wild monsters may join the wagon now.{/gold}\nDoss mended Papa’s old wheels.'),
   despawn('barty'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch2.barty_join — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('ch2.barty_join')),
 ];
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -128,6 +152,12 @@ const b13 = () => [
   flag('ch2.willow_grown'),
   despawn('willow'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch2.willow_grown — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('ch2.willow_grown')),
 ];
 
 const b14 = () => [
@@ -140,6 +170,12 @@ const b14 = () => [
   flag('ch2.pearl_quest'),
   despawn('sera'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch2.pearl_quest — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('ch2.pearl_quest')),
 ];
 
 const b15 = () => [
@@ -150,6 +186,12 @@ const b15 = () => [
   narrate('%HERO% found the {gold}Tide Pearl{/gold}.'),
   flag('ch2.pearl'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch2.pearl — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('ch2.pearl')),
 ];
 
 const b16 = () => [
@@ -166,6 +208,12 @@ const b16 = () => [
     ],
   ]),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch2.bride — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('ch2.bride')),
 ];
 
 const b17 = () => [
@@ -175,6 +223,12 @@ const b17 = () => [
   flag('ch2.ship'),
   narrate('{gold}The Merry Lark{/gold} waits at the quay.'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch2.married — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('ch2.married')),
 ];
 
 const b18 = () => [
@@ -186,6 +240,12 @@ const b18 = () => [
   narrate('Rowan and Linnet arrive the way\nstorms do — loudly, and all at once.'),
   flag('ch2.twins_born'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch2.ambergarde — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('ch2.ambergarde')),
 ];
 
 const b19 = () => [
@@ -196,6 +256,12 @@ const b19 = () => [
   card('Nine years pass.', null, { ms: 2800 }),
   narrate('{gold}Act III — the Stone Garden.{/gold}\nChip Papa free. Keep going.'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch2.petrified — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('ch2.petrified')),
 ];
 
 export const BEATS = [
@@ -225,7 +291,7 @@ function ready(b) {
 
 export function nextBeat() { return BEATS.find(ready) || null; }
 
-const S = { installed: false, map: null, cool: 0, poll: 0, armed: true };
+const S = { installed: false, map: null, cool: 0, poll: 0, armed: true, stopped: null };
 const here = () => { try { const w = Field.world(); return (w && w.map && w.map.id) || S.map; } catch (_) { return S.map; } };
 
 async function playBeat(b) {
@@ -290,6 +356,7 @@ export const Chapter2 = {
       // Act II only arms after ch2.start (set at the end of B9).
       if (!Flags.has('ch2.start')) return;
       const b = nextBeat();
+      if (S.stopped && S.stopped === b.id) { S.armed = false; return; }   // just left it (P25J)
       if (!b) { S.armed = true; return; }
       const place = placeOf(b);
       if (place.map !== S.map) { S.armed = true; return; }
@@ -303,10 +370,15 @@ export const Chapter2 = {
       S.armed = false;
       playBeat(b).catch((e) => reportError(`Act II ${b.id}`, e));
     };
-
+// A BEAT THAT HAS JUST BEEN LEFT IS NOT A BEAT WAITING TO HAPPEN (P25J). `tryHere` gives the stage
+    // back the moment the runner lets go, so the next poll is already free — which is right for a beat that ENDED and
+    // wrong for the one a child just pressed X out of. The same beat, on the same map, with no arrival in between,
+    // does not fire again; arriving somewhere IS the way back in, so the beat stays re-enterable by playing it.
+    Bus.on('story.skip', (e) => { S.stopped = (e && e.id) || S.stopped; });
     Bus.on('map.enter', (m) => {
       S.map = (m && m.id) || null;
-      if (Story.auto) S.armed = true;      // autoplay off = no beat of mine starts itself, on arrival either (ch1)
+      if (Story.auto) S.armed = true;
+      S.stopped = null;      // autoplay off = no beat of mine starts itself, on arrival either (ch1)
       S.cool = 40;
     });
     try {

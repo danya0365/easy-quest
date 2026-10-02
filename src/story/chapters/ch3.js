@@ -6,7 +6,7 @@
  */
 import {
   Story, say, narrate, wait, camera, fade, music, sfx, give, flag, joinParty, choice,
-  battle, card, spawn, despawn, act,
+  battle, card, spawn, despawn, act, leave,
 } from '../script.js';
 import { Flags } from '../flags.js';
 import { Quests } from '../quests.js';
@@ -26,6 +26,12 @@ const b20 = () => [
   flag('ch3.awake'),
   narrate('{gold}Papa stirs inside the stone.{/gold}'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch3.awake below — and it is REPLACED by
+  // any later leave, never merged, so a beat has exactly one finalizer.
+  leave(flag('ch3.awake')),
 ];
 
 const b21 = () => [
@@ -36,6 +42,12 @@ const b21 = () => [
   sfx('item_get'),
   narrate('{gold}Rowan draws the Larksteel Sword.{/gold}'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch3.sword_drawn — and any later `leave`
+  // REPLACES this list rather than adding to it, so a beat has exactly one finalizer.
+  leave(flag('ch3.sword_drawn')),
 ];
 
 const b22 = () => [
@@ -47,6 +59,12 @@ const b22 = () => [
   sfx('item_get'),
   narrate('You gather what the road still owes you.\n{gold}The Larksteel Shield{/gold} finds its arm.'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch3.shield — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('ch3.shield')),
 ];
 
 const b23 = () => [
@@ -66,6 +84,12 @@ const b23 = () => [
   flag('ch3.sunlark'),
   narrate('{gold}The Larkweave Cloak{/gold} settles on Linnet.\nA feather keeps singing in your pack.'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch3.sunlark — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('ch3.sunlark')),
 ];
 
 const b24 = () => [
@@ -77,6 +101,12 @@ const b24 = () => [
   narrate('{gold}Queen Elowen{/gold} wakes.\n“Oh, you got so tall. I only put you down\nfor a minute.”'),
   narrate('She gives {gold}Elowen’s Shawl{/gold}.'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch3.elowen — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('ch3.elowen')),
 ];
 
 const b25 = () => [
@@ -88,6 +118,12 @@ const b25 = () => [
   music('victory'),
   narrate('The Larksteel Sword cuts the dream away.\nMortmain lives — an ordinary old man.'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch3.malgrim_fallen — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('ch3.malgrim_fallen')),
 ];
 
 const b26 = () => [
@@ -95,6 +131,12 @@ const b26 = () => [
   narrate('Back to the Stone Garden.\nTake Mum. Everybody wakes.'),
   flag('ch3.spouse_freed'),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is ch3.spouse_freed — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('ch3.spouse_freed')),
 ];
 
 const b27 = () => [
@@ -103,6 +145,12 @@ const b27 = () => [
   flag('game.cleared'),
   card('The end — for now.', 'Thank you for playing.', { ms: 3200 }),
   camera.follow(),
+  // ── LEAVE (P25J) ───────────────────────────────────────────────────────────────────────────────────────
+  // A SKIP CANNOT REACH THE END OF A BEAT — that is what makes it fast, and a finalizer at the bottom is kept by
+  // exactly the readers who never needed it. So it goes at the top, where a player who walks out on the first line has
+  // already passed. `leave` is KEPT by the runner, not run: see runList. The gate is game.cleared — and any later `leave` REPLACES this list rather than adding to it, so a beat has
+  // exactly one finalizer.
+  leave(flag('game.cleared')),
 ];
 
 export const BEATS = [
@@ -127,7 +175,7 @@ function ready(b) {
 }
 export function nextBeat() { return BEATS.find(ready) || null; }
 
-const S = { installed: false, map: null, cool: 0, poll: 0, armed: true };
+const S = { installed: false, map: null, cool: 0, poll: 0, armed: true, stopped: null };
 const here = () => { try { const w = Field.world(); return (w && w.map && w.map.id) || S.map; } catch (_) { return S.map; } };
 
 async function playBeat(b) {
@@ -187,6 +235,7 @@ export const Chapter3 = {
       try { if (Scenes.top() !== 'field') return; } catch (_) {}
       if (!Flags.has('ch3.start')) return;
       const b = nextBeat();
+      if (S.stopped && S.stopped === b.id) { S.armed = false; return; }   // just left it (P25J)
       if (!b) { S.armed = true; return; }
       const place = placeOf(b);
       if (place.map !== S.map) { S.armed = true; return; }
@@ -200,7 +249,13 @@ export const Chapter3 = {
       S.armed = false;
       playBeat(b).catch((e) => reportError(`Act III ${b.id}`, e));
     };
-    Bus.on('map.enter', (m) => { S.map = (m && m.id) || null; if (Story.auto) S.armed = true; S.cool = 40; });   // autoplay off = no self-started beat on arrival either (ch1)
+// A BEAT THAT HAS JUST BEEN LEFT IS NOT A BEAT WAITING TO HAPPEN (P25J). `tryHere` gives the stage
+    // back the moment the runner lets go, so the next poll is already free — which is right for a beat that ENDED and
+    // wrong for the one a child just pressed X out of. The same beat, on the same map, with no arrival in between,
+    // does not fire again; arriving somewhere IS the way back in, so the beat stays re-enterable by playing it.
+    Bus.on('story.skip', (e) => { S.stopped = (e && e.id) || S.stopped; });
+    Bus.on('map.enter', (m) => { S.map = (m && m.id) || null; if (Story.auto) S.armed = true;
+      S.stopped = null; S.cool = 40; });   // autoplay off = no self-started beat on arrival either (ch1)
     try {
       Field.on('update', () => {
         if (S.cool > 0) { S.cool--; if (S.cool === 0) tryHere(); return; }

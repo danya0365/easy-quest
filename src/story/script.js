@@ -150,6 +150,28 @@ export const nod = (who = 'hero') => ({ op: 'nod', who });
 export const emote = (who, what) => ({ op: 'emote', who, what });
 export const branch = (cond, then_ = [], else_ = []) => ({ op: 'branch', cond, then: then_, else: else_ });
 export const choice = (labels, thens = [], o = {}) => ({ op: 'choice', labels, thens, ...o });
+/**
+ * WHAT MUST STILL BE TRUE WHEN A CHILD WALKS OUT OF A SCENE (P25J).
+ *
+ * A skip is a fast-forward, and `runList` returns the instant `skipReq` is set — that is what makes it fast. The
+ * cost is that a beat's own steps never finish, so any world-state they were going to set is simply not set. In
+ * B1 that flag was `ch1.awake`, which is also what the chapter asks under `blocks:` to know whether the beat has
+ * played — so a child who pressed skip on the first line had to go and talk to Papa again. And again. For ever.
+ *
+ * So a beat says plainly what it owes the world on the way out: `leave(flag('ch1.awake'))`. The runner keeps the
+ * list and, on the way out, runs what has not run yet.
+ *
+ * THE FINAL LIST WINS, ALWAYS, AND THAT IS THE POINT. A single `leave()` anywhere in a beat would otherwise mean
+ * "reached this line", and the man walking out through the door is precisely the one line a skip will never reach —
+ * so the list would silently be empty for exactly the player who pressed skip. There is no way for that to read as
+ * "I finished the scene": the finalizer's whole reason to exist is the parts a reader never sees. It is the world
+ * the scene ASSERTS, and it is not optional. Two `leave()` calls replace rather than accumulate, on purpose.
+ *
+ * `leaveOnce()` is the escape hatch: add to the list instead of replacing it, for a beat that ends in someone else's
+ * `leave()`.
+ */
+export const leave = (...steps) => ({ op: 'leave', steps: steps.flat().filter(Boolean) });
+export const leaveOnce = (...steps) => ({ op: 'leaveOnce', steps: steps.flat().filter(Boolean) });
 
 export const camera = {
   shot: (o = {}) => ({ op: 'camera', what: 'shot', ...o }),
@@ -169,6 +191,7 @@ export const camera = {
 
 /** The steps that can share ONE Dragon Quest conversation window (P12 script format). */
 const TALKY = new Set(['say', 'narrate', 'flag', 'sfx', 'wait', 'nod', 'emote']);
+const LEAVE_OPS = new Set(['leave', 'leaveOnce']);         // P25J: lifted out of a beat and kept — see runList
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // CUTSCENE ACTORS — bodies the story owns, standing in the live field scene
@@ -449,6 +472,8 @@ const R = {
   hero: null,                              // the live hero walk {tx, tz, speed, t, timeout, resolve}
   letterbox: null, cardWin: null,
   history: [], installed: false, ctx: null, autoplay: true,
+  leaving: false,                           // P25J: set while the runner unwinds a skip, so `leave` steps run
+  onLeave: null,                            // the live `leave` list for the scene in flight — see SKIPPABLE below
   shakeT: 0, shakeMs: 0, shakeAmp: 0,
   keys: false, unstaging: null,
   lastPlay: null,                               // what the last storyPlay actually did — see Story.play
@@ -1175,13 +1200,23 @@ async function runList(steps) {
   const list = (steps || []).filter(Boolean);
   let i = 0;
   while (i < list.length) {
+    // A SCENE CAN BE LEFT. `leave()`/`leaveOnce()` never appear in a beat's steps: they are lifted out and KEPT, so a
+    // player who walks out of the room has not skipped past the one list the scene exists to keep. Anything else
+    // stays in place — a `flag` with a side effect must not be lifted out of the middle of a fight and run twice.
+    if (list[i] && (list[i].op === 'leave' || list[i].op === 'leaveOnce')) {
+      const add = list[i].steps;
+      if (list[i].op === 'leave' || !R.onLeave) R.onLeave = add.slice();
+      else R.onLeave.push(...add);
+      i++;
+      continue;
+    }
     if (R.skipReq) return;
     if (R.lost) return;                                          // P25: a defeat ends the scene where it fell
     const s = list[i];
     // a run of talky steps becomes one conversation: one box, one open, one close
     if (TALKY.has(s.op) && (s.op === 'say' || s.op === 'narrate')) {
       const batch = [];
-      while (i < list.length && TALKY.has(list[i].op)) { batch.push(talkStep(list[i])); i++; }
+      while (i < list.length && TALKY.has(list[i].op) && !LEAVE_OPS.has(list[i].op)) { batch.push(talkStep(list[i])); i++; }
       const script = batch.filter(Boolean);
       if (R.playing) R.playing.i = i;
       stage(true);
@@ -1324,6 +1359,27 @@ export const Story = {
     } finally {
       // whatever happened, put the world back the way a child can play it
       const skipped = R.skipReq;
+      // ── AND LET THE SCENE SAY WHAT IT OWES THE WORLD ON THE WAY OUT (P25J) ──────────────────────────────────
+      // Run last, and run in full, whatever brought us here: skip, X, a defeat, an error. What did NOT happen
+      // above is why this exists, and there is one thing a reader must never be shown — a scene half-kept. A
+      // `leave()` list is the world the scene asserts, so it is the same list either way.
+      //
+      // Two guards make that safe rather than merely tidy. `R.onLeave` is only ever this run's own list, so a scene
+      // inside a scene cannot have its finalizer run twice. And `R.leaving` RE-RUNS the outer loop: `runList` says
+      // `if (R.skipReq) return` at the top of every step, and this is a step — without that flag it would look at
+      // the skip that is still set and walk straight back out having done nothing.
+      if (skipped && R.onLeave && R.onLeave.length) {
+        const owed = R.onLeave;
+        R.leaving = true; R.skipReq = false;
+        try {
+          await runList(owed);
+        } catch (e2) {
+          reportError(`story scene "${id}" — what it leaves behind`, e2);
+        } finally {
+          R.leaving = false; R.skipReq = skipped;         // the flag is this scene's own; _run clears it below
+        }
+      }
+      R.onLeave = null;
       if (skipped && opts.onSkip) guard('onSkip', () => opts.onSkip());
       R.hero = null;
       lockPad(false);

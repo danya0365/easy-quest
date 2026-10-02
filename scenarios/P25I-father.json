@@ -1,62 +1,157 @@
 {
  "name": "P25I — where is Papa after he says he is going to the lane?",
  "steps": [
-  {"note": "RUN IT WITH:  node tools/shoot.mjs --keep-title --out /tmp/p25i --script scenarios/P25I-father.json --timeout 300000\n\nTHE BUG AS REPORTED: 'after talking to father, he says he will wait outside, but he is still in the house. Then when the boy goes out of the door, he warps to stand in front of the village — that looks odd.'\n\nIT WAS THREE SEPARATE THINGS, AND EACH HAD ITS OWN SENTENCE THAT SAID IT.\n\n1. `move('halvard','at:the front door')` reached for `npcGo`, which TELEPORTS. He was set down by the door in the same frame — he never crossed the room.\n2. `despawn('halvard')` hands a borrowed body back to the field exactly where it STANDS. So the beat walked him to the door and then returned him to his chair.\n3. The village's own `pw-halvard` was gated on `when: '!ch1.left_home'`, a flag set at the FAR END of B2. So the boy walked out of his front door and his father was already standing at the wagon ahead of him.\n\nAND THE WALK HAD NOWHERE TO WALK TO, which is worth a paragraph of its own: the cottage table was collided as a full-height box, so the 0.1 gap between the table's underside and the boards read as a corridor. Every route to the door went down it and stopped. That is not a pathfinding bug — it is a piece of furniture that had told the game it reached the floor.\n\nStep 3 measures each verb on its own. Step 5 plays the REAL beat on real keys and watches the room DURING it."},
-  {"waitFor": "window.__DQ && __DQ.ready", "timeout": 60000},
-  {"waitFor": "__DQ.state().input.blocked.length === 0", "timeout": 25000},
-  {"eval": "(()=>{__DQ.title('game');return 'go';})()"},
-  {"waitFor": "__DQ.state().map", "timeout": 90000},
-  {"waitFor": "!!__DQ.storyState().playing", "timeout": 30000},
-  {"eval": "(async()=>{await __DQ.storyAuto(false);return JSON.stringify({auto:__DQ.heart().auto,playing:__DQ.storyState().playing});})()", "timeout": 30000},
-  {"assert": "!__DQ.storyState().playing",
-   "msg": "the chapter's own beat has let go of the stage, so what follows is this scenario's beat and not the game's"},
-  {"note": "1. BEFORE. Papa in the cottage, at his chair — the body B1 borrows — and the two numbers the exit has to beat: his distance to the front door, and the distance to the doorway itself."},
-  {"eval": "(()=>{const p=__DQ.npcs().find(n=>n.id==='hb-halvard');const d=__DQ.route('at:the front door');const s=__DQ.doorStep();window.__seenBefore=__DQ.npcsVisible();return JSON.stringify({papa:[+p.x.toFixed(2),+p.z.toFixed(2)],door:d.end,toDoor:+Math.hypot(p.x-d.end.x,p.z-d.end.z).toFixed(2),doorStep:s,toStep:+Math.hypot(p.x-s.back.x,p.z-s.back.z).toFixed(2),visible:window.__seenBefore});})()"},
-
-  {"note": "2. THE VERBS, ON THEIR OWN. `npcWalk` is new: a body lent to a scene had no verb for crossing a room, because the only one there was a teleport. `walked` is the people layer's own odometer across the walk, so it is ground covered rather than distance closed."},
-  {"eval": "(async()=>{const here=()=>__DQ.npcs().filter(n=>/halvard/i.test(n.id)).map(n=>[n.id,+n.x.toFixed(2),+n.z.toFixed(2),n.gone?'GONE':'']);const s=__DQ.doorStep();const out=[];out.push({tag:'before',at:here()});const w=await __DQ.npcWalk('hb-halvard',s.back.x,s.back.z,2.3);out.push({tag:'walked to the doorway',at:here(),ok:w.ok,walked:w.walked,miss:w.miss});__DQ.npcGo('hb-halvard',-2.0,2.0,true);out.push({tag:'teleported back to the middle',at:here()});__DQ.npcLeave('hb-halvard');out.push({tag:'dismissed',at:here()});return JSON.stringify(out);})()", "timeout": 60000},
-  {"assert": "__DQ.npcsGone && !__DQ.npcs().some(n=>/halvard/i.test(n.id) && !n.gone)",
-   "msg": "after `npcLeave` the only body left for him is a GONE one — which is what the rest of this scenario reads, because a dismissed body stays in the list forever and would otherwise read as a man still standing in the room"},
-
-  {"note": "3. THE REAL BEAT, on real keys, with a recorder on the room. He is lent by the beat, walks to the door, steps through it and is dismissed — all before the narration. This samples the whole time, so a father who is dismissed and then put back shows up as a second row."},
-  {"eval": "(()=>{window.__t=[];window.__ti=setInterval(()=>{const p=__DQ.npcs().find(n=>n.id==='hb-halvard');if(p)window.__t.push([+p.x.toFixed(2),+p.z.toFixed(2),p.hidden?'HIDDEN':'',p.gone?'GONE':'',+performance.now().toFixed(0)]);},100);return 'recording the room';})()"},
-  {"eval": "(async()=>{await __DQ.storyAuto(false);__DQ.storyAuto(true);__DQ.storyPlay('b1');return JSON.stringify(__DQ.storyIssued());})()", "timeout": 30000},
-  {"tap": "Enter", "times": 400, "hold": 130, "gap": 150, "until": "!__DQ.storyState().playing"},
-  {"wait": 1200},
-  {"eval": "(()=>{clearInterval(window.__ti);const t=window.__t;const marks=[];let last='';for(const r of t){const k=r[0]+','+r[1]+(r[3]?' GONE':r[2]?' HIDDEN':'');if(k!==last){marks.push(k);last=k;}}const d=__DQ.route('at:the front door');return JSON.stringify({leftCottage:!!__DQ.flag('ch1.left_the_cottage'),awake:!!__DQ.flag('ch1.awake'),samples:t.length,first:t[0],last:t[t.length-1],places:marks.slice(0,14),door:d.end});})()"},
-  {"assert": "__DQ.flag('ch1.left_the_cottage') === true",
-   "msg": "B1 ran to its end and said where he went — the flag is set only after Papa has stepped out through the door"},
-  {"assert": "window.__t && window.__t.length > 3 && window.__t.every(r=>!r[3]||r[2]==='HIDDEN'||true)",
-   "msg": "the recorder saw the room across the whole beat"},
-
-  {"note": "3b. WHY HE STOPS AT z 4.85 AND NOT AT 4.0. He was told to step a stride PAST the door and there is nowhere past it: an interior's walls are solid, so the tile behind the door is the wall. This asks the collision itself rather than the map file — `#` is a place a body of Papa's own width cannot stand. The wall runs flat across the whole width at z 4.9, which is why a father told to leave through his front door ends a stride short of it, at the door, on his own feet. That is the honest picture available inside a house with no outside."},
-  {"eval": "JSON.stringify({grid:__DQ.floorGrid({x:-3.8,z:3.6,w:2.0,d:1.9},0.42,0.1),line:__DQ.floorLine(-2.8,3.6,{z:5.2},0.42)})"},
-
-  {"note": "4. THE ROOM AFTER THE BEAT. A body the story dismissed STAYS in the field's list — that is deliberate, it is how a scene borrows somebody and gives him back — so what has to be checked is whether he is marked gone, not whether he has vanished. It is `npcLeave` that takes the model away and remembers it on the def, so he cannot come back next time the boy walks in. `npcsVisible()` TAKES NO ID and answers with a COUNT, so 'he is not visible' is the difference between that count now and the count before he was lent; asking it for one id measures nothing."},
-  {"eval": "(()=>JSON.stringify({map:__DQ.state().map.id,papa:__DQ.npcs().filter(n=>/halvard/i.test(n.id)).map(n=>[n.id,+n.x.toFixed(2),+n.z.toFixed(2),n.hidden,n.gone]),visible:__DQ.npcsVisible()}))()"},
-  {"assert": "__DQ.npcsGone('hb-halvard') === true && __DQ.npcsVisible() === window.__seenBefore - 1",
-   "msg": "when B1 ends, the cottage holds one fewer person you can see or speak to: he said he was going to the lane, and the room does not still have him in it. The count is the one captured before the beat lent him, because `npcsVisible` counts people rather than answering about a named one"},
-  {"shot": "02-the-empty-room"},
-
-  {"note": "5. THE OTHER HALF, on real keys and no teleports: the boy walks out of his own front door. That is a map change, which is the only thing that proves the village has been told to leave him out."},
-  {"eval": "(()=>{const s=__DQ.state();const pl=__DQ.route('__doorstep');return JSON.stringify({hero:[+s.player.x.toFixed(2),+s.player.z.toFixed(2)],door:pl&&pl.ok,doorEnd:pl&&pl.end});})()"},
-  {"eval": "(()=>{__DQ.storyPlay([{op:'move',actor:'hero',to:'__doorstep',speed:4.2}]);return JSON.stringify(__DQ.storyIssued());})()"},
-  {"waitFor": "!__DQ.storyState().playing", "timeout": 60000},
-  {"wait": 3000},
-  {"eval": "(()=>JSON.stringify({map:__DQ.state().map&&__DQ.state().map.id,hero:[+__DQ.state().player.x.toFixed(2),+__DQ.state().player.z.toFixed(2)],papa:__DQ.npcs().filter(n=>/halvard/i.test(n.id)).map(n=>[n.id,+n.x.toFixed(2),+n.z.toFixed(2),n.gone])}))()"},
-  {"shot": "03-outside"},
-  {"assert": "__DQ.state().map.id === 'puddlewick'",
-   "msg": "the boy is out on his own doorstep — he walked through the door on his own legs. `state().map` is the MAP OBJECT, not its id: compared against a string it is always false, and an assertion written that way is a green light wired to nothing"},
-  {"assert": "__DQ.npcs().filter(n=>/halvard/i.test(n.id)).every(n=>n.id === 'pw-halvard')",
-   "msg": "and there is NO cottage copy of him standing in the lane forty metres down the road. What IS here is `pw-halvard`, and it is here ON PURPOSE and only now: his gate used to be `!ch1.left_home`, a flag B2 sets twenty beats later, so the boy walked out of his front door and his father was already standing at the wagon ahead of him. It now waits for the flag B1 actually sets. Before that flag it is absent; after it, it is the man he said he would be"},
-  {"note": "5b. STAND SOMEWHERE THAT IS NOT THE DOORMAT. A front door is a RECTANGLE, and this one is 7.3 by 3.7 — most of the south half of the room. The tile the lane drops a boy on when he comes in is z 1.7, and z 1.7 is INSIDE that rectangle, so putting him there and asking why he went straight back out is asking the doormat why it works. The cottage does not throw him out: `place` never fires an exit, only his own legs do. These bounds are read from the map itself, which until now reported only how many doors it had."},
-  {"eval": "(async()=>{await __DQ.storyAuto(false);__DQ.teleport('hollybank',-6.9,1.6);await new Promise(r=>setTimeout(r,700));const m=__DQ.state().map;const pad=(m.exits||[]).find(e=>e.to==='puddlewick');return JSON.stringify({asked:'hollybank',now:__DQ.state().map.id,hero:[+__DQ.state().player.x.toFixed(2),+__DQ.state().player.z.toFixed(2)],pad:pad&&pad.on,standsOn:!!pad&&__DQ.state().player.x>=pad.on.xMin&&__DQ.state().player.x<=pad.on.xMax&&__DQ.state().player.z>=pad.on.zMin&&__DQ.state().player.z<=pad.on.zMax});})()", "timeout": 40000},
-  {"wait": 1200},
-  {"eval": "(()=>JSON.stringify({map:__DQ.state().map.id,papa:__DQ.npcs().filter(n=>/halvard/i.test(n.id)).map(n=>[n.id,n.hidden,n.gone]),visible:__DQ.npcsVisible()}))()"},
-  {"shot": "04-back-inside"},
-  {"assert": "__DQ.npcsGone('hb-halvard') === true && !__DQ.npcs().some(n=>n.id==='hb-halvard' && !n.hidden)",
-   "msg": "and the cottage is still empty of him next time the boy walks in — `gone` is read when the map is BUILT, so it survives the map change, which is the same bug one room change later"},
-  {"assert": "!!__DQ.flag('ch1.left_the_cottage') && !__DQ.flag('ch1.left_home')",
-   "msg": "and the village's own Papa is still held back until B2, so the lane copy appears when he is next needed"}
+  {
+   "note": "RUN IT WITH:  node tools/shoot.mjs --keep-title --out /tmp/p25i --script scenarios/P25I-father.json --timeout 300000\n\nA NOTE ON STEP 1, which reads the room BEFORE anything is skipped. Since P25J a skip RUNS the beat's `leave` list, and this beat's list dismisses Papa for good — so a count taken after the opening beat has been stopped reads one person short of the room the boy actually walked into, and the whole scenario measures the wrong thing. It waits for both of them to be standing there first, and says so at the count.\n\nTHE BUG AS REPORTED: 'after talking to father, he says he will wait outside, but he is still in the house. Then when the boy goes out of the door, he warps to stand in front of the village — that looks odd.'\n\nIT WAS THREE SEPARATE THINGS, AND EACH HAD ITS OWN SENTENCE THAT SAID IT.\n\n1. `move('halvard','at:the front door')` reached for `npcGo`, which TELEPORTS. He was set down by the door in the same frame — he never crossed the room.\n2. `despawn('halvard')` hands a borrowed body back to the field exactly where it STANDS. So the beat walked him to the door and then returned him to his chair.\n3. The village's own `pw-halvard` was gated on `when: '!ch1.left_home'`, a flag set at the FAR END of B2. So the boy walked out of his front door and his father was already standing at the wagon ahead of him.\n\nAND THE WALK HAD NOWHERE TO WALK TO, which is worth a paragraph of its own: the cottage table was collided as a full-height box, so the 0.1 gap between the table's underside and the boards read as a corridor. Every route to the door went down it and stopped. That is not a pathfinding bug — it is a piece of furniture that had told the game it reached the floor.\n\nStep 3 measures each verb on its own. Step 5 plays the REAL beat on real keys and watches the room DURING it."
+  },
+  {
+   "waitFor": "window.__DQ && __DQ.ready",
+   "timeout": 60000
+  },
+  {
+   "waitFor": "__DQ.state().input.blocked.length === 0",
+   "timeout": 25000
+  },
+  {
+   "eval": "(()=>{__DQ.title('game');return 'go';})()"
+  },
+  {
+   "waitFor": "__DQ.state().map",
+   "timeout": 90000
+  },
+  {
+   "waitFor": "!!__DQ.storyState().playing",
+   "timeout": 30000
+  },
+  {
+   "waitFor": "__DQ.npcs().some(n=>n.id==='hb-halvard')",
+   "timeout": 20000
+  },
+  {
+   "waitFor": "__DQ.npcsVisible() >= 2",
+   "timeout": 20000
+  },
+  {
+   "eval": "(()=>{window.__seenBefore=__DQ.npcsVisible();const p=__DQ.npcs().find(n=>n.id==='hb-halvard');const d=__DQ.route('at:the front door');const s=__DQ.doorStep();return JSON.stringify({papa:[+p.x.toFixed(2),+p.z.toFixed(2)],door:d.end,toDoor:+Math.hypot(p.x-d.end.x,p.z-d.end.z).toFixed(2),doorStep:s,toStep:+Math.hypot(p.x-s.back.x,p.z-s.back.z).toFixed(2),visible:window.__seenBefore,who:__DQ.npcs().map(n=>[n.id,n.hidden,n.gone])});})()"
+  },
+  {
+   "eval": "(async()=>{await __DQ.storyAuto(false);return JSON.stringify({auto:__DQ.heart().auto,playing:__DQ.storyState().playing});})()",
+   "timeout": 30000
+  },
+  {
+   "assert": "!__DQ.storyState().playing",
+   "msg": "the chapter's own beat has let go of the stage, so what follows is this scenario's beat and not the game's. Note what the skip did on the way out: `storyAuto(false)` calls the same `Story.skip()` a child's X button does, and since P25J that runs the opening beat's `leave` list — so Papa is already dismissed by the time this scenario stages its own B1, and the count in step 1 was taken before it for that reason"
+  },
+  {
+   "note": "2. THE VERBS, ON THEIR OWN. `npcWalk` is new: a body lent to a scene had no verb for crossing a room, because the only one there was a teleport. `walked` is the people layer's own odometer across the walk, so it is ground covered rather than distance closed."
+  },
+  {
+   "eval": "(async()=>{const here=()=>__DQ.npcs().filter(n=>/halvard/i.test(n.id)).map(n=>[n.id,+n.x.toFixed(2),+n.z.toFixed(2),n.gone?'GONE':'']);const s=__DQ.doorStep();const out=[];out.push({tag:'before',at:here()});const w=await __DQ.npcWalk('hb-halvard',s.back.x,s.back.z,2.3);out.push({tag:'walked to the doorway',at:here(),ok:w.ok,walked:w.walked,miss:w.miss});__DQ.npcGo('hb-halvard',-2.0,2.0,true);out.push({tag:'teleported back to the middle',at:here()});__DQ.npcLeave('hb-halvard');out.push({tag:'dismissed',at:here()});return JSON.stringify(out);})()",
+   "timeout": 60000
+  },
+  {
+   "assert": "__DQ.npcsGone && !__DQ.npcs().some(n=>/halvard/i.test(n.id) && !n.gone)",
+   "msg": "after `npcLeave` the only body left for him is a GONE one — which is what the rest of this scenario reads, because a dismissed body stays in the list forever and would otherwise read as a man still standing in the room"
+  },
+  {
+   "note": "3. THE REAL BEAT, on real keys, with a recorder on the room. He is lent by the beat, walks to the door, steps through it and is dismissed — all before the narration. This samples the whole time, so a father who is dismissed and then put back shows up as a second row."
+  },
+  {
+   "eval": "(()=>{window.__t=[];window.__ti=setInterval(()=>{const p=__DQ.npcs().find(n=>n.id==='hb-halvard');if(p)window.__t.push([+p.x.toFixed(2),+p.z.toFixed(2),p.hidden?'HIDDEN':'',p.gone?'GONE':'',+performance.now().toFixed(0)]);},100);return 'recording the room';})()"
+  },
+  {
+   "eval": "(async()=>{await __DQ.storyAuto(false);__DQ.storyAuto(true);__DQ.storyPlay('b1');return JSON.stringify(__DQ.storyIssued());})()",
+   "timeout": 30000
+  },
+  {
+   "tap": "Enter",
+   "times": 400,
+   "hold": 130,
+   "gap": 150,
+   "until": "!__DQ.storyState().playing"
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "eval": "(()=>{clearInterval(window.__ti);const t=window.__t;const marks=[];let last='';for(const r of t){const k=r[0]+','+r[1]+(r[3]?' GONE':r[2]?' HIDDEN':'');if(k!==last){marks.push(k);last=k;}}const d=__DQ.route('at:the front door');return JSON.stringify({leftCottage:!!__DQ.flag('ch1.left_the_cottage'),awake:!!__DQ.flag('ch1.awake'),samples:t.length,first:t[0],last:t[t.length-1],places:marks.slice(0,14),door:d.end});})()"
+  },
+  {
+   "assert": "__DQ.flag('ch1.left_the_cottage') === true",
+   "msg": "B1 ran to its end and said where he went — the flag is set only after Papa has stepped out through the door"
+  },
+  {
+   "assert": "window.__t && window.__t.length > 3 && window.__t.every(r=>!r[3]||r[2]==='HIDDEN'||true)",
+   "msg": "the recorder saw the room across the whole beat"
+  },
+  {
+   "note": "3b. WHY HE STOPS AT z 4.85 AND NOT AT 4.0. He was told to step a stride PAST the door and there is nowhere past it: an interior's walls are solid, so the tile behind the door is the wall. This asks the collision itself rather than the map file — `#` is a place a body of Papa's own width cannot stand. The wall runs flat across the whole width at z 4.9, which is why a father told to leave through his front door ends a stride short of it, at the door, on his own feet. That is the honest picture available inside a house with no outside."
+  },
+  {
+   "eval": "JSON.stringify({grid:__DQ.floorGrid({x:-3.8,z:3.6,w:2.0,d:1.9},0.42,0.1),line:__DQ.floorLine(-2.8,3.6,{z:5.2},0.42)})"
+  },
+  {
+   "note": "4. THE ROOM AFTER THE BEAT. A body the story dismissed STAYS in the field's list — that is deliberate, it is how a scene borrows somebody and gives him back — so what has to be checked is whether he is marked gone, not whether he has vanished. It is `npcLeave` that takes the model away and remembers it on the def, so he cannot come back next time the boy walks in. `npcsVisible()` TAKES NO ID and answers with a COUNT, so 'he is not visible' is the difference between that count now and the count before he was lent; asking it for one id measures nothing."
+  },
+  {
+   "eval": "(()=>JSON.stringify({map:__DQ.state().map.id,papa:__DQ.npcs().filter(n=>/halvard/i.test(n.id)).map(n=>[n.id,+n.x.toFixed(2),+n.z.toFixed(2),n.hidden,n.gone]),visible:__DQ.npcsVisible()}))()"
+  },
+  {
+   "assert": "__DQ.npcsGone('hb-halvard') === true && __DQ.npcsVisible() === window.__seenBefore - 1",
+   "msg": "when B1 ends, the cottage holds one fewer person you can see or speak to: he said he was going to the lane, and the room does not still have him in it. The count is the one captured before the beat lent him, because `npcsVisible` counts people rather than answering about a named one"
+  },
+  {
+   "shot": "02-the-empty-room"
+  },
+  {
+   "note": "5. THE OTHER HALF, on real keys and no teleports: the boy walks out of his own front door. That is a map change, which is the only thing that proves the village has been told to leave him out."
+  },
+  {
+   "eval": "(()=>{const s=__DQ.state();const pl=__DQ.route('__doorstep');return JSON.stringify({hero:[+s.player.x.toFixed(2),+s.player.z.toFixed(2)],door:pl&&pl.ok,doorEnd:pl&&pl.end});})()"
+  },
+  {
+   "eval": "(()=>{__DQ.storyPlay([{op:'move',actor:'hero',to:'__doorstep',speed:4.2}]);return JSON.stringify(__DQ.storyIssued());})()"
+  },
+  {
+   "waitFor": "!__DQ.storyState().playing",
+   "timeout": 60000
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "eval": "(()=>JSON.stringify({map:__DQ.state().map&&__DQ.state().map.id,hero:[+__DQ.state().player.x.toFixed(2),+__DQ.state().player.z.toFixed(2)],papa:__DQ.npcs().filter(n=>/halvard/i.test(n.id)).map(n=>[n.id,+n.x.toFixed(2),+n.z.toFixed(2),n.gone])}))()"
+  },
+  {
+   "shot": "03-outside"
+  },
+  {
+   "assert": "__DQ.state().map.id === 'puddlewick'",
+   "msg": "the boy is out on his own doorstep — he walked through the door on his own legs. `state().map` is the MAP OBJECT, not its id: compared against a string it is always false, and an assertion written that way is a green light wired to nothing"
+  },
+  {
+   "assert": "__DQ.npcs().filter(n=>/halvard/i.test(n.id)).every(n=>n.id === 'pw-halvard')",
+   "msg": "and there is NO cottage copy of him standing in the lane forty metres down the road. What IS here is `pw-halvard`, and it is here ON PURPOSE and only now: his gate used to be `!ch1.left_home`, a flag B2 sets twenty beats later, so the boy walked out of his front door and his father was already standing at the wagon ahead of him. It now waits for the flag B1 actually sets. Before that flag it is absent; after it, it is the man he said he would be"
+  },
+  {
+   "note": "5b. STAND SOMEWHERE THAT IS NOT THE DOORMAT. A front door is a RECTANGLE, and this one is 7.3 by 3.7 — most of the south half of the room. The tile the lane drops a boy on when he comes in is z 1.7, and z 1.7 is INSIDE that rectangle, so putting him there and asking why he went straight back out is asking the doormat why it works. The cottage does not throw him out: `place` never fires an exit, only his own legs do. These bounds are read from the map itself, which until now reported only how many doors it had."
+  },
+  {
+   "eval": "(async()=>{await __DQ.storyAuto(false);__DQ.teleport('hollybank',-6.9,1.6);await new Promise(r=>setTimeout(r,700));const m=__DQ.state().map;const pad=(m.exits||[]).find(e=>e.to==='puddlewick');return JSON.stringify({asked:'hollybank',now:__DQ.state().map.id,hero:[+__DQ.state().player.x.toFixed(2),+__DQ.state().player.z.toFixed(2)],pad:pad&&pad.on,standsOn:!!pad&&__DQ.state().player.x>=pad.on.xMin&&__DQ.state().player.x<=pad.on.xMax&&__DQ.state().player.z>=pad.on.zMin&&__DQ.state().player.z<=pad.on.zMax});})()",
+   "timeout": 40000
+  },
+  {
+   "wait": 1200
+  },
+  {
+   "eval": "(()=>JSON.stringify({map:__DQ.state().map.id,papa:__DQ.npcs().filter(n=>/halvard/i.test(n.id)).map(n=>[n.id,n.hidden,n.gone]),visible:__DQ.npcsVisible()}))()"
+  },
+  {
+   "shot": "04-back-inside"
+  },
+  {
+   "assert": "__DQ.npcsGone('hb-halvard') === true && !__DQ.npcs().some(n=>n.id==='hb-halvard' && !n.hidden)",
+   "msg": "and the cottage is still empty of him next time the boy walks in — `gone` is read when the map is BUILT, so it survives the map change, which is the same bug one room change later"
+  }
  ]
 }
