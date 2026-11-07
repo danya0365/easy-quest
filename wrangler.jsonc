@@ -1,0 +1,28 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "easy-quest",
+	// Static site: Vercel outputDirectory is the repo root (buildCommand is null).
+	// Architecture forbids a bundler, so this directory is the publish output.
+	"compatibility_date": "2026-10-01",
+	"observability": {
+		"enabled": true,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1
+		},
+		"traces": {
+			"enabled": true,
+			"head_sampling_rate": 0.01
+		}
+	},
+	"assets": {
+		// Real HTML files (index, progress, demos). No client-side URL router,
+		// so missing paths stay 404 instead of falling back to index.html.
+		"directory": "."
+	},
+	"env": {
+		"staging": {
+			"name": "easy-quest-dev"
+		}
+	}
+}
