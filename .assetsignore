@@ -1,0 +1,15 @@
+# Same publish set as the old .vercelignore.
+# Do NOT ignore tests/: src/battle/scene.js (and menu/shop) import tests/battle/data.js
+# and areas.js. Excluding tests/ 404s those modules, battle+party plugins never install,
+# and story joinParty is a no-op stub.
+.claude/
+.p02tmp/
+.cursor/
+.git/
+.wrangler/
+.dev.vars*
+tools/
+shots/
+node_modules/
+*.md
+package-lock.json
